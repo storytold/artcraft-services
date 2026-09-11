@@ -77,10 +77,12 @@ export const HERO_VIDEO_URL =
 // wall adapts to any count and mix of aspects, so the count below is the
 // only thing to change when clips are added or dropped.
 //
-// Sources live on the FakeYou CDN as /videos/001.mp4 .. /videos/014.mp4 and
+// Sources live on the FakeYou CDN as /videos/001.mp4 .. /videos/017.mp4 and
 // reach the page through the same-origin /cdn-media proxy, since WebGL video
-// textures require CORS-clean sources.
-const SHOWCASE_CLIP_COUNT = 14;
+// textures require CORS-clean sources. When more clips are uploaded, raising
+// this count is the only change needed — every card/clip ratio works (cards
+// share clip textures; repeats are spread by least-recently-shown rebirth).
+const SHOWCASE_CLIP_COUNT = 17;
 
 export type SeedanceClip = {
   src: string;
