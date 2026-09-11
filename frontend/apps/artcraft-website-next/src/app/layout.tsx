@@ -101,11 +101,13 @@ const JSON_LD = {
 // full word flashes for the frames between paint and hydration, then
 // snaps into the logo-only formation start.
 //
-// Also reloads on back/forward-cache restores: Firefox freezes the JS heap
-// and discards the WebGL context, so a restored page shows a dead galaxy
-// canvas and stalled instruments. The listener is attached here (pre-paint)
-// so it lives inside the frozen page and fires on the restore; the intro is
-// seen-flagged by then, so the reload comes back settled.
+// Also reloads on back/forward-cache restores (pageshow with persisted):
+// a bfcache-restored page thaws with its WebGL context discarded in some
+// browsers, leaving a dead galaxy canvas — a reload swaps it for a clean
+// load, and the intro is seen-flagged by then so it comes back settled.
+// (The Firefox back-navigation hydration failure was a different bug:
+// Next's router crashed on back_forward loads — "Router action dispatched
+// before initialization" — fixed by the Next 16.2.12 patch bump.)
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("artcraft-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.setAttribute("data-intro","");}}catch(e){}addEventListener("pageshow",function(e){if(e.persisted)location.reload();});})();`;
 
 export default function RootLayout({
