@@ -26,7 +26,7 @@ on:
       - 'includes/**'
       - 'test_data/**'
 env:
-  IMAGE_NAME: storyteller-rust
+  IMAGE_NAME: artcraft-services
 
 jobs:
   # Push image to GitHub Packages.
@@ -82,7 +82,7 @@ jobs:
         name: Compute Docker tags
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/storytold/storyteller-rust
+          images: ghcr.io/storytold/artcraft-services
           tags: |
             type=raw,value=latest
             type=raw,value=${{ github.sha }}
