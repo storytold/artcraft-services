@@ -14,9 +14,9 @@ the whole box with `–`, or expand/collapse individual sections.
 ## Behavior
 
 - **Live**: motion/look values are read every frame, so slider changes
-  apply instantly. Layout values (anything that changes the wall's panel
-  arrangement itself) trigger a debounced rebuild (~250 ms after the last
-  change).
+  apply instantly. Layout values (anything that changes an element's
+  structure or arrangement itself) trigger a debounced rebuild (~250 ms
+  after the last change).
 - **Persistent**: tuned values are stored in `localStorage`
   (`artcraft-tuner`), so a refresh keeps your tuning. Panel position and
   section collapse state persist too (`artcraft-tuner-ui`).
@@ -24,6 +24,9 @@ the whole box with `–`, or expand/collapse individual sections.
 - **Copy** puts a JSON snapshot of all current values on the clipboard —
   paste it into a message or use it to update defaults in code.
 - **Reset** clears every override back to the in-code defaults.
+- **Per-section actions**: every section header carries its own ⧉ (copy
+  just that group's JSON) and ↺ (reset just that group's overrides), so
+  iterating one feature never means copying or resetting the world.
 
 ## Adding tunables (POLICY: always do this)
 
@@ -59,13 +62,17 @@ Then read values where they're used:
   inside the loop — it's cheap and picks up changes instantly.
 - **Build-time consumers** (values baked into geometry/sampling): read at
   build time and subscribe to `useTunerStore` to trigger a debounced rebuild
-  when the group's values change (see the Wall layout wiring in
-  `hero-wall.tsx`).
+  when the group's values change (see the Galaxy layout wiring in
+  `hero-galaxy.tsx`).
 
 The panel picks up new groups automatically — no panel changes needed.
-Registered groups: Wall layout, Wall motion, Wall look (hero render wall;
-`src/components/landing/hero-tunables.ts`) and Ruler layout, Ruler motion,
-Ruler look (scroll ruler; `src/components/ruler/ruler-tunables.ts`).
+Registered groups: Intro (page-intro choreography beats; `src/lib/intro.ts`),
+Wordmark (logo-A optics, blade tuck, contrast scrim;
+`src/components/landing/hero-wordmark.tsx`), Galaxy layout, Galaxy motion,
+Galaxy pointer, Galaxy look (hero galaxy;
+`src/components/landing/hero-galaxy-tunables.ts`) and Ruler layout, Ruler
+motion, Ruler look (scroll ruler;
+`src/components/ruler/ruler-tunables.ts`).
 
 ## Shipping tuned values
 

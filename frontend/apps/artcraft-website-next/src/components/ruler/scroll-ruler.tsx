@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { HERO_SECTION_ID, RULER_SECTIONS } from "@/lib/landing-data";
+import {
+  introClock,
+  introTuner,
+  onIntroFast,
+  onIntroReplay,
+} from "@/lib/intro";
 import { lenisRef } from "@/lib/lenis-ref";
 import { useTunerStore } from "@/lib/tuner";
 import HeadingFlow from "./heading-flow";
@@ -229,12 +235,19 @@ export default function ScrollRuler() {
     if (mode !== "full" || !ticks.length) return;
     const els = lineRefs.current.filter((el): el is HTMLSpanElement => !!el);
     if (!els.length) return;
-    const mt = rulerMotionTuner.read();
-    fs.current.introDone = false;
-    const tween = gsap.fromTo(
-      els,
-      { scaleX: 0, opacity: 0 },
-      {
+    // The cascade waits for the master intro's instrument beat (a lead-in
+    // tween carries the delay so timeScale accelerates it too), hidden
+    // from the first frame so nothing shows during the wait. Fast-forward
+    // input accelerates the whole timeline; the tuner's replay re-runs it.
+    let tl: gsap.core.Timeline | null = null;
+    const runCascade = () => {
+      tl?.kill();
+      fs.current.introDone = false;
+      const mt = rulerMotionTuner.read();
+      gsap.set(els, { scaleX: 0, opacity: 0 });
+      tl = gsap.timeline();
+      tl.to({}, { duration: introTuner.read().instrAt });
+      tl.to(els, {
         scaleX: 1,
         opacity: (i: number) => ticks[i]?.alpha ?? 0.3,
         duration: mt.introDur,
@@ -244,12 +257,20 @@ export default function ScrollRuler() {
         onComplete: () => {
           fs.current.introDone = true;
         },
-      },
+      });
+      tl.timeScale(introClock.scale);
+    };
+    runCascade();
+    const offFast = onIntroFast(() =>
+      tl?.timeScale(introTuner.read().ffScale),
     );
+    const offReplay = onIntroReplay(runCascade);
     // No intro tween for the needle: its opacity is owned per-frame by the
     // sub-N% progress fade (hidden at page top anyway).
     return () => {
-      tween.kill();
+      offFast();
+      offReplay();
+      tl?.kill();
       fs.current.introDone = true;
     };
   }, [mode, ticks]);
@@ -548,6 +569,23 @@ export default function ScrollRuler() {
         onPointerUp={mode === "full" ? railPointerUp : undefined}
         onPointerCancel={mode === "full" ? railPointerUp : undefined}
       >
+        {/* Frost underlay: content flows under the rail (no reserved
+            gutter); this pane blurs and tints whatever passes beneath so
+            the instrumentation always reads. The inner feather follows a
+            tunable power curve easing in toward the outer edge, so no seam
+            reads while letters fly in and out. */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            backdropFilter: "blur(9px)",
+            WebkitBackdropFilter: "blur(9px)",
+            backgroundColor: "color-mix(in srgb, var(--bg) 55%, transparent)",
+            maskImage: frostMask(side, look.frostSolid, look.frostGamma),
+            WebkitMaskImage: frostMask(side, look.frostSolid, look.frostGamma),
+          }}
+        />
+
         {/* Tick track — 1:1 with the document, translated per frame. */}
         <div
           ref={trackRef}
@@ -702,4 +740,22 @@ export default function ScrollRuler() {
       />
     </>
   );
+}
+
+// The frost's inner feather: full strength for the first `solid` percent
+// from the outer edge, then a power-curve falloff — alpha = (1 - x)^gamma
+// over the remaining span, sampled into gradient stops. Higher gamma spends
+// its fade early and approaches the page on a long, invisible tail.
+function frostMask(side: RulerSide, solid: number, gamma: number): string {
+  const dir = side === "right" ? "to left" : "to right";
+  const stops = [`black ${solid.toFixed(0)}%`];
+  const steps = 8;
+  for (let k = 1; k < steps; k++) {
+    const x = k / steps;
+    const a = Math.pow(1 - x, gamma);
+    const pos = solid + x * (100 - solid);
+    stops.push(`rgba(0,0,0,${a.toFixed(3)}) ${pos.toFixed(1)}%`);
+  }
+  stops.push("transparent 100%");
+  return `linear-gradient(${dir}, ${stops.join(", ")})`;
 }

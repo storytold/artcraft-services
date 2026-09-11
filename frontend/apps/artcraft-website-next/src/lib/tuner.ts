@@ -40,6 +40,8 @@ type TunerState = {
   ) => void;
   setValue: (groupId: string, key: string, value: number) => void;
   resetAll: () => void;
+  /** Clears overrides for one group only, leaving the rest tuned. */
+  resetGroup: (groupId: string) => void;
 };
 
 const STORAGE_KEY = "artcraft-tuner";
@@ -88,6 +90,15 @@ export const useTunerStore = create<TunerState>((set) => ({
       save({});
       return { values: {}, version: s.version + 1 };
     }),
+  resetGroup: (groupId) =>
+    set((s) => {
+      const values: Record<string, number> = {};
+      for (const [k, v] of Object.entries(s.values)) {
+        if (!k.startsWith(groupId + ".")) values[k] = v;
+      }
+      save(values);
+      return { values, version: s.version + 1 };
+    }),
 }));
 
 export type TunableReader<T extends Record<string, TunableDef>> = {
@@ -118,6 +129,23 @@ export function defineTunables<T extends Record<string, TunableDef>>(
       return out;
     },
   };
+}
+
+// One-shot action buttons rendered in the TunerPanel header (e.g. "Replay
+// intro" — things that are otherwise hard to debug because they run once).
+// Idempotent by label so hot reload doesn't stack duplicates.
+export type TunerAction = { label: string; run: () => void };
+
+const actions: TunerAction[] = [];
+
+export function registerTunerAction(label: string, run: () => void): void {
+  const existing = actions.find((a) => a.label === label);
+  if (existing) existing.run = run;
+  else actions.push({ label, run });
+}
+
+export function getTunerActions(): TunerAction[] {
+  return actions;
 }
 
 // Merged snapshot of every registered group — used by the panel's copy

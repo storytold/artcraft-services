@@ -67,17 +67,35 @@ export function watchThemeColors(
   onChange: (colors: ThemeColors) => void,
 ): () => void {
   const derive = () => onChange(deriveThemeColors());
+  // Theme flips animate the tokens over 0.4s (see globals.css). Sampling
+  // just the endpoints left WebGL consumers chasing a stale target until
+  // the fade ended (a visible late shift); instead, sample the computed
+  // colors EVERY FRAME through the transition window so canvas layers
+  // track the DOM's animated tokens exactly.
+  let raf = 0;
+  let until = 0;
+  const sampleLoop = () => {
+    derive();
+    if (performance.now() < until) raf = requestAnimationFrame(sampleLoop);
+  };
+  const onFlip = () => {
+    until = performance.now() + 550;
+    cancelAnimationFrame(raf);
+    derive();
+    raf = requestAnimationFrame(sampleLoop);
+  };
   derive();
 
-  const observer = new MutationObserver(derive);
+  const observer = new MutationObserver(onFlip);
   observer.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["data-theme"],
   });
   const mq = window.matchMedia("(prefers-color-scheme: dark)");
-  mq.addEventListener("change", derive);
+  mq.addEventListener("change", onFlip);
   return () => {
+    cancelAnimationFrame(raf);
     observer.disconnect();
-    mq.removeEventListener("change", derive);
+    mq.removeEventListener("change", onFlip);
   };
 }

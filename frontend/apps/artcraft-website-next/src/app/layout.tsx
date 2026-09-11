@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import {
   Archivo,
-  Archivo_Black,
   Instrument_Serif,
   Inter,
   Geist_Mono,
 } from "next/font/google";
 import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
+import IntroConductor from "@/components/intro-conductor";
 import MotionProvider from "@/components/motion-provider";
 import ScrollRuler from "@/components/ruler/scroll-ruler";
 import TunerPanel from "@/components/dev/tuner-panel";
@@ -15,22 +15,17 @@ import "./globals.css";
 
 const SITE_URL = "https://getartcraft.com";
 
-// Display face: Archivo with its width axis loaded, so headings can run
-// slightly expanded (font-stretch) for the industrial-grotesque look.
+// Display face: variable Archivo with its width axis loaded — headings run
+// slightly expanded (font-stretch) for the industrial-grotesque look, and
+// the hero wordmark renders the same family at its poster extreme
+// (wght 900 / wdth 125%, the Archivo Black look) so the ruler's hero flip
+// can interpolate weight and width down to the heading setting. A separate
+// Archivo Black cut could never interpolate.
 const archivo = Archivo({
   subsets: ["latin"],
   variable: "--font-archivo",
   display: "swap",
   axes: ["wdth"],
-});
-
-// Wordmark face: Archivo Black, the display family's poster-weight cut
-// (a single-weight family of its own, not Archivo at 900).
-const archivoBlack = Archivo_Black({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-archivo-black",
-  display: "swap",
 });
 
 const instrumentSerif = Instrument_Serif({
@@ -100,8 +95,12 @@ const JSON_LD = {
 
 // Applies the stored theme before first paint so neither theme flashes.
 // System preference is the default; an explicit user choice is persisted
-// as "light" | "dark" under this key by the navbar toggle.
-const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("artcraft-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`;
+// as "light" | "dark" under this key by the navbar toggle. Also stamps
+// data-intro when the intro will play (JS + motion allowed), so the
+// wordmark letters are CSS-hidden BEFORE first paint — without it, the
+// full word flashes for the frames between paint and hydration, then
+// snaps into the logo-only formation start.
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("artcraft-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.setAttribute("data-intro","");}}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -110,7 +109,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${archivo.variable} ${archivoBlack.variable} ${instrumentSerif.variable} ${inter.variable} ${geistMono.variable}`}
+      className={`${archivo.variable} ${instrumentSerif.variable} ${inter.variable} ${geistMono.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
@@ -121,6 +120,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
         />
         <MotionProvider>
+          {/* First child: its effect must run before every intro consumer
+              (the ruler cascade reads introClock.scale at mount). */}
+          <IntroConductor />
           <SiteNav />
           <main id="main">{children}</main>
           <SiteFooter />

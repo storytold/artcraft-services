@@ -16,6 +16,7 @@ import {
   type RulerMode,
   type RulerSide,
 } from "./ruler-shared";
+import { useTunerStore } from "@/lib/tuner";
 import {
   rulerLayoutTuner,
   rulerLookTuner,
@@ -47,9 +48,10 @@ import {
 // the top current-heading slot as the wordmark is about to duck under the
 // nav (title-condenses-into-header), no queue home and no rail ride. From
 // the stack onward it behaves like any section (demotes when FEATURES
-// flips in). The hero letters keep their Archivo Black wordmark face
-// through the whole lifecycle — brand identity, and font families can't
-// interpolate.
+// flips in). The hero letters render variable Archivo at the poster
+// extreme (wght 900 / wdth 125% — the Archivo Black look) and morph to
+// the headings' display setting (620 / 118%) during the flip: one
+// variable family, so weight and width genuinely interpolate.
 
 // A letter's pose on screen. x/y are the letter center in viewport px.
 type Pose = {
@@ -90,11 +92,31 @@ export default function HeadingFlow({
     null,
   );
   const wordRefs = useRef<WordRefs[]>([]);
+  const topPoolRef = useRef<HTMLDivElement>(null);
+  const bottomPoolRef = useRef<HTMLDivElement>(null);
+  // Link affordances: which word the pointer is over (its letters brighten
+  // to full ink), eased per word, and a per-word press pulse deadline.
+  const hoverWi = useRef(-1);
+  const hoverK = useMemo(
+    () => new Float32Array(sections.length),
+    [sections.length],
+  );
+  const pressUntil = useMemo(
+    () => new Float32Array(sections.length),
+    [sections.length],
+  );
   const fs = useRef({
     lastY: 0,
     vel: 0,
     snapSince: null as number | null,
     snapping: false,
+    // Snap arming: at most ONE snap per organic-scroll episode. Snaps and
+    // heading jumps disarm; only real user scrolling re-arms. Without
+    // this, overlapping flip zones (a threshold flip next to an
+    // end-of-page flip) can ping-pong forever: resolving one word un-
+    // resolves the other, and each snap's own settling triggers the next.
+    armed: true,
+    jumping: false,
   });
 
   const layout = useMemo(
@@ -102,6 +124,13 @@ export default function HeadingFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [layoutVersion],
   );
+
+  // Re-render on any tuner change so render-applied look values (the
+  // contrast pools) respond to their sliders live. The letters' per-frame
+  // imperative styles survive re-renders — React only patches JSX
+  // attributes that changed.
+  void useTunerStore((s) => s.version);
+  const pools = rulerLookTuner.read();
 
   const labelsKey = sections.map((s) => s.label).join("|");
 
@@ -232,6 +261,26 @@ export default function HeadingFlow({
         else if (p.flipP > 0) flipShift += p.flipP;
       }
 
+      // Pool presence follows real occupancy: the top pool fades in as the
+      // first word (the wordmark) settles into the stack; the bottom pool
+      // fades out as the last queued word climbs onto the rail. The hero
+      // never holds the bottom pool — it has no queue home.
+      let topK = 0;
+      let botK = 0;
+      for (let wi = 0; wi < phases.length; wi++) {
+        if (phases[wi].flipP > topK) topK = phases[wi].flipP;
+        if (!sections[wi].isHero) {
+          const q = 1 - phases[wi].detachP;
+          if (q > botK) botK = q;
+        }
+      }
+      if (topPoolRef.current) {
+        topPoolRef.current.style.opacity = String(lk.poolAlpha * topK);
+      }
+      if (bottomPoolRef.current) {
+        bottomPoolRef.current.style.opacity = String(lk.poolAlpha * botK);
+      }
+
       // Horizontal home for a word: letters run inward from the rail, with
       // the reading direction arranged so the word's tail sits nearest the
       // rail on a right-side ruler (and its head nearest on the left).
@@ -273,6 +322,9 @@ export default function HeadingFlow({
         const m = heroDrive ? heroWordmark.metrics : metrics[s.label];
         const refs = wordRefs.current[wi];
         if (!m || !refs || (s.isHero && !heroDrive)) continue;
+        // The masthead's intro formation owns the hero letters until it
+        // completes — writing here too would fight it every frame.
+        if (s.isHero && heroWordmark.forming) continue;
         const { v, rideLen, flipP, detachP, yq } = phases[wi];
         const n = m.adv.length;
 
@@ -352,6 +404,13 @@ export default function HeadingFlow({
         const letterEls = heroDrive ? heroWordmark.els : refs.letters;
         const scaleFix = heroDrive ? hp / heroWordmark.fontPx : 1;
         const wz = heroDrive ? zoomE * Math.min(1, flipP) : zoomE;
+        // Link affordances, word-level: a hovered link's letters brighten
+        // to full ink; a click pulses the word toward the accent as the
+        // jump takes off.
+        const hk = (hoverK[wi] +=
+          ((hoverWi.current === wi ? 1 : 0) - hoverK[wi]) *
+          (1 - Math.exp(-dt / 0.08)));
+        const pk = clamp01((pressUntil[wi] - performance.now()) / 350);
         let minX = Infinity;
         let maxX = -Infinity;
         let minY = Infinity;
@@ -387,10 +446,33 @@ export default function HeadingFlow({
             }px, ${
               y - (heroWordmark.baseDocY[i] - scrollY)
             }px, 0) rotate(${rot}deg) scale(${scale * scaleFix})`;
+            // Variable-font morph: the wordmark's poster cut (wght 900,
+            // wdth 125%) eases into the headings' display setting
+            // (620, 118%) letter by letter with the flight — the weight
+            // difference lands unnoticed inside the motion. Gated on real
+            // flip progress: the REST branch also runs this pass with
+            // e = 1 (from == to), and ungated it rendered the resting
+            // wordmark at 620, snapping to 900 the instant a flip began.
+            const wp = flipP > 0 ? e : 0;
+            el.style.fontWeight = String(Math.round(900 - 280 * wp));
+            el.style.fontStretch = `${(125 - 7 * wp).toFixed(1)}%`;
           } else {
             el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
           }
-          el.style.opacity = String(alpha);
+          // Dimming is a solid ink-toward-paper mix, not translucency:
+          // dimmed headings must still mask the footage passing beneath
+          // them, and translucent gray over video reads as no contrast.
+          // Hover lifts the mix to full ink; a press tints toward accent.
+          el.style.opacity = "1";
+          const aEff = alpha + (1 - alpha) * hk;
+          const baseCol =
+            aEff >= 0.995
+              ? "var(--ink-strong)"
+              : `color-mix(in srgb, var(--ink-strong) ${(clamp01(aEff) * 100).toFixed(1)}%, var(--bg))`;
+          el.style.color =
+            pk > 0.01
+              ? `color-mix(in srgb, var(--accent-ink) ${(pk * 70).toFixed(0)}%, ${baseCol})`
+              : baseCol;
           if (alpha > maxAlpha) maxAlpha = alpha;
           // Per-axis extents (swapped when the glyph is rotated toward
           // vertical) so hit boxes stay tight: a shared radius made
@@ -444,10 +526,18 @@ export default function HeadingFlow({
       const midIdx = phases.findIndex(
         (ph) => ph.flipP > 0.04 && ph.flipP < 0.96,
       );
+      // Re-arming lives on real input events (see the listeners below) —
+      // NEVER on velocity: `snapping` clears early once no word is
+      // mid-flip, while the snap's scroll is still moving, so a velocity
+      // check mistakes the snap's own tail for user scrolling and lets
+      // snap chains re-arm themselves. Rail thumb drags count as intent.
+      if (rulerZoom.dragging) st.armed = true;
       if (st.snapping) {
         if (midIdx < 0) st.snapping = false;
       } else if (
         midIdx >= 0 &&
+        st.armed &&
+        !st.jumping &&
         Math.abs(st.vel) < 30 &&
         lenis &&
         !rulerZoom.dragging &&
@@ -469,8 +559,46 @@ export default function HeadingFlow({
             const vTarget = ph.flipP >= 0.5 ? T - 4 : T + mt.flipZone + 4;
             raw = sMid.anchor + drift - vTarget;
           }
-          const target = Math.max(0, Math.min(maxScroll, raw));
+          // Per-word scroll bounds: the min y keeping a word fully flipped
+          // and the max y keeping it fully unflipped. End-of-page words
+          // flip via EITHER driver (min of flip bounds) but unflip only
+          // when BOTH agree (min of unflip bounds).
+          const boundsFor = (
+            sec: MeasuredSection,
+            p: (typeof phases)[number],
+          ) => {
+            const yFlipTh = sec.anchor + drift - T - 0.04 * mt.flipZone;
+            const yUnflipTh = sec.anchor + drift - T - 0.96 * mt.flipZone;
+            if (!p.scrollFlip) return { yFlip: yFlipTh, yUnflip: yUnflipTh };
+            const span = p.scrollFlip.end - p.scrollFlip.start;
+            const yFlipSf = p.scrollFlip.start + 0.96 * span;
+            const yUnflipSf = p.scrollFlip.start + 0.04 * span;
+            if (sec.isHero) return { yFlip: yFlipSf, yUnflip: yUnflipSf };
+            return {
+              yFlip: Math.min(yFlipTh, yFlipSf),
+              yUnflip: Math.min(yUnflipTh, yUnflipSf),
+            };
+          };
+          // Neighbor-aware nudge: the ±4 margin alone can overshoot into
+          // an adjacent word's flip zone (resolving GET STARTED upward
+          // left MADE WITH's lead letter hanging in early flight). Shift
+          // the target inside the window where every other currently-
+          // resolved word STAYS resolved; if the windows conflict, the
+          // original target stands — a sliver beats a fight.
+          let adj = raw;
+          for (let wj = 0; wj < phases.length; wj++) {
+            if (wj === midIdx) continue;
+            const bw = boundsFor(sections[wj], phases[wj]);
+            if (phases[wj].flipP >= 0.96) adj = Math.max(adj, bw.yFlip + 2);
+            else if (phases[wj].flipP <= 0.04) {
+              adj = Math.min(adj, bw.yUnflip - 2);
+            }
+          }
+          const bm = boundsFor(sMid, ph);
+          const midOk = ph.flipP >= 0.5 ? adj >= bm.yFlip : adj <= bm.yUnflip;
+          const target = Math.max(0, Math.min(maxScroll, midOk ? adj : raw));
           st.snapping = true;
+          st.armed = false; // one snap per organic-scroll episode
           st.snapSince = null;
           lenis.scrollTo(target, {
             duration: mt.snapDur,
@@ -485,8 +613,21 @@ export default function HeadingFlow({
       }
     };
 
+    // Organic input is the ONLY thing that re-arms the snap. Wheel, touch,
+    // and keyboard are unambiguous user intent; every programmatic scroll
+    // (jump, snap) produces none of these.
+    const rearm = () => {
+      fs.current.armed = true;
+    };
+    window.addEventListener("wheel", rearm, { passive: true });
+    window.addEventListener("touchmove", rearm, { passive: true });
+    window.addEventListener("keydown", rearm);
+
     gsap.ticker.add(tick);
     return () => {
+      window.removeEventListener("wheel", rearm);
+      window.removeEventListener("touchmove", rearm);
+      window.removeEventListener("keydown", rearm);
       gsap.ticker.remove(tick);
     };
   }, [mode, metrics, sections, geom, side, layoutVersion]);
@@ -506,12 +647,27 @@ export default function HeadingFlow({
         className="fixed z-40"
         style={{ bottom: layout.queuePad, ...sideStyle }}
       >
-        <ul className="flex flex-col gap-1.5">
+        {/* Same frosted contrast pool as the full instrument's queue. */}
+        <div
+          aria-hidden
+          className="absolute -inset-x-16 -inset-y-10"
+          style={{
+            opacity: pools.poolAlpha,
+            backdropFilter: "blur(9px)",
+            WebkitBackdropFilter: "blur(9px)",
+            backgroundColor: "color-mix(in srgb, var(--bg) 82%, transparent)",
+            maskImage:
+              "radial-gradient(closest-side, black 55%, transparent 100%)",
+            WebkitMaskImage:
+              "radial-gradient(closest-side, black 55%, transparent 100%)",
+          }}
+        />
+        <ul className="relative flex flex-col gap-1.5">
           {sections.map((s) => (
             <li key={s.id}>
               <a
                 href={`#${s.id}`}
-                className="font-display text-ink hover:text-ink-strong"
+                className="font-display text-ink hover:text-ink-strong active:text-accent-ink"
                 style={{ fontSize: layout.queuePx + 2 }}
               >
                 {s.label}
@@ -525,9 +681,13 @@ export default function HeadingFlow({
 
   if (!metrics) return null;
 
-  const jump = (s: MeasuredSection) => (e: React.MouseEvent) => {
+  const jump = (s: MeasuredSection, wi: number) => (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    pressUntil[wi] = performance.now() + 350;
+    // A jump lands exactly where the user asked — no snap may fight it.
+    fs.current.armed = false;
+    fs.current.jumping = true;
     const lenis = lenisRef.current;
     const el = document.getElementById(s.id);
     const target = s.isHero
@@ -539,14 +699,83 @@ export default function HeadingFlow({
       lenis.scrollTo(target, {
         duration: rulerMotionTuner.read().jumpDur,
         easing: easeOutExpo,
+        onComplete: () => {
+          fs.current.jumping = false;
+        },
       });
     } else {
       window.scrollTo({ top: target });
+      fs.current.jumping = false;
     }
   };
 
+  // Contrast-pool geometry derived from the stacks' worst-case bounding
+  // boxes: the top pool covers a full pile plus the current heading, the
+  // bottom pool a full queue, and both fit the longest label at full size —
+  // no viewport-relative guessing.
+  const n = sections.length;
+  let poolW = 260;
+  for (const s of sections) {
+    const m = metrics[s.label];
+    if (m) poolW = Math.max(poolW, m.total * layout.headingPx);
+  }
+  poolW += layout.railW + layout.textPad + pools.poolPad;
+  const topPoolH =
+    NAV_H +
+    layout.topPad +
+    Math.max(0, n - 1) * layout.queueSlot +
+    layout.currentGap +
+    layout.headingPx +
+    pools.poolPad;
+  const bottomPoolH = layout.queuePad + n * layout.queueSlot + pools.poolPad;
+  // Masks complete their fade INSIDE the pool's box (transparent by 97% of
+  // the box, not of an oversized ellipse), so the rectangle bounds never
+  // read as a cut.
+  const poolMask = (cornerY: string) =>
+    `radial-gradient(100% 100% at ${side === "right" ? "100%" : "0%"} ${cornerY}, black 38%, rgba(0,0,0,0.82) 56%, rgba(0,0,0,0.48) 72%, rgba(0,0,0,0.2) 86%, rgba(0,0,0,0.05) 94%, transparent 97%)`;
+
   return (
-    <div className="pointer-events-none fixed inset-0 z-40">
+    <>
+      {/* Contrast pools: frosted page-bg fades pinned to the rail's top and
+          bottom corners, so the top stack and the bottom queue always read
+          over whatever content scrolls beneath them. Blur level matches the
+          rail frost, so a letter flying between rail and stack stays in one
+          continuous frosted world. Below z-40: everything — rail, section
+          letters, AND the hero wordmark's z-40 spans — draws above them.
+          Opacity is occupancy-driven from the frame loop (starts empty). */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[39]">
+        <div
+          ref={topPoolRef}
+          className="absolute top-0"
+          style={{
+            ...(side === "right" ? { right: 0 } : { left: 0 }),
+            width: poolW,
+            height: topPoolH,
+            opacity: 0,
+            backdropFilter: "blur(9px)",
+            WebkitBackdropFilter: "blur(9px)",
+            backgroundColor: "color-mix(in srgb, var(--bg) 80%, transparent)",
+            maskImage: poolMask("0%"),
+            WebkitMaskImage: poolMask("0%"),
+          }}
+        />
+        <div
+          ref={bottomPoolRef}
+          className="absolute bottom-0"
+          style={{
+            ...(side === "right" ? { right: 0 } : { left: 0 }),
+            width: poolW,
+            height: bottomPoolH,
+            opacity: 0,
+            backdropFilter: "blur(9px)",
+            WebkitBackdropFilter: "blur(9px)",
+            backgroundColor: "color-mix(in srgb, var(--bg) 80%, transparent)",
+            maskImage: poolMask("100%"),
+            WebkitMaskImage: poolMask("100%"),
+          }}
+        />
+      </div>
+      <div className="pointer-events-none fixed inset-0 z-40">
       {sections.map((s, wi) => {
         const refs = (wordRefs.current[wi] ??= {
           letters: [],
@@ -559,7 +788,13 @@ export default function HeadingFlow({
               ref={(el) => {
                 refs.hit = el;
               }}
-              onClick={jump(s)}
+              onClick={jump(s, wi)}
+              onPointerEnter={() => {
+                hoverWi.current = wi;
+              }}
+              onPointerLeave={() => {
+                if (hoverWi.current === wi) hoverWi.current = -1;
+              }}
               aria-label={`Jump to ${s.label}`}
               className="pointer-events-auto absolute cursor-pointer"
             />
@@ -588,7 +823,8 @@ export default function HeadingFlow({
           </Fragment>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
 
