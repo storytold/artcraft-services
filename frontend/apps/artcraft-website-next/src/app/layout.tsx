@@ -100,7 +100,13 @@ const JSON_LD = {
 // wordmark letters are CSS-hidden BEFORE first paint — without it, the
 // full word flashes for the frames between paint and hydration, then
 // snaps into the logo-only formation start.
-const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("artcraft-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.setAttribute("data-intro","");}}catch(e){}})();`;
+//
+// Also reloads on back/forward-cache restores: Firefox freezes the JS heap
+// and discards the WebGL context, so a restored page shows a dead galaxy
+// canvas and stalled instruments. The listener is attached here (pre-paint)
+// so it lives inside the frozen page and fires on the restore; the intro is
+// seen-flagged by then, so the reload comes back settled.
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("artcraft-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.setAttribute("data-intro","");}}catch(e){}addEventListener("pageshow",function(e){if(e.persisted)location.reload();});})();`;
 
 export default function RootLayout({
   children,
