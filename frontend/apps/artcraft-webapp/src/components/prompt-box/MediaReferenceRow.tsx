@@ -253,7 +253,7 @@ export const MediaReferenceRow = ({
               ))}
               {uploadingVideo && (
                 <div className="flex aspect-square w-10 sm:w-14 items-center justify-center overflow-hidden border border-white/15 bg-white/5">
-                  <LoaderCircleIcon spin className="h-5 w-5 text-white/60" />
+                  <LoaderCircleIcon className="h-5 w-5 animate-spin text-white/60" />
                 </div>
               )}
               {canAddVideo && (
@@ -299,7 +299,7 @@ export const MediaReferenceRow = ({
               ))}
               {uploadingAudio && (
                 <div className="flex aspect-square w-10 sm:w-14 items-center justify-center overflow-hidden border border-white/15 bg-white/5">
-                  <LoaderCircleIcon spin className="h-5 w-5 text-white/60" />
+                  <LoaderCircleIcon className="h-5 w-5 animate-spin text-white/60" />
                 </div>
               )}
               {canAddAudio && (

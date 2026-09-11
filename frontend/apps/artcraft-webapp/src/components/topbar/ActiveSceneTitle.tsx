@@ -165,10 +165,7 @@ export function ActiveSceneTitle() {
       )}
 
       {isSubmitting && (
-        <LoaderCircleIcon
-          
-          spin
-          className="shrink-0 text-sm opacity-70" />
+        <LoaderCircleIcon className="shrink-0 animate-spin text-sm opacity-70" />
       )}
     </div>
   );

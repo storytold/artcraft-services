@@ -194,7 +194,7 @@ function ImageSlot({
         </div>
       ) : uploading ? (
         <div className={SLOT_CLASS}>
-          <LoaderCircleIcon spin className="h-5 w-5 text-white" />
+          <LoaderCircleIcon className="h-5 w-5 animate-spin text-white" />
         </div>
       ) : (
         <AddButton
@@ -247,7 +247,7 @@ function MeshFileSlot({
         </div>
       ) : uploading ? (
         <div className={SLOT_CLASS}>
-          <LoaderCircleIcon spin className="h-5 w-5 text-white" />
+          <LoaderCircleIcon className="h-5 w-5 animate-spin text-white" />
         </div>
       ) : (
         <button

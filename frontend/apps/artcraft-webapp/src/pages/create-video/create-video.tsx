@@ -6,7 +6,6 @@ import {
   InfoIcon,
   SparklesIcon,
 } from "lucide-react";
-import { DynamicIcon } from "@storyteller/icons";
 import { CharactersApi, FilterMediaClasses } from "@storyteller/api";
 import type { OmniGenVideoModelInfo } from "@storyteller/api";
 import { Button, ToggleButton } from "@storyteller/ui-button";
