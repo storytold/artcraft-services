@@ -838,10 +838,14 @@ function GalaxyScene({
         (i === st.targetI
           ? Math.max(st.holdTarget, st.holdRest)
           : st.holdRest);
+      // Arm desync is measured in slot gaps (divided by slotsPerArm), not
+      // absolute cycle: an absolute offset resonates whenever it lands near
+      // a multiple of the slot spacing — at some card counts every arm's
+      // ladder coincided in radius (the "starfish"). In slot units the
+      // stagger survives any count/viewport scaling.
       const cFull = cycle(
-        (card.slot + 0.5) / L.slotsPerArm +
+        (card.slot + 0.5 + card.arm * L.armJitter) / L.slotsPerArm +
           P +
-          card.arm * L.armJitter +
           cardPhase[i],
       );
       const c = Math.max(0, cFull + R);

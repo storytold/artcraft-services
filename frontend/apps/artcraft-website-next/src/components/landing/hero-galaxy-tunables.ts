@@ -72,10 +72,12 @@ export const galaxyLayoutTuner = defineTunables(
     armJitter: {
       label: "Arm desync",
       min: 0,
-      max: 0.5,
+      max: 1,
       step: 0.01,
-      default: 0.13,
-      info: "Per-arm conveyor phase offset — 0 makes all arms birth cards in lockstep rings, higher desynchronizes them.",
+      // Golden-ratio conjugate: successive arms land at low-discrepancy
+      // phases within a slot gap, so no card count can ring-align them.
+      default: 0.38,
+      info: "Per-arm conveyor stagger in slot gaps — 0 births all arms in lockstep rings; ~0.38 (golden) scatters them evenly at any card count.",
     },
     ticksPerArm: {
       label: "Ticks / arm",
