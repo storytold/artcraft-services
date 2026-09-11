@@ -47,7 +47,10 @@ export const galaxyLayoutTuner = defineTunables(
       min: 8,
       max: 96,
       step: 1,
-      default: 64,
+      // 3× the 17-clip showcase pool: the round-robin deal lands every clip
+      // on exactly three cards, and the neighbor-gap sizing grows the cards
+      // to keep the same fill.
+      default: 51,
       info: "Cards riding the arms at the reference viewport size; smaller viewports scale this down proportionally (see Tuned @ Mpx).",
     },
     tunedMpx: {
