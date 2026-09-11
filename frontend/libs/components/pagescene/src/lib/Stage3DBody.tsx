@@ -38,6 +38,7 @@ import {
   useCostBreakdownModalStore,
 } from "@storyteller/ui-pricing-modal";
 import { LoadingDots } from "@storyteller/ui-loading";
+import { Cheatsheet, useCheatsheetVisibility } from "@storyteller/keybinds";
 import type { PopoverItem } from "@storyteller/ui-popover";
 import { v4 as uuidv4 } from "uuid";
 
@@ -50,9 +51,8 @@ import { SceneModePill } from "./comps/SceneModePill";
 import { ControlsTopButtons } from "./comps/ControlsTopButtons";
 import { EditorCanvas } from "./comps/EngineCanvases";
 import { FocalLengthDisplay } from "./comps/FocalLengthDisplay/FocalLengthDisplay";
-import { OnboardingHelper } from "./comps/OnboardingHelper";
 import { PerfStatsOverlay } from "./comps/PerfStatsOverlay";
-import { EntranceDebugPanel } from "./comps/EntranceDebugPanel";
+// import { EntranceDebugPanel } from "./comps/EntranceDebugPanel";
 import { Outliner } from "./comps/Outliner";
 import { PoseModeSelector } from "./comps/PoseModeSelector";
 import { ExitCameraView } from "./comps/ExitCameraView";
@@ -284,6 +284,7 @@ export const Stage3DBody = ({
   useFreeCam(editorCanvas, editor);
   useViewportPointer(editorCanvas, editor);
   useViewportKeyboard(editor);
+  const cheatsheetVisible = useCheatsheetVisibility();
 
   const handleCameraSelect = (selectedItem: PopoverItem) => {
     const selectedCamera = cameras.find(
@@ -473,8 +474,11 @@ export const Stage3DBody = ({
               <EditorCanvas />
             </SceneContainer>
 
+            <Cheatsheet surface="pagescene" visible={cheatsheetVisible} />
+
             <PerfStatsOverlay />
-            {import.meta.env.DEV && <EntranceDebugPanel />}
+            {/* Local animation tuning only; keep disabled in committed code. */}
+            {/* {import.meta.env.DEV && <EntranceDebugPanel />} */}
             <FocalLengthDisplay />
             <PoseModeSelector />
             <RenderOverlay />

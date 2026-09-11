@@ -1,8 +1,9 @@
 import { Modal } from "@storyteller/ui-modal";
 import { useEffect, useState } from "react";
-import { CreditCardIcon, FlaskConicalIcon, InfoIcon, KeyIcon, PaletteIcon, SettingsIcon, UserIcon, Volume2Icon } from "lucide-react";
+import { CreditCardIcon, FlaskConicalIcon, InfoIcon, KeyboardIcon, PaletteIcon, SettingsIcon, UserIcon, Volume2Icon } from "lucide-react";
 import { DynamicIcon } from "@storyteller/icons";
 import { twMerge } from "tailwind-merge";
+import { KeybindsSettings } from "@storyteller/keybinds";
 import { MiscSettingsPane } from "./panes/MiscSettingsPane";
 import { AudioSettingsPane } from "./panes/AudioSettingsPane";
 import { AccountSettingsPane } from "./panes/AccountSettings/AccountSettingsPane";
@@ -11,7 +12,6 @@ import { ProviderPrioritySettingsPane } from "./panes/ProviderPrioritySettingsPa
 import { ExperimentalSettingsPane } from "./panes/ExperimentalSettingsPane";
 import { gtagEvent } from "@storyteller/google-analytics";
 import { BillingSettingsPane } from "./panes/BillingSettingsPane";
-import { ApiSettingsPane } from "./panes/ApiSettingsPane";
 import { AppearanceSettingsPane } from "./panes/AppearanceSettingsPane";
 import { Button } from "@storyteller/ui-button";
 import { useExperimentalStore } from "./experimental-store";
@@ -28,8 +28,8 @@ interface SettingsModalProps {
 type SettingsSection =
   | "general"
   | "appearance"
+  | "keybinds"
   | "accounts"
-  | "api_keys"
   | "alerts"
   | "about"
   | "provider_priority"
@@ -68,7 +68,6 @@ export const SettingsModal = ({
     { id: "general" as const, label: "General", icon: SettingsIcon },
 
     { id: "accounts" as const, label: "Accounts", icon: UserIcon },
-    { id: "api_keys" as const, label: "API Keys", icon: KeyIcon },
     { id: "billing" as const, label: "Plan & Credits", icon: CreditCardIcon },
 
     /* {
@@ -77,6 +76,7 @@ export const SettingsModal = ({
       icon: RouteIcon,
     }, */
     { id: "appearance" as const, label: "Appearance", icon: PaletteIcon },
+    { id: "keybinds" as const, label: "Keybinds", icon: KeyboardIcon },
     { id: "alerts" as const, label: "Alerts", icon: Volume2Icon },
     { id: "about" as const, label: "About", icon: InfoIcon },
     //{ id: "video" as const, label: "Video", icon: VideoIcon },
@@ -90,6 +90,8 @@ export const SettingsModal = ({
     switch (selectedSection) {
       case "appearance":
         return <AppearanceSettingsPane />;
+      case "keybinds":
+        return <KeybindsSettings />;
       case "alerts":
         return <AudioSettingsPane />;
       case "general":
@@ -100,8 +102,6 @@ export const SettingsModal = ({
             globalAccountLogoutCallback={globalAccountLogoutCallback}
           />
         );
-      case "api_keys":
-        return <ApiSettingsPane />;
       case "about":
         return <AboutSettingsPane />;
       case "provider_priority":

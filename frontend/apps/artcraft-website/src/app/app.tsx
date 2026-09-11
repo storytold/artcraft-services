@@ -21,6 +21,7 @@ import LandingSD2 from "../pages/landing-sd2";
 import LandingSD25 from "../pages/landing-sd25";
 import LandingMinimaxH3 from "../pages/landing-minimax-h3";
 import LandingPrototype0 from "../pages/landing-prototype0";
+import CreatorJboogx from "../pages/creator-jboogx";
 import TutorialsPage from "../pages/tutorials";
 import TutorialsArticle from "../pages/tutorials/article";
 import FaqIndex from "../pages/faq/index";
@@ -78,6 +79,10 @@ export function App() {
         <Route path="/seedance2-5" element={<LandingSD25 />} />
         <Route path="/minimax-h3" element={<LandingMinimaxH3 />} />
         <Route path="/landingp0" element={<LandingPrototype0 />} />
+        <Route
+          path="/creators/jboogxcreative"
+          element={<CreatorJboogx />}
+        />
         <Route path="/download" element={<Download />} />
         <Route path="/media" element={<Media />} />
         <Route path="/media/:id" element={<Media />} />

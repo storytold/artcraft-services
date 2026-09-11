@@ -10,18 +10,17 @@ import {
 import { EngineContext } from "../../contexts/EngineContext/EngineContext";
 import {
   addBakedClipToObject,
-  ensureClipTransitionGap,
+  beginTimelineEdit,
+  commitTimelineEdit,
+  enableClipTransition,
   moveClipLane,
   removeClipLane,
   resizeClipLane,
   setClipLoop,
-  setClipTransitionEasing,
 } from "../../actions";
+import type { TimelineUndoSnapshot } from "../../engine/editor/TimelineController";
 import { usePageSceneStore, type ClipLane } from "../../PageSceneStore";
-import {
-  DEFAULT_EASING,
-  DEFAULT_TIMELINE_FPS,
-} from "../../engine/timeline/types";
+import { DEFAULT_TIMELINE_FPS } from "../../engine/timeline/types";
 import { ToastTypes } from "../../enums";
 import {
   fractionToTime,
@@ -63,6 +62,9 @@ export const TimelineClipRow = ({
   const editor = useContext(EngineContext);
   const laneRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  // Snapshot at drag start; the whole move/trim gesture commits as ONE undo
+  // step at pointer-up (the per-event dispatchers are raw live-previews).
+  const dragUndo = useRef<TimelineUndoSnapshot | null>(null);
   // Baked-clip picker anchor (button rect at open time; null = closed). The
   // popup PORTALS to document.body: rendered in place it would be clipped by
   // the row list's overflow-y-auto ancestor — the top row's upward popup was
@@ -103,14 +105,14 @@ export const TimelineClipRow = ({
       return;
     }
     if (!lane.strip.transitionEasing) {
-      if (!ensureClipTransitionGap(editor, lane.id)) {
+      // Gap + default curve as one undo step.
+      if (!enableClipTransition(editor, lane.id)) {
         editor.adapter.showToast(
           ToastTypes.WARNING,
           "No room on this row to open a gap for the transition.",
         );
         return;
       }
-      setClipTransitionEasing(editor, lane.id, DEFAULT_EASING);
     }
     store.setTimelineEasingKeyframe(null);
     store.setTimelineEasingClipLane(lane.id);
@@ -153,7 +155,15 @@ export const TimelineClipRow = ({
   };
 
   const endDrag = () => {
+    if (drag.current && dragUndo.current && editor) {
+      commitTimelineEdit(
+        editor,
+        drag.current.kind === "move" ? "Move Animation Clip" : "Trim Animation Clip",
+        dragUndo.current,
+      );
+    }
     drag.current = null;
+    dragUndo.current = null;
   };
 
   return (
@@ -269,6 +279,7 @@ export const TimelineClipRow = ({
                   kind: "move",
                   grabOffset: laneTimeFromEvent(e.clientX) - strip.startTime,
                 };
+                if (editor) dragUndo.current = beginTimelineEdit(editor);
               }}
             >
               <button
@@ -322,6 +333,7 @@ export const TimelineClipRow = ({
                   e.stopPropagation();
                   e.currentTarget.setPointerCapture(e.pointerId);
                   drag.current = { laneId: lane.id, kind: "resize" };
+                  if (editor) dragUndo.current = beginTimelineEdit(editor);
                 }}
               />
             </div>

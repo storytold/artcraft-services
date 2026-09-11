@@ -9,9 +9,17 @@ pub enum GenerationServiceProvider {
   Midjourney,
   Sora,
   WorldLabs,
+  Higgsfield,
+  Krea,
+  Leonardo,
+  Magnific,
+  Openart,
+  Picsart,
+  Pixverse,
+  Runway,
 }
 
-#[derive(Debug, Copy, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GenerationModel {
   #[serde(rename = "flux_1_dev")]
@@ -35,6 +43,10 @@ pub enum GenerationModel {
   GptImage1p5,
   #[serde(rename = "gpt_image_2")]
   GptImage2,
+  #[serde(rename = "gpt_image_2p5_flare")]
+  GptImage2p5Flare,
+  #[serde(rename = "gpt_image_2p5_sunburst")]
+  GptImage2p5Sunburst,
   #[serde(rename = "grok_image")]
   GrokImage,
   #[serde(rename = "gemini_25_flash")]
@@ -131,6 +143,10 @@ pub enum GenerationModel {
   Veo3p1,
   #[serde(rename = "veo_3p1_fast")]
   Veo3p1Fast,
+
+  /// An API model ID that does not need a compiled desktop variant.
+  #[serde(untagged)]
+  Unknown(String),
 }
 
 #[derive(Debug, Copy, Clone, Serialize)]
@@ -138,6 +154,7 @@ pub enum GenerationModel {
 pub enum GenerationAction {
   GenerateImage,
   GenerateVideo,
+  GenerateAudio,
   RemoveBackground,
   #[serde(rename = "image_to_3d")]
   ImageTo3d,

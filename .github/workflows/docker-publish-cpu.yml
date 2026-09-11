@@ -4,6 +4,7 @@
 # https://github.com/orgs/storytold/packages/container/docker-base-images-rust-ssl/settings/actions_access
 name: "[CPU] Build GHCR Docker artifact"
 on:
+  workflow_dispatch:
   push:
     branches:
       # NB: Default-branch doesn't work, despite Github's documentation.
@@ -25,7 +26,7 @@ on:
       - 'includes/**'
       - 'test_data/**'
 env:
-  IMAGE_NAME: storyteller-rust
+  IMAGE_NAME: artcraft-services
 
 jobs:
   # Push image to GitHub Packages.
@@ -37,7 +38,6 @@ jobs:
     #runs-on: ubuntu-22.04 # runs-on: ubuntu-latest
     #runs-on: github-ubuntu-16core # NB: Premium GitHub runner with more cores
     runs-on: github-ubuntu-64core # NB: Premium GitHub runner with more cores
-    if: github.event_name == 'push'
     permissions:
       packages: write
       contents: read
@@ -82,7 +82,7 @@ jobs:
         name: Compute Docker tags
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/storytold/storyteller-rust
+          images: ghcr.io/storytold/artcraft-services
           tags: |
             type=raw,value=latest
             type=raw,value=${{ github.sha }}

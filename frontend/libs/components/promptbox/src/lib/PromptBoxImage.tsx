@@ -5,7 +5,7 @@ import { toast } from "@storyteller/ui-toaster";
 import { PopoverMenu, PopoverItem } from "@storyteller/ui-popover";
 import { Tooltip } from "@storyteller/ui-tooltip";
 import { GenerateIconButton } from "@storyteller/ui-button";
-import { GenerateImage, GenerateImageRequest } from "@storyteller/tauri-api";
+import { GenerateImage, GenerateImageRequest, commandErrorMessage } from "@storyteller/tauri-api";
 import { ChevronDownIcon, ChevronUpIcon, MaximizeIcon } from "lucide-react";
 import { DynamicIcon } from "@storyteller/icons";
 import { ImageModel } from "@storyteller/model-list";
@@ -155,12 +155,23 @@ export const PromptBoxImage = ({
     onDropFiles: handleDroppedFiles,
   });
 
+  // One overlay element serves both drop zones (inline box + focus mode).
+  const dropOverlay = (
+    <PromptBoxDropOverlay
+      dragState={drop.dragState}
+      acceptsImages={dropAcceptsImages}
+      acceptsVideos={false}
+      acceptsAudio={false}
+    />
+  );
+
   const deckItems: DeckItem[] = useMemo(
     () => [
       ...referenceImages.map((img, i) => ({
         id: img.id,
         kind: "image" as const,
         url: img.url,
+        previewUrl: img.fullUrl ?? img.url,
         name: `Image ${i + 1}`,
       })),
       ...deck.uploadingImages.map((entry, i) => ({
@@ -418,7 +429,7 @@ export const PromptBoxImage = ({
       await onEnqueuePressed?.(prompt, generationCount, subscriberId);
     } catch (err) {
       console.error("PromptBoxImage - enqueue failed", err);
-      toast.error("Failed to start image generation. Please try again.");
+      toast.error(commandErrorMessage(err, "Failed to start image generation. Please try again."));
     } finally {
       setIsEnqueueing(false);
     }
@@ -462,12 +473,7 @@ export const PromptBoxImage = ({
           )}
           {...drop.dropZoneProps}
         >
-          <PromptBoxDropOverlay
-            dragState={drop.dragState}
-            acceptsImages={dropAcceptsImages}
-            acceptsVideos={false}
-            acceptsAudio={false}
-          />
+          {dropOverlay}
           <div className="flex justify-center gap-2">
             {renderReferenceDeck()}
 
@@ -601,6 +607,8 @@ export const PromptBoxImage = ({
         onClose={closeFullscreen}
         promptLength={prompt.length}
         maxLength={maxLen}
+        dropZoneProps={drop.fullscreenDropZoneProps}
+        dropOverlay={dropOverlay}
         footerControls={modelSelector}
         imagePromptRow={renderReferenceDeck(true) ?? undefined}
         clearAllButton={

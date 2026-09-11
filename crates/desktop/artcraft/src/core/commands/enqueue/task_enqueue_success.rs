@@ -26,6 +26,7 @@ impl TaskEnqueueSuccess{
       TaskType::ImageGeneration => GenerationAction::GenerateImage,
       TaskType::GaussianGeneration => GenerationAction::GenerateGaussian,
       TaskType::VideoGeneration => GenerationAction::GenerateVideo,
+      TaskType::AudioGeneration => GenerationAction::GenerateAudio,
       TaskType::BackgroundRemoval => GenerationAction::RemoveBackground,
       TaskType::ObjectGeneration => GenerationAction::ImageTo3d,
       TaskType::ImageInpaintEdit => GenerationAction::ImageInpaintEdit,
@@ -40,6 +41,14 @@ impl TaskEnqueueSuccess{
       GenerationProvider::Midjourney => GenerationServiceProvider::Midjourney,
       GenerationProvider::Sora => GenerationServiceProvider::Sora,
       GenerationProvider::WorldLabs => GenerationServiceProvider::WorldLabs,
+      GenerationProvider::Higgsfield => GenerationServiceProvider::Higgsfield,
+      GenerationProvider::Krea => GenerationServiceProvider::Krea,
+      GenerationProvider::Leonardo => GenerationServiceProvider::Leonardo,
+      GenerationProvider::Magnific => GenerationServiceProvider::Magnific,
+      GenerationProvider::Openart => GenerationServiceProvider::Openart,
+      GenerationProvider::Picsart => GenerationServiceProvider::Picsart,
+      GenerationProvider::Pixverse => GenerationServiceProvider::Pixverse,
+      GenerationProvider::Runway => GenerationServiceProvider::Runway,
     }
   }
   
@@ -61,8 +70,9 @@ impl TaskEnqueueSuccess{
     frontend_subscriber_payload: Option<&str>,
   ) -> Result<TaskId, SqliteTasksError> {
     // TODO: Move this mapping elsewhere, or remove the other models.
-    let model_type = match self.model {
+    let model_type = match &self.model {
       None => None,
+      Some(GenerationModel::Unknown(model)) => Some(TaskModelType::Unknown(model.clone())),
       Some(GenerationModel::Flux1Dev) => Some(TaskModelType::Flux1Dev),
       Some(GenerationModel::FluxDevJuggernaut) => Some(TaskModelType::FluxDevJuggernaut),
       Some(GenerationModel::Flux1Schnell) => Some(TaskModelType::Flux1Schnell),
@@ -77,6 +87,8 @@ impl TaskEnqueueSuccess{
       Some(GenerationModel::GptImage1) => Some(TaskModelType::GptImage1),
       Some(GenerationModel::GptImage1p5) => Some(TaskModelType::GptImage1p5),
       Some(GenerationModel::GptImage2) => Some(TaskModelType::GptImage2),
+      Some(GenerationModel::GptImage2p5Flare) => Some(TaskModelType::GptImage2p5Flare),
+      Some(GenerationModel::GptImage2p5Sunburst) => Some(TaskModelType::GptImage2p5Sunburst),
       Some(GenerationModel::Seedream4) => Some(TaskModelType::Seedream4),
       Some(GenerationModel::Seedream4p5) => Some(TaskModelType::Seedream4p5),
       Some(GenerationModel::Seedream5Lite) => Some(TaskModelType::Seedream5Lite),

@@ -7,6 +7,7 @@ use crate::requests::workflow_run_task::request_types::*;
 use crate::requests::kinovi_host::{KinoviHost, resolve_host};
 use crate::utils::categorize_kinovi_web_error::categorize_kinovi_web_error;
 use crate::utils::common_headers::FIREFOX_USER_AGENT;
+use crate::utils::request_timeouts::KINOVI_REQUEST_TIMEOUT;
 use log::info;
 use wreq::Client;
 use wreq_util::Emulation;
@@ -380,6 +381,7 @@ async fn send_run_task_request<B: serde::Serialize>(
 
   let client = Client::builder()
     .emulation(Emulation::Firefox143)
+    .timeout(KINOVI_REQUEST_TIMEOUT)
     .build()
     .map_err(|err| KinoviWebClientError::WreqClientError(err))?;
 
@@ -1044,6 +1046,26 @@ mod tests {
       assert!(json.contains(&format!(r#""uploadedUrls":{expected_images}"#)), "{json}");
       assert!(json.contains(r#""videoUrls":["https://static.seedance2-pro.com/materials/ref.mp4"]"#), "{json}");
       assert!(json.contains(r#""audioUrls":["https://static.seedance2-pro.com/materials/ref.wav"]"#), "{json}");
+    }
+
+    #[test]
+    fn text_to_video_1080p_matches_observed_request() {
+      // Mirrors external/requests/sites/kinovi.ai/2026-08-17-seedance2p5-1080p/
+      // 1_seedance2p5_1080p.txt: mode "reference", aspectRatio "16:9", 4s,
+      // outputResolution "1080p".
+      let mut request = base_request("A car driving on the beach", 4);
+      request.output_resolution = Some(KinoviOutputResolutionRaw::TenEightyP);
+
+      let body = build_batch_request(request);
+      let json = serde_json::to_string(&body).unwrap();
+      assert!(json.contains(r#""businessType":"seedance25-preview-video-generation""#), "{json}");
+      assert!(json.contains(r#""model":"seedance2-5""#), "{json}");
+      assert!(json.contains(r#""mode":"reference""#), "{json}");
+      assert!(json.contains(r#""aspectRatio":"16:9""#), "{json}");
+      assert!(json.contains(r#""duration":"4s""#), "{json}");
+      assert!(json.contains(r#""outputResolution":"1080p""#), "{json}");
+      assert!(json.contains(r#""faceBlurMode":"off""#), "{json}");
+      assert!(json.contains(r#""contentMode":"normal""#), "{json}");
     }
 
     #[test]

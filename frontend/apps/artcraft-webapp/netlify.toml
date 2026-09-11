@@ -1,3 +1,9 @@
+# Netlify settings used to discover this file:
+#   Base directory:    frontend
+#   Package directory: apps/artcraft-webapp (relative to the base directory)
+# Manage the build command and publish directory here; leave those UI fields empty.
+# Paths below are relative to the frontend workspace.
+
 [build]
 command = "bash ./apps/artcraft-webapp/script/netlify_build.sh"
 publish = "apps/artcraft-webapp/dist/"

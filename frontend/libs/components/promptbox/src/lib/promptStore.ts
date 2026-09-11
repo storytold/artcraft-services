@@ -5,7 +5,11 @@ import { CommonQuality } from "@storyteller/model-list";
 
 export interface RefImage {
   id: string;
+  /** Display thumbnail (downscaled object URL for uploads, CDN URL for
+   *  library picks). Never sent to the backend — that's `mediaToken`. */
   url: string;
+  /** Full-resolution URL for preview modals; falls back to `url`. */
+  fullUrl?: string;
   file: File;
   mediaToken: string;
 }
@@ -160,6 +164,7 @@ interface PromptVideoStore {
   referenceAudios: RefAudio[];
   generateWithSound: boolean;
   duration: number | null;
+  bitrate: string | null;
   inputMode: VideoInputMode;
   generationCount: number;
   setPrompt: (prompt: string) => void;
@@ -172,6 +177,7 @@ interface PromptVideoStore {
   setReferenceAudios: (audios: RefAudio[]) => void;
   setGenerateWithSound: (value: boolean) => void;
   setDuration: (duration: number | null) => void;
+  setBitrate: (bitrate: string | null) => void;
   setInputMode: (mode: VideoInputMode) => void;
   setGenerationCount: (count: number) => void;
 }
@@ -187,6 +193,7 @@ export const usePromptVideoStore = create<PromptVideoStore>()((set) => ({
   referenceAudios: [],
   generateWithSound: true,
   duration: null,
+  bitrate: null,
   inputMode: "reference",
   generationCount: 1,
   setPrompt: (prompt) => set({ prompt }),
@@ -199,6 +206,7 @@ export const usePromptVideoStore = create<PromptVideoStore>()((set) => ({
   setReferenceAudios: (referenceAudios) => set({ referenceAudios }),
   setGenerateWithSound: (generateWithSound) => set({ generateWithSound }),
   setDuration: (duration) => set({ duration }),
+  setBitrate: (bitrate) => set({ bitrate }),
   setInputMode: (inputMode) => set({ inputMode }),
   setGenerationCount: (generationCount) => set({ generationCount }),
 }));

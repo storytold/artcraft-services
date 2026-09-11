@@ -48,6 +48,9 @@
       "path": "../../libs/components/switch"
     },
     {
+      "path": "../../libs/state/subscription"
+    },
+    {
       "path": "../../libs/components/promptbox"
     },
     {
@@ -90,6 +93,9 @@
       "path": "../../libs/components/button"
     },
     {
+      "path": "../../libs/icons"
+    },
+    {
       "path": "../../libs/components/vfx"
     },
     {
@@ -99,7 +105,7 @@
       "path": "../../libs/api"
     },
     {
-      "path": "../../libs/icons"
+      "path": "../../libs/components/keybinds"
     },
     {
       "path": "./tsconfig.app.json"
