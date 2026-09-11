@@ -20,8 +20,10 @@ export default function Hero() {
 
         {/* z-40 (not z-10): this container is a stacking context, so the
             masthead's own z-40 is capped by it — the hero letters must
-            outrank the ruler's fixed z-39 contrast pools at root level. */}
-        <div className="pointer-events-none relative z-40 mx-auto flex w-full max-w-[1280px] flex-1 flex-col items-center justify-center border-x border-line px-6 py-10 md:px-10">
+            outrank the ruler's fixed z-39 contrast pools at root level.
+            No border-x here: the poster viewport stays immersive edge to
+            edge — the structural rails begin at the announce strip. */}
+        <div className="pointer-events-none relative z-40 mx-auto flex w-full max-w-[1280px] flex-1 flex-col items-center justify-center px-6 py-10 md:px-10">
           <div
             data-reveal-group
             className="relative flex w-full max-w-2xl flex-col items-center text-center"
