@@ -3,7 +3,7 @@ const FEATURED_VIDEO_URL =
 
 export const AuthShowcase = () => {
   return (
-    <div className="absolute inset-2 overflow-hidden bg-black rounded-2xl">
+    <div className="absolute inset-2 overflow-hidden bg-black">
       {/* Muted background video (no controls) cropped to cover the pane */}
       <video
         src={FEATURED_VIDEO_URL}
@@ -23,7 +23,7 @@ export const AuthShowcase = () => {
 
       {/* Caption */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 p-8">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary-300">
+        <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">
           One of the cheapest
         </p>
         <h2 className="text-2xl font-bold leading-tight">

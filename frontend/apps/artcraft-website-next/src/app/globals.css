@@ -1,0 +1,318 @@
+@import "tailwindcss";
+
+/*
+ * ArtCraft marketing site — design tokens.
+ *
+ * Two committed themes sharing one structural language (hairline rules, hard
+ * edges, mono micro-labels, single blue accent):
+ *   dark  — "viewport": near-black terminal surfaces, white ink
+ *   light — "blueprint": warm paper surfaces, near-black ink
+ *
+ * Light is the :root base; dark applies via explicit [data-theme="dark"] or
+ * system preference when no explicit choice is stored. `--accent-ink` is the
+ * AA-contrast-safe accent for text/small glyphs; `--accent` is the raw brand
+ * blue for surfaces, glows, and large shapes only.
+ */
+
+:root {
+  --bg: #f2f1ee;
+  --bg-raised: #faf9f7;
+  --bg-sunken: #e9e8e4;
+  --ink: #101014;
+  --ink-strong: #000000;
+  --muted: rgba(16, 16, 20, 0.62);
+  --faint: rgba(16, 16, 20, 0.42);
+  --line: rgba(16, 16, 20, 0.16);
+  --line-strong: rgba(16, 16, 20, 0.4);
+  --accent: #2d81ff;
+  --accent-ink: #1659c4;
+  --invert-bg: #101014;
+  --invert-fg: #f2f1ee;
+  --danger: #b3261e;
+  --scanline: rgba(16, 16, 20, 0.03);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #121316;
+  --bg-raised: #101014;
+  --bg-sunken: #060607;
+  --ink: #f2f1ee;
+  --ink-strong: #ffffff;
+  --muted: rgba(242, 241, 238, 0.6);
+  --faint: rgba(242, 241, 238, 0.38);
+  --line: rgba(242, 241, 238, 0.15);
+  --line-strong: rgba(242, 241, 238, 0.4);
+  --accent: #2d81ff;
+  --accent-ink: #74aaff;
+  --invert-bg: #ffffff;
+  --invert-fg: #0b0b0c;
+  --danger: #ff6259;
+  --scanline: rgba(255, 255, 255, 0.025);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121316;
+    --bg-raised: #101014;
+    --bg-sunken: #060607;
+    --ink: #f2f1ee;
+    --ink-strong: #ffffff;
+    --muted: rgba(242, 241, 238, 0.6);
+    --faint: rgba(242, 241, 238, 0.38);
+    --line: rgba(242, 241, 238, 0.15);
+    --line-strong: rgba(242, 241, 238, 0.4);
+    --accent: #2d81ff;
+    --accent-ink: #74aaff;
+    --invert-bg: #ffffff;
+    --invert-fg: #0b0b0c;
+    --danger: #ff6259;
+    --scanline: rgba(255, 255, 255, 0.025);
+
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-raised: var(--bg-raised);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-invert-bg: var(--invert-bg);
+  --color-invert-fg: var(--invert-fg);
+  --color-danger: var(--danger);
+
+  --font-display: var(--font-archivo), system-ui, sans-serif;
+  --font-serif: var(--font-instrument), Georgia, serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* No rounded corners anywhere in this design language. */
+  --radius-*: initial;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* Theme switch cross-fade. The tokens are registered as typed <color>
+   custom properties so the VARIABLES THEMSELVES can transition: when the
+   toggle stamps .theme-anim on <html>, the root transitions every token
+   over 0.4s and every consumer — utilities, borders, SVG fills,
+   color-mix() strings, and gradients (background-image is not animatable,
+   so element-level transitions could never cover the scrims and pools) —
+   re-resolves each animated frame. No per-element transitions exist, so
+   hover states and per-frame color writes stay instant throughout. */
+@property --bg { syntax: "<color>"; inherits: true; initial-value: #f2f1ee; }
+@property --bg-raised { syntax: "<color>"; inherits: true; initial-value: #faf9f7; }
+@property --bg-sunken { syntax: "<color>"; inherits: true; initial-value: #e9e8e4; }
+@property --ink { syntax: "<color>"; inherits: true; initial-value: #101014; }
+@property --ink-strong { syntax: "<color>"; inherits: true; initial-value: #000000; }
+@property --muted { syntax: "<color>"; inherits: true; initial-value: rgba(16, 16, 20, 0.62); }
+@property --faint { syntax: "<color>"; inherits: true; initial-value: rgba(16, 16, 20, 0.42); }
+@property --line { syntax: "<color>"; inherits: true; initial-value: rgba(16, 16, 20, 0.16); }
+@property --line-strong { syntax: "<color>"; inherits: true; initial-value: rgba(16, 16, 20, 0.4); }
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #2d81ff; }
+@property --accent-ink { syntax: "<color>"; inherits: true; initial-value: #1659c4; }
+@property --invert-bg { syntax: "<color>"; inherits: true; initial-value: #101014; }
+@property --invert-fg { syntax: "<color>"; inherits: true; initial-value: #f2f1ee; }
+@property --danger { syntax: "<color>"; inherits: true; initial-value: #b3261e; }
+@property --scanline { syntax: "<color>"; inherits: true; initial-value: rgba(16, 16, 20, 0.03); }
+
+html.theme-anim {
+  transition:
+    --bg 0.4s ease,
+    --bg-raised 0.4s ease,
+    --bg-sunken 0.4s ease,
+    --ink 0.4s ease,
+    --ink-strong 0.4s ease,
+    --muted 0.4s ease,
+    --faint 0.4s ease,
+    --line 0.4s ease,
+    --line-strong 0.4s ease,
+    --accent 0.4s ease,
+    --accent-ink 0.4s ease,
+    --invert-bg 0.4s ease,
+    --invert-fg 0.4s ease,
+    --danger 0.4s ease,
+    --scanline 0.4s ease;
+}
+
+/* While the theme fade runs, element-level transitions (invert-block's
+   120ms colors, the buttons' transition-colors) would re-target every
+   frame against the animating tokens — a visible stutter-chase. Suspend
+   them for the window; the root's token transition does all the driving,
+   and everything is restored when .theme-anim lifts (~0.45s). */
+html.theme-anim body * {
+  transition-duration: 0s !important;
+}
+
+/* Intro-pending letter hide: stamped pre-paint by the head script when the
+   intro will play, so the wordmark never flashes complete before the
+   formation takes the letters. The formation and HeadingFlow write inline
+   opacity (which wins) from their first frame on. */
+html[data-intro] .wm-letter {
+  opacity: 0;
+}
+
+/* Signature interaction: label blocks invert on hover/active. */
+.invert-block {
+  transition:
+    background-color 120ms linear,
+    color 120ms linear;
+}
+.invert-block:hover,
+.invert-block[data-active="true"] {
+  background: var(--invert-bg);
+  color: var(--invert-fg);
+}
+
+/* Renders the brand mark in the current theme's ink color. */
+.themed-logo {
+  filter: brightness(0);
+}
+:root[data-theme="dark"] .themed-logo {
+  filter: brightness(0) invert(1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .themed-logo {
+    filter: brightness(0) invert(1);
+  }
+}
+
+/* Display type: Archivo at weight 620, slightly expanded on the width
+   axis (the ax-display reference treatment). Declared after the utility
+   layer so it also wins over per-usage font-weight utilities. The hero
+   wordmark opts back out of the stretch inline (canvas rasterization
+   can't apply font-stretch, so its static fallback must match the
+   sampled blocks). */
+.font-display {
+  font-stretch: 118%;
+  font-weight: 620;
+}
+
+/* Mono HUD micro-label. */
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* Crosshair tick straddling a grid intersection. */
+.tick {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  pointer-events: none;
+}
+.tick::before,
+.tick::after {
+  content: "";
+  position: absolute;
+  background: var(--line-strong);
+}
+.tick::before {
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.tick::after {
+  top: 5px;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+/* Scroll ruler. JS stamps data-ruler on <html> when the instrument mounts
+   (capable device only), so no-JS visitors and small/coarse-pointer devices
+   keep their native scrollbar untouched. "on" = full instrument (native
+   scrollbar hidden); "static" = reduced-motion rail (scrollbar stays).
+   No gutter is reserved: content flows under the rail, which frosts
+   whatever passes beneath it (see the rail's backdrop underlay). */
+html[data-ruler="on"] {
+  scrollbar-width: none;
+}
+html[data-ruler="on"]::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Rolling odometer for the ruler's percent readout. Digit columns translate
+   by whole digits; the reduced-motion blanket below disables the roll. */
+.ruler-digits {
+  display: inline-flex;
+  height: 1em;
+  overflow: hidden;
+  line-height: 1;
+}
+.ruler-digit-col {
+  display: flex;
+  flex-direction: column;
+  transition: transform 280ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+.ruler-digit-col > span {
+  display: block;
+  height: 1em;
+}
+
+/* Mono capability marquee. Duplicated track scrolls -50%; the reduced-motion
+ * blanket below freezes it in place. */
+.marquee {
+  display: flex;
+  overflow: hidden;
+}
+.marquee-track {
+  display: flex;
+  flex-shrink: 0;
+  min-width: 100%;
+  animation: marquee-scroll 36s linear infinite;
+}
+@keyframes marquee-scroll {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

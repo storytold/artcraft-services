@@ -20,6 +20,7 @@ import Landing3 from "../pages/landing3";
 import LandingSD2 from "../pages/landing-sd2";
 import LandingSD25 from "../pages/landing-sd25";
 import LandingMinimaxH3 from "../pages/landing-minimax-h3";
+import LandingPrototype0 from "../pages/landing-prototype0";
 import CreatorJboogx from "../pages/creator-jboogx";
 import TutorialsPage from "../pages/tutorials";
 import TutorialsArticle from "../pages/tutorials/article";
@@ -62,10 +63,14 @@ function appOrWebapp(localElement: ReactNode, webappPath: string): ReactNode {
 }
 
 export function App() {
+  // Prototype landing brings its own navbar (sticky, full-width, sharp).
+  const { pathname } = useLocation();
+  const hideGlobalNavbar = pathname === "/landingp0";
+
   return (
     <div className="relative">
       <ScrollToTop />
-      <Navbar />
+      {!hideGlobalNavbar && <Navbar />}
 
       <Routes>
         <Route path="/" element={<Landing3 />} />
@@ -73,6 +78,7 @@ export function App() {
         <Route path="/seedance-2" element={<LandingSD2 />} />
         <Route path="/seedance2-5" element={<LandingSD25 />} />
         <Route path="/minimax-h3" element={<LandingMinimaxH3 />} />
+        <Route path="/landingp0" element={<LandingPrototype0 />} />
         <Route
           path="/creators/jboogxcreative"
           element={<CreatorJboogx />}

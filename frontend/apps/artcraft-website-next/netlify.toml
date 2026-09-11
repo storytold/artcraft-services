@@ -1,0 +1,13 @@
+# Netlify settings used to discover this file:
+#   Base directory:    frontend/apps/artcraft-website-next
+#   (this app is standalone — its own package-lock.json, not the Nx workspace)
+# Manage the build command and publish directory here; leave those UI fields empty.
+# The Next.js runtime handles routing, the /cdn-media and /ext-media proxy
+# rewrites, and the legacy-route redirects declared in next.config.ts.
+
+[build]
+command = "npm run build"
+publish = ".next"
+
+[[plugins]]
+package = "@netlify/plugin-nextjs"
