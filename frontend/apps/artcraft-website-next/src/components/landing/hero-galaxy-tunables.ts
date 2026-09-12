@@ -362,9 +362,9 @@ export const galaxyPointerTuner = defineTunables(
     boostScale: {
       label: "Boost scale ×",
       min: 1.2,
-      max: 3,
+      max: 4,
       step: 0.1,
-      default: 2,
+      default: 3,
       info: "Scale multiplier a click toggles onto the held card. Allowed to overlap neighbors; scales back down on leaving the card, and the next hold needs a fresh click.",
     },
     boostTau: {
