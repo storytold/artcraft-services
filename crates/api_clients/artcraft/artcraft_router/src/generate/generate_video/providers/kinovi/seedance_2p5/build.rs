@@ -1,9 +1,11 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5::{
   KinoviSeedance2p5AspectRatio as KinoviAspectRatio,
+  KinoviSeedance2p5Bitrate,
   KinoviSeedance2p5OutputResolution as KinoviOutputResolution,
 };
 
 use crate::api::router_aspect_ratio::RouterAspectRatio;
+use crate::api::router_bitrate::RouterBitrate;
 use crate::api::router_resolution::RouterResolution;
 use crate::client::request_mismatch_mitigation_strategy::RequestMismatchMitigationStrategy;
 use crate::errors::artcraft_router_error::ArtcraftRouterError;
@@ -64,8 +66,10 @@ fn do_build_kinovi_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> Res
   let total_input_seconds = builder.total_reference_video_input_seconds
     .map(|seconds| u8::try_from(seconds).unwrap_or(u8::MAX));
 
-  // NB: `builder.bitrate` is intentionally ignored — 2.5 has no bitrate
-  // option (and bitrate never affects cost).
+  let maybe_bitrate = match builder.bitrate.take() {
+    Some(RouterBitrate::High) => Some(KinoviSeedance2p5Bitrate::High),
+    Some(RouterBitrate::Normal) | None => None,
+  };
 
   let unhandled_request_state = KinoviSeedance2p5RemainingItems {
     start_frame: builder.start_frame.take(),
@@ -81,6 +85,7 @@ fn do_build_kinovi_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> Res
     duration_seconds,
     prompt,
     total_input_seconds,
+    maybe_bitrate,
     unhandled_request_state: Some(unhandled_request_state),
   })
 }
@@ -246,6 +251,7 @@ fn plan_duration(
 
 #[cfg(test)]
 mod tests {
+  use kinovi_web_client::creds::kinovi_web_session::KinoviWebSession;
   use kinovi_web_client::generate::video::generate_seedance_2p5::{
     KinoviSeedance2p5AspectRatio as KinoviAspectRatio,
     KinoviSeedance2p5OutputResolution as KinoviOutputResolution,
@@ -261,12 +267,49 @@ mod tests {
   use crate::api::router_video_model::RouterVideoModel;
   use crate::api::video_list_ref::VideoListRef;
   use crate::client::request_mismatch_mitigation_strategy::RequestMismatchMitigationStrategy;
+  use crate::client::router_client::RouterClient;
+  use crate::client::router_kinovi_web_client::RouterKinoviWebClient;
   use crate::generate::generate_video::generate_video_request_builder::GenerateVideoRequestBuilder;
+  use crate::generate::generate_video::providers::kinovi::seedance_2p5::cost::KinoviSeedance2p5CostState;
   use crate::generate::generate_video::providers::kinovi::seedance_2p5::draft::KinoviSeedance2p5DraftState;
   use crate::generate::generate_video::video_generation_draft::VideoGenerationDraftRequest;
+  use crate::generate::generate_video::video_generation_draft_context::VideoGenerationDraftContext;
   use crate::generate::generate_video::video_generation_draft_or_request::VideoGenerationDraftOrRequest;
 
   use super::*;
+
+  #[tokio::test]
+  async fn bitrate_survives_finalization_without_changing_cost() {
+    let client = RouterClient::KinoviWeb(RouterKinoviWebClient::new(
+      KinoviWebSession::from_cookies_string(String::new()),
+    ));
+    let context = VideoGenerationDraftContext {
+      client: Some(&client),
+      ..Default::default()
+    };
+    let baseline = unwrap_draft(build_kinovi_seedance_2p5(base_builder()));
+    let baseline_cost = KinoviSeedance2p5CostState::from_draft(&baseline).estimate_cost();
+
+    for bitrate in [None, Some(RouterBitrate::Normal), Some(RouterBitrate::High)] {
+      let mut draft = unwrap_draft(build_kinovi_seedance_2p5(GenerateVideoRequestBuilder {
+        bitrate,
+        ..base_builder()
+      }));
+      let draft_cost = KinoviSeedance2p5CostState::from_draft(&draft).estimate_cost();
+      // No media inputs: finalization needs no network calls or credentials.
+      let finalized = draft.to_request(&context).await.expect("finalize should succeed");
+
+      assert_eq!(
+        matches!(finalized.request.maybe_bitrate, Some(KinoviSeedance2p5Bitrate::High)),
+        matches!(bitrate, Some(RouterBitrate::High)),
+      );
+      let final_cost = KinoviSeedance2p5CostState::from_request(&finalized).estimate_cost();
+      for cost in [draft_cost, final_cost] {
+        assert_eq!(cost.cost_in_credits, baseline_cost.cost_in_credits);
+        assert_eq!(cost.cost_in_usd_cents, baseline_cost.cost_in_usd_cents);
+      }
+    }
+  }
 
   mod materialized_field_conversions {
     use super::*;

@@ -39,6 +39,7 @@ venv/
 # LLM Testing
 /external/
 /prompts/
+/untracked/
 /reports/
 /requests/
 
