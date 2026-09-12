@@ -2,11 +2,11 @@
 
 This repository contains ArtCraft's backend, HTTP API, background workers, and web
 frontends. It is a Rust and TypeScript monorepo with shared API definitions,
-provider clients, database queries, and development tooling. The checkout also
-includes the Tauri desktop application and its shared frontend libraries.
+provider clients, database queries, and development tooling.
 
-For the product overview, feature demos, and desktop downloads, see
-[storytold/artcraft](https://github.com/storytold/artcraft).
+The Tauri desktop application is maintained in
+[storytold/artcraft](https://github.com/storytold/artcraft), along with the product
+overview, feature demos, and desktop downloads.
 
 ## Backend architecture
 
@@ -53,7 +53,6 @@ Storage responsibilities are split across these components:
 | Redis                      | Caching, rate limiting, and job progress                     |
 | Elasticsearch              | Search indexes and queries                                   |
 | S3-compatible storage / R2 | Uploaded media, generated assets, and derived files          |
-| SQLite + SQLx              | Local desktop task persistence                               |
 
 HTTP routes and handlers live in
 [`storyteller_web/src/http_server`](./crates/service/web/storyteller_web/src/http_server).
@@ -99,24 +98,23 @@ Start with these sources when adding or tracing an endpoint:
 ## Frontend
 
 [`frontend`](./frontend) contains the Nx workspace for React and TypeScript apps
-and shared libraries. The main web and desktop frontends use Vite, with Zustand
+and shared libraries. The main web frontends use Vite, with Zustand
 and signals for state, Three.js for 3D scenes, and shared UI and generation tools.
 
 | Path                             | Purpose                                       |
 |----------------------------------|-----------------------------------------------|
 | `frontend/apps/artcraft-webapp`  | Browser application at `app.getartcraft.com`  |
 | `frontend/apps/artcraft-website` | Product website at `getartcraft.com`          |
-| `frontend/apps/artcraft`         | Frontend for the Tauri desktop application    |
 | `frontend/libs/api`              | HTTP clients, API host selection, and models  |
 | `frontend/libs/omni-gen`         | Shared generation logic                       |
 | `frontend/libs/components`       | Reusable UI, editors, and generation controls |
 | `frontend/libs/tauri-api`        | Frontend bindings for native desktop commands |
-| `frontend/libs/tauri-events`     | Desktop event integration                     |
 
 The web apps call the backend through the shared API library, which handles JSON
-and multipart requests and session credentials. The desktop frontend also invokes
-Rust commands and receives events through Tauri; the native application lives in
-[`crates/desktop/artcraft`](./crates/desktop/artcraft).
+and multipart requests and session credentials. Libraries such as `tauri-api` and
+`tauri-utils` remain because shared web components still import their types,
+helpers, and browser-compatible behavior. The native desktop app and libraries
+used only by that app live in the separate desktop repository.
 
 ## Repository layout
 
@@ -129,10 +127,9 @@ artcraft-services/
 │   ├── api_clients/       # ArtCraft API types, clients, router, provider clients
 │   ├── schema/            # Database access, public tokens/enums, bucket paths
 │   ├── lib/               # Shared Rust utilities
-│   ├── cli/               # Development and operations tools
-│   └── desktop/artcraft/  # Tauri desktop application
+│   └── cli/               # Development and operations tools
 ├── frontend/
-│   ├── apps/              # Web and desktop frontends
+│   ├── apps/              # Web frontends
 │   └── libs/              # Shared TypeScript libraries
 ├── _database/             # SQL migrations, materialized schemas, search schemas
 ├── _docs/                 # Setup guides and technical documentation
@@ -201,8 +198,8 @@ npx nx dev artcraft-website
 ```
 
 The website runs at `http://localhost:4200`. Repository-root launchers are in
-[`script/website`](./script/website), and desktop launchers are in
-[`script/artcraft`](./script/artcraft).
+[`script/website`](./script/website). For desktop development, use the
+[ArtCraft desktop repository](https://github.com/storytold/artcraft).
 
 ## Further reading
 

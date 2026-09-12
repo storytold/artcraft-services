@@ -67,13 +67,6 @@ pub(crate) enum TokenPrefix {
   ZsVoiceDatasetSample,
 }
 
-/// These are tokens for Tauri / Sqlite
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(test, derive(EnumIter, EnumCount))]
-pub(crate) enum TauriTokenPrefix {
-  Task,
-}
-
 /// These are old-style prefixes that end in colon (:).
 /// Don't do this anymore, since tokens built like this are difficult to "double click to select".
 /// The modern, Stripe-style token prefixes (which use underscores) are much better.
@@ -161,14 +154,6 @@ impl PrefixGenerator for TokenPrefix {
       Self::ZsVoice => "zsv_",
       Self::ZsVoiceDataset => "zsd_",
       Self::ZsVoiceDatasetSample => "zss_",
-    }
-  }
-}
-
-impl PrefixGenerator for TauriTokenPrefix {
-  fn prefix(self) -> &'static str {
-    match self {
-      TauriTokenPrefix::Task => "task_",
     }
   }
 }

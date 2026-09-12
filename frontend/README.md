@@ -1,6 +1,7 @@
 # Frontend
 
-This is an `nx` monorepo that can contain multiple apps and shared libraries.
+This is the Nx workspace for ArtCraft web apps and shared libraries. The desktop
+frontend is maintained in [storytold/artcraft](https://github.com/storytold/artcraft).
 
 All commands to run these projects are performed from _this_ directory
 (except the repo-root launcher scripts noted below).
@@ -30,9 +31,8 @@ From the **repository root**, the launcher scripts (these preflight your
 environment, install dependencies, and free the dev port first):
 
 ```bash
-./script/website/unix_frontend_dev.sh           # artcraft-website (marketing site), port 4200
-./script/website/unix_frontend_webapp_dev.sh    # artcraft-webapp (user dashboard), port 4201
-./script/artcraft/unix_frontend_dev.sh          # artcraft (Tauri app frontend), port 5173
+./script/website/unix_frontend_website_dev.sh  # artcraft-website (marketing site), port 4200
+./script/website/unix_frontend_webapp_dev.sh   # artcraft-webapp (user dashboard), port 4201
 ```
 
 Or directly from this directory:
@@ -40,8 +40,6 @@ Or directly from this directory:
 ```bash
 nx dev artcraft-website
 nx dev artcraft-webapp
-nx dev artcraft        # NB: the Tauri app also needs the Rust dev server running
-nx dev editor2d
 ```
 
 ## Building
@@ -49,8 +47,6 @@ nx dev editor2d
 ```bash
 npx nx build artcraft-website
 npx nx build artcraft-webapp
-npx nx build artcraft
-npx nx build editor2d
 ```
 
 Netlify deploys run `apps/<app>/script/netlify_build.sh` (see each app's

@@ -50,7 +50,6 @@ helpers go in the parent `mod tests` so sub-modules can `use super::*`.
 ## Key Crates
 
 - `storyteller_web` — main HTTP API monolith (actix-web)
-- `artcraft` (desktop) — Tauri desktop app
 - `artcraft_router` — provider routing for image/video generation (Artcraft, Fal, KinoviWeb, Muapi)
 - `artcraft_api_defs` — shared HTTP API type definitions
 - `kinovi_web_client` — HTTP client for the Kinovi/KinoviWeb video generation service

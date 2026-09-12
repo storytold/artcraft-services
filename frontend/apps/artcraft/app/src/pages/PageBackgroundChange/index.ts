@@ -1,1 +1,0 @@
-export { PageBackgroundChange } from "./PageBackgroundChange";

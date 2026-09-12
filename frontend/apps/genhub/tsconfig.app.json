@@ -42,9 +42,6 @@
   "references": [
     {
       "path": "../../libs/api/tsconfig.lib.json"
-    },
-    {
-      "path": "../artcraft"
     }
   ]
 }
