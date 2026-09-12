@@ -29,7 +29,6 @@ twitch_secrets.toml
 production_database_secret_connect.sh
 production_database_secret_query.sh
 production_database_voice_clone_report_download.sh
-script/artcraft/mac_signing_build.sh
 script/production_database_secret_backup.sh
 script/production_database_secret_connect.sh
 script/socat_dev_database_connect.sh
@@ -55,9 +54,6 @@ crates/lib/sqlite_queries/target/
 
 # Javascript build directories
 node_modules/
-
-# Frontend build outputs
-frontend/apps/artcraft/bundle-report.html
 
 # Vim noise
 *.swo

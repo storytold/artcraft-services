@@ -10,9 +10,6 @@
       "path": "./libs/login"
     },
     {
-      "path": "./apps/artcraft"
-    },
-    {
       "path": "./libs/components/toaster"
     },
     {
@@ -20,9 +17,6 @@
     },
     {
       "path": "./libs/components/modal"
-    },
-    {
-      "path": "./libs/components/settings-modal"
     },
     {
       "path": "./libs/components/button"
@@ -41,9 +35,6 @@
     },
     {
       "path": "./libs/tauri-api"
-    },
-    {
-      "path": "./libs/tauri-events"
     },
     {
       "path": "./libs/tauri-utils"
@@ -91,16 +82,10 @@
       "path": "./libs/common"
     },
     {
-      "path": "./libs/components/login-modal"
-    },
-    {
       "path": "./libs/components/switch"
     },
     {
       "path": "./libs/build-env"
-    },
-    {
-      "path": "./libs/components/menu-icon-selector"
     },
     {
       "path": "./libs/components/badge"
@@ -160,16 +145,7 @@
       "path": "./libs/analytics/google-analytics"
     },
     {
-      "path": "./libs/components/provider-setup-modal"
-    },
-    {
       "path": "./libs/components/progress"
-    },
-    {
-      "path": "./libs/components/provider-billing-modal"
-    },
-    {
-      "path": "./libs/state/credits"
     },
     {
       "path": "./libs/state/subscription"

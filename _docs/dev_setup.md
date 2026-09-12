@@ -1,45 +1,40 @@
-Dev Setup
-=========
+# Development setup
 
-# ArtCraft 
+This repository contains the ArtCraft backend and web frontends. Desktop development
+lives in [storytold/artcraft](https://github.com/storytold/artcraft).
 
-ArtCraft is a Rust / Tauri app.
+## Backend
 
-To set up the ArtCraft development environment,  install the following:
+Install Rust and Cargo, then follow the [server setup guide](./dev_setup_server.md)
+for MySQL and Redis. The server also needs Elasticsearch configuration, object
+storage, and credentials for the integrations you use. Configuration files live in
+[`storyteller_web/config`](../crates/service/web/storyteller_web/config); dependency
+initialization lives in [`startup`](../crates/service/web/storyteller_web/src/startup).
 
-1. [Install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html).
-2. [Install npm](https://nodejs.org/en/download) or [nvm](https://github.com/nvm-sh/nvm). (Node version `v24.13.0` works at time of writing.) 
-3. [Install nx](https://nx.dev/docs/getting-started/installation). (Nx version `v22.4.5` works at time of writing.)
-4. [Install Tauri CLI](https://v2.tauri.app/reference/cli/). (Version `tauri-cli 2.10.0` works at time of writing.)
-
-An easy way to get started with running the app in development is to run the two commands (in separate terminals):
-
-**Mac and Linux Development** 
+From the repository root, with those dependencies configured:
 
 ```bash
-# Run the frontend dev server
-./script/artcraft/unix_frontend_dev.sh
-
-# Run the Tauri Rust application
-./script/artcraft/unix_rust_dev.sh
+SQLX_OFFLINE=true cargo check -p storyteller-web
+SQLX_OFFLINE=true cargo run -p storyteller-web
 ```
 
-**Windows Development**
+The API listens on `http://localhost:12345` by default. `SQLX_OFFLINE=true` uses
+checked-in query metadata at build time; the server still needs MySQL at runtime.
+See the [root README](../README.md) for configuration loading and worker setup.
 
-```powershell
-# Run the frontend dev server
-.\script\artcraft\windows_frontend_dev.ps1
+## Web frontends
 
-# Run the Tauri Rust application
-.\script\artcraft\windows_rust_dev.ps1
+Install Node.js and npm, then run from the repository root:
+
+```bash
+cd frontend
+npm install
+VITE_USE_LOCAL_API=true npx nx dev artcraft-webapp
 ```
 
+The web app runs at `http://localhost:4201`, using the local backend. To develop
+against the hosted API, omit `VITE_USE_LOCAL_API=true`.
 
-# ArtCraft Server
-
-ArtCraft's server is a Rust / Actix app called `storyteller-web`.
-
-You don't need to run this to develop the ArtCraft application, but it can be useful to spin up 
-a development instance for adding new server functions or as your own private local copy.
-
-See [dev_setup_server.md](./dev_setup_server.md) for instructions.
+For the product website, run `npx nx dev artcraft-website` from `frontend`; it uses
+`http://localhost:4200`. Repository-root launchers live under [`script/website`](../script/website).
+See the [frontend README](../frontend/README.md) for builds and troubleshooting.

@@ -1,2 +1,0 @@
-pub mod resolution_to_artcraft_nano_banana_pro;
-pub mod router_resolution_to_enums_resolution;
