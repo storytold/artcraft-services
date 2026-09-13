@@ -7,7 +7,7 @@ use crate::pricing::kinovi_pricing_tier::KinoviPricingTier;
 use crate::requests::kinovi_host::KinoviHost;
 use crate::requests::workflow_run_task::workflow_run_task::{
   workflow_run_task, KinoviAspectRatioRaw, KinoviBatchCountRaw, KinoviBitrateRaw, KinoviModelTypeRaw,
-  KinoviOutputResolutionRaw, WorkflowRunTaskArgs, WorkflowRunTaskRequest,
+  KinoviOutputFormatRaw, KinoviOutputResolutionRaw, WorkflowRunTaskArgs, WorkflowRunTaskRequest,
 };
 
 // ── Constants ──
@@ -64,6 +64,12 @@ pub struct GenerateSeedance2p5Request {
   /// Output video bitrate. None keeps the standard bitrate; `High` requests
   /// a higher bitrate. This does not select a container or lossless codec.
   pub maybe_bitrate: Option<KinoviSeedance2p5Bitrate>,
+
+  /// Output container. None leaves the provider default unchanged.
+  pub maybe_output_format: Option<KinoviSeedance2p5OutputFormat>,
+
+  /// Whether to generate audio. None leaves the provider default unchanged.
+  pub maybe_generate_audio: Option<bool>,
 }
 
 // ── Modality ──
@@ -122,6 +128,13 @@ pub enum KinoviSeedance2p5OutputResolution {
 #[derive(Debug, Clone, Copy)]
 pub enum KinoviSeedance2p5Bitrate {
   High,
+}
+
+/// Output container for Seedance 2.5.
+#[derive(Debug, Clone, Copy)]
+pub enum KinoviSeedance2p5OutputFormat {
+  Mp4,
+  Mov,
 }
 
 // ── Pricing ──
@@ -305,6 +318,11 @@ fn to_raw_request(req: GenerateSeedance2p5Request) -> WorkflowRunTaskRequest {
     character_ids: None,
     use_face_blur_hack: req.use_face_blur_hack,
     bitrate: map_bitrate(req.maybe_bitrate),
+    maybe_output_format: req.maybe_output_format.map(|format| match format {
+      KinoviSeedance2p5OutputFormat::Mp4 => KinoviOutputFormatRaw::Mp4,
+      KinoviSeedance2p5OutputFormat::Mov => KinoviOutputFormatRaw::Mov,
+    }),
+    maybe_generate_audio: req.maybe_generate_audio,
   }
 }
 
@@ -765,6 +783,8 @@ mod tests {
         total_input_seconds: None,
         use_face_blur_hack: None,
         maybe_bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -792,6 +812,8 @@ mod tests {
         total_input_seconds: None,
         use_face_blur_hack: None,
         maybe_bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -852,6 +874,8 @@ mod tests {
         total_input_seconds: None,
         use_face_blur_hack: None,
         maybe_bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       });
 
       assert!(matches!(raw.model_type, KinoviModelTypeRaw::Seedance2p5));
@@ -878,10 +902,14 @@ mod tests {
         total_input_seconds: Some(7),
         use_face_blur_hack: None,
         maybe_bitrate: Some(KinoviSeedance2p5Bitrate::High),
+        maybe_output_format: Some(KinoviSeedance2p5OutputFormat::Mov),
+        maybe_generate_audio: Some(false),
       });
 
       assert!(matches!(raw.aspect_ratio, KinoviAspectRatioRaw::UltraWide21x9));
       assert!(matches!(raw.bitrate, Some(KinoviBitrateRaw::High)));
+      assert!(matches!(raw.maybe_output_format, Some(KinoviOutputFormatRaw::Mov)));
+      assert_eq!(raw.maybe_generate_audio, Some(false));
       assert!(raw.start_frame_url.is_none());
       assert!(raw.end_frame_url.is_none());
       assert_eq!(raw.reference_image_urls.as_deref().map(|urls| urls.len()), Some(1));
@@ -904,6 +932,8 @@ mod tests {
         total_input_seconds: None,
         use_face_blur_hack: None,
         maybe_bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       });
 
       assert!(matches!(raw.output_resolution, Some(KinoviOutputResolutionRaw::TenEightyP)));
@@ -924,6 +954,8 @@ mod tests {
         total_input_seconds: None,
         use_face_blur_hack: None,
         maybe_bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       });
 
       assert!(matches!(raw.aspect_ratio, KinoviAspectRatioRaw::Landscape16x9));
@@ -954,6 +986,8 @@ mod tests {
           total_input_seconds: None,
           use_face_blur_hack: None,
           maybe_bitrate: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("t2v 480p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -986,6 +1020,8 @@ mod tests {
           total_input_seconds: None,
           use_face_blur_hack: None,
           maybe_bitrate: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("t2v 1080p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -1014,6 +1050,8 @@ mod tests {
           total_input_seconds: None,
           use_face_blur_hack: None,
           maybe_bitrate: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("keyframe 1080p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -1042,6 +1080,8 @@ mod tests {
           total_input_seconds: None,
           use_face_blur_hack: None,
           maybe_bitrate: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("keyframe 480p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -1075,6 +1115,8 @@ mod tests {
           total_input_seconds: None,
           use_face_blur_hack: None,
           maybe_bitrate: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("reference 480p — task_id={}, order_id={}", result.task_id, result.order_id);

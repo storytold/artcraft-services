@@ -25,6 +25,7 @@ pub struct KinoviSeedance2p0FastDraftState {
   pub duration_seconds: u8,
   pub batch_count: KinoviSeedance2p0FastBatchCount,
   pub bitrate: Option<KinoviSeedance2p0FastBitrate>,
+  pub maybe_generate_audio: Option<bool>,
 
   pub unhandled_request_state: Option<KinoviSeedance2p0FastRemainingItems>,
 }
@@ -93,6 +94,7 @@ impl KinoviSeedance2p0FastDraftState {
       character_ids,
       use_face_blur_hack: None,
       bitrate: self.bitrate,
+      maybe_generate_audio: self.maybe_generate_audio,
     };
 
     Ok(KinoviSeedance2p0FastRequestState { request })

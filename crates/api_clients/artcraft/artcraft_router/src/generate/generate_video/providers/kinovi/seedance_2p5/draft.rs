@@ -1,6 +1,6 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5::{
   GenerateSeedance2p5Request, KinoviSeedance2p5AspectRatio, KinoviSeedance2p5Bitrate, KinoviSeedance2p5Modality,
-  KinoviSeedance2p5OutputResolution,
+  KinoviSeedance2p5OutputFormat, KinoviSeedance2p5OutputResolution,
 };
 
 use crate::api::audio_list_ref::AudioListRef;
@@ -33,6 +33,8 @@ pub struct KinoviSeedance2p5DraftState {
   pub total_input_seconds: Option<u8>,
 
   pub maybe_bitrate: Option<KinoviSeedance2p5Bitrate>,
+  pub maybe_output_format: Option<KinoviSeedance2p5OutputFormat>,
+  pub maybe_generate_audio: Option<bool>,
 
   pub unhandled_request_state: Option<KinoviSeedance2p5RemainingItems>,
 }
@@ -114,6 +116,8 @@ impl KinoviSeedance2p5DraftState {
       total_input_seconds: self.total_input_seconds,
       use_face_blur_hack: None,
       maybe_bitrate: self.maybe_bitrate,
+      maybe_output_format: self.maybe_output_format,
+      maybe_generate_audio: self.maybe_generate_audio,
     };
 
     Ok(KinoviSeedance2p5RequestState { request })

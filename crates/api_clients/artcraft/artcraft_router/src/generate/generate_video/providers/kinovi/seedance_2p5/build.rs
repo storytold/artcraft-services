@@ -1,12 +1,14 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5::{
   KinoviSeedance2p5AspectRatio as KinoviAspectRatio,
   KinoviSeedance2p5Bitrate,
+  KinoviSeedance2p5OutputFormat,
   KinoviSeedance2p5OutputResolution as KinoviOutputResolution,
 };
 
 use crate::api::router_aspect_ratio::RouterAspectRatio;
 use crate::api::router_bitrate::RouterBitrate;
 use crate::api::router_resolution::RouterResolution;
+use crate::api::router_video_output_format::RouterVideoOutputFormat;
 use crate::client::request_mismatch_mitigation_strategy::RequestMismatchMitigationStrategy;
 use crate::errors::artcraft_router_error::ArtcraftRouterError;
 use crate::errors::client_error::ClientError;
@@ -86,6 +88,11 @@ fn do_build_kinovi_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> Res
     prompt,
     total_input_seconds,
     maybe_bitrate,
+    maybe_output_format: builder.maybe_output_format.map(|format| match format {
+      RouterVideoOutputFormat::Mp4 => KinoviSeedance2p5OutputFormat::Mp4,
+      RouterVideoOutputFormat::Mov => KinoviSeedance2p5OutputFormat::Mov,
+    }),
+    maybe_generate_audio: builder.generate_audio,
     unhandled_request_state: Some(unhandled_request_state),
   })
 }
@@ -275,6 +282,7 @@ mod tests {
   use crate::generate::generate_video::video_generation_draft::VideoGenerationDraftRequest;
   use crate::generate::generate_video::video_generation_draft_context::VideoGenerationDraftContext;
   use crate::generate::generate_video::video_generation_draft_or_request::VideoGenerationDraftOrRequest;
+  use crate::generate::generate_video::video_generation_request::VideoGenerationRequest;
 
   use super::*;
 
@@ -307,6 +315,42 @@ mod tests {
       for cost in [draft_cost, final_cost] {
         assert_eq!(cost.cost_in_credits, baseline_cost.cost_in_credits);
         assert_eq!(cost.cost_in_usd_cents, baseline_cost.cost_in_usd_cents);
+      }
+    }
+  }
+
+  #[tokio::test]
+  async fn output_options_survive_router_finalization() {
+    let client = RouterClient::KinoviWeb(RouterKinoviWebClient::new(
+      KinoviWebSession::from_cookies_string(String::new()),
+    ));
+    let context = VideoGenerationDraftContext { client: Some(&client), ..Default::default() };
+    for model in [RouterVideoModel::Seedance2p0, RouterVideoModel::Seedance2p0Fast, RouterVideoModel::Seedance2p0Mini, RouterVideoModel::Seedance2p5] {
+      for generate_audio in [None, Some(false), Some(true)] {
+        for maybe_output_format in [None, Some(RouterVideoOutputFormat::Mp4), Some(RouterVideoOutputFormat::Mov)] {
+          let builder = GenerateVideoRequestBuilder {
+            model, generate_audio, maybe_output_format, ..base_builder()
+          };
+          let VideoGenerationDraftOrRequest::Draft(draft) = builder.build2().unwrap() else {
+            panic!("expected Kinovi draft");
+          };
+          let finalized = draft.finalize(context.clone()).await.unwrap();
+          let actual_audio = match finalized {
+            VideoGenerationRequest::KinoviSeedance2p0(state) => state.request.maybe_generate_audio,
+            VideoGenerationRequest::KinoviSeedance2p0Fast(state) => state.request.maybe_generate_audio,
+            VideoGenerationRequest::KinoviSeedance2p0Mini(state) => state.request.maybe_generate_audio,
+            VideoGenerationRequest::KinoviSeedance2p5(state) => {
+              let actual_format = state.request.maybe_output_format.map(|format| match format {
+                KinoviSeedance2p5OutputFormat::Mp4 => RouterVideoOutputFormat::Mp4,
+                KinoviSeedance2p5OutputFormat::Mov => RouterVideoOutputFormat::Mov,
+              });
+              assert_eq!(actual_format, maybe_output_format);
+              state.request.maybe_generate_audio
+            }
+            _ => panic!("expected a Seedance request"),
+          };
+          assert_eq!(actual_audio, generate_audio);
+        }
       }
     }
   }

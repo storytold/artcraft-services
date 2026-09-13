@@ -92,6 +92,8 @@ impl KinoviSeedance2p5CostState {
       total_input_seconds,
       use_face_blur_hack: None,
       maybe_bitrate: None,
+      maybe_output_format: None,
+      maybe_generate_audio: None,
     };
 
     // Enterprise tier: what generations actually cost us (our discounted

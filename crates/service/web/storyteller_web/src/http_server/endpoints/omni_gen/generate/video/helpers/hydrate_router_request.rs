@@ -63,6 +63,7 @@ pub fn hydrate_to_router_request(
     resolution,
     aspect_ratio,
     bitrate,
+    maybe_output_format: None,
     duration_seconds: request.duration_seconds,
     video_batch_count: request.video_batch_count,
     generate_audio: request.generate_audio,

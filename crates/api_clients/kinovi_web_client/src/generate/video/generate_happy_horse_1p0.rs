@@ -130,6 +130,8 @@ pub async fn generate_happy_horse_1p0(
     character_ids: None,
     use_face_blur_hack: Some(false),
     bitrate: None,
+    maybe_output_format: None,
+    maybe_generate_audio: None,
   };
 
   let raw_response = workflow_run_task(WorkflowRunTaskArgs {

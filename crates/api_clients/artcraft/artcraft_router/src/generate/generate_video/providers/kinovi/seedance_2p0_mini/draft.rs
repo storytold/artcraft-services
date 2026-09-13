@@ -25,6 +25,7 @@ pub struct KinoviSeedance2p0MiniDraftState {
   pub duration_seconds: u8,
   pub batch_count: KinoviSeedance2p0MiniBatchCount,
   pub bitrate: Option<KinoviSeedance2p0MiniBitrate>,
+  pub maybe_generate_audio: Option<bool>,
 
   pub unhandled_request_state: Option<KinoviSeedance2p0MiniRemainingItems>,
 }
@@ -93,6 +94,7 @@ impl KinoviSeedance2p0MiniDraftState {
       character_ids,
       use_face_blur_hack: None,
       bitrate: self.bitrate,
+      maybe_generate_audio: self.maybe_generate_audio,
     };
 
     Ok(KinoviSeedance2p0MiniRequestState { request })
