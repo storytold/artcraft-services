@@ -1,21 +1,31 @@
-//const WINDOWS_VERSION = "0.7.0"; // 2026-02-23 Seedance
-//const WINDOWS_VERSION = "0.11.0"; // 2026-03-02 Credits accounting
-//const WINDOWS_VERSION = "0.14.0"; // 2026-03-10 WorldLabs native, Angles
-//const WINDOWS_VERSION = "0.20.0"; // 2026-03-24 Reprompt, performance
-const WINDOWS_VERSION = "0.32.0"; // 2026-04-03 characters + prompt box
+// Keep previous releases here when adding new downloads, newest first.
+const DOWNLOAD_HISTORY = {
+  "0.37.0": githubDownloadLinks("0.37.0"),
+  "0.32.0": githubDownloadLinks("0.32.0"),
+  "0.28.0": githubDownloadLinks("0.28.0"),
+  "0.23.0": githubDownloadLinks("0.23.0"), // 2026-04-03 Characters + prompt box
+  "0.20.0": githubDownloadLinks("0.20.0"), // 2026-03-24 Reprompt, performance
+  "0.14.0": githubDownloadLinks("0.14.0"), // 2026-03-10 WorldLabs native, Angles
+  "0.11.0": githubDownloadLinks("0.11.0"), // 2026-03-02 Credits accounting
+  "0.7.0": githubDownloadLinks("0.7.0"), // 2026-02-23 Seedance
+} as const;
 
-//const MAC_VERSION = "0.7.0"; // 2026-02-23 Seedance
-//const MAC_VERSION = "0.11.0"; // 2026-03-02 Credits accounting
-//const MAC_VERSION = "0.14.0"; // 2026-03-10 WorldLabs native, Angles
-//const MAC_VERSION = "0.20.0"; // 2026-03-24 Reprompt, performance
-const MAC_VERSION = "0.32.0"; // 2026-04-03 characters + prompt box
+// To roll back either platform, select a version from DOWNLOAD_HISTORY.
+const WINDOWS_VERSION: keyof typeof DOWNLOAD_HISTORY = "0.37.0";
+const MAC_VERSION: keyof typeof DOWNLOAD_HISTORY = "0.37.0";
 
-// The published desktop builds are out of date — every download button and
-// link on the site is hidden while this is false. Flip back on when a current
-// release ships.
-export const DOWNLOADS_ENABLED = false;
+// Set false to temporarily hide desktop downloads throughout the website.
+export const DOWNLOADS_ENABLED = true;
 
 export const DOWNLOAD_LINKS = {
-  WINDOWS: `https://github.com/storytold/artcraft/releases/download/artcraft-v${WINDOWS_VERSION}/ArtCraft_${WINDOWS_VERSION}_x64-setup.exe`,
-  MACOS: `https://github.com/storytold/artcraft/releases/download/artcraft-v${MAC_VERSION}/ArtCraft_${MAC_VERSION}_universal.dmg`,
+  WINDOWS: DOWNLOAD_HISTORY[WINDOWS_VERSION].WINDOWS,
+  MACOS: DOWNLOAD_HISTORY[MAC_VERSION].MACOS,
 } as const;
+
+function githubDownloadLinks(version: string) {
+  const baseUrl = `https://github.com/storytold/artcraft/releases/download/artcraft-v${version}`;
+  return {
+    WINDOWS: `${baseUrl}/ArtCraft_${version}_x64-setup.exe`,
+    MACOS: `${baseUrl}/ArtCraft_${version}_universal.dmg`,
+  } as const;
+}
