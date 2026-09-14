@@ -1,5 +1,6 @@
 use artcraft_api_defs::omni_gen::models::omni_gen_video_models::OmniGenVideoModelDetails;
 use enums::common::generation::common_aspect_ratio::CommonAspectRatio;
+use enums::common::generation::common_bitrate::CommonBitrate;
 use enums::common::generation::common_resolution::CommonResolution;
 use enums::common::generation::common_video_model::CommonVideoModel;
 use enums::common::generation::model_creator::ModelCreator;
@@ -42,6 +43,11 @@ pub fn seedance_2p5_video_models() -> Vec<OmniGenVideoModelDetails> {
       CommonResolution::TenEightyP,
     ]),
     resolution_default: Some(CommonResolution::SevenTwentyP),
+    bitrate_options: Some(vec![
+      CommonBitrate::Normal,
+      CommonBitrate::High,
+    ]),
+    bitrate_default: Some(CommonBitrate::Normal),
     batch_size_options: Some(vec![1]),
     batch_size_default: Some(1),
     duration_seconds_min: Some(4),
@@ -84,6 +90,11 @@ pub fn seedance_2p5_video_models() -> Vec<OmniGenVideoModelDetails> {
       CommonResolution::TenEightyP,
     ]),
     resolution_default: Some(CommonResolution::SevenTwentyP),
+    bitrate_options: Some(vec![
+      CommonBitrate::Normal,
+      CommonBitrate::High,
+    ]),
+    bitrate_default: Some(CommonBitrate::Normal),
     batch_size_options: Some(vec![1]),
     batch_size_default: Some(1),
     duration_seconds_min: Some(4),
@@ -125,6 +136,11 @@ pub fn seedance_2p5_video_models() -> Vec<OmniGenVideoModelDetails> {
       CommonResolution::SevenTwentyP,
     ]),
     resolution_default: Some(CommonResolution::SevenTwentyP),
+    bitrate_options: Some(vec![
+      CommonBitrate::Normal,
+      CommonBitrate::High,
+    ]),
+    bitrate_default: Some(CommonBitrate::Normal),
     batch_size_options: Some(vec![1]),
     batch_size_default: Some(1),
     duration_seconds_min: Some(4),

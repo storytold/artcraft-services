@@ -1,82 +1,211 @@
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/b4e24c27-d87d-4fd1-8599-dc0d0b8af48d" width="100%" autoplay="true" loop controls>
-</p>
+# ArtCraft Services
 
-<p align="center">The IDE for artists.</p>
-<p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Discord" src="https://img.shields.io/discord/1359579021108842617?style=for-the-badge&label=discord&color=ffffff&logo=discord&logoColor=ffffff" /></a>
-  <a href="https://www.youtube.com/@OfficialArtCraftStudios"><img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UCdjY4VG0ntoGwFsKZO4sVWA?style=for-the-badge&logo=YouTube" /></a>
-  <a href="https://x.com/intent/follow?screen_name=get_artcraft"><img alt="X" src="https://img.shields.io/twitter/follow/get_artcraft?style=for-the-badge&label=follow&logo=x&logoColor=ffffff&color=ffffff" /></a>
-  <a href="https://www.linkedin.com/company/artcraft-ai"><img alt="LinkedIn" src="https://img.shields.io/badge/linkedin--0A66C2?style=for-the-badge"></a>
-</p>
+This repository contains ArtCraft's backend, HTTP API, background workers, and web
+frontends. It is a Rust and TypeScript monorepo with shared API definitions,
+provider clients, database queries, and development tooling.
 
----
+The Tauri desktop application is maintained in
+[storytold/artcraft](https://github.com/storytold/artcraft), along with the product
+overview, feature demos, and desktop downloads.
 
-ArtCraft
-========
-ArtCraft is the IDE for interactive AI image and video creation.
-We turn prompting into *crafting*, so your ideas become a form of tangible expression and computing.
-This is Adobe Photoshop for everyone, and we're giving away the source code!
+## Backend architecture
 
-## Show, Don't Tell: Advanced Crafting Features
+[`storyteller-web`](./crates/service/web/storyteller_web) is the main HTTP service,
+built with Rust, Actix Web, and Tokio. It handles authentication, accounts,
+media uploads and libraries, generation requests, job status, credits, and Stripe
+billing. The service retains the `storyteller-web` name, and its hosted API uses
+`https://api.storyteller.ai`.
 
-Text-to-image is great, but artists *need control*. It's important to know what your image will look like before you generate it, and it's vitally important to achieve consistency and repeatability.
+Generation spans the HTTP service, provider integrations, and asynchronous workers:
 
-| Feature                           | Demo + Explanation                                                                                                                                                                                                                                                      
-|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Image to Location**             | ![Video](https://github.com/user-attachments/assets/21f103e3-cc19-4882-a630-9caa1b76ae31) Placing virtual actors into physical environments establishes single-location consistency. You can film multiple shots within a room without having things disappear.         |
-| **3D Image Compositing**          | ![Video](https://github.com/user-attachments/assets/f93a616f-571d-474e-bcc0-53736de7303d) Use images (backdrops, foreground elements, props, etc.) in scenes with depth and blend them naturally together. Just a couple of images usually leads to great compositions. |
-| **2D Image Compositing**          | ![Video](https://github.com/user-attachments/assets/d6f99391-e496-4c62-9e37-29734ba5f899) Use images, background removal, layers, and simple drawing tools to precisely compose a scene.                                                                                |
-| **Image to 3D Mesh**              | ![Video](https://github.com/user-attachments/assets/600a405c-e360-48c1-9b42-6e657ae6243b) It's almost impossible to lay out complicated objects or block complicated scenes; turning images into 3D helps position elements exactingly and intentionally.               |
-| **Character Posing**              | ![Video](https://raw.githubusercontent.com/storytold/github-media/22a27373707b13f48fc56405f1f89ca143c43d5d/character-posing.webp) You can dynamically pose your characters to achieve the precise character, scene, and camera blocking before calling "action".                                                |
-| **Scene Blocking w/ Kit Bashing** | ![Video](https://github.com/user-attachments/assets/eef025ac-0346-4a46-a023-d48e23629eb5) Use 3D asset kits to precisely block out your scene: get the correct angles, object positions, and rich depth layering you can't with text prompting.                         |
-| **Character Identity Transfer**   | ![Video](https://github.com/user-attachments/assets/629119ee-8c76-4a83-9827-8c6c995a3ec1) Use mannequins as simple 3D ControlNets for posing any character.                                                                                                             |
-| **Background Removal**            | ![Video](https://github.com/user-attachments/assets/90c65057-5531-404f-83af-b34e66e24ec1) Remove backgrounds from images to make them useful in 2D or 3D compositing. They can be props, layers, or backdrops.                                                          |
-| **Mixed Asset Crafting**          | ![Video](https://raw.githubusercontent.com/storytold/github-media/main/ship-editing.gif) You can use image cutouts, worlds, and simple 3D meshes all together to precisely and intentionally lay out your scenes.                                                       |
-| **Scene Blocking**                | (preview coming soon)                                                                                                                                                                                                                                                   |
-| **Canvas Editing**                | (preview coming soon)                                                                                                                                                                                                                                                   |
-| **Scene Relighting**              | (preview coming soon)                                                                                                                                                                                                                                                   |
+```mermaid
+flowchart LR
+  Clients[Web, desktop, and API clients] --> API[storyteller-web]
+  API --> Router[artcraft_router]
+  Router --> Providers[Generation providers]
+  Providers -->|Webhooks| API
+  Workers[Background workers] -->|Poll jobs| Providers
+  API --> DB[(MySQL)]
+  Workers --> DB
+  API --> Storage[(Object storage)]
+  Workers --> Storage
+```
 
-Note: all of the above videos were generated for free with Grok Video; the cost to build this README was negligible.
+A typical generation request follows this path:
 
-## Quick and Easy Prompting
-We haven't abandoned text-to-asset generation for quick prototyping and ideation. We support every popular workflow in a first class fashion.
+1. The API authenticates the caller, validates the request and input media, and
+   checks the user's access and credits.
+2. The generation pipeline calculates the cost, bills the wallet, and uses
+   [`artcraft_router`](./crates/api_clients/artcraft/artcraft_router) to build and
+   submit a provider-specific request. The API records inference jobs in MySQL
+   and returns job tokens to the client.
+3. Completion is handled through provider webhooks or polling workers, depending
+   on the integration. Results are downloaded into object storage, registered as
+   media files, and associated with the completed jobs. Separate workers handle
+   follow-up processing such as video thumbnails.
+4. Clients poll job-status endpoints and load the resulting media through CDN URLs.
 
-| Feature               | Demo + Explanation                                                                                                                                    
-|-----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Text to Image**     | ![Video](https://github.com/user-attachments/assets/9cc289cd-faf4-4eaf-aed2-21134cce127c) Text prompt over a dozen different image models.            |
-| **Image Editing**     | ![Video](https://github.com/user-attachments/assets/a06fa6ad-936c-42d0-8767-48fdbb8ff141) Edit with Nano Banana Pro and GPT Image 1.5.                |
-| **Image Editing**     | ![Video](https://github.com/user-attachments/assets/f036e08a-f3a6-417a-98ee-ec7f04b2b5ff) Use inpainting, drawing, masking, etc. to edit images.      |
-| **Image to Video**    | ![Video](https://github.com/user-attachments/assets/2bc6c592-511e-4fba-b40f-03c96699b7f7) Image to video with lots of different options and controls. |
-| **Image Inpainting**  | (preview coming soon)                                                                                                                                 |
-| **Image Ingredients** | (preview coming soon)                                                                                                                                 |
+Storage responsibilities are split across these components:
 
-## Models and Providers Supported within Artcraft
+| Component                  | Role                                                         |
+|----------------------------|--------------------------------------------------------------|
+| MySQL + SQLx               | Accounts, media metadata, inference jobs, wallets, and bills |
+| Redis                      | Caching, rate limiting, and job progress                     |
+| Elasticsearch              | Search indexes and queries                                   |
+| S3-compatible storage / R2 | Uploaded media, generated assets, and derived files          |
 
-| Provider   | Features                                                                                                                                                                |
-|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Artcraft   | Nano Banana, Nano Banana Pro, GPT-Image-1 / 1.5, Seedance 1.0 Lite / 1.5 Pro / 2.0, Seedream 4 / 4.5, Flux 1.1 / Kontext, Veo 2 / 3 / 3.1, Kling 1.6 / 2.1 / 2.5 / 2.6, Sora 2 / Pro, Hunyuan 3d 2 / 3 |
-| Grok       | Grok Imagine, Grok Video                                                                                                                                                |
-| Midjourney | Image Gen (all versions)                                                                                                                                                |
-| Sora       | Sora 1, Sora 2, GPT-Image-1                                                                                                                                             |
-| WorldLabs  | Marble (Gaussian Splat World Generation)                                                                                                                                |
+HTTP routes and handlers live in
+[`storyteller_web/src/http_server`](./crates/service/web/storyteller_web/src/http_server).
+MySQL queries belong in the shared
+[`mysql_queries`](./crates/schema/database/mysql_queries) crate so that handlers,
+workers, and CLI tools use the same data access layer. Reusable billing components
+live under [`crates/service/plugins`](./crates/service/plugins), and background
+services live under [`crates/service/job`](./crates/service/job).
 
-We're going to be adding the following providers soon: Kling (via Kling website accounts), Google (via API keys), 
-Runway (via website account), Luma (via website account).
+## HTTP API
 
-We're potentially interested in adding other aggregators for those who already have subscriptions and credits at 
-those providers, for example: OpenArt, FreePik, etc.
+The API exposes two generation interfaces:
 
-## Downloads
+- **Application endpoints:** `/v1/omni_gen/generate/*` uses user sessions for image,
+  video, audio, mesh, and splat generation. `/v1/omni_gen/models/*` and
+  `/v1/omni_gen/cost/*` expose model discovery and cost estimation without requiring
+  a user session. Application job status is available under `/v1/jobs`.
+- **Programmatic endpoints:** `/v1/omni_api` uses an API key in the `Authorization`
+  header. It provides image and video generation, image/video/audio uploads, and
+  job-status polling. Use `Authorization: Bearer <api-key>`; API access must be
+  enabled for the account.
 
-- [Visit our website for the stable Windows and MacOS releases](https://getartcraft.com/)
-- Or you can grab a [more recent Windows and MacOS build directly](https://github.com/storytold/artcraft/releases)
-- Linux requires building from source for now
+For example, a programmatic video request goes to
+`POST /v1/omni_api/generate/video`. The response contains an
+`inference_job_token`, which the caller polls with
+`GET /v1/omni_api/job_status/job/{token}`. The
+[Omni API guide](./_docs/omni_api/artcraft_omni_api.md) covers authentication,
+request and response bodies, URL inputs, and runnable examples.
 
-## Documentation
+Start with these sources when adding or tracing an endpoint:
 
-- [developer documentation](./_docs)
-- [tools, scripts, misc](./script)
-- [license](./LICENSE.md)
-- [roadmap](./ROADMAP.md)
+- [Route registration](./crates/service/web/storyteller_web/src/http_server/routes/application_routes)
+  maps URLs and HTTP methods to handlers for generation, media, users, billing,
+  API keys, and other service areas.
+- [API definitions](./crates/api_clients/artcraft/artcraft_api_defs) contain shared
+  Rust request, response, and error types.
+- [Rust API client](./crates/api_clients/artcraft/artcraft_client) and
+  [TypeScript API library](./frontend/libs/api) provide client implementations.
+- [Provider clients](./crates/api_clients) implement upstream HTTP integrations;
+  [the generation router](./crates/api_clients/artcraft/artcraft_router) adapts
+  generation requests and cost estimates across providers.
 
+## Frontend
+
+[`frontend`](./frontend) contains the Nx workspace for React and TypeScript apps
+and shared libraries. The main web frontends use Vite, with Zustand
+and signals for state, Three.js for 3D scenes, and shared UI and generation tools.
+
+| Path                             | Purpose                                       |
+|----------------------------------|-----------------------------------------------|
+| `frontend/apps/artcraft-webapp`  | Browser application at `app.getartcraft.com`  |
+| `frontend/apps/artcraft-website` | Product website at `getartcraft.com`          |
+| `frontend/libs/api`              | HTTP clients, API host selection, and models  |
+| `frontend/libs/omni-gen`         | Shared generation logic                       |
+| `frontend/libs/components`       | Reusable UI, editors, and generation controls |
+| `frontend/libs/tauri-api`        | Frontend bindings for native desktop commands |
+
+The web apps call the backend through the shared API library, which handles JSON
+and multipart requests and session credentials. Libraries such as `tauri-api` and
+`tauri-utils` remain because shared web components still import their types,
+helpers, and browser-compatible behavior. The native desktop app and libraries
+used only by that app live in the separate desktop repository.
+
+## Repository layout
+
+```text
+artcraft-services/
+├── crates/
+│   ├── service/web/       # HTTP services, including storyteller_web
+│   ├── service/job/       # Provider workers, media processing, analytics
+│   ├── service/plugins/   # Shared billing and service components
+│   ├── api_clients/       # ArtCraft API types, clients, router, provider clients
+│   ├── schema/            # Database access, public tokens/enums, bucket paths
+│   ├── lib/               # Shared Rust utilities
+│   └── cli/               # Development and operations tools
+├── frontend/
+│   ├── apps/              # Web frontends
+│   └── libs/              # Shared TypeScript libraries
+├── _database/             # SQL migrations, materialized schemas, search schemas
+├── _docs/                 # Setup guides and technical documentation
+├── _tools/postman/        # HTTP request collections
+├── build/                 # Service Dockerfiles
+├── script/                # Development, build, and database tooling
+└── Cargo.toml             # Rust workspace
+```
+
+## Local development
+
+Use Rust/Cargo for backend work and Node.js/npm for the main frontend workspace.
+See the [development setup guide](./_docs/dev_setup.md) for toolchain setup and
+[frontend README](./frontend/README.md) for dependency installation and Nx usage.
+
+### Backend
+
+The server needs a migrated MySQL database, Redis, Elasticsearch configuration,
+object storage, and credentials for the integrations being exercised. The
+[server setup guide](./_docs/dev_setup_server.md) covers local MySQL and Redis;
+the remaining configuration is defined in the
+[server config directory](./crates/service/web/storyteller_web/config) and
+[startup code](./crates/service/web/storyteller_web/src/startup).
+
+In development, the server loads `storyteller-web.common.env`,
+`storyteller-web.development.env`, and `storyteller-web.development-secrets.env`
+from its configuration search paths: the repository root, `./config`, and the
+server's config directory. Its bootstrap skips the root `.env` file.
+
+With the toolchain and service configuration in place, run from the repository root:
+
+```bash
+SQLX_OFFLINE=true cargo check -p storyteller-web
+SQLX_OFFLINE=true cargo run -p storyteller-web
+```
+
+The default bind address is `0.0.0.0:12345`, configurable through `BIND_ADDRESS`.
+`GET /_status` exposes the service health check. Provider polling and thumbnail
+processing require their corresponding worker processes and configuration.
+
+`SQLX_OFFLINE=true` uses the checked-in `.sqlx` query metadata during compilation;
+the running server still needs its databases. When changing SQLx queries, use
+[`script/rust/sqlx_codegen_database.sh`](./script/rust/sqlx_codegen_database.sh)
+to regenerate metadata against migrated development databases.
+
+### Web frontend
+
+To run the browser app against a local backend:
+
+```bash
+cd frontend
+npm install
+VITE_USE_LOCAL_API=true npx nx dev artcraft-webapp
+```
+
+The browser app runs at `http://localhost:4201`. `VITE_USE_LOCAL_API=true` selects
+`http://localhost:12345`; without that override, its Vite development proxy targets
+the hosted API. API host selection lives in
+[`StorytellerApiHostStore`](./frontend/libs/api/src/lib/config/StorytellerApiHostStore.ts).
+
+From `frontend`, build the web app or run the product website with:
+
+```bash
+npx nx build artcraft-webapp
+npx nx dev artcraft-website
+```
+
+The website runs at `http://localhost:4200`. Repository-root launchers are in
+[`script/website`](./script/website). For desktop development, use the
+[ArtCraft desktop repository](https://github.com/storytold/artcraft).
+
+## Further reading
+
+- [Technical documentation](./_docs)
+- [Code conventions](./_docs/code_conventions.md)
+- [Database schemas and migrations](./_database)
+- [Postman collections](./_tools/postman)
+- [Build and development scripts](./script)
+- [License](./LICENSE.md)

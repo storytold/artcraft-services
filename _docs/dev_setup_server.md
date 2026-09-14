@@ -2,11 +2,9 @@
 
 ArtCraft's server is a Rust / Actix app called `storyteller-web`.
 
-You don't need to run this to develop the ArtCraft application, but it can be useful to spin up
-a development instance for adding new server functions or as your own private local copy.
-
-`storyteller-web` can function entirely within the development environment, and ArtCraft can be
-pointed to a local instance of the server.
+Run it locally to develop backend functionality or connect the web app to your
+own API instance. The desktop app is maintained in
+[storytold/artcraft](https://github.com/storytold/artcraft).
 
 **TODO**: Concisely describe setting up server components. Note: we have
 previous docs in `old/` that may still be relevant, though they're perhaps
@@ -53,7 +51,7 @@ Then verify access with `./script/dev_mysql_connect.sh`
 ```bash
 cargo install diesel_cli \
   --no-default-features \
-  --features mysql,sqlite
+  --features mysql
 ```
 
 If this fails,
@@ -90,7 +88,7 @@ Finally, you'll need the sqlx CLI tool to run codegen.
 You likely won't need this now, but if you change any queries, this will be necessary:
 
 ```bash
-cargo install sqlx-cli --features rustls,mysql,sqlite
+cargo install sqlx-cli --version 0.7.4 --no-default-features --features rustls,mysql --locked
 ```
 
 ### Install Redis (Mac)

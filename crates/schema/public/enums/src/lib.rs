@@ -35,6 +35,5 @@ pub mod by_table;
 pub mod common;
 pub mod error;
 pub mod no_table;
-pub mod tauri;
 pub mod traits;
 pub mod api_safe;

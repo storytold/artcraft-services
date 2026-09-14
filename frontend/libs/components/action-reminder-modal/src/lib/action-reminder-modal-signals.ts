@@ -1,4 +1,3 @@
-// frontend/apps/artcraft/app/src/signals/actionReminderSignals.ts
 import { signal } from "@preact/signals-react";
 import { ReactNode } from "react";
 import { ReminderType } from "@storyteller/ui-action-reminder-modal";

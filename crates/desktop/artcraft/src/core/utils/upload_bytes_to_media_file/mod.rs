@@ -1,2 +1,0 @@
-pub mod upload_image_bytes_as_media_file;
-pub mod upload_mask_image_bytes_as_media_file;
