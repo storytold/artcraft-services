@@ -27,6 +27,8 @@ cloud_storage.workspace = true
 concurrency.workspace = true
 easyenv.workspace = true
 enums.workspace = true
+mimetypes.workspace = true
+ffmpeg_utils.workspace = true
 errors.workspace = true
 hashing = { path = "../../../lib/files/hashing" }
 jobs_common = { path = "../../../lib/jobs_common" }

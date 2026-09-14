@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+use ffmpeg_utils::ffprobe::ffprobe_get_info::{ffprobe_get_info_from_bytes, VideoInfo};
 use std::collections::HashSet;
 
 use log::{info, warn};
@@ -71,6 +73,15 @@ pub async fn upload_url_to_media_file(
       format!("Unpermitted mime type for URL {}: {}", url, filtered_mimetype)));
   }
 
+  let video_info = if matches!(kind, MediaUploadKind::Video) {
+    ffprobe_get_info_from_bytes(&file_bytes).unwrap_or_else(|err| {
+      warn!("Could not probe uploaded video URL: {:?}", err);
+      VideoInfo::default()
+    })
+  } else {
+    VideoInfo::default()
+  };
+
   // ==================== OTHER FILE METADATA ==================== //
 
   let extension = mimetype_to_extension(&mimetype)
@@ -125,7 +136,9 @@ pub async fn upload_url_to_media_file(
     maybe_batch_token: None,
     file_size_bytes,
     // NB: Duration would require probing the file on disk; URL inputs skip it.
-    maybe_duration_millis: None,
+    maybe_duration_millis: video_info.duration.map(|duration| u64::from(duration.millis)),
+    maybe_frame_width: video_info.dimensions.as_ref().and_then(|d| u32::try_from(d.width).ok()),
+    maybe_frame_height: video_info.dimensions.as_ref().and_then(|d| u32::try_from(d.height).ok()),
     sha256_checksum: &hash,
     maybe_title: None,
     maybe_scene_source_media_file_token: None,
@@ -159,6 +172,7 @@ static IMAGE_MIME_TYPES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
 static VIDEO_MIME_TYPES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
   HashSet::from([
     "video/mp4",
+    "video/quicktime",
   ])
 });
 

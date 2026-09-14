@@ -126,7 +126,8 @@ pub struct GenerateVideoRequestBuilder {
   /// Not all models support this; models that don't simply ignore it.
   pub bitrate: Option<RouterBitrate>,
 
-  /// Output container for Kinovi Seedance 2.5. None keeps the provider default.
+  /// Output container for Seedance 2.5 on Kinovi and Artcraft.
+  /// None keeps the provider default; unsupported models/providers ignore it.
   pub maybe_output_format: Option<RouterVideoOutputFormat>,
 
   /// How many seconds to generate.

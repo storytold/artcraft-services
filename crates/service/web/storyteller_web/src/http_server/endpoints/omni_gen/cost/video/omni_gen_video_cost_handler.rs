@@ -271,6 +271,7 @@ mod tests {
       resolution: None,
       aspect_ratio: None,
       bitrate: None,
+      maybe_output_format: None,
       quality: None,
       duration_seconds: None,
       video_batch_count: None,

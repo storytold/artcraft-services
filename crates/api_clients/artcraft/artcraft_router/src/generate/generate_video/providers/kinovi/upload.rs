@@ -19,9 +19,7 @@ pub(crate) async fn upload_to_kinovi_web(
   source_url: &str,
   maybe_local_path: Option<&Path>,
 ) -> Result<String, ArtcraftRouterError> {
-  let extension = extract_extension_from_url_str(source_url, &ExtractExtensions::All)
-      .map(|ext| ext.without_period().to_string())
-      .unwrap_or_else(|| "jpg".to_string());
+  let extension = upload_extension(source_url, maybe_local_path);
 
   let file_bytes = match maybe_local_path {
     Some(local_path) => match std::fs::read(local_path) {
@@ -58,3 +56,25 @@ pub(crate) async fn upload_to_kinovi_web(
   Ok(upload_response.public_url)
 }
 
+/// Keep the reference container when uploading, including QuickTime/MOV.
+fn upload_extension(source_url: &str, maybe_local_path: Option<&Path>) -> String {
+  extract_extension_from_url_str(source_url, &ExtractExtensions::All)
+    .map(|ext| ext.without_period().to_string())
+    .or_else(|| maybe_local_path
+      .and_then(Path::extension)
+      .and_then(|ext| ext.to_str())
+      .map(str::to_ascii_lowercase))
+    .unwrap_or_else(|| "jpg".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn quicktime_upload_keeps_mov_extension() {
+    assert_eq!(upload_extension("https://example.com/reference.MOV?token=test", None), "mov");
+    assert_eq!(upload_extension("https://example.com/reference.mov", Some(Path::new("/tmp/cached.bin"))), "mov");
+    assert_eq!(upload_extension("https://example.com/reference", Some(Path::new("/tmp/reference.MOV"))), "mov");
+  }
+}

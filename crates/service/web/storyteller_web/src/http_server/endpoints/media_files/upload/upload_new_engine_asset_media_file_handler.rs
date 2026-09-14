@@ -224,6 +224,8 @@ pub async fn upload_new_engine_asset_media_file_handler(
     maybe_mime_type: Some(file_info.mimetype),
     file_size_bytes: file_info.file_size_bytes as u64,
     maybe_duration_millis: file_info.maybe_duration_millis,
+    maybe_frame_width: None,
+    maybe_frame_height: None,
     sha256_checksum: &file_info.sha256_checksum,
     maybe_scene_source_media_file_token: None,
     is_intermediate_system_file: false, // NB: is_user_upload = TRUE

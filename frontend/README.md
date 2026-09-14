@@ -35,11 +35,19 @@ environment, install dependencies, and free the dev port first):
 ./script/website/unix_frontend_webapp_dev.sh   # artcraft-webapp (user dashboard), port 4201
 ```
 
+Run the webapp from **artcraft-services**, not the separate `artcraft` desktop
+checkout. The webapp launcher also works from another directory when invoked
+by its full or relative path:
+
+```bash
+../artcraft-services/script/website/unix_frontend_webapp_dev.sh
+```
+
 Or directly from this directory:
 
 ```bash
 nx dev artcraft-website
-nx dev artcraft-webapp
+npx nx dev @frontend/artcraft-webapp
 ```
 
 ## Building

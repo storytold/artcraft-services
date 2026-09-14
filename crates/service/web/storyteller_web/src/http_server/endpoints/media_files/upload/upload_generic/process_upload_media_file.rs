@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -11,6 +12,7 @@ use enums::by_table::media_files::media_file_origin_category::MediaFileOriginCat
 use enums::by_table::media_files::media_file_type::MediaFileType;
 use enums::common::visibility::Visibility;
 use hashing::sha256::sha256_hash_bytes::sha256_hash_bytes;
+use ffmpeg_utils::ffprobe::ffprobe_get_info::{ffprobe_get_info_from_bytes, VideoInfo};
 use http_server_common::request::get_request_ip::get_request_ip;
 use media::decode_basic_audio_info::decode_basic_audio_bytes_info;
 use mimetypes::mimetype_for_bytes::get_mimetype_for_bytes;
@@ -194,7 +196,7 @@ pub async fn process_upload_media_file(
 
     let do_audio_decode = match mimetype {
       // TODO: Revisit when Safari can send us this metadata consistently
-      "audio/mp4" | "video/mp4" => false,
+      "audio/mp4" | "video/mp4" | "video/quicktime" => false,
       "audio/opus" => {
         // TODO/FIXME(bt, 2023-05-19): Symphonia is currently broken for Firefox's opus.
         //  We're on an off-master branch that may resolve the problem in the future, but for now
@@ -280,6 +282,18 @@ pub async fn process_upload_media_file(
   };
 
   let media_file_class = media_file_type.to_media_class();
+  let video_info = if media_file_class == MediaFileClass::Video {
+    ffprobe_get_info_from_bytes(&bytes).unwrap_or_else(|err| {
+      warn!("Could not probe uploaded video: {:?}", err);
+      VideoInfo::default()
+    })
+  } else {
+    VideoInfo::default()
+  };
+  if let Some(duration) = &video_info.duration {
+    maybe_duration_millis = Some(u64::from(duration.millis));
+  }
+
 
   let upload_type = match upload_media_request.media_source {
     MediaFileUploadSource::Unknown => UploadType::Filesystem,
@@ -349,6 +363,8 @@ pub async fn process_upload_media_file(
       .mime_type(mime_type)
       .file_size_bytes(file_size_bytes as u64)
       .maybe_duration_millis(maybe_duration_millis)
+      .maybe_frame_width(video_info.dimensions.as_ref().and_then(|d| u32::try_from(d.width).ok()))
+      .maybe_frame_height(video_info.dimensions.as_ref().and_then(|d| u32::try_from(d.height).ok()))
       .checksum_sha2(&hash)
       .maybe_title(upload_media_request.title.as_deref())
       .maybe_origin_filename(upload_media_request.file_name.as_deref())

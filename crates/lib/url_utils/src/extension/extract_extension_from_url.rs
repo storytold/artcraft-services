@@ -22,6 +22,7 @@ const KNOWN_AUDIO_EXTENSIONS: &[Extension] = &[
 /// Known video extensions.
 const KNOWN_VIDEO_EXTENSIONS: &[Extension] = &[
   Extension::from_static("mp4", ".mp4"),
+  Extension::from_static("mov", ".mov"),
   Extension::from_static("webm", ".webm"),
 ];
 
@@ -39,7 +40,7 @@ pub enum ExtractExtensions {
   /// Accept only known audio extensions (wav, mp3).
   KnownAudio,
 
-  /// Accept only known video extensions (mp4, webm).
+  /// Accept only known video extensions (mp4, mov, webm).
   KnownVideo,
 
   /// Accept any known media extension (image, audio, or video).
@@ -156,6 +157,14 @@ mod tests {
   fn known_video_matches_mp4() {
     let ext = extract_extension_from_url_str("https://example.com/clip.mp4", &ExtractExtensions::KnownVideo);
     assert_eq!(ext.unwrap().without_period(), "mp4");
+  }
+
+  #[test]
+  fn quicktime_is_a_known_video_and_media_extension() {
+    for accept in [ExtractExtensions::KnownVideo, ExtractExtensions::KnownMedia] {
+      let ext = extract_extension_from_url_str("https://example.com/clip.MOV?token=test", &accept);
+      assert_eq!(ext.unwrap().without_period(), "mov");
+    }
   }
 
   #[test]

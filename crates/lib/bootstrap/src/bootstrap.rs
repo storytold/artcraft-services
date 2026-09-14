@@ -5,6 +5,8 @@ use log::{info, warn};
 use errors::{anyhow, AnyhowResult};
 use server_environment::ServerEnvironment;
 
+use crate::config_search_directories::{config_search_directories, find_repository_root};
+
 pub struct BootstrapArgs<'a, P: AsRef<Path>> {
   /// The name of the application or service
   pub app_name: &'a str,
@@ -14,6 +16,7 @@ pub struct BootstrapArgs<'a, P: AsRef<Path>> {
   pub default_logging_override: Option<&'a str>,
 
   /// Where to look for env conf files.
+  /// Relative paths are also searched from an enclosing artcraft or artcraft-services checkout.
   pub config_search_directories: &'a [P],
 
   /// If true, ignore the root '.env' file.
@@ -113,12 +116,16 @@ pub fn bootstrap<P: AsRef<Path>>(args: BootstrapArgs<'_, P>) -> AnyhowResult<Con
 }
 
 fn load_env_config_files<P: AsRef<Path>>(server_environment: ServerEnvironment, args: &BootstrapArgs<'_, P>) -> AnyhowResult<()> {
+  let maybe_current_directory = std::env::current_dir().ok();
+  let maybe_repository_root = maybe_current_directory.as_deref().and_then(find_repository_root);
+  let search_directories = config_search_directories(args.config_search_directories, maybe_repository_root);
+  let secrets_filename = format!("{}.development-secrets.env", &args.app_name);
 
   let env_config_file_names = match server_environment {
     ServerEnvironment::Development => vec![
       format!("{}.common.env", &args.app_name),
       format!("{}.development.env", &args.app_name),
-      format!("{}.development-secrets.env", &args.app_name), // NB: .gitignore these files
+      secrets_filename.clone(), // NB: .gitignore these files
     ],
     ServerEnvironment::Production => vec![
       format!("{}.common.env", &args.app_name),
@@ -129,9 +136,19 @@ fn load_env_config_files<P: AsRef<Path>>(server_environment: ServerEnvironment, 
   for env_config_file in env_config_file_names.into_iter() {
     info!("Loading environment variable config file: {}", &env_config_file);
 
-    let was_read = easyenv::maybe_read_env_config_from_filename_and_paths(
+    let mut was_read = easyenv::maybe_read_env_config_from_filename_and_paths(
       &env_config_file,
-      args.config_search_directories)?;
+      &search_directories)?;
+
+    // Development backups fill missing variables, even when a local config file exists.
+    // dotenv preserves values already set in the environment or earlier config files.
+    if server_environment == ServerEnvironment::Development && env_config_file == secrets_filename {
+      if let Some(root) = maybe_repository_root {
+        was_read |= easyenv::maybe_read_env_config_from_filename_and_paths(
+          &env_config_file,
+          &[root.join("secrets/artcraft-backup")])?;
+      }
+    }
 
     if was_read {
       info!("Environment config file `{}` was read.", &env_config_file);

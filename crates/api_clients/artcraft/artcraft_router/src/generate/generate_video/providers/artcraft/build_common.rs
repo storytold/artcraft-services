@@ -3,10 +3,12 @@ use enums::common::generation::common_aspect_ratio::CommonAspectRatio as CommonA
 use enums::common::generation::common_bitrate::CommonBitrate as CommonBitrateEnum;
 use enums::common::generation::common_resolution::CommonResolution as CommonResolutionEnum;
 use enums::common::generation::common_video_model::CommonVideoModel as CommonVideoModelEnum;
+use enums::common::generation::common_video_output_format::CommonVideoOutputFormat;
 
 use crate::api::router_aspect_ratio::RouterAspectRatio;
 use crate::api::router_bitrate::RouterBitrate;
 use crate::api::router_resolution::RouterResolution;
+use crate::api::router_video_output_format::RouterVideoOutputFormat;
 use crate::client::request_mismatch_mitigation_strategy::RequestMismatchMitigationStrategy;
 use crate::errors::artcraft_router_error::ArtcraftRouterError;
 use crate::errors::client_error::ClientError;
@@ -55,6 +57,13 @@ pub fn build_artcraft_omni_video_request(
   let duration_seconds = plan_duration(builder.duration_seconds.take(), strategy)?;
   let bitrate = plan_bitrate(builder.bitrate.take());
   let prompt = builder.prompt.take();
+  let supports_output_format = matches!(model, CommonVideoModelEnum::Seedance2p5 | CommonVideoModelEnum::Seedance2p5Ultra);
+  let maybe_output_format = builder.maybe_output_format
+    .filter(|_| supports_output_format)
+    .map(|format| match format {
+      RouterVideoOutputFormat::Mp4 => CommonVideoOutputFormat::Mp4,
+      RouterVideoOutputFormat::Mov => CommonVideoOutputFormat::Mov,
+    });
 
   let start_frame = resolve_image_ref(builder.start_frame.take())?;
   let end_frame = resolve_image_ref(builder.end_frame.take())?;
@@ -77,6 +86,7 @@ pub fn build_artcraft_omni_video_request(
     resolution,
     aspect_ratio,
     bitrate,
+    maybe_output_format,
     duration_seconds: duration_seconds.map(|d| d as u16),
     video_batch_count: Some(batch_count),
     negative_prompt: None,
@@ -316,6 +326,71 @@ pub fn plan_duration(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  mod output_format {
+    use super::*;
+    use crate::api::router_provider::RouterProvider;
+    use crate::api::router_video_model::RouterVideoModel;
+    use crate::generate::generate_video::video_generation_draft_or_request::VideoGenerationDraftOrRequest;
+    use crate::generate::generate_video::video_generation_request::VideoGenerationRequest;
+
+    #[test]
+    fn seedance_2p5_preserves_output_format_and_audio_over_http() {
+      for model in [RouterVideoModel::Seedance2p5, RouterVideoModel::Seedance2p5Ultra] {
+        for maybe_output_format in [None, Some(RouterVideoOutputFormat::Mp4), Some(RouterVideoOutputFormat::Mov)] {
+          for generate_audio in [None, Some(true), Some(false)] {
+            let builder = GenerateVideoRequestBuilder {
+              provider: RouterProvider::Artcraft,
+              model,
+              maybe_output_format,
+              generate_audio,
+              ..Default::default()
+            };
+            let request = match builder.build2().unwrap() {
+              VideoGenerationDraftOrRequest::Request(VideoGenerationRequest::ArtcraftSeedance2p5(state)) => state.request,
+              VideoGenerationDraftOrRequest::Request(VideoGenerationRequest::ArtcraftSeedance2p5Ultra(state)) => state.request,
+              other => panic!("Unexpected request: {:?}", other),
+            };
+            let json = serde_json::to_value(&request).unwrap();
+            let expected = match maybe_output_format {
+              None => None,
+              Some(RouterVideoOutputFormat::Mp4) => Some("mp4"),
+              Some(RouterVideoOutputFormat::Mov) => Some("mov"),
+            };
+            assert_eq!(json.get("output_format").and_then(|v| v.as_str()), expected);
+            if expected.is_none() {
+              assert!(json.get("output_format").is_none());
+            }
+            let decoded: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json).unwrap();
+            assert_eq!(decoded.maybe_output_format, request.maybe_output_format);
+            assert_eq!(decoded.generate_audio, generate_audio);
+          }
+        }
+      }
+    }
+
+    #[test]
+    fn unsupported_models_ignore_output_format_even_with_error_strategy() {
+      for model in [RouterVideoModel::Seedance2p0, RouterVideoModel::Seedance2p0Fast, RouterVideoModel::Seedance2p5Preview] {
+        for format in [RouterVideoOutputFormat::Mp4, RouterVideoOutputFormat::Mov] {
+          let builder = GenerateVideoRequestBuilder {
+            provider: RouterProvider::Artcraft,
+            model,
+            maybe_output_format: Some(format),
+            request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::ErrorOut,
+            ..Default::default()
+          };
+          let request = match builder.build2().unwrap() {
+            VideoGenerationDraftOrRequest::Request(VideoGenerationRequest::ArtcraftSeedance2p0(state)) => state.request,
+            VideoGenerationDraftOrRequest::Request(VideoGenerationRequest::ArtcraftSeedance2p0Fast(state)) => state.request,
+            VideoGenerationDraftOrRequest::Request(VideoGenerationRequest::ArtcraftSeedance2p5Preview(state)) => state.request,
+            other => panic!("Unexpected request: {:?}", other),
+          };
+          assert!(serde_json::to_value(request).unwrap().get("output_format").is_none());
+        }
+      }
+    }
+  }
 
   mod bitrate_translation {
     use super::*;

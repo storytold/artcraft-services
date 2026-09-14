@@ -6,6 +6,7 @@ use artcraft_router::api::router_aspect_ratio::RouterAspectRatio;
 use artcraft_router::api::router_bitrate::RouterBitrate;
 use artcraft_router::api::router_resolution::RouterResolution;
 use artcraft_router::api::router_video_model::RouterVideoModel;
+use artcraft_router::api::router_video_output_format::RouterVideoOutputFormat;
 use artcraft_router::api::image_list_ref::ImageListRef;
 use artcraft_router::api::image_ref::ImageRef;
 use artcraft_router::api::router_provider::RouterProvider;
@@ -16,6 +17,7 @@ use enums::common::generation::common_aspect_ratio::CommonAspectRatio as CommonA
 use enums::common::generation::common_bitrate::CommonBitrate as CommonBitrateEnum;
 use enums::common::generation::common_resolution::CommonResolution as CommonResolutionEnum;
 use enums::common::generation::common_video_model::CommonVideoModel as CommonVideoModelEnum;
+use enums::common::generation::common_video_output_format::CommonVideoOutputFormat;
 
 pub fn hydrate_to_router_request(
   request: &OmniGenVideoCostAndGenerateRequest,
@@ -63,7 +65,14 @@ pub fn hydrate_to_router_request(
     resolution,
     aspect_ratio,
     bitrate,
-    maybe_output_format: None,
+    maybe_output_format: if matches!(model, RouterVideoModel::Seedance2p5 | RouterVideoModel::Seedance2p5Ultra) {
+      Some(match request.maybe_output_format.unwrap_or(CommonVideoOutputFormat::Mp4) {
+        CommonVideoOutputFormat::Mp4 => RouterVideoOutputFormat::Mp4,
+        CommonVideoOutputFormat::Mov => RouterVideoOutputFormat::Mov,
+      })
+    } else {
+      None
+    },
     duration_seconds: request.duration_seconds,
     video_batch_count: request.video_batch_count,
     generate_audio: request.generate_audio,
@@ -123,6 +132,69 @@ fn convert_bitrate(
 mod tests {
   use super::*;
 
+  mod output_format {
+    use super::*;
+    use artcraft_router::client::router_client::RouterClient;
+    use artcraft_router::client::router_kinovi_web_client::RouterKinoviWebClient;
+    use artcraft_router::generate::generate_video::video_generation_draft_context::VideoGenerationDraftContext;
+    use artcraft_router::generate::generate_video::video_generation_draft_or_request::VideoGenerationDraftOrRequest;
+    use artcraft_router::generate::generate_video::video_generation_request::VideoGenerationRequest;
+    use kinovi_web_client::creds::kinovi_web_session::KinoviWebSession;
+    use kinovi_web_client::generate::video::generate_seedance_2p5::KinoviSeedance2p5OutputFormat;
+    use serde_json::{json, Value};
+
+    #[tokio::test]
+    async fn artcraft_http_request_reaches_kinovi_with_format_and_audio() {
+      // No media inputs or send: finalization needs a client but makes no HTTP calls.
+      let client = RouterClient::KinoviWeb(RouterKinoviWebClient::new(
+        KinoviWebSession::from_cookies_string(String::new()),
+      ));
+      let context = VideoGenerationDraftContext { client: Some(&client), ..Default::default() };
+      for output_format in [Value::Null, json!("mp4"), json!("mov")] {
+        for generate_audio in [None, Some(true), Some(false)] {
+          let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json!({
+            "model": "seedance_2p5",
+            "output_format": output_format,
+            "generate_audio": generate_audio,
+          })).unwrap();
+          let mut builder = hydrate_to_router_request(&request).unwrap();
+          builder.provider = RouterProvider::KinoviWeb;
+          let draft = match builder.build2().unwrap() {
+            VideoGenerationDraftOrRequest::Draft(draft) => draft,
+            other => panic!("Unexpected request: {:?}", other),
+          };
+          let finalized = draft.finalize(context.clone()).await.unwrap();
+          let request = match finalized {
+            VideoGenerationRequest::KinoviSeedance2p5(state) => state.request,
+            other => panic!("Unexpected request: {:?}", other),
+          };
+          let actual_format = request.maybe_output_format.map(|format| match format {
+            KinoviSeedance2p5OutputFormat::Mp4 => "mp4",
+            KinoviSeedance2p5OutputFormat::Mov => "mov",
+          });
+          assert_eq!(actual_format, Some(output_format.as_str().unwrap_or("mp4")));
+          assert_eq!(request.maybe_generate_audio, generate_audio);
+        }
+      }
+    }
+
+    #[test]
+    fn unsupported_model_ignores_format() {
+      let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json!({
+        "model": "seedance_2p0", "output_format": "mov"
+      })).unwrap();
+      assert!(hydrate_to_router_request(&request).unwrap().maybe_output_format.is_none());
+    }
+
+    #[test]
+    fn absent_format_defaults_to_mp4() {
+      let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json!({
+        "model": "seedance_2p5"
+      })).unwrap();
+      assert_eq!(hydrate_to_router_request(&request).unwrap().maybe_output_format, Some(RouterVideoOutputFormat::Mp4));
+    }
+  }
+
   mod bitrate_hydration {
     use super::*;
 
@@ -168,6 +240,7 @@ mod tests {
       resolution: None,
       aspect_ratio: None,
       bitrate: None,
+      maybe_output_format: None,
       quality: None,
       duration_seconds: None,
       video_batch_count: None,

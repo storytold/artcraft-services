@@ -156,8 +156,17 @@ the remaining configuration is defined in the
 
 In development, the server loads `storyteller-web.common.env`,
 `storyteller-web.development.env`, and `storyteller-web.development-secrets.env`
-from its configuration search paths: the repository root, `./config`, and the
-server's config directory. Its bootstrap skips the root `.env` file.
+from its configuration search paths: the working directory, `./config`, and the
+server's config directory. Shared bootstrap also resolves relative search paths
+from the enclosing `artcraft-services` or `artcraft` checkout, so these files can
+be found when launching from a subdirectory. In development, it then reads
+`secrets/artcraft-backup/<app-name>.development-secrets.env` in that same checkout
+to fill missing variables. Existing environment and config values take precedence.
+Its bootstrap skips the root `.env` file.
+
+The `seedance2-pro-job` worker also requires `SEEDANCE2PRO_VERSION` to be set to
+`volcengine`, `byteplus`, or `byteplusultra` in the environment or a config file
+(or supplied as its first CLI argument). Cookie credentials do not select a version.
 
 With the toolchain and service configuration in place, run from the repository root:
 
