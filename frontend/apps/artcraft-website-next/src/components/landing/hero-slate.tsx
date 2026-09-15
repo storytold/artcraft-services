@@ -9,13 +9,14 @@ import { defineTunables } from "@/lib/tuner";
 import { introClock, introTuner } from "@/lib/intro";
 import { heroTelemetry } from "@/lib/hero-telemetry";
 
-// The hero's viewfinder slate: the sales layer annotated in the product's
+// The hero's viewfinder slate: the sales layer framed in the product's
 // own metaphor — a camera viewport where shots are composed. Corner
-// brackets frame the stage like framing guides, a timecode readout runs on
-// the galaxy's scene clock, and the flanks carry live telemetry from the
-// running instrument. All of it is width-adaptive chrome: on wide stages
-// the brackets and flanks move OUT with the viewport, so excess negative
-// space becomes measured, annotated space instead of margin.
+// brackets frame the stage like framing guides and a timecode readout
+// runs on the galaxy's scene clock. Width-adaptive chrome: on wide stages
+// the brackets move OUT with the viewport, keeping the composition
+// anchored at any size. (A live-telemetry flank experiment was cut —
+// stats read as filler on a product site; the card spiral itself is what
+// expresses ArtCraft.)
 
 export const slateTuner = defineTunables("heroSlate", "Hero slate", {
   bracketInset: {
@@ -41,22 +42,6 @@ export const slateTuner = defineTunables("heroSlate", "Hero slate", {
     step: 2,
     default: 76,
     info: "Extra bottom inset so the lower brackets clear the proof strip.",
-  },
-  flankInset: {
-    label: "Flank inset px",
-    min: 16,
-    max: 220,
-    step: 2,
-    default: 56,
-    info: "Distance of the telemetry stacks from the stage's left/right edges.",
-  },
-  flankHz: {
-    label: "Flank refresh Hz",
-    min: 1,
-    max: 30,
-    step: 1,
-    default: 6,
-    info: "How often the flank readouts sample the galaxy's telemetry.",
   },
   tcFps: {
     label: "Timecode fps",
@@ -208,96 +193,6 @@ export function SlateFrame() {
         TC <span ref={tcRef} className="tabular-nums">00:00:00:00</span>
       </p>
     </div>
-  );
-}
-
-// One flank row: mono label left, live value right (written imperatively).
-function Row({
-  label,
-  refFn,
-  initial,
-}: {
-  label: string;
-  refFn: (el: HTMLSpanElement | null) => void;
-  initial: string;
-}) {
-  return (
-    <p className="flex items-baseline justify-between gap-6">
-      <span className="text-faint">{label}</span>
-      <span ref={refFn} className="tabular-nums text-muted">
-        {initial}
-      </span>
-    </p>
-  );
-}
-
-// Live telemetry stacks at the stage's far flanks — honest readouts from
-// the running galaxy, in the slate voice. The wider the stage, the further
-// out they sit: annotated space instead of empty margin. Hidden below xl.
-export function FlankTelemetry() {
-  const leftRef = useRef<HTMLDivElement>(null);
-  const rightRef = useRef<HTMLDivElement>(null);
-  const vals = useRef<Record<string, HTMLSpanElement | null>>({});
-
-  useEffect(() => {
-    let acc = 1;
-    const set = (key: string, text: string) => {
-      const el = vals.current[key];
-      if (el && el.textContent !== text) el.textContent = text;
-    };
-    const tick = (_t: number, deltaMs: number) => {
-      const sv = slateTuner.read();
-      const live = heroTelemetry.time > 0 ? 1 : 0;
-      const fade = introFade(introTuner.read().instrAt + 0.2) * live;
-      for (const el of [leftRef.current, rightRef.current]) {
-        if (!el) continue;
-        el.style.opacity = String(fade);
-        el.style.setProperty("--flank-inset", `${sv.flankInset}px`);
-      }
-      acc += deltaMs / 1000;
-      if (acc < 1 / sv.flankHz) return;
-      acc = 0;
-      const t = heroTelemetry;
-      set("cards", String(t.cards).padStart(3, "0"));
-      set("clips", `${t.clipsLive}/${t.clipPool}`);
-      set("fps", String(Math.round(t.fps)).padStart(3, "0"));
-      set("spin", `${t.spinDeg < 0 ? "−" : "+"}${pad2(Math.abs(t.spinDeg) % 360)}°`);
-      set("lens", t.boost ? "3.0×" : "1.0×");
-    };
-    gsap.ticker.add(tick);
-    return () => gsap.ticker.remove(tick);
-  }, []);
-
-  // Frosted chip under the readouts — bare mono over bright/dark footage
-  // was illegible; a viewfinder HUD sits on its own translucent plate.
-  const stack =
-    "hud-label pointer-events-none absolute top-1/2 z-30 hidden w-40 -translate-y-1/2 flex-col gap-2 border-y border-line bg-bg/60 px-3 py-3 backdrop-blur-sm xl:flex";
-  const r = (k: string) => (el: HTMLSpanElement | null) => {
-    vals.current[k] = el;
-  };
-  return (
-    <>
-      <div
-        ref={leftRef}
-        aria-hidden
-        className={stack}
-        style={{ opacity: 0, left: "var(--flank-inset, 56px)" }}
-      >
-        <Row label="Cards" refFn={r("cards")} initial="000" />
-        <Row label="Playing" refFn={r("clips")} initial="0/0" />
-        <Row label="FPS" refFn={r("fps")} initial="000" />
-      </div>
-      <div
-        ref={rightRef}
-        aria-hidden
-        className={stack}
-        style={{ opacity: 0, right: "var(--flank-inset, 56px)" }}
-      >
-        <Row label="Spin θ" refFn={r("spin")} initial="+00°" />
-        <Row label="Lens" refFn={r("lens")} initial="1.0×" />
-        <Row label="Scene" refFn={() => {}} initial="01" />
-      </div>
-    </>
   );
 }
 

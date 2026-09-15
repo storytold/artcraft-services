@@ -1271,17 +1271,9 @@ function GalaxyScene({
       );
     }
 
-    // Publish live readouts for the slate's flank annotations (plain field
-    // writes; the DOM side samples on its own throttled ticker).
-    heroTelemetry.fps = 1 / Math.max(st.frameEma, 1e-3);
-    heroTelemetry.cards = liveN;
-    heroTelemetry.clipPool = videos.length;
-    let playing = 0;
-    for (const v of videos) if (!v.paused) playing++;
-    heroTelemetry.clipsLive = playing;
-    heroTelemetry.spinDeg = (st.spin * 180) / Math.PI;
+    // Publish the scene clock for the slate's timecode (plain field write;
+    // the DOM side samples on its own throttled ticker).
     heroTelemetry.time = st.time;
-    heroTelemetry.boost = st.boostOn;
   });
 
   return (

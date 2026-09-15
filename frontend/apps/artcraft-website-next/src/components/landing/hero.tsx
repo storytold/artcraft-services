@@ -3,7 +3,7 @@ import HeroMasthead, { HeroScrim } from "./hero-wordmark";
 import HeroGalaxy from "./hero-galaxy";
 import HeroViewport from "./hero-viewport";
 import HeroCopy from "./hero-headline";
-import { SlateFrame, FlankTelemetry, ProofStrip } from "./hero-slate";
+import { SlateFrame, ProofStrip } from "./hero-slate";
 
 export default function Hero() {
   return (
@@ -16,11 +16,10 @@ export default function Hero() {
       <div className="relative flex min-h-[calc(100svh-3rem)] flex-col">
         <HeroGalaxy />
 
-        {/* Viewfinder slate: corner framing brackets + timecode, and live
-            telemetry at the far flanks — width-adaptive chrome that turns
-            a wide stage's empty margins into annotated, measured space. */}
+        {/* Viewfinder slate: corner framing brackets + timecode — width-
+            adaptive chrome that keeps the composition anchored on wide
+            stages. */}
         <SlateFrame />
-        <FlankTelemetry />
 
         {/* z-40 (not z-10): this container is a stacking context, so the
             masthead's own z-40 is capped by it — the hero letters must
