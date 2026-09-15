@@ -87,10 +87,16 @@ export default function ScrollRuler() {
   // Capability gate. Media changes mid-session are rare enough that a
   // reload is the supported way to re-evaluate.
   useEffect(() => {
-    const fine = window.matchMedia(
-      "(pointer: fine) and (min-width: 768px)",
+    // Desktop only: a hover-capable fine pointer on a laptop-class
+    // viewport, and never on a phone/tablet UA (tablets with a mouse
+    // attached still report a fine pointer).
+    const desktop = window.matchMedia(
+      "(pointer: fine) and (hover: hover) and (min-width: 1024px)",
     ).matches;
-    if (!fine) return;
+    const mobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(
+      navigator.userAgent,
+    );
+    if (!desktop || mobileUa) return;
     const motionOk = window.matchMedia(
       "(prefers-reduced-motion: no-preference)",
     ).matches;

@@ -108,12 +108,49 @@ export type RulerSection = {
 
 export const HERO_SECTION_ID = "hero";
 
+// ORDER MATTERS: the ruler assumes anchors increase with roster index, and
+// each page mounts only its own ids (the rest are skipped), so one roster
+// serves the whole site as long as every page's sections appear here in
+// the order they appear in that page's DOM. Page-header ids (01) come
+// before the interior section ids they precede.
 export const RULER_SECTIONS: RulerSection[] = [
   { id: HERO_SECTION_ID, label: "ARTCRAFT" },
+  // Campaign page heroes, then their own sections, then the landing
+  // sections they reuse (features/ownership/made-with/start).
+  { id: "seedance-2", label: "SEEDANCE 2.0" },
+  { id: "seedance-2-5", label: "SEEDANCE 2.5" },
+  { id: "minimax-h3", label: "MINIMAX H3" },
+  { id: "creator", label: "SPOTLIGHT" },
+  { id: "overview", label: "OVERVIEW" },
+  { id: "highlights", label: "HIGHLIGHTS" },
+  { id: "examples", label: "EXAMPLES" },
+  { id: "tips", label: "PROMPT TIPS" },
+  { id: "campaign-faq", label: "FAQ" },
+  { id: "manifesto", label: "MANIFESTO" },
+  { id: "the-work", label: "THE WORK" },
+  { id: "craft", label: "THE CRAFT" },
   { id: "features", label: "FEATURES" },
   { id: "ownership", label: "OWNERSHIP" },
+  { id: "reasons", label: "WHY ARTCRAFT" },
   { id: "made-with", label: "COMMUNITY" },
+  { id: "community", label: "JOIN US" },
   { id: "start", label: "GET STARTED" },
+  // Interior marketing pages.
+  { id: "pricing", label: "PRICING" },
+  { id: "download", label: "DOWNLOAD" },
+  { id: "tutorials", label: "TUTORIALS" },
+  { id: "news", label: "NEWS" },
+  { id: "faq", label: "FAQ" },
+  { id: "support", label: "SUPPORT" },
+  { id: "press-kit", label: "PRESS KIT" },
+  { id: "beta", label: "BETA" },
+  { id: "plans", label: "PLANS" },
+  { id: "enterprise", label: "ENTERPRISE" },
+  { id: "credits", label: "CREDITS" },
+  { id: "platforms", label: "PLATFORMS" },
+  { id: "quick-start", label: "QUICK START" },
+  { id: "articles", label: "ARTICLES" },
+  { id: "contact", label: "CONTACT" },
 ];
 
 export const MADE_WITH_YOUTUBE_IDS = [
