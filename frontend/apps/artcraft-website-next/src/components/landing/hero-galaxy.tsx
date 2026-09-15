@@ -475,25 +475,55 @@ function GalaxyScene({
     const thetaExit = (halfDiag + cardHCap * 1.5) / b;
     // Arm guide curves, drawn out past the exit so cards never outrun the
     // linework.
+    // Arm guides as thin RIBBON meshes, not GL lines — WebGL lines are
+    // stuck at 1px, and the pulses need to swell thicker than the
+    // hairline. Each sample extrudes two vertices along the curve normal;
+    // the vertex shader sets the actual width (base hairline + pulse
+    // swell). `guideX` interleaves phantom guides between the card arms
+    // for a denser underlay; the mobile profile keeps 1× (its whole point
+    // is fewer, cheaper elements).
+    const guides = arms * (mobile ? 1 : Math.max(1, Math.round(t.guideX)));
     const armGeoms: THREE.BufferGeometry[] = [];
-    for (let j = 0; j < arms; j++) {
-      const phase = (j * Math.PI * 2) / arms;
-      const pts: number[] = [];
+    for (let j = 0; j < guides; j++) {
+      const phase = (j * Math.PI * 2) / guides;
+      const pos: number[] = [];
+      const nrm: number[] = [];
+      const sides: number[] = [];
       const ts: number[] = [];
       const armIdx: number[] = [];
-      const steps = 160;
+      const idx: number[] = [];
+      const steps = 200;
       for (let k = 0; k <= steps; k++) {
         const theta = thetaBirth * 0.3 + (k / steps) * (thetaExit - thetaBirth * 0.3);
         const r = b * theta;
-        pts.push(r * Math.cos(theta + phase), r * Math.sin(theta + phase), -2);
-        // Fraction along the arm + arm index, for the pulse shader.
-        ts.push(k / steps);
-        armIdx.push(j);
+        const a = theta + phase;
+        const x = r * Math.cos(a);
+        const y = r * Math.sin(a);
+        // Archimedean tangent: d/dθ of (bθ·cos a, bθ·sin a).
+        const tx = b * Math.cos(a) - r * Math.sin(a);
+        const ty = b * Math.sin(a) + r * Math.cos(a);
+        const tl = Math.hypot(tx, ty) || 1;
+        const nx = -ty / tl;
+        const ny = tx / tl;
+        for (const s of [-1, 1]) {
+          pos.push(x, y, -2);
+          nrm.push(nx, ny);
+          sides.push(s);
+          ts.push(k / steps);
+          armIdx.push(j);
+        }
+        if (k < steps) {
+          const v = k * 2;
+          idx.push(v, v + 1, v + 2, v + 1, v + 3, v + 2);
+        }
       }
       const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute("aN", new THREE.Float32BufferAttribute(nrm, 2));
+      g.setAttribute("aSide", new THREE.Float32BufferAttribute(sides, 1));
       g.setAttribute("aT", new THREE.Float32BufferAttribute(ts, 1));
       g.setAttribute("aArm", new THREE.Float32BufferAttribute(armIdx, 1));
+      g.setIndex(idx);
       armGeoms.push(g);
     }
 
@@ -659,40 +689,64 @@ function GalaxyScene({
         transparent: true,
         depthTest: false,
         depthWrite: false,
+        side: THREE.DoubleSide,
         uniforms: {
           uTime: { value: 0 },
           uColor: { value: new THREE.Color("#888888") },
           uAlpha: { value: 0 },
           uPulseColor: { value: new THREE.Color("#2d81ff") },
           uPulseAlpha: { value: 0 },
-          uSpeed: { value: 0.12 },
-          uWidth: { value: 0.05 },
+          uSpeed: { value: 0.22 },
+          uWidth: { value: 0.035 },
           uCount: { value: 2 },
           uHue: { value: 0.35 },
+          uBaseW: { value: 1.2 },
+          uPulseW: { value: 3.5 },
         },
         vertexShader: /* glsl */ `
+          attribute vec2 aN;
+          attribute float aSide;
           attribute float aT;
           attribute float aArm;
-          varying float vT;
+          uniform float uTime;
+          uniform float uSpeed;
+          uniform float uWidth;
+          uniform float uCount;
+          uniform float uBaseW;
+          uniform float uPulseW;
+          varying float vG;
+          varying float vSide;
           varying float vArm;
           void main() {
-            vT = aT;
+            // Band coordinate: comets travel outward (increasing aT),
+            // arms dephased by the golden conjugate so they never flash
+            // in lockstep. Asymmetric falloff: sharp head, longer tail
+            // trailing behind the direction of travel.
+            float d = fract(aT * uCount - uTime * uSpeed + aArm * 0.618);
+            float s = d - 0.5;
+            float sig = uWidth * (s < 0.0 ? 1.7 : 0.55);
+            float g = exp(-0.5 * (s / sig) * (s / sig));
+            // Fade pulses out over the blurred birth zone.
+            g *= smoothstep(0.04, 0.14, aT);
+            vG = g;
+            vSide = aSide;
             vArm = aArm;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            // Ribbon width: resting hairline plus the pulse swell.
+            float w = uBaseW + uPulseW * g;
+            vec3 p = position;
+            p.xy += aN * aSide * w * 0.5;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
           }
         `,
         fragmentShader: /* glsl */ `
           precision highp float;
-          uniform float uTime;
           uniform vec3 uColor;
           uniform float uAlpha;
           uniform vec3 uPulseColor;
           uniform float uPulseAlpha;
-          uniform float uSpeed;
-          uniform float uWidth;
-          uniform float uCount;
           uniform float uHue;
-          varying float vT;
+          varying float vG;
+          varying float vSide;
           varying float vArm;
 
           // Hue rotation in YIQ — cheap and good enough for glow accents.
@@ -712,16 +766,12 @@ function GalaxyScene({
           }
 
           void main() {
-            // Band coordinate: pulses travel outward (increasing vT) and
-            // arms are dephased by the golden conjugate so they never
-            // flash in lockstep.
-            float d = fract(vT * uCount - uTime * uSpeed + vArm * 0.618);
-            float g = exp(-0.5 * pow((d - 0.5) / uWidth, 2.0));
-            // Fade pulses out near the arm's blurred birth zone.
-            g *= smoothstep(0.04, 0.14, vT);
+            // Soft ribbon edges — the cross-fade doubles as antialiasing.
+            float edge = 1.0 - smoothstep(0.45, 1.0, abs(vSide));
+            float g = clamp(vG, 0.0, 1.0);
             vec3 pulseCol = hueRotate(uPulseColor, vArm * uHue * 6.28318);
-            vec3 col = mix(uColor, pulseCol, clamp(g, 0.0, 1.0));
-            gl_FragColor = vec4(col, uAlpha + uPulseAlpha * g);
+            vec3 col = mix(uColor, pulseCol, g);
+            gl_FragColor = vec4(col, (uAlpha + uPulseAlpha * vG) * edge);
           }
         `,
       }),
@@ -755,10 +805,17 @@ function GalaxyScene({
     frame: new THREE.Vector3(0.5, 0.5, 0.5),
     line: new THREE.Color("#888888"),
     accent: new THREE.Color("#2d81ff"),
+    ink: new THREE.Color("#101014"),
+    /** 1 on the light theme, 0 on dark — drives the pulse darkening. */
+    light: 0,
+    /** Scratch for the per-frame pulse color mix (no allocation). */
+    pulse: new THREE.Color("#2d81ff"),
     tBg: new THREE.Vector3(0.9, 0.9, 0.9),
     tFrame: new THREE.Vector3(0.5, 0.5, 0.5),
     tLine: new THREE.Color("#888888"),
     tAccent: new THREE.Color("#2d81ff"),
+    tInk: new THREE.Color("#101014"),
+    tLight: 0,
   });
   useEffect(() => {
     const cs = colorState.current;
@@ -766,12 +823,19 @@ function GalaxyScene({
     cs.tFrame.copy(hexToVec3(colors.lineStrong));
     cs.tLine.set(colors.lineStrong);
     cs.tAccent.set(colors.accent);
+    cs.tInk.set(colors.ink);
+    // Light theme detection from the actual background luminance, so the
+    // pulse darkening tracks a theme cross-fade instead of snapping.
+    cs.tLight =
+      0.2126 * cs.tBg.x + 0.7152 * cs.tBg.y + 0.0722 * cs.tBg.z > 0.5 ? 1 : 0;
     if (!cs.init) {
       cs.init = true;
       cs.bg.copy(cs.tBg);
       cs.frame.copy(cs.tFrame);
       cs.line.copy(cs.tLine);
       cs.accent.copy(cs.tAccent);
+      cs.ink.copy(cs.tInk);
+      cs.light = cs.tLight;
     }
   }, [colors]);
 
@@ -783,7 +847,7 @@ function GalaxyScene({
   // it collides with the SVG element), ticks and circle as segments.
   const underlay = useMemo(
     () => [
-      ...layout.armGeoms.map((g) => new THREE.Line(g, pulseMat)),
+      ...layout.armGeoms.map((g) => new THREE.Mesh(g, pulseMat)),
       new THREE.LineSegments(layout.circGeom, lineMat),
       new THREE.LineSegments(layout.tickGeom, tickMat),
     ],
@@ -904,10 +968,15 @@ function GalaxyScene({
     cs.frame.lerp(cs.tFrame, themeK);
     cs.line.lerp(cs.tLine, themeK);
     cs.accent.lerp(cs.tAccent, themeK);
+    cs.ink.lerp(cs.tInk, themeK);
+    cs.light += (cs.tLight - cs.light) * themeK;
     lineMat.color.copy(cs.line);
     tickMat.color.copy(cs.line);
     (pulseMat.uniforms.uColor.value as THREE.Color).copy(cs.line);
-    (pulseMat.uniforms.uPulseColor.value as THREE.Color).copy(cs.accent);
+    // Light theme sinks the pulse color toward ink — bright accents wash
+    // out on the pale paper background; dark theme keeps them luminous.
+    (pulseMat.uniforms.uPulseColor.value as THREE.Color)
+      .copy(cs.pulse.copy(cs.accent).lerp(cs.ink, lk.pulseDark * cs.light));
     // Perf governor: EMA of the real frame time. Sustained drops below the
     // FPS floor shed cards (and their decode pressure) quickly; recovery
     // regrows slowly so it never oscillates. The first seconds are a grace
@@ -1370,6 +1439,8 @@ function GalaxyScene({
     pulseMat.uniforms.uWidth.value = lk.pulseWidth;
     pulseMat.uniforms.uCount.value = Math.round(lk.pulseCount);
     pulseMat.uniforms.uHue.value = lk.pulseHue;
+    pulseMat.uniforms.uBaseW.value = lk.lineW;
+    pulseMat.uniforms.uPulseW.value = lk.pulseW;
 
     st.cullTimer -= dt;
     if (st.cullTimer <= 0) {
