@@ -3,9 +3,8 @@ import { TagIcon } from "lucide-react";
 import RevealManager from "@/components/reveal-manager";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
 import { Accent, PageHeader } from "@/components/page/page-header";
+import CreditsCta from "@/components/pricing/credits-cta";
 import PricingTable from "@/components/pricing/pricing-table";
-import { Button } from "@/components/ui";
-import { webappUrl } from "@/lib/links";
 import { PROMO_PCT } from "@/lib/pricing-data";
 
 export const metadata: Metadata = {
@@ -29,9 +28,7 @@ export default async function PricingPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const ref = typeof params.ref === "string" ? params.ref : "";
-  const isSeedanceRef = ref === SEEDANCE_REF;
-  const checkoutQuery = ref ? `ref=${encodeURIComponent(ref)}` : "";
+  const isSeedanceRef = params.ref === SEEDANCE_REF;
 
   return (
     <>
@@ -45,27 +42,13 @@ export default async function PricingPage({
           label="Choose your plan"
           annotation="Every paid plan includes video credits"
         />
-        <PricingTable showSeedanceFeatures checkoutQuery={checkoutQuery} />
+        <PricingTable showSeedanceFeatures />
       </SectionShell>
 
       <SectionShell id="credits">
         <div className="grid gap-px bg-line md:grid-cols-2">
           <div className="bg-bg p-6 md:p-10">
-            <p className="hud-label text-faint">Already have an account?</p>
-            <h2 className="mt-4 font-display text-2xl font-medium tracking-[-0.02em] text-ink-strong">
-              One-time credit packs
-            </h2>
-            <p className="mt-2 max-w-md leading-relaxed text-muted">
-              Top up without changing your plan. Credit packs are purchased
-              inside the app and never expire.
-            </p>
-            <Button
-              href={webappUrl("/pricing")}
-              variant="secondary"
-              className="mt-6"
-            >
-              Buy credits in the app
-            </Button>
+            <CreditsCta />
           </div>
           <div className="bg-bg p-6 md:p-10">
             <p className="hud-label text-faint">† Footnote</p>

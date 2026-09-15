@@ -11,7 +11,12 @@ import {
 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { Badge, Button, TabSelector } from "@/components/ui";
-import { webappUrl } from "@/lib/links";
+import {
+  getPortalUrl,
+  subscriptionCheckout,
+  switchPlan,
+  userSignupSubscriptionCheckout,
+} from "@/lib/api";
 import {
   CONTACT_EMAIL,
   ENTERPRISE_FEATURES,
@@ -22,6 +27,13 @@ import {
   type BillingCadence,
   type SubscriptionPlan,
 } from "@/lib/pricing-data";
+import {
+  getLandingUrl,
+  getReferralCode,
+  getReferralUsername,
+  getReferrer,
+} from "@/lib/referral";
+import { useAccount } from "@/lib/use-account";
 
 const BILLING_TABS: { id: BillingCadence; label: string }[] = [
   { id: "yearly", label: "Yearly" },
@@ -40,21 +52,61 @@ const PLAN_BUTTON_CLASSES =
 // Plan grid in the landing's hairline-cell language, color-coded per plan
 // (the original table's green / purple / orange / blue via `.plan-*`
 // tokens): a solid color index tab, a wash pooling beneath it, plan-colored
-// checks and CTA, and a 2px frame on the highlighted tiers. Checkout
-// happens in the webapp — the CTAs hand off there, carrying the referral
-// query through.
+// checks and CTA, and a 2px frame on the highlighted tiers.
+//
+// Checkout is the Vite table's flow, ported: logged out → Stripe signup
+// checkout (with referral attribution); logged in without a plan → Stripe
+// subscription checkout; logged in with a plan → Stripe portal plan switch.
+// The server HTML renders the logged-out state; hydration upgrades it.
 export default function PricingTable({
   showSeedanceFeatures = false,
-  checkoutQuery = "",
 }: {
   showSeedanceFeatures?: boolean;
-  /** Query string (without "?") forwarded to the webapp's pricing page. */
-  checkoutQuery?: string;
 }) {
   const [cadence, setCadence] = useState<BillingCadence>("yearly");
-  const checkoutHref = webappUrl(
-    `/pricing${checkoutQuery ? `?${checkoutQuery}` : ""}`,
-  );
+  const { user, activePlanSlug, loading } = useAccount();
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+  const [managing, setManaging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const hasActivePlan = !!activePlanSlug && activePlanSlug !== "free";
+
+  const redirect = (result: { success: true; data: { checkoutUrl: string } | { portalUrl: string } } | { success: false; errorMessage: string }) => {
+    if (!result.success) {
+      setError(result.errorMessage);
+      return false;
+    }
+    window.location.href =
+      "checkoutUrl" in result.data ? result.data.checkoutUrl : result.data.portalUrl;
+    return true;
+  };
+
+  const choosePlan = async (plan: SubscriptionPlan) => {
+    if (plan.slug === activePlanSlug) return;
+    setProcessingPlan(plan.slug);
+    setError(null);
+    const body = { plan: plan.slug, cadence };
+    const redirected = redirect(
+      !user
+        ? await userSignupSubscriptionCheckout({
+            ...body,
+            maybeReferralUrl: getReferrer(),
+            maybeLandingUrl: getLandingUrl(),
+            maybeReferralUsername: getReferralUsername(),
+            maybeReferralCode: getReferralCode(),
+          })
+        : hasActivePlan
+          ? await switchPlan(body)
+          : await subscriptionCheckout(body),
+    );
+    if (!redirected) setProcessingPlan(null);
+  };
+
+  const managePlan = async () => {
+    setManaging(true);
+    setError(null);
+    if (!redirect(await getPortalUrl())) setManaging(false);
+  };
 
   return (
     <>
@@ -74,8 +126,19 @@ export default function PricingTable({
             {cadence === "yearly" ? "2 months free" : "Switch to yearly, save 20%"}
           </p>
         </div>
-        <p className="hud-label hidden text-faint sm:block">Prices in USD</p>
+        <p className="hud-label hidden text-faint sm:block">
+          {user ? `Signed in as ${user.display_name}` : "Prices in USD"}
+        </p>
       </div>
+
+      {error && (
+        <p
+          role="alert"
+          className="border-b border-line px-6 py-3 font-mono text-[10px] uppercase tracking-[0.1em] text-danger md:px-10"
+        >
+          {error}
+        </p>
+      )}
 
       <div
         data-reveal-group
@@ -88,20 +151,42 @@ export default function PricingTable({
             index={String(i + 1).padStart(2, "0")}
             cadence={cadence}
             showSeedanceFeatures={showSeedanceFeatures}
-            href={checkoutHref}
+            isCurrent={plan.slug === activePlanSlug}
+            ctaLabel={
+              plan.slug === activePlanSlug
+                ? "Current plan"
+                : hasActivePlan
+                  ? `Switch to ${plan.name}`
+                  : `Get ${plan.name}`
+            }
+            disabled={loading || processingPlan !== null}
+            processing={processingPlan === plan.slug}
+            onChoose={() => choosePlan(plan)}
           />
         ))}
         <EnterpriseCell index={String(SUBSCRIPTION_PLANS.length + 1).padStart(2, "0")} />
       </div>
 
-      <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 border-t border-line px-6 py-4 md:px-10">
-        {TRUST_POINTS.map((point) => (
-          <li key={point} className="hud-label flex items-center gap-2 text-muted">
-            <CheckIcon aria-hidden className="h-3.5 w-3.5 text-accent-ink" />
-            {point}
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-t border-line px-6 py-4 md:px-10">
+        <ul className="flex flex-wrap items-center gap-x-8 gap-y-2">
+          {TRUST_POINTS.map((point) => (
+            <li key={point} className="hud-label flex items-center gap-2 text-muted">
+              <CheckIcon aria-hidden className="h-3.5 w-3.5 text-accent-ink" />
+              {point}
+            </li>
+          ))}
+        </ul>
+        {hasActivePlan && (
+          <button
+            type="button"
+            onClick={managePlan}
+            disabled={managing}
+            className="hud-label text-muted underline underline-offset-4 hover:text-ink disabled:opacity-50"
+          >
+            {managing ? "Opening portal…" : "Manage plan"}
+          </button>
+        )}
+      </div>
     </>
   );
 }
@@ -111,13 +196,21 @@ function PlanCell({
   index,
   cadence,
   showSeedanceFeatures,
-  href,
+  isCurrent,
+  ctaLabel,
+  disabled,
+  processing,
+  onChoose,
 }: {
   plan: SubscriptionPlan;
   index: string;
   cadence: BillingCadence;
   showSeedanceFeatures: boolean;
-  href: string;
+  isCurrent: boolean;
+  ctaLabel: string;
+  disabled: boolean;
+  processing: boolean;
+  onChoose: () => void;
 }) {
   const { current, basePrice, yearlySavings } = planPricing(plan, cadence);
   const HighlightIcon = plan.highlight ? HIGHLIGHT_ICONS[plan.highlight] : null;
@@ -128,12 +221,21 @@ function PlanCell({
   return (
     <article
       data-reveal
-      data-highlight={plan.highlight ? "" : undefined}
+      data-highlight={plan.highlight || isCurrent ? "" : undefined}
       className={`plan-card plan-${plan.color} flex flex-col`}
     >
       <CellIndexRow index={index}>
-        {HighlightIcon && <HighlightIcon aria-hidden className="h-3 w-3" />}
-        {plan.highlight ?? "Plan"}
+        {isCurrent ? (
+          <>
+            <CheckIcon aria-hidden className="h-3 w-3" />
+            Your plan
+          </>
+        ) : (
+          <>
+            {HighlightIcon && <HighlightIcon aria-hidden className="h-3 w-3" />}
+            {plan.highlight ?? "Plan"}
+          </>
+        )}
       </CellIndexRow>
 
       <div className="flex flex-1 flex-col p-6 md:p-8">
@@ -167,9 +269,16 @@ function PlanCell({
           )}
         </p>
 
-        <Button href={href} size="lg" className={twMerge(PLAN_BUTTON_CLASSES, "mt-6")}>
-          Get {plan.name}
-          <ArrowRightIcon aria-hidden className="h-3.5 w-3.5" />
+        <Button
+          type="button"
+          size="lg"
+          onClick={onChoose}
+          disabled={disabled || isCurrent}
+          loading={processing}
+          className={twMerge(PLAN_BUTTON_CLASSES, "mt-6", isCurrent && "opacity-60")}
+        >
+          {ctaLabel}
+          {!isCurrent && <ArrowRightIcon aria-hidden className="h-3.5 w-3.5" />}
         </Button>
 
         <p className="hud-label mt-8 text-faint">What you get</p>
