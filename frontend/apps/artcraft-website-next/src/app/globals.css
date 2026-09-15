@@ -104,6 +104,11 @@
 
 html {
   background: var(--bg);
+  /* Content stage width: 1280 on laptops, growing with the viewport toward
+     1600 on wide monitors — sections genuinely widen instead of donating
+     everything past 1280px to margin. Live-tunable (Stage group) via the
+     inline override written by stage-width.tsx. */
+  --stage-max: clamp(1280px, 72vw, 1600px);
 }
 
 body {

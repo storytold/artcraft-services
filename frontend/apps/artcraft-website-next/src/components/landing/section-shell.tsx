@@ -16,7 +16,7 @@ export function SectionShell({
 }) {
   return (
     <section id={id} className={`border-t border-line ${className}`}>
-      <div className="relative mx-auto max-w-[1280px] border-x border-line">
+      <div className="relative mx-auto max-w-[var(--stage-max)] border-x border-line">
         {ticks && (
           <>
             <span aria-hidden className="tick -top-[6px] -left-[6px]" />

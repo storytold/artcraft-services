@@ -38,7 +38,7 @@ const LINK_COLUMNS: {
 export default function SiteFooter() {
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto max-w-[1280px] border-x border-line">
+      <div className="mx-auto max-w-[var(--stage-max)] border-x border-line">
         <div className="grid gap-px bg-line md:grid-cols-[2fr_1fr_1fr_1fr]">
           <div className="bg-bg p-6 md:p-10">
             {/* eslint-disable-next-line @next/next/no-img-element */}

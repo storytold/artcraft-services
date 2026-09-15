@@ -1,6 +1,6 @@
 import { AppleIcon, MonitorIcon } from "lucide-react";
 import { SOCIAL_LINKS, WEBAPP_URL } from "@/lib/links";
-import { HERO_VIDEO_URL } from "@/lib/landing-data";
+import { HERO_VIDEO_URL, RELEASE_SLATE } from "@/lib/landing-data";
 import { GitHubIcon } from "@/components/icons";
 import { Button } from "@/components/ui";
 import HeroMasthead, { HeroScrim } from "./hero-wordmark";
@@ -23,7 +23,7 @@ export default function Hero() {
             outrank the ruler's fixed z-39 contrast pools at root level.
             No border-x here: the poster viewport stays immersive edge to
             edge — the structural rails begin at the announce strip. */}
-        <div className="pointer-events-none relative z-40 mx-auto flex w-full max-w-[1280px] flex-1 flex-col items-center justify-center px-6 py-10 md:px-10">
+        <div className="pointer-events-none relative z-40 mx-auto flex w-full max-w-[var(--stage-max)] flex-1 flex-col items-center justify-center px-6 py-10 md:px-10">
           <div
             data-reveal-group
             className="relative flex w-full max-w-2xl flex-col items-center text-center"
@@ -87,15 +87,31 @@ export default function Hero() {
         </div>
       </div>
 
-      <div className="relative mx-auto max-w-[1280px] border-x border-line">
-        {/* Announce strip — the fold line under the poster. */}
-        <div className="relative flex items-center justify-between gap-4 border-y border-line px-6 py-3 md:px-10">
+      <div className="relative mx-auto max-w-[var(--stage-max)] border-x border-line">
+        {/* Release slate — the fold line under the poster is the "what's
+            new" band: mono release stamp + model chips deep-linking into
+            the webapp surface where each model actually runs. */}
+        <div className="relative flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-y border-line px-6 py-2.5 md:px-10">
           <span aria-hidden className="tick -top-[6px] -left-[6px]" />
           <span aria-hidden className="tick -top-[6px] -right-[5px]" />
           <p className="hud-label text-muted">Open-source AI studio</p>
-          <p className="hud-label text-accent-ink">
-            Now with Seedance 2.5, Nano Banana 2 &amp; more
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="hud-label text-accent-ink">
+              New · {RELEASE_SLATE.stamp}
+            </p>
+            {RELEASE_SLATE.models.map((m) => (
+              <a
+                key={m.name}
+                href={m.href}
+                className="invert-block hud-label border border-line-strong px-2.5 py-1 text-muted"
+              >
+                {m.name}
+              </a>
+            ))}
+            <a href={WEBAPP_URL} className="hud-label text-faint hover:text-ink">
+              + more
+            </a>
+          </div>
         </div>
 
         {/* Viewport frame — the product-demo stage: blocking vs. AI render. */}

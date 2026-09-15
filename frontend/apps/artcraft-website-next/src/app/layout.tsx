@@ -6,6 +6,7 @@ import {
   Geist_Mono,
 } from "next/font/google";
 import SiteNav from "@/components/site-nav";
+import StageWidth from "@/components/stage-width";
 import SiteFooter from "@/components/site-footer";
 import IntroConductor from "@/components/intro-conductor";
 import MotionProvider from "@/components/motion-provider";
@@ -137,6 +138,7 @@ export default function RootLayout({
           <ScrollRuler />
         </MotionProvider>
         <TunerPanel />
+        <StageWidth />
       </body>
     </html>
   );

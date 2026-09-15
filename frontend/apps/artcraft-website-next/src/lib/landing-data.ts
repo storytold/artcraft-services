@@ -1,4 +1,15 @@
-import { cdnMediaUrl, mediaUrl } from "./links";
+import { cdnMediaUrl, mediaUrl, webappUrl } from "./links";
+
+// The release slate under the hero: the "what's new" band. `stamp` is the
+// release period shown in mono; each model chip deep-links into the webapp
+// surface where that model actually runs.
+export const RELEASE_SLATE = {
+  stamp: "2026.09",
+  models: [
+    { name: "Seedance 2.5", href: webappUrl("/create-video") },
+    { name: "Nano Banana 2", href: webappUrl("/create-image") },
+  ],
+} as const;
 
 // Product feature roster, ported from the shipping landing page. Copy is the
 // approved marketing copy — edit deliberately, not casually.

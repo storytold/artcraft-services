@@ -66,7 +66,9 @@ Then read values where they're used:
   `hero-galaxy.tsx`).
 
 The panel picks up new groups automatically — no panel changes needed.
-Registered groups: Intro (page-intro choreography beats; `src/lib/intro.ts`),
+Registered groups: Stage (fluid content-stage width;
+`src/components/stage-width.tsx`), Intro (page-intro choreography beats;
+`src/lib/intro.ts`),
 Wordmark (logo-A optics, blade tuck, contrast scrim;
 `src/components/landing/hero-wordmark.tsx`), Galaxy layout, Galaxy
 motion, Galaxy pointer, Galaxy look (hero galaxy;
