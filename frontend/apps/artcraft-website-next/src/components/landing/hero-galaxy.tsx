@@ -448,18 +448,24 @@ function GalaxyScene({
   // world px (1 unit == 1 CSS px), origin at the viewport center.
   const layout = useMemo(() => {
     const t = galaxyLayoutTuner.read();
-    const arms = Math.max(1, Math.round(t.arms));
     // Responsive count: the knob is tuned at a reference viewport area;
     // smaller viewports get proportionally fewer cards (the neighbor-gap
     // sizing then grows the survivors, so the field stays filled).
     const area = (size.width * size.height) / 1e6;
+    // Mobile profile: on small viewports the tuned spiral is too tight —
+    // consecutive cards along an arm sit radially close at sharper angles,
+    // so the collision bound forces them small. Fewer, straighter arms
+    // (plus a density boost applied in the sizing pass) let cards run
+    // bigger on a phone.
+    const mobile = t.mobMpx > 0 && area < t.mobMpx;
+    const arms = Math.max(1, Math.round(mobile ? t.mobArms : t.arms));
     const cardN = Math.max(
       6,
       Math.min(Math.round(t.cardN), Math.round((t.cardN * area) / t.tunedMpx)),
     );
     const halfDiag = Math.hypot(size.width, size.height) / 2;
     const rMax = t.rMaxFrac * halfDiag;
-    const thetaMax = t.turns * Math.PI * 2;
+    const thetaMax = (mobile ? t.mobTurns : t.turns) * Math.PI * 2;
     const b = rMax / thetaMax;
     const cardHCap = Math.min(340, Math.max(70, size.height * t.cardHFrac));
     const slotsPerArm = Math.max(1, Math.ceil(cardN / arms));
@@ -473,14 +479,21 @@ function GalaxyScene({
     for (let j = 0; j < arms; j++) {
       const phase = (j * Math.PI * 2) / arms;
       const pts: number[] = [];
+      const ts: number[] = [];
+      const armIdx: number[] = [];
       const steps = 160;
       for (let k = 0; k <= steps; k++) {
         const theta = thetaBirth * 0.3 + (k / steps) * (thetaExit - thetaBirth * 0.3);
         const r = b * theta;
         pts.push(r * Math.cos(theta + phase), r * Math.sin(theta + phase), -2);
+        // Fraction along the arm + arm index, for the pulse shader.
+        ts.push(k / steps);
+        armIdx.push(j);
       }
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+      g.setAttribute("aT", new THREE.Float32BufferAttribute(ts, 1));
+      g.setAttribute("aArm", new THREE.Float32BufferAttribute(armIdx, 1));
       armGeoms.push(g);
     }
 
@@ -537,6 +550,8 @@ function GalaxyScene({
       cardHCap,
       armJitter: t.armJitter,
       slotsPerArm,
+      mobile,
+      mobDensityX: t.mobDensityX,
       armGeoms,
       tickGeom,
       circGeom,
@@ -632,6 +647,86 @@ function GalaxyScene({
       }),
     [],
   );
+  // Arm lines get their own shader so color pulses can travel along them:
+  // each vertex carries its arc fraction (aT) and arm index (aArm); the
+  // fragment lifts a moving gaussian band toward the accent color, hue-
+  // rotated per arm for the "colorful" spread. Everything else about the
+  // hairline (base color/alpha, intro draw-up) matches lineMat via the
+  // frame loop's uniform writes.
+  const pulseMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        uniforms: {
+          uTime: { value: 0 },
+          uColor: { value: new THREE.Color("#888888") },
+          uAlpha: { value: 0 },
+          uPulseColor: { value: new THREE.Color("#2d81ff") },
+          uPulseAlpha: { value: 0 },
+          uSpeed: { value: 0.12 },
+          uWidth: { value: 0.05 },
+          uCount: { value: 2 },
+          uHue: { value: 0.35 },
+        },
+        vertexShader: /* glsl */ `
+          attribute float aT;
+          attribute float aArm;
+          varying float vT;
+          varying float vArm;
+          void main() {
+            vT = aT;
+            vArm = aArm;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          precision highp float;
+          uniform float uTime;
+          uniform vec3 uColor;
+          uniform float uAlpha;
+          uniform vec3 uPulseColor;
+          uniform float uPulseAlpha;
+          uniform float uSpeed;
+          uniform float uWidth;
+          uniform float uCount;
+          uniform float uHue;
+          varying float vT;
+          varying float vArm;
+
+          // Hue rotation in YIQ — cheap and good enough for glow accents.
+          vec3 hueRotate(vec3 color, float a) {
+            const mat3 toYIQ = mat3(
+              0.299, 0.587, 0.114,
+              0.596, -0.274, -0.322,
+              0.211, -0.523, 0.312);
+            const mat3 toRGB = mat3(
+              1.0, 0.956, 0.621,
+              1.0, -0.272, -0.647,
+              1.0, -1.106, 1.703);
+            vec3 yiq = color * toYIQ;
+            float h = atan(yiq.z, yiq.y) + a;
+            float c = length(yiq.yz);
+            return clamp(vec3(yiq.x, c * cos(h), c * sin(h)) * toRGB, 0.0, 1.0);
+          }
+
+          void main() {
+            // Band coordinate: pulses travel outward (increasing vT) and
+            // arms are dephased by the golden conjugate so they never
+            // flash in lockstep.
+            float d = fract(vT * uCount - uTime * uSpeed + vArm * 0.618);
+            float g = exp(-0.5 * pow((d - 0.5) / uWidth, 2.0));
+            // Fade pulses out near the arm's blurred birth zone.
+            g *= smoothstep(0.04, 0.14, vT);
+            vec3 pulseCol = hueRotate(uPulseColor, vArm * uHue * 6.28318);
+            vec3 col = mix(uColor, pulseCol, clamp(g, 0.0, 1.0));
+            gl_FragColor = vec4(col, uAlpha + uPulseAlpha * g);
+          }
+        `,
+      }),
+    [],
+  );
   const tickMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
@@ -645,8 +740,9 @@ function GalaxyScene({
     () => () => {
       lineMat.dispose();
       tickMat.dispose();
+      pulseMat.dispose();
     },
-    [lineMat, tickMat],
+    [lineMat, tickMat, pulseMat],
   );
 
   // Theme colors follow imperatively — recreating materials on a theme flip
@@ -658,20 +754,24 @@ function GalaxyScene({
     bg: new THREE.Vector3(0.9, 0.9, 0.9),
     frame: new THREE.Vector3(0.5, 0.5, 0.5),
     line: new THREE.Color("#888888"),
+    accent: new THREE.Color("#2d81ff"),
     tBg: new THREE.Vector3(0.9, 0.9, 0.9),
     tFrame: new THREE.Vector3(0.5, 0.5, 0.5),
     tLine: new THREE.Color("#888888"),
+    tAccent: new THREE.Color("#2d81ff"),
   });
   useEffect(() => {
     const cs = colorState.current;
     cs.tBg.copy(hexToVec3(colors.bg));
     cs.tFrame.copy(hexToVec3(colors.lineStrong));
     cs.tLine.set(colors.lineStrong);
+    cs.tAccent.set(colors.accent);
     if (!cs.init) {
       cs.init = true;
       cs.bg.copy(cs.tBg);
       cs.frame.copy(cs.tFrame);
       cs.line.copy(cs.tLine);
+      cs.accent.copy(cs.tAccent);
     }
   }, [colors]);
 
@@ -683,11 +783,11 @@ function GalaxyScene({
   // it collides with the SVG element), ticks and circle as segments.
   const underlay = useMemo(
     () => [
-      ...layout.armGeoms.map((g) => new THREE.Line(g, lineMat)),
+      ...layout.armGeoms.map((g) => new THREE.Line(g, pulseMat)),
       new THREE.LineSegments(layout.circGeom, lineMat),
       new THREE.LineSegments(layout.tickGeom, tickMat),
     ],
-    [layout, lineMat, tickMat],
+    [layout, lineMat, tickMat, pulseMat],
   );
 
   // Per-card scratch state reused every frame so the loop allocates
@@ -803,8 +903,11 @@ function GalaxyScene({
     cs.bg.lerp(cs.tBg, themeK);
     cs.frame.lerp(cs.tFrame, themeK);
     cs.line.lerp(cs.tLine, themeK);
+    cs.accent.lerp(cs.tAccent, themeK);
     lineMat.color.copy(cs.line);
     tickMat.color.copy(cs.line);
+    (pulseMat.uniforms.uColor.value as THREE.Color).copy(cs.line);
+    (pulseMat.uniforms.uPulseColor.value as THREE.Color).copy(cs.accent);
     // Perf governor: EMA of the real frame time. Sustained drops below the
     // FPS floor shed cards (and their decode pressure) quickly; recovery
     // regrows slowly so it never oscillates. The first seconds are a grace
@@ -1080,7 +1183,11 @@ function GalaxyScene({
       // Inner cards stay smaller than outer ones even when space would
       // allow more: the size ceiling itself ramps up over the journey.
       const capEff = L.cardHCap * (lk.innerCap + (1 - lk.innerCap) * c);
-      const goalH = Math.min(capEff, lk.density * sep, capVsHeld);
+      const goalH = Math.min(
+        capEff,
+        lk.density * (L.mobile ? L.mobDensityX : 1) * sep,
+        capVsHeld,
+      );
       if (tk > 0.3) {
         cardH[i] += (goalH - cardH[i]) * (1 - Math.exp(-6 * dt));
       } else {
@@ -1256,6 +1363,13 @@ function GalaxyScene({
     );
     lineMat.opacity = lk.lineAlpha * lineIntro;
     tickMat.opacity = lk.tickAlpha * lineIntro;
+    pulseMat.uniforms.uTime.value = st.time;
+    pulseMat.uniforms.uAlpha.value = lk.lineAlpha * lineIntro;
+    pulseMat.uniforms.uPulseAlpha.value = lk.pulseAlpha * lineIntro;
+    pulseMat.uniforms.uSpeed.value = lk.pulseSpeed;
+    pulseMat.uniforms.uWidth.value = lk.pulseWidth;
+    pulseMat.uniforms.uCount.value = Math.round(lk.pulseCount);
+    pulseMat.uniforms.uHue.value = lk.pulseHue;
 
     st.cullTimer -= dt;
     if (st.cullTimer <= 0) {
@@ -1268,6 +1382,65 @@ function GalaxyScene({
         lk.playFrac,
         CULL_TICK_S,
       );
+
+      // Proximity dedup: rebirth's least-recently-shown pick spreads clip
+      // repeats over TIME, but cross-arm neighbors at similar radii can
+      // still surface the same clip side by side (their angular offset is
+      // constant, so the pair persists). Sweep on the cull cadence: for
+      // any visible pair sharing a clip closer than dedupPx, reassign the
+      // blurrier card (the swap hides inside its birth blur) to the clip
+      // whose current users sit furthest away, recency as tiebreak.
+      const dedupPx = galaxyLayoutTuner.read().dedupPx;
+      if (dedupPx > 0 && rollT >= 1) {
+        const dedup2 = dedupPx * dedupPx;
+        for (let a = 0; a < liveN; a++) {
+          const i = liveOrder[a];
+          if ((materials[i].uniforms.uAlpha.value as number) < 0.3) continue;
+          for (let bIdx = a + 1; bIdx < liveN; bIdx++) {
+            const j = liveOrder[bIdx];
+            if (cards[i].clip !== cards[j].clip) continue;
+            if ((materials[j].uniforms.uAlpha.value as number) < 0.3) continue;
+            const dx = cardPos[i * 2] - cardPos[j * 2];
+            const dy = cardPos[i * 2 + 1] - cardPos[j * 2 + 1];
+            if (dx * dx + dy * dy > dedup2) continue;
+            // Victim: the younger (more inner, more blurred) card.
+            const v = cardCyc[i] < cardCyc[j] ? i : j;
+            const vx = cardPos[v * 2];
+            const vy = cardPos[v * 2 + 1];
+            // Best replacement: maximize distance to the nearest visible
+            // card already showing that clip; least-recently-shown breaks
+            // ties (and wins outright for clips nobody shows).
+            let best = -1;
+            let bestScore = -Infinity;
+            for (let cl = 0; cl < clipLastUsed.length; cl++) {
+              if (cl === cards[v].clip) continue;
+              let minD2 = Infinity;
+              for (let k = 0; k < liveN; k++) {
+                const o = liveOrder[k];
+                if (o === v || cards[o].clip !== cl) continue;
+                if ((materials[o].uniforms.uAlpha.value as number) < 0.15)
+                  continue;
+                const ox = cardPos[o * 2] - vx;
+                const oy = cardPos[o * 2 + 1] - vy;
+                const d2 = ox * ox + oy * oy;
+                if (d2 < minD2) minD2 = d2;
+              }
+              // Distance dominates; recency nudges within similar bands.
+              const score =
+                Math.min(minD2, 4 * dedup2) - clipLastUsed[cl] * 1e-4;
+              if (score > bestScore) {
+                bestScore = score;
+                best = cl;
+              }
+            }
+            if (best >= 0) {
+              cards[v].clip = best;
+              clipLastUsed[best] = ++st.useCounter;
+              materials[v].uniforms.uMap.value = textures[best];
+            }
+          }
+        }
+      }
     }
   });
 
