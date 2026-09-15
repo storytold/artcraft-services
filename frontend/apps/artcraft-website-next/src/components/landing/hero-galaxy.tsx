@@ -4,7 +4,6 @@ import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { SEEDANCE_SHOWCASE } from "@/lib/landing-data";
-import { heroTelemetry } from "@/lib/hero-telemetry";
 import { webglAvailable } from "@/lib/webgl-support";
 import { introClock, introTuner } from "@/lib/intro";
 import { watchThemeColors, type ThemeColors } from "@/lib/theme-colors";
@@ -1271,9 +1270,6 @@ function GalaxyScene({
       );
     }
 
-    // Publish the scene clock for the slate's timecode (plain field write;
-    // the DOM side samples on its own throttled ticker).
-    heroTelemetry.time = st.time;
   });
 
   return (
