@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 import { ImagesIcon, MusicIcon, VideoIcon } from "lucide-react";
 import { DynamicIcon } from "@storyteller/icons";
+import { isVideoFile } from "@storyteller/ui-promptbox";
 import { toast } from "../toast/toast";
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -140,7 +141,7 @@ export function usePromptBoxDrop({
     const rejectedKinds = new Set<DropKind>();
     let unknownCount = 0;
     for (const file of files) {
-      const kind = kindOfMime(file.type);
+      const kind = kindOfMime(file.type) ?? (isVideoFile(file, true) ? "video" : null);
       if (kind === null) {
         unknownCount++;
       } else if (!acceptsKind(kind)) {

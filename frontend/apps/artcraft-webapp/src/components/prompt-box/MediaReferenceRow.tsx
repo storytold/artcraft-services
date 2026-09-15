@@ -14,6 +14,9 @@ import {
   AUDIO_FILE_ACCEPT,
   AUDIO_FILE_TYPE_ERROR,
   isAudioFile,
+  getVideoFileAccept,
+  getVideoFileTypeError,
+  isVideoFile,
 } from "@storyteller/ui-promptbox";
 import { toast } from "../toast/toast";
 import { AddButton } from "./ImagePromptRow";
@@ -32,6 +35,7 @@ interface MediaReferenceRowProps {
   onReferenceVideosChange: (videos: RefVideo[]) => void;
   maxVideoCount: number;
   maxVideoRefDuration: number;
+  allowQuicktimeUploads?: boolean;
   onPickVideoFromLibrary?: () => void;
   referenceAudios: RefAudio[];
   onReferenceAudiosChange: (audios: RefAudio[]) => void;
@@ -48,6 +52,7 @@ export const MediaReferenceRow = ({
   onReferenceVideosChange,
   maxVideoCount,
   maxVideoRefDuration,
+  allowQuicktimeUploads = false,
   onPickVideoFromLibrary,
   referenceAudios,
   onReferenceAudiosChange,
@@ -88,6 +93,10 @@ export const MediaReferenceRow = ({
     const baseVideos = [...referenceVideos];
 
     const file = files[0];
+    if (!isVideoFile(file, allowQuicktimeUploads)) {
+      toast.error(getVideoFileTypeError(allowQuicktimeUploads));
+      return;
+    }
     const duration = await getVideoDuration(file);
 
     if (duration <= 0) {
@@ -210,7 +219,7 @@ export const MediaReferenceRow = ({
         type="file"
         ref={videoInputRef}
         className="hidden"
-        accept="video/*"
+        accept={getVideoFileAccept(allowQuicktimeUploads)}
         onChange={handleVideoUpload}
       />
       <input

@@ -6,7 +6,7 @@ import {
   InfoIcon,
   SparklesIcon,
 } from "lucide-react";
-import { CharactersApi, FilterMediaClasses } from "@storyteller/api";
+import { CharactersApi, FilterMediaClasses, USER_FEATURE_FLAGS } from "@storyteller/api";
 import type { OmniGenVideoModelInfo } from "@storyteller/api";
 import { Button, ToggleButton } from "@storyteller/ui-button";
 import {
@@ -284,6 +284,9 @@ function resolveDurationForModel(
 
 export default function CreateVideo() {
   const { user, authChecked } = useAuthCheck();
+  const canUseQuicktime = !!user?.maybe_feature_flags?.includes(
+    USER_FEATURE_FLAGS.CAN_USE_QUICKTIME,
+  );
   const { loggedIn, openSignupCta } = useSignupCta();
   const openInsufficientCredits = useInsufficientCredits();
   const { promptBoxRef, promptHeight } = usePromptHeight();
@@ -1487,6 +1490,7 @@ export default function CreateVideo() {
         onReferenceVideosChange={setReferenceVideos}
         maxVideoCount={maxVideoRefs}
         maxVideoRefDuration={maxVideoRefDuration}
+        allowQuicktimeUploads={canUseQuicktime}
         onPickVideoFromLibrary={() => setIsVideoRefPickerOpen(true)}
         referenceAudios={referenceAudios}
         onReferenceAudiosChange={setReferenceAudios}
@@ -1848,6 +1852,7 @@ export default function CreateVideo() {
             onReferenceVideosChange={setReferenceVideos}
             maxVideoCount={maxVideoRefs}
             maxVideoRefDuration={maxVideoRefDuration}
+            allowQuicktimeUploads={canUseQuicktime}
             onPickVideoFromLibrary={
               supportsVideoRefs
                 ? () => setIsVideoRefPickerOpen(true)

@@ -95,6 +95,7 @@ interface PromptBoxProps {
   onReferenceVideosChange?: (videos: RefVideo[]) => void;
   maxVideoCount?: number;
   maxVideoRefDuration?: number;
+  allowQuicktimeUploads?: boolean;
   audioRefsSupported?: boolean;
   referenceAudios?: RefAudio[];
   onReferenceAudiosChange?: (audios: RefAudio[]) => void;
@@ -162,6 +163,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(
       onReferenceVideosChange,
       maxVideoCount = 3,
       maxVideoRefDuration = 30,
+      allowQuicktimeUploads = false,
       audioRefsSupported,
       referenceAudios = [],
       onReferenceAudiosChange,
@@ -221,6 +223,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(
       setReferenceVideos: onReferenceVideosChange,
       maxVideos: maxVideoCount,
       maxVideoTotalSec: maxVideoRefDuration,
+      allowQuicktimeUploads,
       referenceAudios,
       setReferenceAudios: onReferenceAudiosChange,
       maxAudios: maxAudioCount,

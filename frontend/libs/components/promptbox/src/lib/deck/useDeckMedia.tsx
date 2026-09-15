@@ -9,6 +9,7 @@ import {
   isAudioFile,
 } from "../common/audioFiles";
 import { createImagePreviewUrl, revokeIfBlobUrl } from "../common/imagePreview";
+import { getVideoFileAccept, getVideoFileTypeError, isVideoFile } from "../common/videoFiles";
 
 /** Minimal structural shapes so both apps' ref types fit. */
 export interface DeckRefLike {
@@ -48,6 +49,7 @@ export interface UseDeckMediaOptions<
   setReferenceVideos?: (videos: TVideo[]) => void;
   maxVideos?: number;
   maxVideoTotalSec?: number;
+  allowQuicktimeUploads?: boolean;
   referenceAudios?: TAudio[];
   setReferenceAudios?: (audios: TAudio[]) => void;
   maxAudios?: number;
@@ -131,6 +133,7 @@ export function useDeckMedia<
   setReferenceVideos,
   maxVideos = 3,
   maxVideoTotalSec = 15,
+  allowQuicktimeUploads = false,
   referenceAudios = [],
   setReferenceAudios,
   maxAudios = 2,
@@ -351,6 +354,12 @@ export function useDeckMedia<
   };
 
   const processVideoFiles = async (files: File[]) => {
+    const videoFiles = files.filter((file) => isVideoFile(file, allowQuicktimeUploads));
+    if (videoFiles.length < files.length) {
+      toast.error(getVideoFileTypeError(allowQuicktimeUploads), { id: "video-ref-type" });
+    }
+    if (videoFiles.length === 0) return;
+
     // Snapshot the committed state at call time so removes that happened
     // before this call are respected (don't re-read a stale ref).
     const baseVideos = [...referenceVideos];
@@ -362,7 +371,7 @@ export function useDeckMedia<
       return;
     }
 
-    const filesToProcess = files.slice(0, availableSlots);
+    const filesToProcess = videoFiles.slice(0, availableSlots);
     let committed = baseVideos;
 
     for (const file of filesToProcess) {
@@ -408,7 +417,7 @@ export function useDeckMedia<
             ) {
               URL.revokeObjectURL(entry.previewUrl);
               setUploadingVideo(null);
-              toast.error("Failed to upload video. Please upload an MP4 file.");
+              toast.error(newState.errorMessage || "Could not upload video");
             }
           },
         });
@@ -511,7 +520,7 @@ export function useDeckMedia<
     // so exclude them from the video bucket.
     const audios = files.filter(isAudioFile);
     const videos = files.filter(
-      (f) => f.type.startsWith("video/") && !isAudioFile(f),
+      (f) => (f.type.startsWith("video/") || isVideoFile(f, true)) && !isAudioFile(f),
     );
 
     if (images.length > 0) processImageFiles(images, "start");
@@ -522,7 +531,7 @@ export function useDeckMedia<
   // maxImages of 0 means the page's model takes no image refs at all.
   const anyUploadAccept = [
     ...(maxImages > 0 ? ["image/*"] : []),
-    ...(setReferenceVideos ? ["video/mp4", ".mp4"] : []),
+    ...(setReferenceVideos ? [getVideoFileAccept(allowQuicktimeUploads)] : []),
     ...(setReferenceAudios ? [AUDIO_FILE_ACCEPT] : []),
   ].join(",");
 
@@ -741,7 +750,7 @@ export function useDeckMedia<
           type="file"
           ref={videoFileInputRef}
           className="hidden"
-          accept="video/mp4,.mp4"
+          accept={getVideoFileAccept(allowQuicktimeUploads)}
           onChange={handleVideoFileUpload}
           multiple={maxVideos > 1}
         />

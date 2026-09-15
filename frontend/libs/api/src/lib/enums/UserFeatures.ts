@@ -1,5 +1,6 @@
 export enum USER_FEATURE_FLAGS {
   API_KEY = "api_key",
+  CAN_USE_QUICKTIME = "use_qt",
   EXPLORE_MEDIA = "explore_media",
   REFERRALS = "referrals",
   STUDIO = "studio",
