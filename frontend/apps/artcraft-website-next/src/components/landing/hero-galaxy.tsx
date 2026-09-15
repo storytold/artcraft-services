@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { SEEDANCE_SHOWCASE } from "@/lib/landing-data";
 import { heroTelemetry } from "@/lib/hero-telemetry";
+import { webglAvailable } from "@/lib/webgl-support";
 import { introClock, introTuner } from "@/lib/intro";
 import { watchThemeColors, type ThemeColors } from "@/lib/theme-colors";
 import { useTunerStore } from "@/lib/tuner";
@@ -221,9 +222,12 @@ export default function HeroGalaxy() {
     };
   }, []);
 
-  // Gate: motion allowed and the tab actually foregrounded (a canvas born in
-  // a hidden tab can come up blank).
+  // Gate: WebGL actually available (a failed context creation inside r3f is
+  // an unhandled rejection CanvasBoundary can't catch), motion allowed, and
+  // the tab actually foregrounded (a canvas born in a hidden tab can come up
+  // blank).
   useEffect(() => {
+    if (!webglAvailable()) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     const tick = () => {
