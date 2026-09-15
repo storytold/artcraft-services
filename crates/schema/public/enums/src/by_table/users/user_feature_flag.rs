@@ -57,6 +57,10 @@ pub enum UserFeatureFlag {
   /// Access to Minimax with debugging priority (admins)
   #[serde(rename = "minimax_p")]
   MinimaxPriority,
+
+  /// Access to QuickTime video output options
+  #[serde(rename = "use_qt")]
+  CanUseQuicktime,
 }
 
 // TODO(bt, 2022-12-21): This desperately needs MySQL integration tests!
@@ -79,6 +83,7 @@ impl UserFeatureFlag {
       Self::ApiKey => "api_key",
       Self::Minimax => "minimax",
       Self::MinimaxPriority => "minimax_p",
+      Self::CanUseQuicktime => "use_qt",
     }
   }
 
@@ -95,6 +100,7 @@ impl UserFeatureFlag {
       "api_key" => Ok(Self::ApiKey),
       "minimax" => Ok(Self::Minimax),
       "minimax_p" => Ok(Self::MinimaxPriority),
+      "use_qt" => Ok(Self::CanUseQuicktime),
       _ => Err(format!("invalid value: {:?}", value)),
     }
   }
@@ -112,6 +118,7 @@ impl UserFeatureFlag {
       Self::ApiKey => "API Keys",
       Self::Minimax => "Minimax",
       Self::MinimaxPriority => "Minimax (Debugging Priority)",
+      Self::CanUseQuicktime => "QuickTime Video Output",
     }
   }
 
@@ -128,6 +135,7 @@ impl UserFeatureFlag {
       Self::ApiKey => "Access to API key creation",
       Self::Minimax => "Access to Minimax",
       Self::MinimaxPriority => "Access to Minimax with debugging priority (admins)",
+      Self::CanUseQuicktime => "Access to QuickTime video output options for Seedance 2.5",
     }
   }
 
@@ -146,6 +154,7 @@ impl UserFeatureFlag {
       Self::ApiKey,
       Self::Minimax,
       Self::MinimaxPriority,
+      Self::CanUseQuicktime,
     ])
   }
 }
@@ -171,6 +180,7 @@ mod tests {
       assert_serialization(UserFeatureFlag::ApiKey, "api_key");
       assert_serialization(UserFeatureFlag::Minimax, "minimax");
       assert_serialization(UserFeatureFlag::MinimaxPriority, "minimax_p");
+      assert_serialization(UserFeatureFlag::CanUseQuicktime, "use_qt");
     }
 
     #[test]
@@ -186,6 +196,7 @@ mod tests {
       assert_eq!(UserFeatureFlag::ApiKey.to_str(), "api_key");
       assert_eq!(UserFeatureFlag::Minimax.to_str(), "minimax");
       assert_eq!(UserFeatureFlag::MinimaxPriority.to_str(), "minimax_p");
+      assert_eq!(UserFeatureFlag::CanUseQuicktime.to_str(), "use_qt");
     }
 
     #[test]
@@ -201,13 +212,14 @@ mod tests {
       assert_eq!(UserFeatureFlag::from_str("api_key").unwrap(), UserFeatureFlag::ApiKey);
       assert_eq!(UserFeatureFlag::from_str("minimax").unwrap(), UserFeatureFlag::Minimax);
       assert_eq!(UserFeatureFlag::from_str("minimax_p").unwrap(), UserFeatureFlag::MinimaxPriority);
+      assert_eq!(UserFeatureFlag::from_str("use_qt").unwrap(), UserFeatureFlag::CanUseQuicktime);
       assert!(UserFeatureFlag::from_str("foo").is_err());
     }
 
     #[test]
     fn all_variants() {
       let mut variants = UserFeatureFlag::all_variants();
-      assert_eq!(variants.len(), 11);
+      assert_eq!(variants.len(), 12);
       assert_eq!(variants.pop_first(), Some(UserFeatureFlag::ExploreMedia));
       assert_eq!(variants.pop_first(), Some(UserFeatureFlag::Studio));
       assert_eq!(variants.pop_first(), Some(UserFeatureFlag::Upload3d));
@@ -219,6 +231,7 @@ mod tests {
       assert_eq!(variants.pop_first(), Some(UserFeatureFlag::ApiKey));
       assert_eq!(variants.pop_first(), Some(UserFeatureFlag::Minimax));
       assert_eq!(variants.pop_first(), Some(UserFeatureFlag::MinimaxPriority));
+      assert_eq!(variants.pop_first(), Some(UserFeatureFlag::CanUseQuicktime));
       assert_eq!(variants.pop_first(), None);
     }
   }
