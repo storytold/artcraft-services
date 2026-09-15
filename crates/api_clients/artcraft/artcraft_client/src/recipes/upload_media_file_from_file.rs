@@ -41,7 +41,7 @@ pub async fn upload_media_file_from_file<P: AsRef<Path>>(
         Err(err) => Err(StorytellerError::Api(err)),
       }
     }
-    Some(FileExtension::Mp4) => {
+    Some(FileExtension::Mp4 | FileExtension::Mov) => {
       match upload_video_media_file_from_file(UploadVideoFromFileArgs {
         api_host,
         maybe_creds, 

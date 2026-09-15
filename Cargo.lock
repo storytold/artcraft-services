@@ -1348,6 +1348,7 @@ dependencies = [
  "hostname 0.4.0",
  "log",
  "server_environment",
+ "tempfile",
  "workspace-build-acceleration",
 ]
 
@@ -3239,6 +3240,7 @@ dependencies = [
  "ffprobe",
  "log",
  "tempdir",
+ "tempfile",
  "test_utils",
  "workspace-build-acceleration",
 ]
@@ -7919,10 +7921,12 @@ dependencies = [
  "easyenv",
  "enums",
  "errors",
+ "ffmpeg_utils",
  "hashing",
  "jobs_common",
  "kinovi_web_client",
  "log",
+ "mimetypes",
  "mysql_queries",
  "pager",
  "rand 0.9.2",

@@ -3,10 +3,10 @@
 //! ever leave the process), and helpers for driving the generate handler
 //! with dummy Actix HTTP requests as a fixture user.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use actix_web::cookie::Cookie;
@@ -15,6 +15,7 @@ use actix_web::web::{Data, Json};
 use actix_web::HttpRequest;
 use chrono::Utc;
 use sqlx::MySqlPool;
+use serde_json::Value;
 
 use actix_artcraft::sessions::anonymous_visitor_tracking::avt_cookie_manager::AvtCookieManager;
 use actix_artcraft::sessions::user_sessions::http_user_session_manager::HttpUserSessionManager;
@@ -323,6 +324,7 @@ pub fn base_generate_request(model: CommonVideoModel) -> OmniGenVideoCostAndGene
     resolution: None,
     aspect_ratio: None,
     bitrate: None,
+    maybe_output_format: None,
     quality: None,
     duration_seconds: None,
     video_batch_count: None,
@@ -348,14 +350,27 @@ fn uuid_v4_like() -> String {
 /// BOTH the Kinovi host-override and media-CDN-override env vars exactly
 /// once, before returning.
 fn process_stub_kinovi_base_url() -> &'static String {
-  use std::sync::OnceLock;
   static STUB: OnceLock<String> = OnceLock::new();
   STUB.get_or_init(|| {
     let base_url = spawn_stub_server();
     std::env::set_var(ENV_KINOVI_CUSTOM_API_HOST, &base_url);
     std::env::set_var(ENV_KINOVI_CUSTOM_CDN_HOST, &base_url);
+    std::env::set_var("THUMBNAIL_GENERATOR_API_URL", format!("{base_url}/thumbnails"));
+    std::env::set_var("THUMBNAIL_GENERATOR_API_BASIC_AUTH", "");
     base_url
   })
+}
+
+/// Captured local stub traffic for assertions about provider payloads and exact upload bytes.
+#[derive(Default)]
+pub struct StubTraffic {
+  pub uploads: HashMap<String, Vec<u8>>,
+  pub workflows: Vec<Value>,
+}
+
+pub fn stub_traffic() -> &'static Mutex<StubTraffic> {
+  static TRAFFIC: OnceLock<Mutex<StubTraffic>> = OnceLock::new();
+  TRAFFIC.get_or_init(Default::default)
 }
 
 /// A stub for BOTH the Kinovi API and the media CDN. Runs on plain OS
@@ -404,8 +419,15 @@ fn spawn_stub_server() -> String {
           match stream.read(&mut buffer[read_total..]) {
             Ok(n) if n > 0 => {
               read_total += n;
-              if buffer[..read_total].windows(4).any(|w| w == b"\r\n\r\n") && read_total > 4 {
-                break;
+              if let Some(header_end) = buffer[..read_total].windows(4).position(|w| w == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&buffer[..header_end]);
+                let content_length = headers.lines().find_map(|line| {
+                  let (name, value) = line.split_once(':')?;
+                  name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
+                }).unwrap_or(0);
+                if read_total >= header_end + 4 + content_length {
+                  break;
+                }
               }
             }
             _ => break,
@@ -413,9 +435,19 @@ fn spawn_stub_server() -> String {
         }
         let head = String::from_utf8_lossy(&buffer[..read_total]).to_string();
         let request_line = head.lines().next().unwrap_or_default().to_string();
+        let body_start = buffer[..read_total].windows(4).position(|w| w == b"\r\n\r\n")
+          .map(|index| index + 4).unwrap_or(read_total);
+        let request_body = &buffer[body_start..read_total];
+        let filename = request_line.split_whitespace().nth(1).unwrap_or("")
+          .split('?').next().unwrap_or("").rsplit('/').next().unwrap_or("").to_string();
+        let maybe_uploaded = stub_traffic().lock().unwrap().uploads.get(&filename).cloned();
+
 
         let (status, content_type, body): (&str, &str, Vec<u8>) =
-          if request_line.starts_with("GET") {
+          if request_line.starts_with("GET") && maybe_uploaded.is_some() {
+            let mime = if filename.ends_with(".mov") { "video/quicktime" } else { "video/mp4" };
+            ("200 OK", mime, maybe_uploaded.unwrap())
+          } else if request_line.starts_with("GET") {
             match extract_fixture_duration_millis(&request_line) {
               Some(millis) => ("200 OK", "video/mp4", fixture_video_bytes(millis)),
               // URL-ingested uploads land under the `video_` bucket prefix
@@ -428,12 +460,17 @@ fn spawn_stub_server() -> String {
               None => ("404 Not Found", "text/plain", b"not found".to_vec()),
             }
           } else if request_line.starts_with("PUT") {
+            stub_traffic().lock().unwrap().uploads.insert(filename, request_body.to_vec());
             ("200 OK", "text/plain", Vec::new())
           } else if request_line.contains("uploads.signedUploadUrl") {
-            let upload_url = format!("{base_url}/upload-target/materials/test/fixture.mp4");
+            let extension = if head.contains("mov") { "mov" } else { "mp4" };
+            let upload_url = format!("{base_url}/upload-target/materials/test/fixture.{extension}");
             let json = format!(r#"[{{"result":{{"data":{{"json":"{upload_url}"}}}}}}]"#);
             ("200 OK", "application/json", json.into_bytes())
           } else {
+            if let Ok(payload) = serde_json::from_slice(request_body) {
+              stub_traffic().lock().unwrap().workflows.push(payload);
+            }
             let order_number = ORDER_COUNTER.fetch_add(1, Ordering::Relaxed);
             let json = format!(
               r#"[{{"result":{{"data":{{"json":{{"taskId":"task_test_{process_prefix:016x}_{order_number:04}","orderId":"ord_test_{process_prefix:016x}_{order_number:04}","violationWarning":false}}}}}}}}]"#,
@@ -545,7 +582,6 @@ fn build_test_server_state(pool: MySqlPool, media_cdn_override_url: String) -> S
     auto_gc_bucket_client: LegacyBucketClient,
     redis_rate_limiters: crate::state::server_state::RedisRateLimiters,
   }
-  use std::sync::OnceLock;
   static DUMMIES: OnceLock<ExpensiveDummies> = OnceLock::new();
   let dummies = DUMMIES.get_or_init(|| retry_keychain_flake(|| {
     // Bucket uploads (e.g. URL-input ingestion) PUT to the stub, which
@@ -988,6 +1024,7 @@ pub fn to_omni_api_request(request: OmniGenVideoCostAndGenerateRequest) -> OmniA
     resolution: request.resolution,
     aspect_ratio: request.aspect_ratio,
     bitrate: request.bitrate,
+    maybe_output_format: request.maybe_output_format,
     quality: request.quality,
     duration_seconds: request.duration_seconds,
     video_batch_count: request.video_batch_count,

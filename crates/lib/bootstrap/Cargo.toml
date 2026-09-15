@@ -31,4 +31,4 @@ hostname.workspace = true
 log = "0.4.14"
 
 [dev-dependencies]
-# None yet
+tempfile.workspace = true

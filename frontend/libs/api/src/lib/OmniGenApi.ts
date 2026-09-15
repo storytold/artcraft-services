@@ -55,6 +55,7 @@ export interface OmniGenVideoRequest {
   resolution?: string | null;
   quality?: string | null;
   bitrate?: string | null;
+  output_format?: string | null;
   duration_seconds?: number | null;
   video_batch_count?: number | null;
   generate_audio?: boolean | null;
@@ -224,6 +225,8 @@ export interface OmniGenVideoModelInfo {
   default_quality: string | null;
   bitrate_options: string[] | null;
   bitrate_default: string | null;
+  output_format_options?: string[] | null;
+  output_format_default?: string | null;
   duration_seconds_options: number[] | null;
   duration_seconds_default: number | null;
   duration_seconds_min: number | null;

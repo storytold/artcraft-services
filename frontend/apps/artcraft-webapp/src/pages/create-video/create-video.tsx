@@ -6,7 +6,7 @@ import {
   InfoIcon,
   SparklesIcon,
 } from "lucide-react";
-import { CharactersApi, FilterMediaClasses } from "@storyteller/api";
+import { CharactersApi, FilterMediaClasses, USER_FEATURE_FLAGS } from "@storyteller/api";
 import type { OmniGenVideoModelInfo } from "@storyteller/api";
 import { Button, ToggleButton } from "@storyteller/ui-button";
 import {
@@ -147,6 +147,11 @@ const LABEL_TO_BITRATE: Record<string, string> = Object.fromEntries(
   Object.entries(BITRATE_LABELS).map(([k, v]) => [v, k]),
 );
 
+const OUTPUT_FORMAT_LABELS: Record<string, string> = {
+  mp4: "MP4",
+  mov: "MOV",
+};
+
 // ── Model lookup ─────────────────────────────────────────────────────────
 
 let _modelLookup = new Map<string, OmniGenVideoModelInfo>();
@@ -279,6 +284,9 @@ function resolveDurationForModel(
 
 export default function CreateVideo() {
   const { user, authChecked } = useAuthCheck();
+  const canUseQuicktime = !!user?.maybe_feature_flags?.includes(
+    USER_FEATURE_FLAGS.CAN_USE_QUICKTIME,
+  );
   const { loggedIn, openSignupCta } = useSignupCta();
   const openInsufficientCredits = useInsufficientCredits();
   const { promptBoxRef, promptHeight } = usePromptHeight();
@@ -362,6 +370,11 @@ export default function CreateVideo() {
   const setBitrate = useCallback(
     (v: string | null) => setUi({ bitrate: v }),
     [setUi],
+  );
+  const outputFormat = resolveModelOption(
+    ui.outputFormat ?? undefined,
+    selectedModel?.output_format_options,
+    selectedModel?.output_format_default,
   );
   const generateWithSound = ui.generateWithSound;
   const numVideos = resolveModelCount(
@@ -486,6 +499,8 @@ export default function CreateVideo() {
   const hasResolutionOptions =
     (selectedModel?.resolution_options?.length ?? 0) > 0;
   const hasBitrateOptions = (selectedModel?.bitrate_options?.length ?? 0) > 0;
+  const hasOutputFormatOptions =
+    (selectedModel?.output_format_options?.length ?? 0) > 0;
   const hasSound = !!selectedModel?.show_generate_with_sound_toggle;
   const supportsImagePrompts =
     !!selectedModel?.starting_keyframe_supported ||
@@ -747,6 +762,17 @@ export default function CreateVideo() {
         : null,
     [selectedModel, bitrate],
   );
+  const outputFormatItems = useMemo(
+    (): PopoverItem[] | null =>
+      selectedModel?.output_format_options?.length
+        ? selectedModel.output_format_options.map((format) => ({
+            label: OUTPUT_FORMAT_LABELS[format] ?? format,
+            selected: format === outputFormat,
+            action: format,
+          }))
+        : null,
+    [selectedModel?.output_format_options, outputFormat],
+  );
   const inputModeItems = useMemo(
     (): PopoverItem[] | null =>
       supportsRefMode
@@ -1000,6 +1026,13 @@ export default function CreateVideo() {
     (item: PopoverItem) =>
       setBitrate(LABEL_TO_BITRATE[item.label] ?? item.label),
     [setBitrate],
+  );
+
+  const handleOutputFormatChange = useCallback(
+    (item: PopoverItem) => {
+      if (item.action) setUi({ outputFormat: item.action });
+    },
+    [setUi],
   );
 
   const handleInputModeChange = useCallback(
@@ -1325,6 +1358,7 @@ export default function CreateVideo() {
       bitrate: hasBitrateOptions
         ? (bitrate ?? selectedModel.bitrate_default ?? undefined)
         : undefined,
+      outputFormat: hasOutputFormatOptions ? outputFormat : undefined,
       generateAudio: hasSound ? generateWithSound : undefined,
       startFrameImageMediaToken: startFrameToken?.length
         ? startFrameToken
@@ -1427,8 +1461,10 @@ export default function CreateVideo() {
     resolution,
     bitrate,
     generateWithSound,
+    outputFormat,
     hasResolutionOptions,
     hasBitrateOptions,
+    hasOutputFormatOptions,
     hasSound,
     supportsImagePrompts,
     hasEndFrame,
@@ -1454,6 +1490,7 @@ export default function CreateVideo() {
         onReferenceVideosChange={setReferenceVideos}
         maxVideoCount={maxVideoRefs}
         maxVideoRefDuration={maxVideoRefDuration}
+        allowQuicktimeUploads={canUseQuicktime}
         onPickVideoFromLibrary={() => setIsVideoRefPickerOpen(true)}
         referenceAudios={referenceAudios}
         onReferenceAudiosChange={setReferenceAudios}
@@ -1469,10 +1506,12 @@ export default function CreateVideo() {
 
   const activeResolutionLabel = resolutionItems?.find((i) => i.selected)?.label;
   const activeBitrateLabel = bitrateItems?.find((i) => i.selected)?.label;
+  const activeOutputFormatLabel = outputFormatItems?.find((i) => i.selected)?.label;
   const outputSummary = [
     `${effectiveDuration}s`,
     activeResolutionLabel,
     activeBitrateLabel,
+    activeOutputFormatLabel,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -1582,7 +1621,7 @@ export default function CreateVideo() {
               />
             </div>
           )}
-          {(durationRange || resolutionItems || bitrateItems) && (
+          {(durationRange || resolutionItems || bitrateItems || outputFormatItems) && (
             <>
               <MobileFieldButton
                 label="Output"
@@ -1634,6 +1673,14 @@ export default function CreateVideo() {
                     <DrawerOptionList
                       items={bitrateItems}
                       onSelect={handleBitrateChange}
+                    />
+                  </DrawerSection>
+                )}
+                {outputFormatItems && (
+                  <DrawerSection label="Output Format">
+                    <DrawerOptionList
+                      items={outputFormatItems}
+                      onSelect={handleOutputFormatChange}
                     />
                   </DrawerSection>
                 )}
@@ -1805,6 +1852,7 @@ export default function CreateVideo() {
             onReferenceVideosChange={setReferenceVideos}
             maxVideoCount={maxVideoRefs}
             maxVideoRefDuration={maxVideoRefDuration}
+            allowQuicktimeUploads={canUseQuicktime}
             onPickVideoFromLibrary={
               supportsVideoRefs
                 ? () => setIsVideoRefPickerOpen(true)
@@ -1883,6 +1931,21 @@ export default function CreateVideo() {
                       onSelect={handleBitrateChange}
                       mode="toggle"
                       panelTitle="Bitrate"
+                    />
+                  </Tooltip>
+                )}
+                {outputFormatItems && (
+                  <Tooltip
+                    content="Output Format"
+                    position="top"
+                    className="z-50"
+                    closeOnClick
+                  >
+                    <PopoverMenu
+                      items={outputFormatItems}
+                      onSelect={handleOutputFormatChange}
+                      mode="toggle"
+                      panelTitle="Output Format"
                     />
                   </Tooltip>
                 )}

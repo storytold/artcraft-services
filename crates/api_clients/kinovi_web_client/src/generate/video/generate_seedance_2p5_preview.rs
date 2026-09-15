@@ -148,6 +148,8 @@ fn to_raw_request(req: GenerateSeedance2p5PreviewRequest) -> WorkflowRunTaskRequ
     character_ids: None,
     use_face_blur_hack: req.use_face_blur_hack,
     bitrate: None,
+    maybe_output_format: None,
+    maybe_generate_audio: None,
   }
 }
 

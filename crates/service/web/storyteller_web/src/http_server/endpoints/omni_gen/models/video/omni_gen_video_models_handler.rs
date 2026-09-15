@@ -42,6 +42,15 @@ pub async fn omni_gen_video_models_handler(
     remove_models(&mut response, &MINIMAX_GATED_MODELS);
   }
 
+  if !can_use_quicktime(&http_request, &server_state).await? {
+    for model in &mut response.models {
+      if matches!(model.model, CommonVideoModel::Seedance2p5 | CommonVideoModel::Seedance2p5Ultra) {
+        model.output_format_options = None;
+        model.output_format_default = None;
+      }
+    }
+  }
+
   Ok(Json(response))
 }
 
@@ -75,6 +84,34 @@ pub async fn can_see_minimax(
   let can_use_minimax_priority = user_feature_flags.can_use_minimax_priority();
 
   Ok(can_use_minimax || can_use_minimax_priority)
+}
+
+/// Whether the (optional) logged-in user holds the QuickTime feature flag.
+/// Anonymous requests do not expose the output-format options.
+pub async fn can_use_quicktime(
+  http_request: &HttpRequest,
+  server_state: &ServerState,
+) -> Result<bool, CommonWebError> {
+  let mut mysql_connection = server_state.mysql_pool.acquire().await?;
+
+  let maybe_user_session = server_state
+      .session_checker
+      .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
+      .await
+      .map_err(|e| {
+        warn!("Session checker error: {:?}", e);
+        CommonWebError::from(e)
+      })?;
+
+  let user_session = match maybe_user_session {
+    Some(session) => session,
+    None => return Ok(false),
+  };
+
+  let user_feature_flags =
+      UserSessionFeatureFlags::new(user_session.maybe_feature_flags.as_deref());
+
+  Ok(user_feature_flags.can_use_quicktime())
 }
 
 /// Strip the given models from both the top-level model list and every

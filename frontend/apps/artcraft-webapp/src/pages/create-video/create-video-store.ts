@@ -34,6 +34,7 @@ export type VideoUiState = {
   duration: number | null;
   resolution: string | null;
   bitrate: string | null;
+  outputFormat: string | null;
   generateWithSound: boolean;
   inputMode: VideoInputMode;
   numVideos: number;
@@ -79,6 +80,7 @@ const DEFAULT_UI: VideoUiState = {
   duration: null,
   resolution: null,
   bitrate: null,
+  outputFormat: null,
   generateWithSound: false,
   inputMode: "reference",
   numVideos: 1,

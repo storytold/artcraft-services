@@ -13,5 +13,6 @@ pub mod router_quality;
 pub mod router_resolution;
 pub mod router_splat_model;
 pub mod router_video_model;
+pub mod router_video_output_format;
 pub mod video_list_ref;
 pub mod video_ref;

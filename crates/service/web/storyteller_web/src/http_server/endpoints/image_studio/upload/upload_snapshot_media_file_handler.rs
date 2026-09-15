@@ -258,6 +258,8 @@ pub async fn upload_snapshot_media_file_handler(
     maybe_mime_type: Some(&mimetype),
     file_size_bytes: file_size_bytes as u64,
     maybe_duration_millis: None,
+    maybe_frame_width: None,
+    maybe_frame_height: None,
     sha256_checksum: &hash,
     maybe_title: Some("Snapshot"),
     maybe_scene_source_media_file_token: None,

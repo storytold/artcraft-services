@@ -74,6 +74,12 @@ pub struct WorkflowRunTaskRequest {
   /// Output video bitrate. None defaults to "standard" (the field is omitted);
   /// `High` sends `bitrate_mode: "high"`. Does not affect cost.
   pub bitrate: Option<KinoviBitrateRaw>,
+
+  /// Output container, supported only by Seedance 2.5. None omits the field.
+  pub maybe_output_format: Option<KinoviOutputFormatRaw>,
+
+  /// Audio generation for Seedance 2.0 and 2.5. None keeps the provider default.
+  pub maybe_generate_audio: Option<bool>,
 }
 
 impl std::fmt::Debug for WorkflowRunTaskRequest {
@@ -93,6 +99,8 @@ impl std::fmt::Debug for WorkflowRunTaskRequest {
       .field("output_resolution", &self.output_resolution)
       .field("use_face_blur_hack", &self.use_face_blur_hack)
       .field("bitrate", &self.bitrate)
+      .field("maybe_output_format", &self.maybe_output_format)
+      .field("maybe_generate_audio", &self.maybe_generate_audio)
       .finish()
   }
 }
@@ -107,6 +115,22 @@ impl std::fmt::Debug for WorkflowRunTaskArgs<'_> {
 }
 
 // --- Public enums ---
+
+/// Output container for Seedance 2.5.
+#[derive(Debug, Clone, Copy)]
+pub enum KinoviOutputFormatRaw {
+  Mp4,
+  Mov,
+}
+
+impl KinoviOutputFormatRaw {
+  fn as_api_str(self) -> &'static str {
+    match self {
+      Self::Mp4 => "mp4",
+      Self::Mov => "mov",
+    }
+  }
+}
 
 /// Video resolution / aspect ratio.
 #[derive(Debug, Clone, Copy)]
@@ -589,6 +613,15 @@ fn build_batch_request(req: WorkflowRunTaskRequest) -> BatchRequest {
           audio_urls,
           batch_count,
           bitrate_mode: req.bitrate.and_then(|bitrate| bitrate.as_api_str()),
+          maybe_output_format: match req.model_type {
+            KinoviModelTypeRaw::Seedance2p5 => req.maybe_output_format.map(KinoviOutputFormatRaw::as_api_str),
+            _ => None,
+          },
+          maybe_generate_audio: match req.model_type {
+            KinoviModelTypeRaw::Seedance2Pro | KinoviModelTypeRaw::Seedance2Fast
+            | KinoviModelTypeRaw::Seedance2Mini | KinoviModelTypeRaw::Seedance2p5 => req.maybe_generate_audio,
+            _ => None,
+          },
         },
       },
     },
@@ -650,6 +683,8 @@ mod tests {
         audio_urls: None,
         batch_count: None,
         bitrate_mode,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
   }
@@ -701,6 +736,8 @@ mod tests {
         audio_urls: None,
         batch_count: None,
         bitrate_mode: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
   }
@@ -735,6 +772,8 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -842,6 +881,8 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -947,6 +988,51 @@ mod tests {
   mod seedance_2p5_shape_tests {
     use super::*;
 
+    #[test]
+    fn optional_output_settings_preserve_omission_and_explicit_values() {
+      for (format, expected) in [(None, None), (Some(KinoviOutputFormatRaw::Mp4), Some("mp4")), (Some(KinoviOutputFormatRaw::Mov), Some("mov"))] {
+        for audio in [None, Some(false), Some(true)] {
+          let mut request = base_request("A boat on a lake", 4);
+          request.maybe_output_format = format;
+          request.maybe_generate_audio = audio;
+          let body = serde_json::to_value(build_batch_request(request)).unwrap();
+          let params = &body["0"]["json"]["apiParams"];
+          assert_eq!(params.get("output_format"), expected.map(serde_json::Value::from).as_ref());
+          assert_eq!(params.get("generate_audio"), audio.map(serde_json::Value::from).as_ref());
+        }
+      }
+    }
+
+    #[test]
+    fn audio_setting_applies_to_seedance_2p0_without_output_format() {
+      for model in [KinoviModelTypeRaw::Seedance2Pro, KinoviModelTypeRaw::Seedance2Fast, KinoviModelTypeRaw::Seedance2Mini] {
+        for audio in [None, Some(false), Some(true)] {
+          let mut request = base_request("A boat on a lake", 4);
+          request.model_type = model;
+          request.maybe_output_format = Some(KinoviOutputFormatRaw::Mov);
+          request.maybe_generate_audio = audio;
+          let body = serde_json::to_value(build_batch_request(request)).unwrap();
+          let params = &body["0"]["json"]["apiParams"];
+          assert!(params.get("output_format").is_none());
+          assert_eq!(params.get("generate_audio"), audio.map(serde_json::Value::from).as_ref());
+        }
+      }
+    }
+
+    #[test]
+    fn unrelated_models_omit_unsupported_output_settings() {
+      for model in [KinoviModelTypeRaw::HappyHorse1p0, KinoviModelTypeRaw::Seedance2p5Preview] {
+        let mut request = base_request("A boat on a lake", 4);
+        request.model_type = model;
+        request.maybe_output_format = Some(KinoviOutputFormatRaw::Mov);
+        request.maybe_generate_audio = Some(false);
+        let body = serde_json::to_value(build_batch_request(request)).unwrap();
+        let params = &body["0"]["json"]["apiParams"];
+        assert!(params.get("output_format").is_none());
+        assert!(params.get("generate_audio").is_none());
+      }
+    }
+
     fn base_request(prompt: &str, duration_seconds: u8) -> WorkflowRunTaskRequest {
       WorkflowRunTaskRequest {
         model_type: KinoviModelTypeRaw::Seedance2p5,
@@ -963,6 +1049,8 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -1115,6 +1203,8 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_output_format: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -1205,6 +1295,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1239,6 +1331,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1275,6 +1369,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1310,6 +1406,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1347,6 +1445,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1401,6 +1501,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1454,6 +1556,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1507,6 +1611,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1569,6 +1675,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1624,6 +1732,8 @@ mod tests {
           use_face_blur_hack: None,
           bitrate: None,
           output_resolution: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       };
       let result = workflow_run_task(args).await?;
@@ -1664,6 +1774,8 @@ mod tests {
             use_face_blur_hack: None,
             bitrate: None,
             output_resolution: None,
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;
@@ -1698,6 +1810,8 @@ mod tests {
             use_face_blur_hack: None,
             bitrate: None,
             output_resolution: None,
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;
@@ -1734,6 +1848,8 @@ mod tests {
             use_face_blur_hack: None,
             bitrate: None,
             output_resolution: None,
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;
@@ -1771,6 +1887,8 @@ mod tests {
             use_face_blur_hack: None,
             bitrate: None,
             output_resolution: None,
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;
@@ -1809,6 +1927,8 @@ mod tests {
             use_face_blur_hack: Some(false),
             bitrate: None,
             output_resolution: Some(KinoviOutputResolutionRaw::TenEightyP),
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;
@@ -1861,6 +1981,8 @@ mod tests {
             use_face_blur_hack: Some(false),
             bitrate: None,
             output_resolution: None,
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;
@@ -1913,6 +2035,8 @@ mod tests {
             use_face_blur_hack: Some(false),
             bitrate: None,
             output_resolution: Some(KinoviOutputResolutionRaw::TenEightyP),
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;
@@ -1957,6 +2081,8 @@ mod tests {
           output_resolution,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_output_format: None,
+          maybe_generate_audio: None,
         },
       }
     }
@@ -2063,6 +2189,8 @@ mod tests {
             use_face_blur_hack: None,
             bitrate: None,
             output_resolution: Some(KinoviOutputResolutionRaw::FourK),
+            maybe_output_format: None,
+            maybe_generate_audio: None,
           },
         };
         let result = workflow_run_task(args).await?;

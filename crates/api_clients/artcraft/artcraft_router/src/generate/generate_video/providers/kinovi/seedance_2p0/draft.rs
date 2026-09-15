@@ -28,6 +28,8 @@ pub struct KinoviSeedance2p0DraftState {
   pub batch_count: KinoviSeedance2p0BatchCount,
   pub bitrate: Option<KinoviSeedance2p0Bitrate>,
 
+  pub maybe_generate_audio: Option<bool>,
+
   // Pending types that need to be queried.
   pub unhandled_request_state: Option<KinoviSeedance2p0RemainingItems>,
 }
@@ -96,6 +98,7 @@ impl KinoviSeedance2p0DraftState {
       character_ids,
       use_face_blur_hack: None,
       bitrate: self.bitrate,
+      maybe_generate_audio: self.maybe_generate_audio,
     };
 
     Ok(KinoviSeedance2p0RequestState { request })

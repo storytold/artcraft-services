@@ -52,6 +52,7 @@ pub async fn estimate_video_cost_handler(
     resolution: router_resolution,
     aspect_ratio: router_aspect_ratio,
     bitrate: None,
+    maybe_output_format: None,
     duration_seconds: request.duration_seconds,
     video_batch_count: request.video_batch_count,
     generate_audio: request.generate_audio,

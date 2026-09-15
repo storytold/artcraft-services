@@ -38,6 +38,8 @@ pub struct GenerateSeedance2p0FastRequest {
   /// Output video bitrate. None defaults to "standard"; `High` requests a
   /// higher bitrate. Does not affect cost.
   pub bitrate: Option<KinoviSeedance2p0FastBitrate>,
+  /// Whether to generate audio. None leaves the provider default unchanged.
+  pub maybe_generate_audio: Option<bool>,
 }
 
 // ── Enums ──
@@ -195,6 +197,8 @@ pub async fn generate_seedance_2p0_fast(
     character_ids: req.character_ids,
     use_face_blur_hack: req.use_face_blur_hack,
     bitrate: map_bitrate(req.bitrate),
+    maybe_output_format: None,
+    maybe_generate_audio: req.maybe_generate_audio,
   };
 
   let raw_response = workflow_run_task(WorkflowRunTaskArgs {
@@ -648,6 +652,7 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -712,6 +717,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("t2v fast default — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -743,6 +749,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("t2v fast 480p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -777,6 +784,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("fast t2v 21:9 480p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -809,6 +817,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("fast keyframe 21:9 — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -845,6 +854,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("fast keyframe — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -882,6 +892,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("fast image ref — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -919,6 +930,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("fast video ref — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -954,6 +966,7 @@ mod tests {
           character_ids: Some(vec![MOCHI_ID.to_string()]),
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("fast character — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -985,6 +998,7 @@ mod tests {
           character_ids: Some(vec![STEAMPUNK_CLOWN_ID.to_string(), MOCHI_ID.to_string()]),
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("fast two characters — task_id={}, order_id={}", result.task_id, result.order_id);

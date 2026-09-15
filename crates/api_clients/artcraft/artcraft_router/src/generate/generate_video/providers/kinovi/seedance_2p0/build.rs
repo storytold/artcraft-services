@@ -47,6 +47,7 @@ fn do_build_kinovi_seedance_2p0(mut builder: GenerateVideoRequestBuilder) -> Res
     duration_seconds,
     bitrate,
     prompt,
+    maybe_generate_audio: builder.generate_audio,
     unhandled_request_state: Some(unhandled_request_state),
   })
 }

@@ -4,7 +4,8 @@ use serde_json::{json, Value};
 
 #[derive(Debug)]
 pub enum ThumbnailTaskInputMimeType {
-    MP4
+    MP4,
+    MOV,
 }
 
 pub enum ThumbnailTaskOutputMimeType {
@@ -17,6 +18,7 @@ impl ThumbnailTaskInputMimeType {
     fn as_str(&self) -> &str {
         match self {
             ThumbnailTaskInputMimeType::MP4 => "video/mp4",
+            ThumbnailTaskInputMimeType::MOV => "video/quicktime",
         }
     }
 
@@ -26,7 +28,7 @@ impl ThumbnailTaskInputMimeType {
 
     fn to_output_mimetypes(&self) -> Vec<ThumbnailTaskOutputMimeType> {
         match self {
-            ThumbnailTaskInputMimeType::MP4 => vec![
+            ThumbnailTaskInputMimeType::MP4 | ThumbnailTaskInputMimeType::MOV => vec![
                 ThumbnailTaskOutputMimeType::JPEG,
                 ThumbnailTaskOutputMimeType::GIF,
             ],
@@ -210,4 +212,22 @@ impl ThumbnailTask{
             .error_for_status()?;
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn quicktime_thumbnail_uses_correct_source_mime_type() {
+    let task = ThumbnailTaskBuilder::new_for_source_mimetype(ThumbnailTaskInputMimeType::MOV)
+      .with_bucket("test-bucket")
+      .with_path("video.mov")
+      .with_event_id("test-event")
+      .build(ThumbnailTaskOutputMimeType::JPEG)
+      .unwrap();
+    let json = task.request_json();
+    assert_eq!(json["input"]["type"], "video/quicktime");
+    assert_eq!(json["input"]["path"], "video.mov");
+  }
 }

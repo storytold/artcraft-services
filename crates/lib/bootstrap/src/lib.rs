@@ -19,3 +19,5 @@
 #![allow(non_snake_case)]
 
 pub mod bootstrap;
+
+mod config_search_directories;

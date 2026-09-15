@@ -65,6 +65,7 @@ impl KinoviSeedance2p0MiniCostState {
       character_ids: None,
       use_face_blur_hack: None,
       bitrate: None,
+      maybe_generate_audio: None,
     };
 
     // Enterprise tier: what generations actually cost us (our discounted
@@ -380,6 +381,7 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_generate_audio: None,
       },
     }
   }

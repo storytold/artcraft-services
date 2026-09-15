@@ -128,6 +128,7 @@ fn to_omni_gen_request(request: OmniApiVideoGenerateRequest) -> OmniGenVideoCost
     resolution: request.resolution,
     aspect_ratio: request.aspect_ratio,
     bitrate: request.bitrate,
+    maybe_output_format: request.maybe_output_format,
     quality: request.quality,
     duration_seconds: request.duration_seconds,
     video_batch_count: request.video_batch_count,

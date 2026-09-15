@@ -68,6 +68,10 @@ pub (super) struct ApiParams {
   pub batch_count: Option<u8>,
   #[serde(rename = "bitrate_mode", skip_serializing_if = "Option::is_none")]
   pub bitrate_mode: Option<&'static str>,
+  #[serde(rename = "output_format", skip_serializing_if = "Option::is_none")]
+  pub maybe_output_format: Option<&'static str>,
+  #[serde(rename = "generate_audio", skip_serializing_if = "Option::is_none")]
+  pub maybe_generate_audio: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]

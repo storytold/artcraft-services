@@ -310,6 +310,7 @@ use enums::common::generation::common_model_class::CommonModelClass;
 use enums::common::generation::common_model_type::CommonModelType;
 use enums::common::generation::common_aspect_ratio::CommonAspectRatio;
 use enums::common::generation::common_bitrate::CommonBitrate;
+use enums::common::generation::common_video_output_format::CommonVideoOutputFormat;
 use enums::common::generation::common_generation_mode::CommonGenerationMode;
 use enums::common::generation::common_resolution::CommonResolution;
 use enums::common::generation_provider::GenerationProvider;
@@ -816,6 +817,7 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     CommonBitrate,
     CommonGenerationMode,
     CommonResolution,
+    CommonVideoOutputFormat,
     PromptContextSemanticType,
     PromptType,
     MediaFileOriginModelType,

@@ -49,6 +49,7 @@ pub fn build_artcraft_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> 
   plan_batch_count(builder.video_batch_count.take(), strategy)?;
 
   let total_input_seconds = builder.total_reference_video_input_seconds.take();
+  let generate_audio = builder.generate_audio.take();
 
   let mut request = build_artcraft_omni_video_request(
     builder,
@@ -58,6 +59,7 @@ pub fn build_artcraft_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> 
   )?;
   request.duration_seconds = duration_seconds;
   request.video_batch_count = Some(1);
+  request.generate_audio = generate_audio;
 
   let state = ArtcraftSeedance2p5RequestState { request, total_input_seconds };
   Ok(VideoGenerationDraftOrRequest::Request(VideoGenerationRequest::ArtcraftSeedance2p5(state)))

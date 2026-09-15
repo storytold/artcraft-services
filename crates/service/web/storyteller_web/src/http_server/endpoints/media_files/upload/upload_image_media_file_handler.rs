@@ -304,6 +304,8 @@ pub async fn upload_image_media_file_handler(
     maybe_batch_token: maybe_batch_token.as_ref(),
     file_size_bytes: file_size_bytes as u64,
     maybe_duration_millis: None,
+    maybe_frame_width: None,
+    maybe_frame_height: None,
     sha256_checksum: &hash,
     maybe_title: maybe_title.as_deref(),
     maybe_scene_source_media_file_token: None,

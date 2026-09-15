@@ -9,6 +9,8 @@ use enums::by_table::media_files::media_file_origin_product_category::MediaFileO
 use enums::by_table::media_files::media_file_type::MediaFileType;
 use enums::common::generation_provider::GenerationProvider;
 use errors::AnyhowResult;
+use ffmpeg_utils::ffprobe::ffprobe_get_info::{ffprobe_get_info_from_bytes, VideoInfo};
+use mimetypes::mimetype_for_bytes::get_mimetype_for_bytes;
 use hashing::sha256::sha256_hash_bytes::sha256_hash_bytes;
 use mysql_queries::queries::generic_inference::api_providers::kinovi_web::list_pending_kinovi_web_video_jobs::PendingKinoviWebJob;
 use mysql_queries::queries::generic_inference::job::select_inference_job_status_for_update::select_inference_job_status_for_update;
@@ -21,7 +23,6 @@ use crate::job_dependencies::JobDependencies;
 use crate::jobs::order_processing_job::is_job_status_terminal::is_job_status_terminal;
 
 const PREFIX: &str = "artcraft_";
-const SUFFIX: &str = ".mp4";
 
 /// Download the completed video, upload to bucket, create media file record, and mark job done.
 pub async fn process_successful_video_job(
@@ -52,7 +53,7 @@ pub async fn process_successful_video_job(
   );
 
   // Download the video bytes.
-  let video_bytes: Vec<u8> = match deps.download_client.get(video_url).send().await {
+  let video_bytes: Vec<u8> = match deps.download_client.get(video_url).send().await.and_then(|resp| resp.error_for_status()) {
     Ok(resp) => match resp.bytes().await {
       Ok(bytes) => bytes.to_vec(),
       Err(err) => {
@@ -82,12 +83,22 @@ pub async fn process_successful_video_job(
     order.order_id
   );
 
+  let (suffix, mimetype, media_file_type) = video_metadata(&video_bytes)?;
+  let (video_bytes, probe_result) = tokio::task::spawn_blocking(move || {
+    let info = ffprobe_get_info_from_bytes(&video_bytes);
+    (video_bytes, info)
+  }).await?;
+  let video_info = probe_result.unwrap_or_else(|err| {
+    warn!("Could not probe video for order {}: {:?}", order.order_id, err);
+    VideoInfo::default()
+  });
+
   // Hash the video.
   let checksum = sha256_hash_bytes(&video_bytes)
     .map_err(|err| anyhow!("error hashing video: {:?}", err))?;
 
   // Build the bucket path.
-  let bucket_path = MediaFileBucketPath::generate_new(Some(PREFIX), Some(SUFFIX));
+  let bucket_path = MediaFileBucketPath::generate_new(Some(PREFIX), Some(suffix));
 
   let object_path = bucket_path.get_full_object_path_str();
 
@@ -99,7 +110,7 @@ pub async fn process_successful_video_job(
   // Upload to public bucket.
   let upload_result = deps
     .public_bucket_client
-    .upload_file_with_content_type_process(object_path, &video_bytes, "video/mp4")
+    .upload_file_with_content_type_process(object_path, &video_bytes, mimetype)
     .await;
 
   if let Err(err) = upload_result {
@@ -117,10 +128,15 @@ pub async fn process_successful_video_job(
     order.order_id
   );
 
-  // Optionally extract frame dimensions from the order results.
-  // Persist the integer dimensions when the API provides them, NULL otherwise.
-  let maybe_frame_width = order.results.first().and_then(|r| r.maybe_width);
-  let maybe_frame_height = order.results.first().and_then(|r| r.maybe_height);
+  // Prefer the downloaded file's dimensions; provider fields are a fallback.
+  let maybe_result = order.results.iter().find(|result| result.url == video_url);
+  let maybe_frame_width = video_info.dimensions.as_ref()
+    .and_then(|d| u32::try_from(d.width).ok())
+    .or_else(|| maybe_result.and_then(|result| result.maybe_width));
+  let maybe_frame_height = video_info.dimensions.as_ref()
+    .and_then(|d| u32::try_from(d.height).ok())
+    .or_else(|| maybe_result.and_then(|result| result.maybe_height));
+  let maybe_duration_millis = video_info.duration.map(|duration| u64::from(duration.millis));
 
   // Insert media file record.
   let media_file_result = MediaFileInsertBuilder::new()
@@ -130,6 +146,7 @@ pub async fn process_successful_video_job(
     .file_size_bytes(video_bytes.len() as u64)
     .maybe_creator_anonymous_visitor(job.maybe_creator_anonymous_visitor_token.as_ref())
     .maybe_creator_user(job.maybe_creator_user_token.as_ref())
+    .maybe_duration_millis(maybe_duration_millis)
     .maybe_frame_height(maybe_frame_height)
     .maybe_frame_width(maybe_frame_width)
     .maybe_generation_provider(Some(GenerationProvider::Artcraft))
@@ -139,8 +156,8 @@ pub async fn process_successful_video_job(
     .media_file_class(MediaFileClass::Video)
     .media_file_origin_category(MediaFileOriginCategory::Inference)
     .media_file_origin_product_category(MediaFileOriginProductCategory::VideoGeneration)
-    .media_file_type(MediaFileType::Mp4)
-    .mime_type("video/mp4")
+    .media_file_type(media_file_type)
+    .mime_type(mimetype)
     .public_bucket_directory_hash(&bucket_path)
     .insert_pool(&deps.mysql_pool)
     .await;
@@ -245,4 +262,35 @@ async fn finalize_success(
   info!("Job {} completed successfully.", job.job_token.as_str());
 
   Ok(())
+}
+
+/// Detect the actual container instead of labeling every provider result as MP4.
+fn video_metadata(bytes: &[u8]) -> AnyhowResult<(&'static str, &'static str, MediaFileType)> {
+  match get_mimetype_for_bytes(bytes) {
+    Some("video/quicktime") => Ok((".mov", "video/quicktime", MediaFileType::Mov)),
+    Some("video/mp4") => Ok((".mp4", "video/mp4", MediaFileType::Mp4)),
+    other => Err(anyhow!("Unsupported Kinovi video result MIME type: {:?}", other)),
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn detects_quicktime_result() {
+    let bytes = b"\x00\x00\x00\x14ftypqt  \x00\x00\x02\x00qt  ";
+    assert_eq!(video_metadata(bytes).unwrap(), (".mov", "video/quicktime", MediaFileType::Mov));
+  }
+
+  #[test]
+  fn detects_mp4_result() {
+    let bytes = b"\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2avc1mp41";
+    assert_eq!(video_metadata(bytes).unwrap(), (".mp4", "video/mp4", MediaFileType::Mp4));
+  }
+
+  #[test]
+  fn rejects_error_page_as_video() {
+    assert!(video_metadata(b"<html>Download failed</html>").is_err());
+  }
 }

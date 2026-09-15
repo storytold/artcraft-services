@@ -109,6 +109,10 @@ impl UserSessionFeatureFlags {
   pub fn can_use_minimax_priority(&self) -> bool {
     self.feature_flags.contains(&UserFeatureFlag::MinimaxPriority)
   }
+
+  pub fn can_use_quicktime(&self) -> bool {
+    self.feature_flags.contains(&UserFeatureFlag::CanUseQuicktime)
+  }
 }
 
 #[cfg(test)]

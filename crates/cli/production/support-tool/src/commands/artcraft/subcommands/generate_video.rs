@@ -120,6 +120,7 @@ pub async fn run(state: &ArtcraftState, args: GenerateVideoArgs) -> anyhow::Resu
     resolution: None,
     aspect_ratio: None,
     bitrate: None,
+    maybe_output_format: None,
     quality: None,
     duration_seconds: Some(duration),
     video_batch_count: None,

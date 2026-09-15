@@ -153,6 +153,8 @@ pub async fn save_new_project(args: SaveNewProjectArgs<'_>) -> Result<MediaFileT
     maybe_mime_type: Some(PROJECT_MIMETYPE),
     file_size_bytes: file_bytes.len() as u64,
     maybe_duration_millis: None,
+    maybe_frame_width: None,
+    maybe_frame_height: None,
     sha256_checksum: &sha256_checksum,
     maybe_title: maybe_title.as_deref(),
     maybe_scene_source_media_file_token: None,

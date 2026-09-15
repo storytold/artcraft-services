@@ -38,6 +38,8 @@ pub struct GenerateSeedance2p0MiniRequest {
   /// Output video bitrate. None defaults to "normal"; `High` requests a
   /// higher bitrate. Does not affect cost.
   pub bitrate: Option<KinoviSeedance2p0MiniBitrate>,
+  /// Whether to generate audio. None leaves the provider default unchanged.
+  pub maybe_generate_audio: Option<bool>,
 }
 
 // ── Enums ──
@@ -222,6 +224,8 @@ fn to_raw_request(req: GenerateSeedance2p0MiniRequest) -> WorkflowRunTaskRequest
     character_ids: req.character_ids,
     use_face_blur_hack: req.use_face_blur_hack,
     bitrate: map_bitrate(req.bitrate),
+    maybe_output_format: None,
+    maybe_generate_audio: req.maybe_generate_audio,
   }
 }
 
@@ -642,6 +646,7 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_generate_audio: None,
       }
     }
 
@@ -695,6 +700,7 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: Some(KinoviSeedance2p0MiniBitrate::High),
+        maybe_generate_audio: None,
       }
     }
 
@@ -769,6 +775,7 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_generate_audio: None,
       }
     }
   }
@@ -805,6 +812,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("mini t2v 720p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -836,6 +844,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("mini t2v 480p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -868,6 +877,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("mini reference-to-video 720p — task_id={}, order_id={}", result.task_id, result.order_id);
@@ -900,6 +910,7 @@ mod tests {
           character_ids: None,
           use_face_blur_hack: None,
           bitrate: None,
+          maybe_generate_audio: None,
         },
       }).await?;
       println!("mini video ref 480p — task_id={}, order_id={}", result.task_id, result.order_id);

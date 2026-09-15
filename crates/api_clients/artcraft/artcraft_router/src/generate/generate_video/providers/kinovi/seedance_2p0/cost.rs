@@ -65,6 +65,7 @@ impl KinoviSeedance2p0CostState {
       character_ids: None,
       use_face_blur_hack: None,
       bitrate: None,
+      maybe_generate_audio: None,
     };
 
     // Enterprise tier: what generations actually cost us (our discounted
@@ -276,6 +277,7 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_generate_audio: None,
       }
       .calculate_enterprise_costs();
       (costs.total_cost.kinovi_credits.round() as u64, costs.total_cost.usd_cents_rounded_up)
@@ -654,6 +656,7 @@ mod tests {
         character_ids: None,
         use_face_blur_hack: None,
         bitrate: None,
+        maybe_generate_audio: None,
       },
     }
   }

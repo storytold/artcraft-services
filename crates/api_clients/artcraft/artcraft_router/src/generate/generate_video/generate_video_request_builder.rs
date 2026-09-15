@@ -4,6 +4,7 @@ use crate::api::router_aspect_ratio::RouterAspectRatio;
 use crate::api::router_bitrate::RouterBitrate;
 use crate::api::router_resolution::RouterResolution;
 use crate::api::router_video_model::RouterVideoModel;
+use crate::api::router_video_output_format::RouterVideoOutputFormat;
 use crate::api::image_list_ref::ImageListRef;
 use crate::api::image_ref::ImageRef;
 use crate::api::router_provider::RouterProvider;
@@ -125,6 +126,10 @@ pub struct GenerateVideoRequestBuilder {
   /// Not all models support this; models that don't simply ignore it.
   pub bitrate: Option<RouterBitrate>,
 
+  /// Output container for Seedance 2.5 on Kinovi and Artcraft.
+  /// None keeps the provider default; unsupported models/providers ignore it.
+  pub maybe_output_format: Option<RouterVideoOutputFormat>,
+
   /// How many seconds to generate.
   pub duration_seconds: Option<u16>,
 
@@ -168,6 +173,7 @@ impl Default for GenerateVideoRequestBuilder {
       resolution: None,
       aspect_ratio: None,
       bitrate: None,
+      maybe_output_format: None,
       duration_seconds: None,
       video_batch_count: None,
       generate_audio: None,

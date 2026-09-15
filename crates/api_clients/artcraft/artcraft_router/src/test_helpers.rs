@@ -352,6 +352,7 @@ pub fn base_video_request() -> GenerateVideoRequestBuilder {
     resolution: None,
     aspect_ratio: None,
     bitrate: None,
+    maybe_output_format: None,
     duration_seconds: None,
     video_batch_count: None,
     generate_audio: None,

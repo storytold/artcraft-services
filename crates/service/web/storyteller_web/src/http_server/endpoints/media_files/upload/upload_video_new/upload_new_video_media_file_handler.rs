@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::collections::HashSet;
 use std::io::Read;
 use std::path::PathBuf;
@@ -17,9 +18,8 @@ use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path:
 use enums::by_table::media_files::media_file_class::MediaFileClass;
 use enums::by_table::media_files::media_file_type::MediaFileType;
 use enums::common::visibility::Visibility;
-use ffmpeg_utils::ffmpeg::ffmpeg_transcode_to_mp4::{ffmpeg_transcode_to_mp4, FfmpegTranscodeToMp4Args};
 use ffmpeg_utils::ffmpeg::ffmpeg_trim_and_resample::{ffmpeg_trim_and_resample, Args};
-use ffmpeg_utils::ffprobe::ffprobe_get_info::ffprobe_get_info;
+use ffmpeg_utils::ffprobe::ffprobe_get_info::{ffprobe_get_info, VideoInfo};
 use filesys::file_read_bytes::file_read_bytes;
 use filesys::path_to_string::path_to_string;
 use hashing::sha256::sha256_hash_bytes::sha256_hash_bytes;
@@ -35,6 +35,7 @@ use tokens::tokens::prompts::PromptToken;
 use crate::http_server::endpoints::media_files::upload::common_utils::read_upload_session::read_upload_session;
 use crate::http_server::endpoints::media_files::upload::upload_error::MediaFileUploadError;
 use crate::http_server::endpoints::media_files::upload::common_utils::try_parse_generation_provider::try_parse_generation_provider;
+use crate::http_server::user_lookup::user_session::session_utils::lookup::user_session_feature_flags::UserSessionFeatureFlags;
 use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
 use crate::state::server_state::ServerState;
 
@@ -119,14 +120,8 @@ pub struct UploadNewVideoMediaFileSuccessResponse {
 static ALLOWED_MIME_TYPES : Lazy<HashSet<&'static str>> = Lazy::new(|| {
   HashSet::from([
     // Video
-    "video/mp4", // NB: Only mp4 for now.
-  ])
-});
-
-static TRANSCODE_MIME_TYPES : Lazy<HashSet<&'static str>> = Lazy::new(|| {
-  HashSet::from([
-    // Video
-    "video/quicktime", // .qt quicktime files
+    "video/mp4",
+    "video/quicktime", // Preserve MOV video and audio without transcoding.
   ])
 });
 
@@ -236,9 +231,7 @@ pub async fn upload_new_video_media_file_handler(
         MediaFileUploadError::BadInput("Could not determine mimetype for file".to_string())
       })?;
 
-  let needs_transcode = TRANSCODE_MIME_TYPES.contains(mimetype.as_str());
-
-  if !ALLOWED_MIME_TYPES.contains(mimetype.as_str()) && !needs_transcode {
+  if !ALLOWED_MIME_TYPES.contains(mimetype.as_str()) {
     // NB: Don't let our error message inject malicious strings
     let filtered_mimetype = mimetype
         .chars()
@@ -248,10 +241,24 @@ pub async fn upload_new_video_media_file_handler(
     return Err(MediaFileUploadError::BadInput(format!("unpermitted mime type: {}", &filtered_mimetype)));
   }
 
+  if mimetype == "video/quicktime" {
+    let maybe_feature_flags = match session_auth.maybe_header_session.as_ref() {
+      Some(session) => session.maybe_feature_flags.as_deref(),
+      None => session_auth.maybe_cookie_session.as_ref()
+          .and_then(|session| session.maybe_feature_flags.as_deref()),
+    };
+    let user_feature_flags = UserSessionFeatureFlags::new(maybe_feature_flags);
+    if !user_feature_flags.can_use_quicktime() {
+      return Err(MediaFileUploadError::NotAuthorizedVerbose(
+        "QuickTime uploads are not enabled for this account".to_string(),
+      ));
+    }
+  }
+
   // ==================== ORIGINAL FILE BOOKKEEPING ==================== //
   // Hold on to the user's original file (path + mimetype + extension) so we
   // can upload it as a `_original.{ext}` sibling later if we end up
-  // transcoding and/or resampling it.
+  // trimming or resampling it.
 
   let original_file_path: PathBuf = form.file.file.path().to_path_buf();
   let original_mimetype: String = mimetype.clone();
@@ -267,48 +274,9 @@ pub async fn upload_new_video_media_file_handler(
         MediaFileUploadError::ServerError
       })?;
 
-  // ==================== OPTIONAL TRANSCODE TO MP4 ==================== //
-  // Some accepted source mime types (e.g. QuickTime .mov) are not the canonical
-  // distribution format we want for the media file record. Transcode them to
-  // mp4 in a tempdir so we can resample / upload mp4 instead.
-
-  // Tempdirs we need to keep alive across the upload step. They get dropped at
-  // function exit which cleans up the on-disk files.
-  let mut _transcode_tempdir_ref = None;
-  let mut _resample_tempdir_ref = None;
-
+  // Preserve the source container and audio unless the caller requests an edit.
   let mut final_upload_file_path = form.file.file.path().to_path_buf();
-
-  if needs_transcode {
-    let transcode_tempdir = server_state.temp_dir_creator.new_tempdir("ffmpeg_transcode")
-        .map_err(|err| {
-          error!("Problem creating transcode temp dir: {:?}", err);
-          MediaFileUploadError::ServerError
-        })?;
-
-    let transcoded_path = transcode_tempdir.path().join("transcoded.mp4");
-
-    info!("Transcoding {} → mp4", &original_mimetype);
-    ffmpeg_transcode_to_mp4(FfmpegTranscodeToMp4Args {
-      video_input_path: form.file.file.path(),
-      video_output_path: &transcoded_path,
-    }).map_err(|err| {
-      error!("Problem transcoding video to mp4: {:?}", err);
-      MediaFileUploadError::ServerError
-    })?;
-
-    // The canonical file is now the transcoded mp4. Read its bytes and pin
-    // its mimetype to mp4 so all the downstream metadata reflects the
-    // transcoded file rather than the user's original upload.
-    file_bytes = file_read_bytes(&transcoded_path)
-        .map_err(|e| {
-          error!("Problem reading transcoded mp4: {:?}", e);
-          MediaFileUploadError::ServerError
-        })?;
-    mimetype = "video/mp4".to_string();
-    final_upload_file_path = transcoded_path;
-    _transcode_tempdir_ref = Some(transcode_tempdir);
-  }
+  let mut _resample_tempdir_ref = None;
 
   // ==================== OPTIONAL VIDEO RESAMPLE ==================== //
 
@@ -330,8 +298,7 @@ pub async fn upload_new_video_media_file_handler(
     let maybe_start_offset = form.maybe_trim_start_millis.map(|millis| Duration::from_millis(millis.0));
     let maybe_end_offset = form.maybe_trim_end_millis.map(|millis| Duration::from_millis(millis.0));
 
-    // NB: Resample reads from `final_upload_file_path` (which is the transcoded
-    // mp4 if we transcoded above, or the user's original upload otherwise).
+    // Explicit trimming/resampling produces MP4; the original is retained below.
     ffmpeg_trim_and_resample(Args {
       video_input_path: &final_upload_file_path,
       video_output_path: &video_output_path,
@@ -360,23 +327,18 @@ pub async fn upload_new_video_media_file_handler(
     _resample_tempdir_ref = Some(frame_temp_dir); // NB: Keep from going out of scope
   }
 
-  // True if we touched the user's file in any way (transcoded, resampled, or both).
-  // We'll upload their unmodified original alongside the canonical file when so.
-  let should_upload_original = needs_transcode || should_resample;
+  // Retain the unmodified original when the caller requests an edit.
+  let should_upload_original = should_resample;
 
   // ==================== OTHER FILE METADATA ==================== //
 
-  let mut maybe_duration_millis = None;
-
-  match ffprobe_get_info(&final_upload_file_path) {
-    Ok(video_info) => {
-      maybe_duration_millis = video_info.duration
-          .map(|duration| duration.millis as u64);
-    }
-    Err(error) => {
-      warn!("Error reading video dimensions with ffprobe: {:?}", error);
-    }
-  }
+  let video_info = ffprobe_get_info(&final_upload_file_path).unwrap_or_else(|err| {
+    warn!("Could not probe uploaded video: {:?}", err);
+    VideoInfo::default()
+  });
+  let maybe_duration_millis = video_info.duration.map(|duration| u64::from(duration.millis));
+  let maybe_frame_width = video_info.dimensions.as_ref().and_then(|d| u32::try_from(d.width).ok());
+  let maybe_frame_height = video_info.dimensions.as_ref().and_then(|d| u32::try_from(d.height).ok());
 
   let maybe_filename = form.file.file_name.as_deref()
       .as_deref()
@@ -423,7 +385,7 @@ pub async fn upload_new_video_media_file_handler(
       })?;
 
   // ==================== UPLOAD ORIGINAL SIBLING ==================== //
-  // If we transcoded and/or resampled the user's upload, also upload the
+  // If we trimmed or resampled the user's upload, also upload the
   // unmodified original alongside the canonical file as `_original.{ext}`
   // (sharing the same object hash / directory). The media file record points
   // at the canonical file, not this sibling.
@@ -507,6 +469,8 @@ pub async fn upload_new_video_media_file_handler(
     maybe_mime_type: Some(&mimetype),
     file_size_bytes: file_size_bytes as u64,
     maybe_duration_millis,
+    maybe_frame_width,
+    maybe_frame_height,
     sha256_checksum: &hash,
     maybe_title: maybe_title.as_deref(),
     maybe_scene_source_media_file_token,
@@ -525,7 +489,12 @@ pub async fn upload_new_video_media_file_handler(
 
   info!("new media file id: {} token: {:?}", record_id, &token);
 
-  let thumbnail_task_result = ThumbnailTaskBuilder::new_for_source_mimetype(ThumbnailTaskInputMimeType::MP4)
+  let thumbnail_mimetype = if mimetype == "video/quicktime" {
+    ThumbnailTaskInputMimeType::MOV
+  } else {
+    ThumbnailTaskInputMimeType::MP4
+  };
+  let thumbnail_task_result = ThumbnailTaskBuilder::new_for_source_mimetype(thumbnail_mimetype)
     .with_bucket(server_state.public_bucket_client.bucket_name().as_str())
     .with_path(&*path_to_string(public_upload_path.to_full_object_pathbuf()))
     .with_output_suffix("thumb")
