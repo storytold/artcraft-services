@@ -35,6 +35,7 @@ use tokens::tokens::prompts::PromptToken;
 use crate::http_server::endpoints::media_files::upload::common_utils::read_upload_session::read_upload_session;
 use crate::http_server::endpoints::media_files::upload::upload_error::MediaFileUploadError;
 use crate::http_server::endpoints::media_files::upload::common_utils::try_parse_generation_provider::try_parse_generation_provider;
+use crate::http_server::user_lookup::user_session::session_utils::lookup::user_session_feature_flags::UserSessionFeatureFlags;
 use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
 use crate::state::server_state::ServerState;
 
@@ -238,6 +239,20 @@ pub async fn upload_new_video_media_file_handler(
         .filter(|c| c.is_alphanumeric() || *c == '/')
         .collect::<String>();
     return Err(MediaFileUploadError::BadInput(format!("unpermitted mime type: {}", &filtered_mimetype)));
+  }
+
+  if mimetype == "video/quicktime" {
+    let maybe_feature_flags = match session_auth.maybe_header_session.as_ref() {
+      Some(session) => session.maybe_feature_flags.as_deref(),
+      None => session_auth.maybe_cookie_session.as_ref()
+          .and_then(|session| session.maybe_feature_flags.as_deref()),
+    };
+    let user_feature_flags = UserSessionFeatureFlags::new(maybe_feature_flags);
+    if !user_feature_flags.can_use_quicktime() {
+      return Err(MediaFileUploadError::NotAuthorizedVerbose(
+        "QuickTime uploads are not enabled for this account".to_string(),
+      ));
+    }
   }
 
   // ==================== ORIGINAL FILE BOOKKEEPING ==================== //

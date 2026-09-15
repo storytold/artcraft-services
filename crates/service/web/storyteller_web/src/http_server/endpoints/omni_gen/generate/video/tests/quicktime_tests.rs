@@ -1,5 +1,7 @@
 use std::process::Command;
 
+use actix_web::cookie::Cookie;
+use actix_web::http::StatusCode;
 use actix_web::{test, web, App};
 use enums::by_table::media_files::media_file_class::MediaFileClass;
 use enums::by_table::media_files::media_file_type::MediaFileType;
@@ -7,6 +9,8 @@ use enums::common::generation::common_resolution::CommonResolution;
 use enums::common::generation::common_video_model::CommonVideoModel;
 use enums::common::generation::common_video_output_format::CommonVideoOutputFormat;
 use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
+use mysql_queries::queries::users::user::update::set_user_feature_flags::{set_user_feature_flags, SetUserFeatureFlagArgs};
+use mysql_testing::fixtures::users::{create_test_user, TestUser};
 use tokens::tokens::media_files::MediaFileToken;
 
 use crate::http_server::endpoints::media_files::upload::upload_generic::upload_media_file_handler::upload_media_file_handler;
@@ -21,6 +25,7 @@ const BOUNDARY: &str = "artcraft-quicktime-test-boundary";
 async fn quicktime_uploads_are_video_references_with_mp4_or_mov_output() {
   let harness = TestHarness::create().await;
   let user = harness.create_funded_user(10_000).await;
+  enable_quicktime(&harness, &user).await;
   let api_key = harness.create_api_key(&user).await;
   let bytes = quicktime_fixture();
   let app = test::init_service(App::new()
@@ -77,24 +82,95 @@ async fn quicktime_uploads_are_video_references_with_mp4_or_mov_output() {
   }
 }
 
+#[actix_web::test]
+#[cfg_attr(feature = "skip_database_tests", ignore)]
+async fn new_video_quicktime_uploads_require_feature_flag_for_every_auth_type() {
+  let harness = TestHarness::create().await;
+  let mov_bytes = quicktime_fixture();
+  let mp4_bytes = video_fixture("mp4", "aac");
+  let app = test::init_service(App::new()
+    .app_data(web::Data::new(harness.server_state.clone()))
+    .route("/new-video", web::post().to(upload_new_video_media_file_handler))
+  ).await;
+
+  for enabled in [false, true] {
+    let user = create_test_user(&harness.pool).await.unwrap();
+    if enabled {
+      enable_quicktime(&harness, &user).await;
+    }
+    let api_key = harness.create_api_key(&user).await;
+    let mcp_session = harness.create_mcp_session(&user).await;
+    let cookie = harness.server_state.session_cookie_manager
+      .create_cookie(&user.session_token, &user.user_token).unwrap();
+
+    for auth in ["anonymous", "cookie", "api_key", "mcp"] {
+      for (is_quicktime, bytes) in [(true, &mov_bytes), (false, &mp4_bytes)] {
+        let idempotency = base_generate_request(CommonVideoModel::Seedance2p5).idempotency_token.unwrap();
+        // Even MOV bytes claim to be MP4: authorization must use the detected
+        // container, not the filename or multipart Content-Type.
+        let body = multipart_body_for_file(&idempotency, bytes, "reference.mp4", "video/mp4");
+        let mut request = test::TestRequest::post().uri("/new-video")
+          .insert_header(("Content-Type", format!("multipart/form-data; boundary={BOUNDARY}")))
+          .peer_addr("127.0.0.1:9999".parse().unwrap())
+          .set_payload(body);
+        request = match auth {
+          "cookie" => request.cookie(Cookie::new("session", cookie.value().to_string())),
+          "api_key" => request.insert_header(("Authorization", format!("Bearer {}", api_key.as_str_be_careful()))),
+          "mcp" => request.insert_header(("Authorization", format!("Bearer {}", mcp_session.as_str()))),
+          _ => request,
+        };
+
+        let response = test::call_service(&app, request.to_request()).await;
+        let status = response.status();
+        let body = test::read_body(response).await;
+        let expected = if is_quicktime && (!enabled || auth == "anonymous") {
+          StatusCode::UNAUTHORIZED
+        } else {
+          StatusCode::OK
+        };
+        assert_eq!(status, expected,
+          "enabled={}, auth={}, quicktime={}: {}", enabled, auth, is_quicktime, String::from_utf8_lossy(&body));
+      }
+    }
+  }
+}
+
+async fn enable_quicktime(harness: &TestHarness, user: &TestUser) {
+  set_user_feature_flags(SetUserFeatureFlagArgs {
+    subject_user_token: &user.user_token,
+    maybe_feature_flags: Some("use_qt"),
+    ip_address: "127.0.0.1",
+    maybe_mod_user_token: None,
+    mysql_pool: &harness.pool,
+  }).await.unwrap();
+}
+
 fn quicktime_fixture() -> Vec<u8> {
+  video_fixture("mov", "pcm_s16le")
+}
+
+fn video_fixture(extension: &str, audio_codec: &str) -> Vec<u8> {
   let dir = tempfile::tempdir().unwrap();
-  let path = dir.path().join("reference.mov");
+  let path = dir.path().join(format!("reference.{extension}"));
   let output = Command::new("ffmpeg").args([
     "-hide_banner", "-loglevel", "error", "-nostdin",
     "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=24",
     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
     "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-    "-c:a", "pcm_s16le", "-ac", "2",
+    "-c:a", audio_codec, "-ac", "2",
   ]).arg(&path).output().unwrap();
   assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
   std::fs::read(path).unwrap()
 }
 
 fn multipart_body(idempotency_token: &str, bytes: &[u8]) -> Vec<u8> {
+  multipart_body_for_file(idempotency_token, bytes, "reference.mov", "video/quicktime")
+}
+
+fn multipart_body_for_file(idempotency_token: &str, bytes: &[u8], filename: &str, mimetype: &str) -> Vec<u8> {
   let mut body = format!(
     "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"uuid_idempotency_token\"\r\n\r\n{idempotency_token}\r\n\
-     --{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"reference.mov\"\r\nContent-Type: video/quicktime\r\n\r\n"
+     --{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\nContent-Type: {mimetype}\r\n\r\n"
   ).into_bytes();
   body.extend_from_slice(bytes);
   body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
