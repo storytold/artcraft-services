@@ -1,19 +1,5 @@
 import type { NextConfig } from "next";
 
-// Marketing routes the nav/footer reference but this app doesn't serve yet.
-// They bounce to the currently shipping site (same dependency as MEDIA_BASE —
-// this app already assumes the Vite site stays live) so no link dead-ends.
-// Delete a route from this list when its page migrates here.
-const LEGACY_ROUTES = [
-  "download",
-  "pricing",
-  "tutorials",
-  "news",
-  "faq",
-  "press-kit",
-  "support",
-];
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Pin the project root: the repo has lockfiles both here and in the Nx
@@ -22,11 +8,17 @@ const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
   outputFileTracingRoot: __dirname,
   async redirects() {
-    return LEGACY_ROUTES.map((route) => ({
-      source: `/${route}`,
-      destination: `https://getartcraft.com/${route}`,
-      permanent: false,
-    }));
+    // Legacy Stripe return paths from the Vite site; checkout now lives in
+    // the webapp, which serves the canonical slash forms.
+    return ["checkout_success", "checkout_cancel", "portal_closed"].map(
+      (route) => ({
+        source: `/${route}`,
+        destination: `https://app.getartcraft.com/checkout/${
+          route === "checkout_success" ? "success" : "cancel"
+        }`,
+        permanent: false,
+      }),
+    );
   },
   // Same-origin proxies for large media served from other origins. The hero
   // wall draws its clips as WebGL video textures, which need CORS-clean

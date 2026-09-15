@@ -114,6 +114,16 @@ export const RULER_SECTIONS: RulerSection[] = [
   { id: "ownership", label: "OWNERSHIP" },
   { id: "made-with", label: "COMMUNITY" },
   { id: "start", label: "GET STARTED" },
+  // Interior marketing pages. Each page mounts only its own ids; the rest
+  // are skipped, so one roster serves the whole site.
+  { id: "plans", label: "PLANS" },
+  { id: "enterprise", label: "ENTERPRISE" },
+  { id: "credits", label: "CREDITS" },
+  { id: "platforms", label: "PLATFORMS" },
+  { id: "quick-start", label: "QUICK START" },
+  { id: "articles", label: "ARTICLES" },
+  { id: "contact", label: "CONTACT" },
+  { id: "apply", label: "APPLY" },
 ];
 
 export const MADE_WITH_YOUTUBE_IDS = [
