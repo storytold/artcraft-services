@@ -5,6 +5,7 @@ import { Component, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import LazyVideo from "@/components/lazy-video";
 import { watchThemeColors, type ThemeColors } from "@/lib/theme-colors";
+import { webglAvailable } from "@/lib/webgl-support";
 
 // Plain code-split dynamic import — NOT `ssr: false`. It never renders during
 // SSR (gated by `ready`, false on the server), so WebGL stays off the server
@@ -40,9 +41,12 @@ export default function HeroViewport({
   const insideRef = useRef(false);
   const targetPctRef = useRef(IDLE_CENTER);
 
-  // Gate: capable device, motion allowed, tab actually foregrounded.
+  // Gate: WebGL available (r3f's context-creation failure is an unhandled
+  // rejection CanvasBoundary can't catch — the footage below is the
+  // fallback), capable device, motion allowed, tab actually foregrounded.
   useEffect(() => {
     const capable =
+      webglAvailable() &&
       window.matchMedia("(pointer: fine) and (min-width: 768px)").matches &&
       window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
     if (!capable) return;
