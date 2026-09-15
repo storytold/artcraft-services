@@ -106,10 +106,10 @@ function DefaultHeader() {
         annotation="Free & open source · Subscriptions optional†"
         title={
           <>
-            Pay for renders, <Accent>not</Accent> for the tool.
+            Create without <Accent>limits</Accent>.
           </>
         }
-        lede="ArtCraft is free and open source. Pick a plan for credits across Seedance, Kling, Nano Banana and every other model — no per-model subscriptions, and the studio stays yours whether you pay or not."
+        lede="Get a ton of generations and invest in a tool you'll always own. Your subscription helps keep ArtCraft free and open for everyone."
       />
     </div>
   );
