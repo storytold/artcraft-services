@@ -12,6 +12,7 @@ export interface GenerateVideoParams {
   duration?: number;
   resolution?: string;
   bitrate?: string;
+  outputFormat?: string;
   generateAudio?: boolean;
   startFrameImageMediaToken?: string;
   endFrameImageMediaToken?: string;
@@ -38,6 +39,7 @@ export async function enqueueVideoGeneration(
     aspect_ratio: params.aspectRatio ?? null,
     resolution: params.resolution ?? null,
     bitrate: params.bitrate ?? null,
+    output_format: params.outputFormat ?? null,
     duration_seconds: params.duration ?? null,
     generate_audio: params.generateAudio ?? null,
     video_batch_count: params.numVideos ?? 1,

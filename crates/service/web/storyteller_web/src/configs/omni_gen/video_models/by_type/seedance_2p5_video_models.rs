@@ -3,6 +3,7 @@ use enums::common::generation::common_aspect_ratio::CommonAspectRatio;
 use enums::common::generation::common_bitrate::CommonBitrate;
 use enums::common::generation::common_resolution::CommonResolution;
 use enums::common::generation::common_video_model::CommonVideoModel;
+use enums::common::generation::common_video_output_format::CommonVideoOutputFormat;
 use enums::common::generation::model_creator::ModelCreator;
 
 /// The Seedance 2.5 family of video models.
@@ -48,6 +49,8 @@ pub fn seedance_2p5_video_models() -> Vec<OmniGenVideoModelDetails> {
       CommonBitrate::High,
     ]),
     bitrate_default: Some(CommonBitrate::Normal),
+    output_format_options: Some(vec![CommonVideoOutputFormat::Mp4, CommonVideoOutputFormat::Mov]),
+    output_format_default: Some(CommonVideoOutputFormat::Mp4),
     batch_size_options: Some(vec![1]),
     batch_size_default: Some(1),
     duration_seconds_min: Some(4),
@@ -95,6 +98,11 @@ pub fn seedance_2p5_video_models() -> Vec<OmniGenVideoModelDetails> {
       CommonBitrate::High,
     ]),
     bitrate_default: Some(CommonBitrate::Normal),
+    output_format_options: Some(vec![
+      CommonVideoOutputFormat::Mp4,
+      CommonVideoOutputFormat::Mov
+    ]),
+    output_format_default: Some(CommonVideoOutputFormat::Mp4),
     batch_size_options: Some(vec![1]),
     batch_size_default: Some(1),
     duration_seconds_min: Some(4),
@@ -150,4 +158,24 @@ pub fn seedance_2p5_video_models() -> Vec<OmniGenVideoModelDetails> {
   });
 
   models
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use serde_json::json;
+
+  #[test]
+  fn output_format_config_matches_supported_models() {
+    for model in seedance_2p5_video_models() {
+      let json = serde_json::to_value(&model).unwrap();
+      if matches!(model.model, CommonVideoModel::Seedance2p5 | CommonVideoModel::Seedance2p5Ultra) {
+        assert_eq!(json["output_format_options"], json!(["mp4", "mov"]));
+        assert_eq!(json["output_format_default"], "mp4");
+      } else {
+        assert!(json.get("output_format_options").is_none());
+        assert!(json.get("output_format_default").is_none());
+      }
+    }
+  }
 }

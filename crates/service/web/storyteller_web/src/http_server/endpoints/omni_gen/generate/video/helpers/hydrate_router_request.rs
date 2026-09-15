@@ -150,48 +150,63 @@ mod tests {
         KinoviWebSession::from_cookies_string(String::new()),
       ));
       let context = VideoGenerationDraftContext { client: Some(&client), ..Default::default() };
-      for output_format in [Value::Null, json!("mp4"), json!("mov")] {
-        for generate_audio in [None, Some(true), Some(false)] {
-          let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json!({
-            "model": "seedance_2p5",
-            "output_format": output_format,
-            "generate_audio": generate_audio,
-          })).unwrap();
-          let mut builder = hydrate_to_router_request(&request).unwrap();
-          builder.provider = RouterProvider::KinoviWeb;
-          let draft = match builder.build2().unwrap() {
-            VideoGenerationDraftOrRequest::Draft(draft) => draft,
-            other => panic!("Unexpected request: {:?}", other),
-          };
-          let finalized = draft.finalize(context.clone()).await.unwrap();
-          let request = match finalized {
-            VideoGenerationRequest::KinoviSeedance2p5(state) => state.request,
-            other => panic!("Unexpected request: {:?}", other),
-          };
-          let actual_format = request.maybe_output_format.map(|format| match format {
-            KinoviSeedance2p5OutputFormat::Mp4 => "mp4",
-            KinoviSeedance2p5OutputFormat::Mov => "mov",
-          });
-          assert_eq!(actual_format, Some(output_format.as_str().unwrap_or("mp4")));
-          assert_eq!(request.maybe_generate_audio, generate_audio);
+      for model in ["seedance_2p5", "seedance_2p5_u"] {
+        for output_format in [None, Some(Value::Null), Some(json!("mp4")), Some(json!("mov"))] {
+          for generate_audio in [None, Some(true), Some(false)] {
+            let mut body = json!({
+              "model": model,
+              "generate_audio": generate_audio,
+            });
+            if let Some(format) = &output_format {
+              body["output_format"] = format.clone();
+            }
+            let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(body).unwrap();
+            let mut builder = hydrate_to_router_request(&request).unwrap();
+            builder.provider = RouterProvider::KinoviWeb;
+            // Mirror run_pipeline_v2: Ultra executes as the base model on
+            // its own account, while billing retains the original model.
+            if matches!(builder.model, RouterVideoModel::Seedance2p5Ultra) {
+              builder.model = RouterVideoModel::Seedance2p5;
+            }
+            let draft = match builder.build2().unwrap() {
+              VideoGenerationDraftOrRequest::Draft(draft) => draft,
+              other => panic!("Unexpected request: {:?}", other),
+            };
+            let finalized = draft.finalize(context.clone()).await.unwrap();
+            let request = match finalized {
+              VideoGenerationRequest::KinoviSeedance2p5(state) => state.request,
+              other => panic!("Unexpected request: {:?}", other),
+            };
+            let actual_format = request.maybe_output_format.map(|format| match format {
+              KinoviSeedance2p5OutputFormat::Mp4 => "mp4",
+              KinoviSeedance2p5OutputFormat::Mov => "mov",
+            });
+            let expected_format = output_format.as_ref().and_then(Value::as_str).unwrap_or("mp4");
+            assert_eq!(actual_format, Some(expected_format), "model: {model}");
+            assert_eq!(request.maybe_generate_audio, generate_audio);
+          }
         }
       }
     }
 
     #[test]
     fn unsupported_model_ignores_format() {
-      let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json!({
-        "model": "seedance_2p0", "output_format": "mov"
-      })).unwrap();
-      assert!(hydrate_to_router_request(&request).unwrap().maybe_output_format.is_none());
+      for model in ["seedance_2p0", "seedance_2p5_preview"] {
+        let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json!({
+          "model": model, "output_format": "mov"
+        })).unwrap();
+        assert!(hydrate_to_router_request(&request).unwrap().maybe_output_format.is_none());
+      }
     }
 
     #[test]
-    fn absent_format_defaults_to_mp4() {
-      let request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(json!({
-        "model": "seedance_2p5"
-      })).unwrap();
-      assert_eq!(hydrate_to_router_request(&request).unwrap().maybe_output_format, Some(RouterVideoOutputFormat::Mp4));
+    fn invalid_format_is_rejected() {
+      for output_format in [json!("webm"), json!("MP4"), json!(42)] {
+        let request = serde_json::from_value::<OmniGenVideoCostAndGenerateRequest>(json!({
+          "model": "seedance_2p5", "output_format": output_format,
+        }));
+        assert!(request.is_err());
+      }
     }
   }
 
