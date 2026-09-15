@@ -25,6 +25,7 @@ export default function TutorialsPage() {
       <RevealManager />
 
       <PageHeader
+        id="tutorials"
         index="01"
         label="Tutorials"
         annotation="Video walkthroughs"

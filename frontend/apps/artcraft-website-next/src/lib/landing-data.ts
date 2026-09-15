@@ -115,7 +115,17 @@ export const RULER_SECTIONS: RulerSection[] = [
   { id: "made-with", label: "COMMUNITY" },
   { id: "start", label: "GET STARTED" },
   // Interior marketing pages. Each page mounts only its own ids; the rest
-  // are skipped, so one roster serves the whole site.
+  // are skipped, so one roster serves the whole site. ORDER MATTERS: the
+  // ruler assumes anchors increase with roster index, so every page's
+  // header id (01) is listed before the interior section ids (02, 03…).
+  { id: "pricing", label: "PRICING" },
+  { id: "download", label: "DOWNLOAD" },
+  { id: "tutorials", label: "TUTORIALS" },
+  { id: "news", label: "NEWS" },
+  { id: "faq", label: "FAQ" },
+  { id: "support", label: "SUPPORT" },
+  { id: "press-kit", label: "PRESS KIT" },
+  { id: "beta", label: "BETA" },
   { id: "plans", label: "PLANS" },
   { id: "enterprise", label: "ENTERPRISE" },
   { id: "credits", label: "CREDITS" },
@@ -123,7 +133,6 @@ export const RULER_SECTIONS: RulerSection[] = [
   { id: "quick-start", label: "QUICK START" },
   { id: "articles", label: "ARTICLES" },
   { id: "contact", label: "CONTACT" },
-  { id: "apply", label: "APPLY" },
 ];
 
 export const MADE_WITH_YOUTUBE_IDS = [

@@ -21,6 +21,7 @@ export default function NewsIndexPage() {
       <RevealManager />
 
       <PageHeader
+        id="news"
         index="01"
         label="News"
         annotation={`${posts.length} posts`}

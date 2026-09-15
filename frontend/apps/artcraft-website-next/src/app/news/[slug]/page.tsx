@@ -49,6 +49,7 @@ export default async function NewsPostPage({ params }: { params: Params }) {
       <RevealManager />
 
       <PageHeader
+        id="news"
         index="01"
         label="News"
         annotation={post.date}

@@ -33,7 +33,7 @@ export default function BetaPage() {
     <>
       <RevealManager />
 
-      <SectionShell id="apply">
+      <SectionShell id="beta">
         <SectionEyebrow index="01" label="ArtCraft beta" annotation="Takes about thirty seconds" />
         <div className="grid gap-px bg-line lg:grid-cols-[1fr_minmax(0,480px)]">
           <div className="bg-bg px-6 py-14 md:px-10 md:py-20">

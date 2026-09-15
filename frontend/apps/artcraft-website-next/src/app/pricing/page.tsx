@@ -4,7 +4,7 @@ import RevealManager from "@/components/reveal-manager";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
 import { Accent, PageHeader } from "@/components/page/page-header";
 import PricingTable from "@/components/pricing/pricing-table";
-import { Badge, Button } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { webappUrl } from "@/lib/links";
 import { PROMO_PCT } from "@/lib/pricing-data";
 
@@ -39,7 +39,7 @@ export default async function PricingPage({
 
       {isSeedanceRef ? <SeedanceHeader /> : <DefaultHeader />}
 
-      <SectionShell id="plans" className="scroll-mt-12">
+      <SectionShell id="plans">
         <SectionEyebrow
           index="02"
           label="Choose your plan"
@@ -84,7 +84,9 @@ export default async function PricingPage({
 
 function DefaultHeader() {
   return (
-    <>
+    // The ruler's PRICING section spans the promo strip and the header, so
+    // the page reads as one section from its very first pixel.
+    <div id="pricing">
       {/* Promo strip: the offer is the first thing on the page. */}
       <div className="border-t border-line bg-accent text-white">
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-6 py-2.5 md:px-10">
@@ -108,18 +110,8 @@ function DefaultHeader() {
           </>
         }
         lede="Thousands of credits for Seedance, Nano Banana, Kling and more — inside an open-source app you keep even if you never pay again."
-      >
-        <div data-reveal className="mt-8 flex flex-wrap items-center gap-3">
-          <Button href="#plans" size="lg">
-            See plans
-          </Button>
-          <Badge
-            label={`${PROMO_PCT}% off · ends soon`}
-            className="border-transparent bg-accent text-white"
-          />
-        </div>
-      </PageHeader>
-    </>
+      />
+    </div>
   );
 }
 
@@ -127,6 +119,7 @@ function SeedanceHeader() {
   return (
     <>
       <PageHeader
+        id="pricing"
         index="01"
         label="Early access"
         annotation="Available today in ArtCraft"

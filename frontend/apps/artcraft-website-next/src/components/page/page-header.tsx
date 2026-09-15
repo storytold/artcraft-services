@@ -9,6 +9,7 @@ import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell
 // one italic serif contrast word, plus an optional lede. Pages compose their
 // body sections beneath it with further SectionShells.
 export function PageHeader({
+  id,
   index,
   label,
   annotation,
@@ -18,6 +19,8 @@ export function PageHeader({
   align = "left",
   className,
 }: {
+  /** Ruler anchor — must be listed in RULER_SECTIONS (landing-data.ts). */
+  id?: string;
   index: string;
   label: string;
   annotation?: string;
@@ -30,7 +33,7 @@ export function PageHeader({
 }) {
   const centered = align === "center";
   return (
-    <SectionShell className={className}>
+    <SectionShell id={id} className={className}>
       <SectionEyebrow index={index} label={label} annotation={annotation} />
       <div
         className={twMerge(

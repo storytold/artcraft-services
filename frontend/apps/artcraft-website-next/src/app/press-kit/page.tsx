@@ -21,6 +21,7 @@ export default function PressKitPage() {
       <RevealManager />
 
       <PageHeader
+        id="press-kit"
         index="01"
         label="Press kit"
         annotation="Logos · Videos · Screenshots"

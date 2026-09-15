@@ -35,6 +35,7 @@ export default function FaqIndexPage() {
       />
 
       <PageHeader
+        id="faq"
         index="01"
         label="FAQ"
         annotation={`${items.length} guides`}

@@ -61,6 +61,7 @@ export default function SupportPage() {
       <RevealManager />
 
       <PageHeader
+        id="support"
         index="01"
         label="Support"
         annotation="We're happy to help"

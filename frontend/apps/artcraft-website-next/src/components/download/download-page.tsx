@@ -106,6 +106,7 @@ export default function DownloadPage() {
   return (
     <>
       <PageHeader
+        id="download"
         index="01"
         label="Download"
         annotation="macOS · Windows · Web"

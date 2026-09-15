@@ -57,6 +57,7 @@ export default async function FaqArticlePage({ params }: { params: Params }) {
       />
 
       <PageHeader
+        id="faq"
         index="01"
         label="FAQ"
         annotation="Guide"

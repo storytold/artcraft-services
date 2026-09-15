@@ -10,7 +10,7 @@ import {
   StarIcon,
 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
-import { Button, TabSelector } from "@/components/ui";
+import { Badge, Button, TabSelector } from "@/components/ui";
 import { webappUrl } from "@/lib/links";
 import {
   CONTACT_EMAIL,
@@ -66,13 +66,15 @@ export default function PricingTable({
             onTabChange={(id) => setCadence(id as BillingCadence)}
             tabClassName="w-24"
           />
-          <p className="hud-label text-accent-ink">
+          <Badge
+            label={`${PROMO_PCT}% off · ends soon`}
+            className="border-transparent bg-accent text-white"
+          />
+          <p className="hud-label hidden text-accent-ink sm:block">
             {cadence === "yearly" ? "2 months free" : "Switch to yearly, save 20%"}
           </p>
         </div>
-        <p className="hud-label hidden text-faint sm:block">
-          Prices in USD · {PROMO_PCT}% launch discount applied
-        </p>
+        <p className="hud-label hidden text-faint sm:block">Prices in USD</p>
       </div>
 
       <div
