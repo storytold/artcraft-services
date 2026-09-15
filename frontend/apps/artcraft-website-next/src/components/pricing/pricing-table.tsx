@@ -133,7 +133,7 @@ function PlanCell({
     >
       <CellIndexRow index={index}>
         {HighlightIcon && <HighlightIcon aria-hidden className="h-3 w-3" />}
-        {plan.highlight ?? plan.tagline}
+        {plan.highlight ?? "Plan"}
       </CellIndexRow>
 
       <div className="flex flex-1 flex-col p-6 md:p-8">
@@ -145,9 +145,7 @@ function PlanCell({
             {PROMO_PCT}% off
           </span>
         </div>
-        {plan.highlight && (
-          <p className="mt-1 text-sm text-muted">{plan.tagline}</p>
-        )}
+        <p className="mt-1 text-sm text-muted">{plan.tagline}</p>
 
         <div className="mt-5 flex items-baseline gap-2">
           <span className="font-mono text-base text-danger/80 line-through">
