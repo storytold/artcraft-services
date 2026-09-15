@@ -15,6 +15,10 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Entry["c
   { path: "/support", priority: 0.5, changeFrequency: "monthly" },
   { path: "/press-kit", priority: 0.5, changeFrequency: "monthly" },
   { path: "/beta", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/seedance-2", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/seedance2-5", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/minimax-h3", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/creators/jboogxcreative", priority: 0.6, changeFrequency: "monthly" },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

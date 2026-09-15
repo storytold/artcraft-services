@@ -5,13 +5,13 @@ import { SectionShell, SectionEyebrow } from "./section-shell";
 // Feature grid: hairline-separated cells (gap-px over the line color), the
 // first feature spanning the full row. Every cell is index + label + real
 // product footage + copy — no illustration, only the actual tool.
-export default function Features() {
+export default function Features({ index = "01" }: { index?: string }) {
   const [lead, ...rest] = FEATURES;
 
   return (
     <SectionShell id="features">
       <SectionEyebrow
-        index="01"
+        index={index}
         label="Crafting features"
         annotation="Real footage — captured in ArtCraft"
       />

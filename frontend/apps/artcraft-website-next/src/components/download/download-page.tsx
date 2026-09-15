@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ArrowDownToLineIcon,
-  ArrowRightIcon,
   FilesIcon,
   MemoryStickIcon,
   MonitorIcon,
@@ -12,15 +11,19 @@ import {
 import { WindowsIcon } from "@/components/icons";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
 import { Accent, PageHeader } from "@/components/page/page-header";
-import { Button, Modal } from "@/components/ui";
+import { Button } from "@/components/ui";
 import {
   DOWNLOAD_LINKS,
   DOWNLOAD_VERSIONS,
   DOWNLOADS_ENABLED,
 } from "@/lib/download-links";
 import { mediaUrl, webappUrl } from "@/lib/links";
-
-type Platform = "windows" | "macos";
+import {
+  markDownloadInitiated,
+  useDetectedPlatform,
+  type Platform,
+} from "@/lib/use-platform";
+import DownloadModal from "./download-modal";
 
 type System = {
   id: Platform;
@@ -67,23 +70,6 @@ const STEPS = [
   { title: "Create", description: "Start generating artwork immediately." },
 ];
 
-const DOWNLOAD_INITIATED_KEY = "artcraft_download_initiated";
-
-// Platform detection runs after mount (there is no user agent on the
-// server), so the first paint is the neutral, complete page and the
-// "your system" affordances arrive with hydration. Ported from the Vite
-// site's react-device-detect usage.
-function useDetectedPlatform() {
-  const [state, setState] = useState<{ platform: Platform; mobile: boolean } | null>(null);
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-    const mac = /Macintosh|Mac OS X/i.test(ua);
-    setState({ platform: mac ? "macos" : "windows", mobile });
-  }, []);
-  return state;
-}
-
 export default function DownloadPage() {
   const detected = useDetectedPlatform();
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,11 +82,7 @@ export default function DownloadPage() {
   // visitor to create an account while the installer arrives.
   const onDownloadClick = () => {
     setModalOpen(true);
-    try {
-      localStorage.setItem(DOWNLOAD_INITIATED_KEY, "true");
-    } catch {
-      // Storage unavailable — nothing depends on the flag.
-    }
+    markDownloadInitiated();
   };
 
   return (
@@ -234,26 +216,7 @@ export default function DownloadPage() {
         </ol>
       </SectionShell>
 
-      <Modal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Downloading ArtCraft…"
-      >
-        <p className="leading-relaxed text-muted">
-          Your download has started. While you wait, create an account to
-          store your creations.
-        </p>
-        <Button href={webappUrl("/signup")} className="mt-6 w-full">
-          Sign up
-          <ArrowRightIcon aria-hidden className="h-3.5 w-3.5" />
-        </Button>
-        <a
-          href={webappUrl("/login")}
-          className="hud-label mt-4 block text-center text-faint hover:text-ink"
-        >
-          I already have an account
-        </a>
-      </Modal>
+      <DownloadModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
     </>
   );
 }

@@ -22,10 +22,10 @@ const PILLARS = [
   },
 ];
 
-export default function Ownership() {
+export default function Ownership({ index = "02" }: { index?: string }) {
   return (
     <SectionShell id="ownership">
-      <SectionEyebrow index="02" label="Ownership" annotation="Free & open source" />
+      <SectionEyebrow index={index} label="Ownership" annotation="Free & open source" />
 
       <div className="px-6 py-14 md:px-10 md:py-20">
         <h2
