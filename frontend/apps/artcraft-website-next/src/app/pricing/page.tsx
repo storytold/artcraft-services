@@ -39,10 +39,10 @@ export default async function PricingPage({
 
       {isSeedanceRef ? <SeedanceHeader /> : <DefaultHeader />}
 
-      <SectionShell id="plans">
+      <SectionShell id="plans" className="scroll-mt-12">
         <SectionEyebrow
           index="02"
-          label="Plans"
+          label="Choose your plan"
           annotation="Every paid plan includes video credits"
         />
         <PricingTable showSeedanceFeatures checkoutQuery={checkoutQuery} />
@@ -84,29 +84,42 @@ export default async function PricingPage({
 
 function DefaultHeader() {
   return (
-    <PageHeader
-      index="01"
-      label="Pricing"
-      annotation="Free & open source · Subscriptions optional†"
-      title={
-        <>
-          Invest in <Accent>yourself</Accent>.
-        </>
-      }
-      lede="Get a ton of generations and invest in a tool you'll always own. Your subscription helps keep ArtCraft free and open for everyone."
-    >
-      <div data-reveal className="mt-8 flex flex-wrap items-center gap-3">
-        <Badge
-          label="Limited-time offer"
-          icon={<TagIcon aria-hidden className="h-3 w-3" />}
-          className="border-transparent bg-accent text-white"
-        />
-        <p className="text-sm text-muted">
-          Save {PROMO_PCT}% on all monthly &amp; yearly plans — lock in the
-          lowest price and start creating.
-        </p>
+    <>
+      {/* Promo strip: the offer is the first thing on the page. */}
+      <div className="border-t border-line bg-accent text-white">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-6 py-2.5 md:px-10">
+          <p className="hud-label flex items-center gap-2 font-bold">
+            <TagIcon aria-hidden className="h-3.5 w-3.5" />
+            Limited-time offer
+          </p>
+          <p className="text-sm">
+            Save {PROMO_PCT}% on every plan, monthly or yearly — lock in the
+            lowest price today.
+          </p>
+        </div>
       </div>
-    </PageHeader>
+      <PageHeader
+        index="01"
+        label="Pricing"
+        annotation="Free & open source · Subscriptions optional†"
+        title={
+          <>
+            Every model. One studio. <Accent>Yours</Accent> forever.
+          </>
+        }
+        lede="Thousands of credits for Seedance, Nano Banana, Kling and more — inside an open-source app you keep even if you never pay again."
+      >
+        <div data-reveal className="mt-8 flex flex-wrap items-center gap-3">
+          <Button href="#plans" size="lg">
+            See plans
+          </Button>
+          <Badge
+            label={`${PROMO_PCT}% off · ends soon`}
+            className="border-transparent bg-accent text-white"
+          />
+        </div>
+      </PageHeader>
+    </>
   );
 }
 

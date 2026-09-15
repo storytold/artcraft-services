@@ -12,9 +12,16 @@ export type PlanFeature = {
   seedanceOnly?: boolean;
 };
 
+// Per-plan color identity (green/purple/orange/blue from the original
+// table). Each maps to a `.plan-*` class in globals.css that sets the
+// `--plan` / `--plan-ink` tokens for both themes.
+export type PlanColor = "basic" | "pro" | "max" | "enterprise";
+
 export type SubscriptionPlan = {
   slug: string;
   name: string;
+  tagline: string;
+  color: PlanColor;
   monthlyPrice: number;
   yearlyPrice: number;
   features: PlanFeature[];
@@ -33,6 +40,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     slug: "artcraft_basic",
     name: "Basic",
+    tagline: "For getting started",
+    color: "basic",
     monthlyPrice: 10,
     yearlyPrice: 96,
     features: [
@@ -49,6 +58,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     slug: "artcraft_pro",
     name: "Pro",
+    tagline: "For serious creators",
+    color: "pro",
     monthlyPrice: 35,
     yearlyPrice: 336,
     highlight: "Most popular",
@@ -66,6 +77,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     slug: "artcraft_max",
     name: "Max",
+    tagline: "For studios and power users",
+    color: "max",
     monthlyPrice: 60,
     yearlyPrice: 576,
     highlight: "Best value",
@@ -89,11 +102,23 @@ export const ENTERPRISE_FEATURES = [
   "Custom integrations",
 ];
 
+// Reassurance strip under the plan grid. Only claims the product backs:
+// Stripe checkout/portal, cancel-anytime, Discord credit refunds, and the
+// open-source ownership pitch.
+export const TRUST_POINTS = [
+  "Cancel anytime",
+  "Secure checkout via Stripe",
+  "Credits refunded if a generation fails",
+  "Open source — yours forever",
+];
+
 export type PlanPricing = {
   /** Displayed per-month price for the cadence, whole dollars. */
   current: number;
   /** Crossed-out "before" price the discount is applied to, whole dollars. */
   basePrice: number;
+  /** Whole-dollar saving per year on the yearly cadence vs paying monthly. */
+  yearlySavings: number;
 };
 
 // The displayed price is the real charge; the anchor is current ÷ (1 − promo),
@@ -107,5 +132,6 @@ export function planPricing(
   return {
     current,
     basePrice: Math.round(current / (1 - PROMO_PCT / 100)),
+    yearlySavings: plan.monthlyPrice * 12 - plan.yearlyPrice,
   };
 }
