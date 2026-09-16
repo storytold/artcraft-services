@@ -31,6 +31,50 @@ export default function RevealManager() {
     const mm = gsap.matchMedia();
 
     mm.add("(prefers-reduced-motion: no-preference)", () => {
+      // Structural draw-up, one-shot like everything else: as a section
+      // first enters, its top rule draws across, the eyebrow settles in,
+      // and the corner ticks pop — then the frame is built and stays
+      // built. (An earlier scrub-linked version un-drew on scroll-back;
+      // it read as inconsistent against the one-shot content.)
+      gsap.utils.toArray<HTMLElement>("[data-choreo]").forEach((sec) => {
+        const rule = sec.querySelector<HTMLElement>("[data-draw-rule]");
+        const ticks = sec.querySelectorAll<HTMLElement>("[data-draw-tick]");
+        const eyebrow = sec.querySelector<HTMLElement>("[data-draw-eyebrow]");
+        if (rule) gsap.set(rule, { scaleX: 0 });
+        if (ticks.length) gsap.set(ticks, { scale: 0, opacity: 0 });
+        if (eyebrow) gsap.set(eyebrow, HIDDEN);
+        ScrollTrigger.create({
+          trigger: sec,
+          start: "top 88%",
+          once: true,
+          onEnter: () => {
+            const tl = gsap.timeline();
+            if (rule) {
+              tl.to(
+                rule,
+                { scaleX: 1, duration: 0.7, ease: "power2.out", clearProps: "all" },
+                0,
+              );
+            }
+            if (eyebrow) tl.to(eyebrow, { ...SHOWN }, 0.15);
+            if (ticks.length) {
+              tl.to(
+                ticks,
+                {
+                  scale: 1,
+                  opacity: 1,
+                  duration: 0.35,
+                  ease: "power3.out",
+                  stagger: 0.06,
+                  clearProps: "all",
+                },
+                0.35,
+              );
+            }
+          },
+        });
+      });
+
       gsap.utils
         .toArray<HTMLElement>(
           "[data-reveal]:not([data-reveal-group] [data-reveal])",
@@ -77,11 +121,27 @@ export default function RevealManager() {
           });
           return;
         }
-        ScrollTrigger.create({
-          trigger: group,
-          start: "top 85%",
-          once: true,
-          onEnter: () => gsap.to(children, { ...SHOWN, stagger: 0.08 }),
+        // Per-CHILD triggers, not one for the whole group: a tall grid's
+        // single trigger revealed every cell the moment the grid's top
+        // entered, so everything below the fold animated unseen and the
+        // section read as static against the drawn frames. Each cell now
+        // assembles as it arrives; cells sharing a row cascade left to
+        // right (delay from their horizontal position), which keeps the
+        // old stagger feel without a group-wide clock.
+        const groupRect = group.getBoundingClientRect();
+        children.forEach((child) => {
+          const delay =
+            groupRect.width > 0
+              ? ((child.getBoundingClientRect().left - groupRect.left) /
+                  groupRect.width) *
+                0.18
+              : 0;
+          ScrollTrigger.create({
+            trigger: child,
+            start: "top 88%",
+            once: true,
+            onEnter: () => gsap.to(child, { ...SHOWN, delay }),
+          });
         });
       });
 

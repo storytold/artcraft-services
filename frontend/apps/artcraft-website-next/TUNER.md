@@ -68,8 +68,9 @@ Then read values where they're used:
 The panel picks up new groups automatically — no panel changes needed.
 Registered groups: Intro (page-intro choreography beats; `src/lib/intro.ts`),
 Wordmark (logo-A optics, blade tuck, contrast scrim;
-`src/components/landing/hero-wordmark.tsx`), Galaxy layout, Galaxy motion,
-Galaxy pointer, Galaxy look (hero galaxy;
+`src/components/landing/hero-wordmark.tsx`), Galaxy layout, Galaxy mobile
+(small-screen spiral profile — replaces the layout dials below its area
+threshold), Galaxy motion, Galaxy pointer, Galaxy look (hero galaxy;
 `src/components/landing/hero-galaxy-tunables.ts`) and Ruler layout, Ruler
 motion, Ruler look (scroll ruler;
 `src/components/ruler/ruler-tunables.ts`).

@@ -125,6 +125,23 @@ export default function HeadingFlow({
     [layoutVersion],
   );
 
+  // When the flow stops driving the hero letters (the ruler unmounts on a
+  // resize below the capability boundary, or the mode changes), release
+  // every inline style this component wrote so the wordmark stands in its
+  // natural resting state — a frozen mid-flip transform would strand it.
+  useEffect(
+    () => () => {
+      for (const el of heroWordmark.els) {
+        el.style.transform = "";
+        el.style.fontWeight = "";
+        el.style.fontStretch = "";
+        el.style.color = "";
+        el.style.opacity = "1";
+      }
+    },
+    [mode],
+  );
+
   // Re-render on any tuner change so render-applied look values (the
   // contrast pools) respond to their sliders live. The letters' per-frame
   // imperative styles survive re-renders — React only patches JSX
@@ -189,7 +206,7 @@ export default function HeadingFlow({
       // Phase pass: flip/detach progress per word. Anchors increase with
       // index, so stacked words are always a prefix and at most one word is
       // mid-flip at a time.
-      const phases = sections.map((s) => {
+      const phases = sections.map((s, wi) => {
         const m =
           s.isHero && heroWordmark.ready
             ? heroWordmark.metrics
@@ -201,7 +218,16 @@ export default function HeadingFlow({
         // Some flips run in scroll space instead of anchor space; snap
         // resolves those against these bounds.
         let scrollFlip: { start: number; end: number } | null = null;
-        if (s.isHero) {
+        if (wi === 0 && !s.isHero) {
+          // Interior pages: the first section is the page's own title
+          // block, already under the nav at load. Like the hero it is the
+          // current section from the first frame — stacked, never queued
+          // or ridden — instead of a flip whose progress at scroll 0
+          // depends on the viewport height (partially flipped on short
+          // windows, hidden entirely on tall ones).
+          flipP = 1;
+          detachP = 1;
+        } else if (s.isHero) {
           // The hero IS the current section from load — its heading goes
           // STRAIGHT to the top slot (no queue, no ride): the whole
           // lifecycle is one flip, driven by the wordmark about to duck
@@ -242,7 +268,8 @@ export default function HeadingFlow({
       {
         let below = 0;
         for (let wi = sections.length - 1; wi >= 0; wi--) {
-          if (sections[wi].isHero) continue; // no queue home, detachP = 1
+          // Hero and interior page titles have no queue home (detachP = 1).
+          if (sections[wi].isHero || wi === 0) continue;
           const ph = phases[wi];
           ph.yq = yQueueLine - lay.queueSlot * below;
           ph.detachP = clamp01(

@@ -47,10 +47,7 @@ export const galaxyLayoutTuner = defineTunables(
       min: 8,
       max: 96,
       step: 1,
-      // 3× the 17-clip showcase pool: the round-robin deal lands every clip
-      // on exactly three cards, and the neighbor-gap sizing grows the cards
-      // to keep the same fill.
-      default: 51,
+      default: 64,
       info: "Cards riding the arms at the reference viewport size; smaller viewports scale this down proportionally (see Tuned @ Mpx).",
     },
     tunedMpx: {
@@ -74,9 +71,9 @@ export const galaxyLayoutTuner = defineTunables(
       min: 0,
       max: 1,
       step: 0.01,
-      // Golden-ratio conjugate: successive arms land at low-discrepancy
-      // phases within a slot gap, so no card count can ring-align them.
-      default: 0.38,
+      // In slot-gap units so no card count can ring-align the arms
+      // (the starfish); user-tuned scatter.
+      default: 0.76,
       info: "Per-arm conveyor stagger in slot gaps — 0 births all arms in lockstep rings; ~0.38 (golden) scatters them evenly at any card count.",
     },
     ticksPerArm: {
@@ -94,6 +91,97 @@ export const galaxyLayoutTuner = defineTunables(
       step: 0.02,
       default: 0.56,
       info: "Radius of the dashed construction circle in the underlay, as a fraction of the outer radius.",
+    },
+    guideX: {
+      label: "Guide lines ×",
+      min: 1,
+      max: 4,
+      step: 1,
+      default: 1,
+      info: "Underlay line density: guide curves per card arm (2 draws a phantom guide midway between arms). Mobile profile always keeps 1×.",
+    },
+    dedupPx: {
+      label: "Dedup px",
+      min: 0,
+      max: 800,
+      step: 10,
+      default: 300,
+      info: "Two visible cards sharing a clip closer than this on screen trigger a reassignment of the blurrier one (the swap hides inside its birth blur). 0 disables.",
+    },
+  },
+);
+
+// The mobile spiral profile: below the area threshold, these dials REPLACE
+// their Galaxy-layout counterparts wholesale — small screens get their own
+// composition (fewer, straighter arms; own count, reach, and card ceiling)
+// tuned independently of the desktop spiral.
+export const galaxyMobileTuner = defineTunables(
+  "galaxyMobile",
+  "Galaxy mobile",
+  {
+    mobMpx: {
+      label: "Mobile < Mpx",
+      min: 0,
+      max: 1.2,
+      step: 0.05,
+      default: 0.6,
+      info: "Viewports smaller than this megapixel area use the mobile profile below instead of the Galaxy-layout values. 0 disables the profile.",
+    },
+    mobArms: {
+      label: "Arms",
+      min: 1,
+      max: 6,
+      step: 1,
+      default: 3,
+      info: "Arm count on mobile — fewer arms means less angular crowding on a narrow stage.",
+    },
+    mobTurns: {
+      label: "Turns",
+      min: 0.3,
+      max: 2,
+      step: 0.05,
+      default: 0.7,
+      info: "Spiral windings on mobile — straighter arms space consecutive cards further apart radially, so they can run larger.",
+    },
+    mobCardN: {
+      label: "Card count",
+      min: 4,
+      max: 40,
+      step: 1,
+      default: 14,
+      info: "Cards riding the arms on mobile — a fixed count, not scaled from the desktop knob.",
+    },
+    mobRMax: {
+      label: "Outer radius",
+      min: 0.3,
+      max: 1.2,
+      step: 0.02,
+      default: 0.8,
+      info: "Spiral reach on mobile as a fraction of the half-diagonal — how far the arms extend past the small stage.",
+    },
+    mobCardH: {
+      label: "Card h cap",
+      min: 0.08,
+      max: 0.5,
+      step: 0.005,
+      default: 0.3,
+      info: "Card height ceiling on mobile as a fraction of the viewport height.",
+    },
+    mobBirth: {
+      label: "Birth radius",
+      min: 0.02,
+      max: 0.3,
+      step: 0.005,
+      default: 0.08,
+      info: "Where cards are born on mobile, as a fraction of the outer radius.",
+    },
+    mobDensityX: {
+      label: "Density ×",
+      min: 1,
+      max: 1.6,
+      step: 0.02,
+      default: 1.15,
+      info: "Density multiplier on mobile — lets cards claim more of their (larger) neighbor gaps.",
     },
   },
 );
@@ -362,9 +450,9 @@ export const galaxyPointerTuner = defineTunables(
     boostScale: {
       label: "Boost scale ×",
       min: 1.2,
-      max: 3,
+      max: 4,
       step: 0.1,
-      default: 2,
+      default: 3,
       info: "Scale multiplier a click toggles onto the held card. Allowed to overlap neighbors; scales back down on leaving the card, and the next hold needs a fresh click.",
     },
     boostTau: {
@@ -483,5 +571,69 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     step: 0.02,
     default: 0.3,
     info: "Opacity of the tick marks along the arms.",
+  },
+  lineW: {
+    label: "Line px",
+    min: 0.5,
+    max: 3,
+    step: 0.1,
+    default: 2,
+    info: "Base thickness of the arm guide ribbons — the resting hairline weight.",
+  },
+  pulseAlpha: {
+    label: "Pulse alpha",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    default: 0.72,
+    info: "Peak extra opacity of the color pulses traveling along the arm lines (0 = no pulses).",
+  },
+  pulseSpeed: {
+    label: "Pulse speed",
+    min: 0,
+    max: 0.8,
+    step: 0.01,
+    default: 0.19,
+    info: "Pulse travel speed — band cycles per second along each arm, moving outward faster than the conveyor.",
+  },
+  pulseWidth: {
+    label: "Pulse length",
+    min: 0.01,
+    max: 0.25,
+    step: 0.005,
+    default: 0.05,
+    info: "Length of each comet as a fraction of its band — sharp head, longer tail behind.",
+  },
+  pulseW: {
+    label: "Pulse thick px",
+    min: 0,
+    max: 8,
+    step: 0.25,
+    default: 3.5,
+    info: "Extra ribbon thickness at a pulse's peak — the colored part swells above the hairline.",
+  },
+  pulseCount: {
+    label: "Pulses / arm",
+    min: 1,
+    max: 6,
+    step: 1,
+    default: 3,
+    info: "Simultaneous pulses riding each arm.",
+  },
+  pulseHue: {
+    label: "Pulse hue spread",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    default: 0.4,
+    info: "Dark theme only: per-arm hue rotation of the pulse color away from the accent — 0 keeps every arm brand blue, 1 spreads across the wheel. Light theme is always colorless.",
+  },
+  pulseDark: {
+    label: "Pulse gray (light)",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    default: 0.62,
+    info: "Light theme only: darkness of the plain gray pulses (ink mixed over the paper; 1 = ink-black). Light mode carries the pulse with thickness, not color.",
   },
 });
