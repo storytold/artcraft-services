@@ -4,11 +4,9 @@
 export const WEBAPP_URL =
   process.env.NEXT_PUBLIC_WEBAPP_URL ?? "https://app.getartcraft.com/";
 
-// Large media (feature footage, hero video) is served from the currently
-// deployed site rather than duplicated into this app's public/ directory.
-// Point this at "" once the assets migrate here.
-export const MEDIA_BASE =
-  process.env.NEXT_PUBLIC_MEDIA_BASE ?? "https://getartcraft.com";
+// Marketing media lives in this app's public/ directory so production and
+// deploy previews each serve their own assets. Override only for a media CDN.
+export const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE ?? "";
 
 export function webappUrl(path: string): string {
   return `${WEBAPP_URL}${path.replace(/^\//, "")}`;

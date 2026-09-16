@@ -2,8 +2,8 @@
 #   Base directory:    frontend/apps/artcraft-website-next
 #   (this app is standalone — its own package-lock.json, not the Nx workspace)
 # Manage the build command and publish directory here; leave those UI fields empty.
-# The Next.js runtime handles routing, the /cdn-media and /ext-media proxy
-# rewrites, and the legacy-route redirects declared in next.config.ts.
+# The Next.js runtime handles routing, the /cdn-media proxy rewrite, and the
+# legacy-route redirects declared in next.config.ts. Other media is in public/.
 
 [build]
 command = "npm run build"
