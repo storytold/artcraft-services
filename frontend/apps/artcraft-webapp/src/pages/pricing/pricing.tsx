@@ -77,8 +77,8 @@ const Pricing = () => {
                 </>
               ) : (
                 <>
-                  Create without{" "}
-                  <span className="font-serif-italic">limits</span>.
+                  Invest in your{" "}
+                  <span className="font-serif-italic">creativity</span>.
                 </>
               )}
             </h1>
