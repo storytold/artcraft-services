@@ -145,7 +145,7 @@ const Pricing = () => {
               y={20}
               className="text-center mb-14"
             >
-              <h1 className="text-4xl sm:text-5xl md:text-6xl tracking-[-0.035em] font-medium leading-[1.02] mb-5">
+              <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.02] mb-5">
                 Invest in <span className="font-serif-italic">yourself</span>.
               </h1>
               <p className="max-w-xl mx-auto text-base sm:text-lg text-white/55 leading-relaxed">

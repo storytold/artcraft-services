@@ -24,16 +24,19 @@ export function MobileBottomNav() {
   const { pathname } = useLocation();
 
   return (
-    <nav className="flex shrink-0 items-stretch border-t border-ui-panel-border bg-ui-panel pb-[env(safe-area-inset-bottom)]">
+    <nav aria-label="Main navigation" className="flex shrink-0 items-stretch border-t border-ui-panel-border bg-ui-panel pb-[env(safe-area-inset-bottom)]">
       {ITEMS.map((item) => {
         const active = isActive(pathname, item.href);
         return (
           <Link
             key={item.href}
             to={item.href}
+            aria-current={active ? "page" : undefined}
             className={twMerge(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
-              active ? "text-white" : "text-base-fg/55 hover:text-base-fg/80",
+              "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 border-t-2 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
+              active
+                ? "border-primary bg-primary/10 text-ui-accent-ink"
+                : "border-transparent text-base-fg/70 hover:text-base-fg",
             )}
           >
             <DynamicIcon icon={item.icon} className="h-5 w-5" />

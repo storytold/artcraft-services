@@ -145,7 +145,7 @@ export default function Referrals() {
             <span className="inline-block font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 mb-5">
               Share the craft
             </span>
-            <h1 className="text-5xl tracking-[-0.035em] font-medium leading-[1.02] mb-5">
+            <h1 className="font-display text-3xl sm:text-4xl tracking-tight leading-[1.02] mb-5">
               Referrals
             </h1>
             <p className="mx-auto text-base sm:text-lg text-white/55 leading-relaxed">

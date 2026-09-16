@@ -44,12 +44,12 @@ const Support = () => {
     "Get help with ArtCraft: browse the FAQ, join our Discord community, or email us directly.";
 
   return (
-    <div className="relative min-h-screen bg-ui-background text-white">
+    <div className="relative min-h-full bg-ui-background text-white">
       <Seo title={title} description={description} />
 
-      <main className="relative z-10 mx-auto w-full max-w-4xl px-4 sm:px-6 pt-24 sm:pt-32 pb-20">
-        <header className="mb-8 sm:mb-10 flex flex-col items-center text-center gap-3">
-          <h1 className="text-3xl sm:text-5xl font-semibold tracking-[-0.02em]">
+      <main className="relative z-10 mx-auto w-full max-w-4xl px-5 py-8 sm:px-8 sm:py-12">
+        <header className="mb-8 flex flex-col gap-3 border-b border-ui-border pb-8">
+          <h1 className="font-display text-3xl sm:text-4xl tracking-tight">
             Support
           </h1>
           <p className="text-[15px] sm:text-base text-white/60 max-w-xl">

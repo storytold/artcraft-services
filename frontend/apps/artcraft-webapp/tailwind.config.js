@@ -1,6 +1,6 @@
 const { createGlobPatternsForDependencies } = require("@nx/react/tailwind");
 const { join } = require("path");
-import colors, { teal } from "tailwindcss/colors";
+import colors from "tailwindcss/colors";
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -167,7 +167,7 @@ module.exports = {
         900: "#3d3d3d",
         950: "#3E3E41",
       },
-      "base-fg": "rgb(255 255 255 / <alpha-value>)",
+      "base-fg": "rgb(242 241 238 / <alpha-value>)",
       sidebar: {
         DEFAULT: "var(--sidebar-bg)",
         foreground: "var(--sidebar-fg)",
@@ -180,17 +180,18 @@ module.exports = {
         // Brutalist system: near-black surfaces with white/15 hairline
         // borders, aligned with artcraft-website + artcraft-website-next.
         background: "#121316",
-        panel: "#0b0b0c",
+        panel: "#101014",
         "panel-border": "rgb(255 255 255 / 0.15)",
         border: "rgb(255 255 255 / 0.15)",
-        // Raised control surface — a step above the #0b0b0c page/panel bg
-        // (matches the sidebar's #1e1f22) so buttons and inputs read as
-        // surfaces instead of blending into the background.
+        // Raised controls stay distinct from the website-matched panel surface.
         controls: "#1e1f22",
         "controls-button": "#1e1f22",
         "controls-border": "rgb(255 255 255 / 0.15)",
         divider: "rgb(255 255 255 / 0.15)",
-        modal: "#0b0b0c",
+        modal: "#101014",
+        ink: "#f2f1ee",
+        "accent-ink": "#74aaff",
+        sunken: "#060607",
       },
       "axis-x": "#D33242",
       "axis-y": "#308752",

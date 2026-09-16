@@ -1375,7 +1375,7 @@ export default function Library() {
                   </span>
                 ))}
                 <span className="text-white/30">/</span>
-                <h1 className="text-lg sm:text-xl font-medium text-white truncate max-w-[16rem]">
+                <h1 className="font-sans text-sm font-semibold tracking-normal [font-stretch:normal] text-white truncate max-w-[16rem]">
                   {activeFolder?.name}
                 </h1>
                 <button
@@ -1405,11 +1405,11 @@ export default function Library() {
                   Tags
                 </button>
                 <span className="text-white/30">/</span>
-                <h1 className="text-lg sm:text-xl font-medium text-white truncate max-w-[16rem]">
+                <h1 className="font-sans text-sm font-semibold tracking-normal [font-stretch:normal] text-white truncate max-w-[16rem]">
                   {activeTag?.value ?? "Tag"}
                 </h1>
                 {activeTag && (
-                  <span className="text-white/40 text-sm pt-1 ps-1.5">
+                  <span className="text-white/40 text-xs ps-1.5">
                     {activeTag.useCount} file
                     {activeTag.useCount === 1 ? "" : "s"}
                   </span>

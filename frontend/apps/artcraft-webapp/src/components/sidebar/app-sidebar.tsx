@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { motion, useReducedMotion } from "framer-motion";
+import { SidebarActiveIndicator } from "./sidebar-active-indicator";
 import {
   BoxIcon,
   CircleHelpIcon,
@@ -161,7 +161,6 @@ function NavMenuItem({
   pathname: string;
   onClick: () => void;
 }) {
-  const reduceMotion = useReducedMotion();
   const active = !item.external && isActive(pathname, item.href);
   const inner = (
     <>
@@ -187,21 +186,7 @@ function NavMenuItem({
   );
   return (
     <SidebarMenuItem>
-      {/* Brand accent bar that glides between nav rows as the active route
-          changes (shared-element layout animation via `layoutId`). One is
-          mounted at a time, so framer-motion tweens it from the old row to the
-          new one. */}
-      {active && (
-        <motion.span
-          layoutId="sidebar-active-indicator"
-          className="pointer-events-none absolute inset-y-1.5 left-0 z-10 w-0.5 bg-white"
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { type: "spring", stiffness: 520, damping: 40, mass: 0.7 }
-          }
-        />
-      )}
+      {active && <SidebarActiveIndicator />}
       <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
         {item.external ? (
           <a

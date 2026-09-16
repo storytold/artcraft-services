@@ -1,3 +1,4 @@
+import { SidebarActiveIndicator } from "./sidebar-active-indicator";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -48,6 +49,7 @@ export function LibraryTagsNav({
   return (
     <>
       <SidebarMenuItem>
+        {pathname === "/library/tags" && <SidebarActiveIndicator />}
         <SidebarMenuButton
           asChild
           isActive={pathname === "/library/tags"}
@@ -85,6 +87,7 @@ export function LibraryTagsNav({
             <ul className="flex w-full min-w-0 flex-col gap-0.5">
               {topTags.map((tag) => (
                 <SidebarMenuItem key={tag.token}>
+                  {pathname === `/library/${tag.token}` && <SidebarActiveIndicator />}
                   <SidebarMenuButton
                     isActive={pathname === `/library/${tag.token}`}
                     tooltip={tag.value}

@@ -7,21 +7,22 @@
     /* Sidebar tokens (consumed by tailwind colors in tailwind.config.js).
        Brutalist system: near-black surfaces, white/15 hairlines, white
        accent for selection/focus. */
+    color-scheme: dark;
     --sidebar-bg: #1e1f22;
     --sidebar-fg: rgba(255, 255, 255, 0.72);
     --sidebar-border: rgba(255, 255, 255, 0.15);
     --sidebar-accent: rgba(255, 255, 255, 0.08);
     --sidebar-accent-fg: #ffffff;
-    --sidebar-ring: rgba(255, 255, 255, 0.4);
+    --sidebar-ring: #74aaff;
 
     /* shadcn design tokens consumed by @storyteller/ui-video-editor.
        Dark-theme palette (the editor only runs in dark mode today).
        --primary matches the webapp's brand blue (#2d81ff). */
-    --background: 240 5% 8%;
+    --background: 225 10% 8%;
     --foreground: 0 0% 98%;
     --card: 240 11% 7%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 4% 5%;
+    --popover: 240 11% 7%;
     --popover-foreground: 0 0% 98%;
     --primary: 216 100% 59%;
     --primary-foreground: 0 0% 98%;
@@ -35,7 +36,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 100% / 0.15;
     --input: 0 0% 100% / 0.15;
-    --ring: 0 0% 100% / 0.6;
+    --ring: 217 100% 73%;
 
     /* ── Motion tokens ──────────────────────────────────────────────────
        Shared easing curves + durations so motion across the app feels like
@@ -144,6 +145,7 @@
   h1,
   h2 {
     font-stretch: 118%;
+    font-weight: 620;
   }
 
   body {
@@ -156,10 +158,20 @@
       "Helvetica Neue",
       Arial,
       sans-serif;
-    color: #ffffff;
-    background-color: #0b0b0c;
+    color: #f2f1ee;
+    background-color: #121316;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: #2d81ff;
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid #74aaff;
+    outline-offset: 3px;
   }
 
   /* Mono HUD micro-label, matching the marketing site's .hud-label. */
@@ -513,4 +525,39 @@
     height: 1.2em;
     vertical-align: -0.2em;
   }
+}
+
+/* Quiet drafting grid and side rails echo the landing's section frames.
+   No masks, filters, animation, or viewport-sized layers on mobile. */
+.create-empty-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(242, 241, 238, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 241, 238, 0.025) 1px, transparent 1px);
+  background-size: 96px 96px;
+  background-position: center;
+}
+
+.create-empty-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 12% clamp(24px, 6%, 96px) 20%;
+  border: 1px solid rgba(242, 241, 238, 0.1);
+}
+
+.create-empty-backdrop::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: clamp(24px, 6%, 96px);
+  width: 11px;
+  height: 11px;
+  transform: translate(-5px, -5px);
+  background:
+    linear-gradient(#74aaff, #74aaff) center / 1px 11px no-repeat,
+    linear-gradient(#74aaff, #74aaff) center / 11px 1px no-repeat;
 }
