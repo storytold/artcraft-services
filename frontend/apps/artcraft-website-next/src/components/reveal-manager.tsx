@@ -56,13 +56,18 @@ export default function RevealManager() {
             0,
           );
         }
+        // The eyebrow is one-shot like the cells, NOT scrubbed: it carries
+        // readable text and rides sticky with the reader, so it must never
+        // fade back out under them — reversibility belongs to the silent
+        // geometry (rule, ticks) only.
         if (eyebrow) {
-          tl.fromTo(
-            eyebrow,
-            { opacity: 0, y: 8 },
-            { opacity: 1, y: 0, duration: 0.4, ease: "none" },
-            0.25,
-          );
+          gsap.set(eyebrow, HIDDEN);
+          ScrollTrigger.create({
+            trigger: sec,
+            start: "top 88%",
+            once: true,
+            onEnter: () => gsap.to(eyebrow, SHOWN),
+          });
         }
         if (ticks.length) {
           tl.fromTo(
