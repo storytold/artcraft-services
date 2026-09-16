@@ -973,10 +973,20 @@ function GalaxyScene({
     lineMat.color.copy(cs.line);
     tickMat.color.copy(cs.line);
     (pulseMat.uniforms.uColor.value as THREE.Color).copy(cs.line);
-    // Light theme sinks the pulse color toward ink — bright accents wash
-    // out on the pale paper background; dark theme keeps them luminous.
+    // Pulse color per theme: dark keeps the luminous accent (hue-spread in
+    // the shader); light drops color entirely for a plain dark gray —
+    // ink mixed over the paper by pulseDark — carried by thickness alone.
+    // cs.light cross-fades both the color and the hue spread with the
+    // theme transition instead of snapping.
+    cs.pulse.setRGB(
+      cs.bg.x + (cs.ink.r - cs.bg.x) * lk.pulseDark,
+      cs.bg.y + (cs.ink.g - cs.bg.y) * lk.pulseDark,
+      cs.bg.z + (cs.ink.b - cs.bg.z) * lk.pulseDark,
+    );
     (pulseMat.uniforms.uPulseColor.value as THREE.Color)
-      .copy(cs.pulse.copy(cs.accent).lerp(cs.ink, lk.pulseDark * cs.light));
+      .copy(cs.accent)
+      .lerp(cs.pulse, cs.light);
+    pulseMat.uniforms.uHue.value = lk.pulseHue * (1 - cs.light);
     // Perf governor: EMA of the real frame time. Sustained drops below the
     // FPS floor shed cards (and their decode pressure) quickly; recovery
     // regrows slowly so it never oscillates. The first seconds are a grace
@@ -1438,7 +1448,6 @@ function GalaxyScene({
     pulseMat.uniforms.uSpeed.value = lk.pulseSpeed;
     pulseMat.uniforms.uWidth.value = lk.pulseWidth;
     pulseMat.uniforms.uCount.value = Math.round(lk.pulseCount);
-    pulseMat.uniforms.uHue.value = lk.pulseHue;
     pulseMat.uniforms.uBaseW.value = lk.lineW;
     pulseMat.uniforms.uPulseW.value = lk.pulseW;
 

@@ -586,14 +586,14 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     max: 1,
     step: 0.02,
     default: 0.35,
-    info: "Per-arm hue rotation of the pulse color away from the accent — 0 keeps every arm brand blue, 1 spreads across the wheel.",
+    info: "Dark theme only: per-arm hue rotation of the pulse color away from the accent — 0 keeps every arm brand blue, 1 spreads across the wheel. Light theme is always colorless.",
   },
   pulseDark: {
-    label: "Pulse dark (light)",
+    label: "Pulse gray (light)",
     min: 0,
     max: 1,
     step: 0.02,
-    default: 0.65,
-    info: "Light theme only: mixes the pulse color toward near-black ink so the pale background doesn't wash it out. Dark theme keeps the bright accent.",
+    default: 0.75,
+    info: "Light theme only: darkness of the plain gray pulses (ink mixed over the paper; 1 = ink-black). Light mode carries the pulse with thickness, not color.",
   },
 });
