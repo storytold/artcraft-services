@@ -4,6 +4,7 @@ import { CoinsIcon, TagIcon } from "lucide-react";
 import { Button } from "@storyteller/ui-button";
 import { BillingApi, UsersApi } from "@storyteller/api";
 import { PricingTable, PROMO_PCT } from "@storyteller/ui-pricing-table";
+import "@storyteller/ui-pricing-table/styles.css";
 import Seo from "../../components/seo";
 import { CreditsModal } from "../../components/credits-modal";
 
