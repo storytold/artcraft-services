@@ -3,6 +3,11 @@ import type { ReactNode } from "react";
 // Structural frame shared by every landing section: a full-bleed top rule,
 // content constrained between two continuous side rails, and crosshair ticks
 // straddling the rail intersections.
+//
+// The top rule and ticks are scroll-choreographed (see reveal-manager.tsx):
+// as a section enters the viewport its rule DRAWS across and the ticks pop
+// in — scrub-linked, so scrolling back un-draws them. They render complete
+// in the server HTML; only motion-capable visitors get the choreography.
 export function SectionShell({
   id,
   children,
@@ -15,12 +20,25 @@ export function SectionShell({
   ticks?: boolean;
 }) {
   return (
-    <section id={id} className={`border-t border-line ${className}`}>
+    <section id={id} data-choreo className={`relative ${className}`}>
+      <span
+        aria-hidden
+        data-draw-rule
+        className="absolute inset-x-0 top-0 h-px origin-left bg-line"
+      />
       <div className="relative mx-auto max-w-[1280px] border-x border-line">
         {ticks && (
           <>
-            <span aria-hidden className="tick -top-[6px] -left-[6px]" />
-            <span aria-hidden className="tick -top-[6px] -right-[5px]" />
+            <span
+              aria-hidden
+              data-draw-tick
+              className="tick -top-[6px] -left-[6px]"
+            />
+            <span
+              aria-hidden
+              data-draw-tick
+              className="tick -top-[6px] -right-[5px]"
+            />
           </>
         )}
         {children}
@@ -29,8 +47,10 @@ export function SectionShell({
   );
 }
 
-// Mono eyebrow row used at the top of a section: index + label on the left,
-// optional annotation on the right.
+// Mono eyebrow row at the top of a section: index + label left, optional
+// annotation right. Sticky while its section scrolls (pushed away by the
+// next section — never stacking), frosted like the ruler rail so content
+// ghosts through beneath the label.
 export function SectionEyebrow({
   index,
   label,
@@ -41,17 +61,22 @@ export function SectionEyebrow({
   annotation?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-3 md:px-10">
-      <p className="hud-label text-muted">
-        <span className="text-faint">{index}</span>
-        <span aria-hidden className="mx-2 text-faint">
-          /
-        </span>
-        {label}
-      </p>
-      {annotation && (
-        <p className="hud-label hidden text-faint sm:block">{annotation}</p>
-      )}
+    <div className="sticky top-12 z-30 border-b border-line bg-bg/60 backdrop-blur-md">
+      <div
+        data-draw-eyebrow
+        className="flex items-center justify-between gap-4 px-6 py-3 md:px-10"
+      >
+        <p className="hud-label text-muted">
+          <span className="text-faint">{index}</span>
+          <span aria-hidden className="mx-2 text-faint">
+            /
+          </span>
+          {label}
+        </p>
+        {annotation && (
+          <p className="hud-label hidden text-faint sm:block">{annotation}</p>
+        )}
+      </div>
     </div>
   );
 }

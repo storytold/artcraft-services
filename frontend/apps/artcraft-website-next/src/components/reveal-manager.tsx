@@ -31,6 +31,49 @@ export default function RevealManager() {
     const mm = gsap.matchMedia();
 
     mm.add("(prefers-reduced-motion: no-preference)", () => {
+      // Structural draw-up, scrub-linked and reversible: as a section
+      // enters, its top rule draws across, the corner ticks pop, and the
+      // eyebrow's mono contents settle in — all tied to scroll position,
+      // so pulling back down un-draws the frame. Content (below) stays
+      // one-shot: text must never wiggle under the reader.
+      gsap.utils.toArray<HTMLElement>("[data-choreo]").forEach((sec) => {
+        const rule = sec.querySelector<HTMLElement>("[data-draw-rule]");
+        const ticks = sec.querySelectorAll<HTMLElement>("[data-draw-tick]");
+        const eyebrow = sec.querySelector<HTMLElement>("[data-draw-eyebrow]");
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: sec,
+            start: "top 95%",
+            end: "top 60%",
+            scrub: 0.35,
+          },
+        });
+        if (rule) {
+          tl.fromTo(
+            rule,
+            { scaleX: 0 },
+            { scaleX: 1, ease: "none", duration: 0.7 },
+            0,
+          );
+        }
+        if (eyebrow) {
+          tl.fromTo(
+            eyebrow,
+            { opacity: 0, y: 8 },
+            { opacity: 1, y: 0, duration: 0.4, ease: "none" },
+            0.25,
+          );
+        }
+        if (ticks.length) {
+          tl.fromTo(
+            ticks,
+            { scale: 0, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.25, stagger: 0.06 },
+            0.55,
+          );
+        }
+      });
+
       gsap.utils
         .toArray<HTMLElement>(
           "[data-reveal]:not([data-reveal-group] [data-reveal])",

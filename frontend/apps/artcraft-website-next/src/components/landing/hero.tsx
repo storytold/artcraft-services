@@ -1,11 +1,9 @@
 import { AppleIcon, MonitorIcon } from "lucide-react";
 import { SOCIAL_LINKS, WEBAPP_URL } from "@/lib/links";
-import { HERO_VIDEO_URL } from "@/lib/landing-data";
 import { GitHubIcon } from "@/components/icons";
 import { Button } from "@/components/ui";
 import HeroMasthead, { HeroScrim } from "./hero-wordmark";
 import HeroGalaxy from "./hero-galaxy";
-import HeroViewport from "./hero-viewport";
 
 export default function Hero() {
   return (
@@ -22,7 +20,7 @@ export default function Hero() {
             masthead's own z-40 is capped by it — the hero letters must
             outrank the ruler's fixed z-39 contrast pools at root level.
             No border-x here: the poster viewport stays immersive edge to
-            edge — the structural rails begin at the announce strip. */}
+            edge — the structural rails begin below the poster. */}
         <div className="pointer-events-none relative z-40 mx-auto flex w-full max-w-[1280px] flex-1 flex-col items-center justify-center px-6 py-10 md:px-10">
           <div
             data-reveal-group
@@ -87,40 +85,8 @@ export default function Hero() {
         </div>
       </div>
 
-      <div className="relative mx-auto max-w-[1280px] border-x border-line">
-        {/* Announce strip — the fold line under the poster. */}
-        <div className="relative flex items-center justify-between gap-4 border-y border-line px-6 py-3 md:px-10">
-          <span aria-hidden className="tick -top-[6px] -left-[6px]" />
-          <span aria-hidden className="tick -top-[6px] -right-[5px]" />
-          <p className="hud-label text-muted">Open-source AI studio</p>
-          <p className="hud-label text-accent-ink">
-            Now with Seedance 2.5, Nano Banana 2 &amp; more
-          </p>
-        </div>
-
-        {/* Viewport frame — the product-demo stage: blocking vs. AI render. */}
-        <figure className="relative">
-          <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2 md:px-10">
-            <figcaption className="hud-label text-faint">
-              Viewport — scene 01
-            </figcaption>
-            <p aria-hidden className="hud-label text-faint">
-              <span className="mr-1.5 inline-block h-1.5 w-1.5 bg-accent align-middle" />
-              Blocking ↔ render · move your cursor
-            </p>
-          </div>
-          <div className="relative aspect-video w-full overflow-hidden bg-bg-sunken">
-            <HeroViewport
-              videoSrc={HERO_VIDEO_URL}
-              videoLabel="ArtCraft product reel: composing 3D scenes and rendering them with AI"
-            />
-            <span aria-hidden className="tick top-2 left-2 opacity-60" />
-            <span aria-hidden className="tick top-2 right-2 opacity-60" />
-            <span aria-hidden className="tick bottom-2 left-2 opacity-60" />
-            <span aria-hidden className="tick bottom-2 right-2 opacity-60" />
-          </div>
-        </figure>
-      </div>
+      {/* The poster IS the hero — the studio demo (announce strip +
+          blocking↔render comparator) now leads the Features section. */}
     </section>
   );
 }
