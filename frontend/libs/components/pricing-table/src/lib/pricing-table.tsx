@@ -18,6 +18,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { PROMO_PCT, planPricing } from "./promo-discounts";
 
+import { WebsitePricingTable } from "./website-pricing-table";
+
 const DISCOUNT_PILL_CLASS =
   "inline-flex items-center text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 border bg-primary/80 text-white border-primary/30";
 
@@ -50,6 +52,8 @@ const HIGHLIGHTS: Record<string, HighlightKind> = {
 };
 
 interface PricingTableProps {
+  /** Connected plan grid matching artcraft-website-next. */
+  websiteLayout?: boolean;
   includeFree?: boolean;
   showHeader?: boolean;
   title?: string;
@@ -64,6 +68,7 @@ interface PricingTableProps {
 }
 
 const PricingTable = ({
+  websiteLayout = false,
   includeFree = false,
   showHeader = true,
   title = "Choose Your Plan",
@@ -315,6 +320,27 @@ const PricingTable = ({
     visibleCols <= 3
       ? "grid-cols-1 md:grid-cols-3"
       : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4";
+
+  if (websiteLayout) {
+    return (
+      <div className={className}>
+        <WebsitePricingTable
+          plans={plans}
+          cadence={isYearly ? "yearly" : "monthly"}
+          onCadenceChange={setBillingType}
+          showSeedanceFeatures={showSeedanceFeatures}
+          showEnterprise={showEnterprise}
+          activePlanSlug={activePlanSlug}
+          displayName={user?.display_name}
+          loading={isLoading}
+          processingPlan={processingPlan}
+          managing={isCancelling}
+          onChoose={handlePlanClick}
+          onManage={handleCancelPlan}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={twMerge("w-full", className)}>
