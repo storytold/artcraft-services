@@ -20,21 +20,15 @@ const nextConfig: NextConfig = {
       }),
     );
   },
-  // Same-origin proxies for large media served from other origins. The hero
-  // wall draws its clips as WebGL video textures, which need CORS-clean
-  // sources, and neither CDN sends Access-Control-Allow-Origin, so those
-  // requests route through our own origin.
+  // The hero wall uses WebGL video textures, which need CORS-clean sources.
+  // The showcase CDN sends no Access-Control-Allow-Origin header, so these
+  // clips use a same-origin proxy. Other marketing media lives in public/.
   async rewrites() {
     return [
       // Showcase clips for the hero wall (see cdnMediaUrl in lib/links.ts).
       {
         source: "/cdn-media/:path*",
         destination: "https://frontend-cdn.fakeyou.com/:path*",
-      },
-      // Feature footage and other assets still hosted on the live site.
-      {
-        source: "/ext-media/:path*",
-        destination: "https://getartcraft.com/:path*",
       },
     ];
   },
