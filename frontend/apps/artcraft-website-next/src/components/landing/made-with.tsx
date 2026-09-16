@@ -2,10 +2,10 @@ import { MADE_WITH_YOUTUBE_IDS } from "@/lib/landing-data";
 import LiteYouTube from "@/components/lite-youtube";
 import { SectionShell, SectionEyebrow } from "./section-shell";
 
-export default function MadeWith() {
+export default function MadeWith({ index = "03" }: { index?: string }) {
   return (
     <SectionShell id="made-with">
-      <SectionEyebrow index="03" label="Proof" annotation="From the community" />
+      <SectionEyebrow index={index} label="Proof" annotation="From the community" />
 
       <div className="px-6 py-14 md:px-10 md:py-20">
         <h2

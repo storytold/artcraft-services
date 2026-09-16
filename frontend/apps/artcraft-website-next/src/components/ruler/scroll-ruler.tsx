@@ -90,12 +90,27 @@ export default function ScrollRuler() {
   // place — growing a window mid-session brings it up settled, shrinking
   // returns the native scrollbar.
   useEffect(() => {
-    const fineMq = window.matchMedia("(pointer: fine) and (min-width: 768px)");
+    // Desktop only: a hover-capable fine pointer on a laptop-class
+    // viewport, and never on a phone/tablet UA (tablets with a mouse
+    // attached still report a fine pointer). The UA never changes
+    // mid-session; the media queries are watched live.
+    const mobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(
+      navigator.userAgent,
+    );
+    const fineMq = window.matchMedia(
+      "(pointer: fine) and (hover: hover) and (min-width: 1024px)",
+    );
     const motionMq = window.matchMedia(
       "(prefers-reduced-motion: no-preference)",
     );
     const apply = () =>
-      setMode(fineMq.matches ? (motionMq.matches ? "full" : "static") : null);
+      setMode(
+        !mobileUa && fineMq.matches
+          ? motionMq.matches
+            ? "full"
+            : "static"
+          : null,
+      );
     apply();
     fineMq.addEventListener("change", apply);
     motionMq.addEventListener("change", apply);

@@ -294,6 +294,178 @@ html[data-ruler="on"]::-webkit-scrollbar {
   height: 1em;
 }
 
+/* Pricing plan color identities (the original table's green / purple /
+   orange / blue). `--plan` is the saturated brand color for surfaces
+   (index tabs, buttons, frames); `--plan-ink` is the contrast-safe text
+   shade, darker on paper and lighter on the dark viewport. */
+.plan-basic { --plan: #00a873; --plan-ink: #007a54; }
+.plan-pro { --plan: #9d4cff; --plan-ink: #7a2fe0; }
+.plan-max { --plan: #d97700; --plan-ink: #b35f00; }
+.plan-enterprise { --plan: #3568c9; --plan-ink: #2a55a8; }
+:root[data-theme="dark"] .plan-basic { --plan-ink: #2fd39c; }
+:root[data-theme="dark"] .plan-pro { --plan-ink: #c08fff; }
+:root[data-theme="dark"] .plan-max { --plan-ink: #ffb347; }
+:root[data-theme="dark"] .plan-enterprise { --plan-ink: #7ea3ee; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .plan-basic { --plan-ink: #2fd39c; }
+  :root:not([data-theme="light"]) .plan-pro { --plan-ink: #c08fff; }
+  :root:not([data-theme="light"]) .plan-max { --plan-ink: #ffb347; }
+  :root:not([data-theme="light"]) .plan-enterprise { --plan-ink: #7ea3ee; }
+}
+
+/* Plan cell: a color wash pooling under the index tab and fading into the
+   page surface; highlighted plans get a 2px frame in their color. */
+.plan-card {
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--plan) 14%, transparent),
+      transparent 50%
+    ),
+    var(--bg);
+}
+.plan-card[data-highlight] {
+  box-shadow: inset 0 0 0 2px var(--plan);
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--plan) 22%, transparent),
+      color-mix(in srgb, var(--plan) 4%, transparent)
+    ),
+    var(--bg);
+}
+.plan-check {
+  background: color-mix(in srgb, var(--plan) 16%, transparent);
+  color: var(--plan-ink);
+}
+
+/* Rendered markdown (FAQ, tutorials, news). Same hairline/mono vocabulary
+   as the rest of the site: display headings, token colors, no radius. */
+.article-content {
+  line-height: 1.75;
+  color: var(--ink);
+}
+.article-content > :first-child {
+  margin-top: 0;
+}
+.article-content h1,
+.article-content h2,
+.article-content h3,
+.article-content h4 {
+  font-family: var(--font-display);
+  font-stretch: 118%;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink-strong);
+}
+.article-content h1 {
+  font-size: 2rem;
+  margin: 2.5rem 0 1rem;
+}
+.article-content h2 {
+  font-size: 1.625rem;
+  margin: 2.5rem 0 0.875rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+.article-content h3 {
+  font-size: 1.25rem;
+  margin: 1.75rem 0 0.625rem;
+}
+.article-content h4 {
+  font-size: 1.0625rem;
+  margin: 1.5rem 0 0.5rem;
+}
+.article-content p {
+  margin: 1rem 0;
+  font-size: 1.0625rem;
+}
+.article-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 1rem 0;
+}
+.article-content li {
+  position: relative;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.article-content li::before {
+  content: "▪";
+  position: absolute;
+  left: 0;
+  color: var(--accent-ink);
+}
+.article-content a {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+}
+.article-content a:hover {
+  text-decoration-color: currentColor;
+}
+.article-content strong {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+.article-content blockquote {
+  margin: 1.5rem 0;
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--accent);
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.25rem;
+}
+.article-content code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+}
+.article-content pre {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+}
+.article-content pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.article-content img,
+.article-content .video-embed {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 2rem 0;
+  border: 1px solid var(--line);
+  background: var(--bg-sunken);
+}
+.article-content .youtube-embed {
+  position: relative;
+  aspect-ratio: 16 / 9;
+}
+.article-content .youtube-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.article-content .video-embed video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+}
+
 /* Mono capability marquee. Duplicated track scrolls -50%; the reduced-motion
  * blanket below freezes it in place. */
 .marquee {

@@ -10,12 +10,13 @@ import { SectionShell, SectionEyebrow } from "./section-shell";
 // blocking↔render comparator as its body — then the seven features and the
 // launch-CTA cell split an even two-column grid. Every feature cell is
 // index + label + real product footage + copy — no illustration, only the
-// actual tool.
-export default function Features() {
+// actual tool. `index` is the section's eyebrow number — the section is
+// reused on other pages where it sits at a different position.
+export default function Features({ index = "01" }: { index?: string }) {
   return (
     <SectionShell id="features">
       <SectionEyebrow
-        index="01"
+        index={index}
         label="Crafting features"
         annotation="Real footage — captured in ArtCraft"
       />
