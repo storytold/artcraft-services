@@ -62,7 +62,7 @@ export const AuthLayout = () => {
             <ArrowLeftIcon />
           </button>
 
-          <div className="flex flex-1 flex-col justify-center px-8 py-10 sm:px-10">
+          <div className="flex flex-1 flex-col justify-center px-6 pb-10 pt-16 sm:px-10">
             <div className="mx-auto w-full max-w-sm">
               {authChecked ? (
                 <Outlet />
@@ -76,7 +76,7 @@ export const AuthLayout = () => {
             </div>
           </div>
 
-          <div className="px-8 pb-8 text-center text-xs text-white/20">
+          <div className="px-8 pb-8 text-center text-xs text-white/60">
             &copy; {new Date().getFullYear()} ArtCraft. All rights reserved.
           </div>
         </div>
@@ -101,7 +101,7 @@ export const AuthHeader = ({ title, subtitle }: AuthHeaderProps) => (
   <RevealGroup inView={false} stagger={0.08} className="mb-8 text-center">
     <Reveal y={10}>
       <img
-        src="/images/artcraft-icon.png"
+        src="/artcraft-icon.svg"
         alt="ArtCraft"
         className="mx-auto mb-6 h-12 w-auto select-none pointer-events-none"
         draggable={false}

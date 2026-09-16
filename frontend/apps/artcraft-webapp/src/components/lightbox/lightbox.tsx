@@ -357,7 +357,7 @@ export function Lightbox({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        className="h-[90vh] sm:h-[680px] w-full sm:w-[1100px] max-w-[95vw] max-h-[90vh] p-0 border-white/15"
+        className="h-[90dvh] sm:h-[92dvh] w-full sm:w-[1440px] max-w-[96vw] max-h-[92dvh] p-0 border-white/15"
         backdropClassName="!bg-black/80"
         showClose={false}
       >

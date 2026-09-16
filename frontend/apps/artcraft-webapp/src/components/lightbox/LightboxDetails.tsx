@@ -45,11 +45,11 @@ import {
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 last:border-0">
-      <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60">
+    <div className="flex items-start justify-between gap-4 px-4 py-3 border-b border-white/10 last:border-0">
+      <span className="shrink-0 pt-0.5 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60">
         {label}
       </span>
-      <span className="text-sm text-white font-medium flex items-center gap-2">
+      <span className="min-w-0 text-right text-sm text-white font-medium flex items-center justify-end gap-2">
         {value}
       </span>
     </div>
@@ -426,7 +426,14 @@ export function LightboxDetails({
                   {createdAt && (
                     <InfoRow
                       label="Created"
-                      value={dayjs(createdAt).format("MMMM D, YYYY h:mm:ss A")}
+                      value={
+                        <time dateTime={createdAt} className="flex flex-col items-end gap-0.5 tabular-nums">
+                          <span>{dayjs(createdAt).format("MMM D, YYYY")}</span>
+                          <span className="text-xs text-white/60 whitespace-nowrap">
+                            {dayjs(createdAt).format("h:mm:ss A")}
+                          </span>
+                        </time>
+                      }
                     />
                   )}
                 </div>

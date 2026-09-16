@@ -1,5 +1,6 @@
 import { useLocation, Link } from "react-router-dom";
 import { Fragment } from "react";
+import { ChevronRightIcon } from "lucide-react";
 
 type Crumb = { label: string; href?: string };
 
@@ -77,26 +78,27 @@ export function Breadcrumbs() {
   if (crumbs.length === 0) return null;
 
   return (
-    <nav className="hidden md:flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45 min-w-0">
+    <nav aria-label="Breadcrumb" className="hidden md:flex items-center gap-1.5 hud-label text-base-fg/70 min-w-0">
       {crumbs.map((crumb, i) => {
         const isLast = i === crumbs.length - 1;
         return (
           <Fragment key={`${crumb.label}-${i}`}>
             {i > 0 && (
-              <span className="text-white/25" aria-hidden>
-                ›
-              </span>
+              <ChevronRightIcon
+                aria-hidden="true"
+                className="h-3 w-3 shrink-0 text-base-fg/50"
+              />
             )}
             {crumb.href && !isLast ? (
               <Link
                 to={crumb.href}
-                className="truncate hover:text-white/70 transition-colors"
+                className="truncate px-1.5 py-1 hover:bg-ui-ink hover:text-ui-panel transition-colors"
               >
                 {crumb.label}
               </Link>
             ) : (
               <span
-                className={isLast ? "text-white/85 truncate" : "truncate"}
+                className={isLast ? "bg-ui-ink px-1.5 py-1 text-ui-panel truncate" : "truncate"}
                 aria-current={isLast ? "page" : undefined}
               >
                 {crumb.label}

@@ -1,3 +1,4 @@
+import { SidebarActiveIndicator } from "./sidebar-active-indicator";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -90,6 +91,7 @@ export function LibraryFoldersNav({
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
+            {onUnsorted && <SidebarActiveIndicator />}
             <SidebarMenuButton asChild isActive={onUnsorted} tooltip="Library">
               <Link to="/library" onClick={onNavClick}>
                 <Grid3x3Icon />
@@ -98,6 +100,7 @@ export function LibraryFoldersNav({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
+            {onFolderless && <SidebarActiveIndicator />}
             <SidebarMenuButton
               asChild
               isActive={onFolderless}
@@ -110,6 +113,7 @@ export function LibraryFoldersNav({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
+            {onFolders && !activeFolderId && <SidebarActiveIndicator />}
             <SidebarMenuButton
               asChild
               isActive={onFolders && !activeFolderId}
@@ -147,8 +151,9 @@ export function LibraryFoldersNav({
                 <ul className="flex w-full min-w-0 flex-col gap-0.5">
                   {rootFolders.map((folder) => (
                     <SidebarMenuItem key={folder.id}>
+                      {onFolders && activeRootId === folder.id && <SidebarActiveIndicator />}
                       <SidebarMenuButton
-                        isActive={activeRootId === folder.id}
+                        isActive={onFolders && activeRootId === folder.id}
                         tooltip={folder.name}
                         data-folder-id={folder.id}
                         onClick={() => goToFolder(folder.id)}
