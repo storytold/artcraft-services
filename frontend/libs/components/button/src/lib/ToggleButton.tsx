@@ -30,11 +30,11 @@ export const ToggleButton = ({
         // PopoverMenu triggers). Flat control surface + hairline border,
         // same idiom as the PopoverMenu triggers beside it — the old glassy
         // backdrop-blur look predates the brutalist system.
-        "flex h-[34px] items-center justify-center rounded-[3px] border border-ui-controls-border bg-ui-controls text-sm text-white transition-colors",
-        hasLabel ? "px-3" : "w-[34px]",
+        "flex h-[34px] items-center justify-center rounded-[3px] border border-ui-controls-border bg-ui-controls text-white transition-colors",
+        hasLabel ? "px-3" : "w-[34px] p-0",
         isActive
-          ? "border-white/30 bg-brand-primary/40 hover:bg-brand-primary/40"
-          : "",
+          ? "border-white/30 bg-brand-primary/40 hover:border-white/30 hover:bg-brand-primary/40"
+          : "hover:bg-ui-controls hover:bg-[linear-gradient(rgba(255,255,255,0.07),rgba(255,255,255,0.07))]",
         className,
       )}
       variant="secondary"
@@ -48,7 +48,7 @@ export const ToggleButton = ({
           />
         )}
         {label && (
-          <span className="text-sm font-medium text-white/90">{label}</span>
+          <span className="whitespace-nowrap text-white/90">{label}</span>
         )}
       </span>
     </Button>

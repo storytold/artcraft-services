@@ -20,7 +20,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ChevronUpIcon,
-  CircleCheckIcon,
   InfoIcon,
 } from "lucide-react";
 import { Model, ModelInfo } from "@storyteller/model-list";
@@ -411,8 +410,8 @@ function RichListRow({
       {rightNode ??
         (item.selected &&
           (item.selectedRight ?? (
-            <span className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-[3px] bg-white">
-              <CheckIcon className="text-[11px] font-bold text-black" />
+            <span className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center">
+              <CheckIcon aria-hidden="true" className="h-4 w-4 text-white" strokeWidth={2.5} />
             </span>
           )))}
     </div>
@@ -1334,7 +1333,7 @@ export const PopoverMenu = ({
                                   {item.selected &&
                                     (item.selectedRight ?? (
                                       <span className="text-white text-xl flex items-center justify-center mr-1">
-                                        <CircleCheckIcon />
+                                        <CheckIcon aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2.5} />
                                       </span>
                                     ))}
                                 </div>
@@ -1494,15 +1493,10 @@ export const PopoverMenu = ({
 
                                   {mode === "toggle" && (
                                     <span
-                                      className={twMerge(
-                                        "ml-2 h-5 w-5 rounded-[3px] border flex items-center justify-center transition-colors",
-                                        item.selected
-                                          ? "border-white bg-white"
-                                          : "border-transparent bg-transparent",
-                                      )}
+                                      className="ml-2 flex h-5 w-5 shrink-0 items-center justify-center"
                                     >
                                       {item.selected && (
-                                        <CheckIcon className="text-black text-xs font-bold" />
+                                        <CheckIcon aria-hidden="true" className="h-4 w-4 text-white" strokeWidth={2.5} />
                                       )}
                                     </span>
                                   )}
@@ -1556,15 +1550,10 @@ export const PopoverMenu = ({
 
                                 {mode === "toggle" && (
                                   <span
-                                    className={twMerge(
-                                      "ml-2 h-5 w-5 rounded-[3px] border flex items-center justify-center transition-colors",
-                                      item.selected
-                                        ? "border-white bg-white"
-                                        : "border-transparent bg-transparent",
-                                    )}
+                                    className="ml-2 flex h-5 w-5 shrink-0 items-center justify-center"
                                   >
                                     {item.selected && (
-                                      <CheckIcon className="text-black text-xs font-bold" />
+                                      <CheckIcon aria-hidden="true" className="h-4 w-4 text-white" strokeWidth={2.5} />
                                     )}
                                   </span>
                                 )}
