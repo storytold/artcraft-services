@@ -5,7 +5,7 @@ import { twMerge } from "tailwind-merge";
 import { ButtonHTMLAttributes, AnchorHTMLAttributes } from "react";
 
 export const NEUTRAL_BUTTON_HOVER_CLASSES =
-  "hover:bg-white/10 hover:border-white/30";
+  "hover:bg-white/[0.07] hover:border-white/25";
 
 type AnchorProps = Omit<
   AnchorHTMLAttributes<HTMLAnchorElement>,
@@ -57,7 +57,7 @@ export const Button = ({
       }
       case "primary":
       default: {
-        return "bg-white hover:bg-white/80 text-black font-bold";
+        return "bg-white hover:bg-white/90 text-black font-bold";
       }
     }
   }

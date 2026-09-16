@@ -17,7 +17,7 @@ import {
   getCreatorIcon,
   getModelFamilyName,
 } from "@storyteller/model-list";
-import { ChevronUpIcon, CircleCheckIcon } from "lucide-react";
+import { ChevronUpIcon, CheckIcon } from "lucide-react";
 import { GenerationProvider } from "@storyteller/api-enums";
 import { Tooltip } from "@storyteller/ui-tooltip";
 import { defaultModelForPage } from "./defaultModelForPage";
@@ -118,8 +118,8 @@ function ProviderTooltipContent({
               {getProviderDisplayName(p)}
             </span>
             {selectedProvider === p && (
-              <span className="text-primary text-xl font-bold bg-white rounded-full p-0 h-4 w-4 flex items-center justify-center">
-                <CircleCheckIcon />
+              <span className="ml-2 flex h-5 w-5 shrink-0 items-center justify-center text-white">
+                <CheckIcon aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />
               </span>
             )}
           </button>
