@@ -76,10 +76,7 @@ const Pricing = () => {
                   <span className="font-serif-italic">here</span>.
                 </>
               ) : (
-                <>
-                  Invest in your{" "}
-                  <span className="font-serif-italic">creativity</span>.
-                </>
+                "Pick a plan"
               )}
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/55">
