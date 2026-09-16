@@ -5,6 +5,10 @@ import LazyVideo from "@/components/lazy-video";
 import HeroViewport from "./hero-viewport";
 import { SectionShell, SectionEyebrow } from "./section-shell";
 
+// Temporarily hides the lead 3D blocking↔render demo. Flip to true to
+// restore it at the top of the feature grid.
+const SHOW_BLOCKING_DEMO = false;
+
 // Feature grid: hairline-separated cells (gap-px over the line color).
 // The studio demo leads full-width — the announce strip as its header, the
 // blocking↔render comparator as its body — then the seven features and the
@@ -42,32 +46,34 @@ export default function Features({ index = "01" }: { index?: string }) {
       >
         {/* Lead demo: the studio itself — compose the blocking, mouse across
             to the AI render. */}
-        <figure data-reveal className="bg-bg md:col-span-2">
-          <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2.5 md:px-8">
-            <p className="hud-label text-muted">Open-source AI studio</p>
-            <p className="hud-label hidden text-accent-ink sm:block">
-              Now with Seedance 2.5, Nano Banana 2 &amp; more
-            </p>
-          </div>
-          <div className="relative aspect-video w-full overflow-hidden bg-bg-sunken md:aspect-[21/9]">
-            <HeroViewport
-              videoSrc={HERO_VIDEO_URL}
-              videoLabel="ArtCraft product reel: composing 3D scenes and rendering them with AI"
-            />
-            {/* Cursor hint — meaningful only where the comparator mounts
-                (fine pointers, md+). */}
-            <p
-              aria-hidden
-              className="hud-label absolute right-3 top-3 hidden items-center gap-1.5 bg-invert-bg px-3 py-1.5 font-bold text-invert-fg md:flex"
-            >
-              <span className="inline-block h-1.5 w-1.5 bg-accent" />
-              Blocking ↔ render · move your cursor
-            </p>
-            <span aria-hidden className="tick top-2 left-2 opacity-60" />
-            <span aria-hidden className="tick bottom-2 left-2 opacity-60" />
-            <span aria-hidden className="tick bottom-2 right-2 opacity-60" />
-          </div>
-        </figure>
+        {SHOW_BLOCKING_DEMO && (
+          <figure data-reveal className="bg-bg md:col-span-2">
+            <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2.5 md:px-8">
+              <p className="hud-label text-muted">Open-source AI studio</p>
+              <p className="hud-label hidden text-accent-ink sm:block">
+                Now with Seedance 2.5, Nano Banana 2 &amp; more
+              </p>
+            </div>
+            <div className="relative aspect-video w-full overflow-hidden bg-bg-sunken md:aspect-[21/9]">
+              <HeroViewport
+                videoSrc={HERO_VIDEO_URL}
+                videoLabel="ArtCraft product reel: composing 3D scenes and rendering them with AI"
+              />
+              {/* Cursor hint — meaningful only where the comparator mounts
+                  (fine pointers, md+). */}
+              <p
+                aria-hidden
+                className="hud-label absolute right-3 top-3 hidden items-center gap-1.5 bg-invert-bg px-3 py-1.5 font-bold text-invert-fg md:flex"
+              >
+                <span className="inline-block h-1.5 w-1.5 bg-accent" />
+                Blocking ↔ render · move your cursor
+              </p>
+              <span aria-hidden className="tick top-2 left-2 opacity-60" />
+              <span aria-hidden className="tick bottom-2 left-2 opacity-60" />
+              <span aria-hidden className="tick bottom-2 right-2 opacity-60" />
+            </div>
+          </figure>
+        )}
 
         {FEATURES.map((feature) => (
           <FeatureCell key={feature.index} feature={feature} />
