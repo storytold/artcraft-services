@@ -84,17 +84,25 @@ export default function ScrollRuler() {
   });
   fs.current.geom = geom;
 
-  // Capability gate. Media changes mid-session are rare enough that a
-  // reload is the supported way to re-evaluate.
+  // Capability gate, LIVE: small screens and coarse pointers get no
+  // instrument at all (native scrollbar, no heading choreography), and
+  // resizing across the boundary mounts/unmounts the whole ruler in
+  // place — growing a window mid-session brings it up settled, shrinking
+  // returns the native scrollbar.
   useEffect(() => {
-    const fine = window.matchMedia(
-      "(pointer: fine) and (min-width: 768px)",
-    ).matches;
-    if (!fine) return;
-    const motionOk = window.matchMedia(
+    const fineMq = window.matchMedia("(pointer: fine) and (min-width: 768px)");
+    const motionMq = window.matchMedia(
       "(prefers-reduced-motion: no-preference)",
-    ).matches;
-    setMode(motionOk ? "full" : "static");
+    );
+    const apply = () =>
+      setMode(fineMq.matches ? (motionMq.matches ? "full" : "static") : null);
+    apply();
+    fineMq.addEventListener("change", apply);
+    motionMq.addEventListener("change", apply);
+    return () => {
+      fineMq.removeEventListener("change", apply);
+      motionMq.removeEventListener("change", apply);
+    };
   }, []);
 
   // Reset the shared zoom state (and its pending intent timer) on unmount
@@ -242,6 +250,14 @@ export default function ScrollRuler() {
     let tl: gsap.core.Timeline | null = null;
     const runCascade = () => {
       tl?.kill();
+      // Late mount (a resize across the capability boundary after the
+      // page intro finished): come up settled instantly — an intro
+      // cascade firing on a window resize reads as a glitch.
+      if (introClock.done) {
+        gsap.set(els, { scaleX: 1, opacity: 1 });
+        fs.current.introDone = true;
+        return;
+      }
       fs.current.introDone = false;
       const mt = rulerMotionTuner.read();
       gsap.set(els, { scaleX: 0, opacity: 0 });
@@ -546,6 +562,10 @@ export default function ScrollRuler() {
       scheduleZoom(false);
     }
   };
+
+  // Incapable device (or shrunk below the boundary): render nothing —
+  // the stamp effect above has already released the native scrollbar.
+  if (!mode) return null;
 
   return (
     <>

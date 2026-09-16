@@ -10,6 +10,7 @@ import { watchThemeColors, type ThemeColors } from "@/lib/theme-colors";
 import { useTunerStore } from "@/lib/tuner";
 import {
   galaxyLayoutTuner,
+  galaxyMobileTuner,
   galaxyMotionTuner,
   galaxyLookTuner,
   galaxyPointerTuner,
@@ -429,10 +430,12 @@ function GalaxyScene({
   // Layout tunables change the structure — debounce a rebuild.
   const [layoutVersion, setLayoutVersion] = useState(0);
   useEffect(() => {
-    let last = JSON.stringify(galaxyLayoutTuner.read());
+    const snapshot = () =>
+      JSON.stringify([galaxyLayoutTuner.read(), galaxyMobileTuner.read()]);
+    let last = snapshot();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const unsubscribe = useTunerStore.subscribe(() => {
-      const now = JSON.stringify(galaxyLayoutTuner.read());
+      const now = snapshot();
       if (now === last) return;
       last = now;
       clearTimeout(timer);
@@ -448,28 +451,37 @@ function GalaxyScene({
   // world px (1 unit == 1 CSS px), origin at the viewport center.
   const layout = useMemo(() => {
     const t = galaxyLayoutTuner.read();
-    // Responsive count: the knob is tuned at a reference viewport area;
-    // smaller viewports get proportionally fewer cards (the neighbor-gap
-    // sizing then grows the survivors, so the field stays filled).
+    const mb = galaxyMobileTuner.read();
     const area = (size.width * size.height) / 1e6;
-    // Mobile profile: on small viewports the tuned spiral is too tight —
-    // consecutive cards along an arm sit radially close at sharper angles,
-    // so the collision bound forces them small. Fewer, straighter arms
-    // (plus a density boost applied in the sizing pass) let cards run
-    // bigger on a phone.
-    const mobile = t.mobMpx > 0 && area < t.mobMpx;
-    const arms = Math.max(1, Math.round(mobile ? t.mobArms : t.arms));
-    const cardN = Math.max(
-      6,
-      Math.min(Math.round(t.cardN), Math.round((t.cardN * area) / t.tunedMpx)),
-    );
+    // Mobile profile: on small viewports the tuned desktop spiral is too
+    // tight — consecutive cards along an arm sit radially close at sharper
+    // angles, so the collision bound forces them small. Below the area
+    // threshold the Galaxy-mobile group's dials replace their layout
+    // counterparts wholesale (own arms/turns/count/reach/card ceiling),
+    // tuned independently on a real phone.
+    const mobile = mb.mobMpx > 0 && area < mb.mobMpx;
+    const arms = Math.max(1, Math.round(mobile ? mb.mobArms : t.arms));
+    // Desktop count scales with viewport area from the tuned reference;
+    // mobile uses its own fixed count.
+    const cardN = mobile
+      ? Math.max(4, Math.round(mb.mobCardN))
+      : Math.max(
+          6,
+          Math.min(
+            Math.round(t.cardN),
+            Math.round((t.cardN * area) / t.tunedMpx),
+          ),
+        );
     const halfDiag = Math.hypot(size.width, size.height) / 2;
-    const rMax = t.rMaxFrac * halfDiag;
-    const thetaMax = (mobile ? t.mobTurns : t.turns) * Math.PI * 2;
+    const rMax = (mobile ? mb.mobRMax : t.rMaxFrac) * halfDiag;
+    const thetaMax = (mobile ? mb.mobTurns : t.turns) * Math.PI * 2;
     const b = rMax / thetaMax;
-    const cardHCap = Math.min(340, Math.max(70, size.height * t.cardHFrac));
+    const cardHCap = Math.min(
+      340,
+      Math.max(70, size.height * (mobile ? mb.mobCardH : t.cardHFrac)),
+    );
     const slotsPerArm = Math.max(1, Math.ceil(cardN / arms));
-    const thetaBirth = t.birthFrac * thetaMax;
+    const thetaBirth = (mobile ? mb.mobBirth : t.birthFrac) * thetaMax;
     // Cards travel until fully past the viewport corner (plus a card of
     // margin) before wrapping — the death is never on screen.
     const thetaExit = (halfDiag + cardHCap * 1.5) / b;
@@ -581,7 +593,7 @@ function GalaxyScene({
       armJitter: t.armJitter,
       slotsPerArm,
       mobile,
-      mobDensityX: t.mobDensityX,
+      mobDensityX: mb.mobDensityX,
       armGeoms,
       tickGeom,
       circGeom,

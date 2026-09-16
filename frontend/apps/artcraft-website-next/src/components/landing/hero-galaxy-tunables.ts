@@ -92,38 +92,6 @@ export const galaxyLayoutTuner = defineTunables(
       default: 0.56,
       info: "Radius of the dashed construction circle in the underlay, as a fraction of the outer radius.",
     },
-    mobMpx: {
-      label: "Mobile < Mpx",
-      min: 0,
-      max: 1.2,
-      step: 0.05,
-      default: 0.6,
-      info: "Viewports smaller than this megapixel area switch to the mobile spiral profile (fewer, straighter arms so the neighbor-gap sizing allows bigger cards). 0 disables.",
-    },
-    mobArms: {
-      label: "Mobile arms",
-      min: 1,
-      max: 6,
-      step: 1,
-      default: 3,
-      info: "Arm count in the mobile profile — fewer arms means less angular crowding on a narrow stage.",
-    },
-    mobTurns: {
-      label: "Mobile turns",
-      min: 0.3,
-      max: 2,
-      step: 0.05,
-      default: 0.7,
-      info: "Spiral windings in the mobile profile — straighter arms space consecutive cards further apart radially, so they can run larger.",
-    },
-    mobDensityX: {
-      label: "Mobile density ×",
-      min: 1,
-      max: 1.6,
-      step: 0.02,
-      default: 1.15,
-      info: "Density multiplier applied in the mobile profile — lets cards claim more of their (now larger) neighbor gaps.",
-    },
     guideX: {
       label: "Guide lines ×",
       min: 1,
@@ -139,6 +107,81 @@ export const galaxyLayoutTuner = defineTunables(
       step: 10,
       default: 300,
       info: "Two visible cards sharing a clip closer than this on screen trigger a reassignment of the blurrier one (the swap hides inside its birth blur). 0 disables.",
+    },
+  },
+);
+
+// The mobile spiral profile: below the area threshold, these dials REPLACE
+// their Galaxy-layout counterparts wholesale — small screens get their own
+// composition (fewer, straighter arms; own count, reach, and card ceiling)
+// tuned independently of the desktop spiral.
+export const galaxyMobileTuner = defineTunables(
+  "galaxyMobile",
+  "Galaxy mobile",
+  {
+    mobMpx: {
+      label: "Mobile < Mpx",
+      min: 0,
+      max: 1.2,
+      step: 0.05,
+      default: 0.6,
+      info: "Viewports smaller than this megapixel area use the mobile profile below instead of the Galaxy-layout values. 0 disables the profile.",
+    },
+    mobArms: {
+      label: "Arms",
+      min: 1,
+      max: 6,
+      step: 1,
+      default: 3,
+      info: "Arm count on mobile — fewer arms means less angular crowding on a narrow stage.",
+    },
+    mobTurns: {
+      label: "Turns",
+      min: 0.3,
+      max: 2,
+      step: 0.05,
+      default: 0.7,
+      info: "Spiral windings on mobile — straighter arms space consecutive cards further apart radially, so they can run larger.",
+    },
+    mobCardN: {
+      label: "Card count",
+      min: 4,
+      max: 40,
+      step: 1,
+      default: 14,
+      info: "Cards riding the arms on mobile — a fixed count, not scaled from the desktop knob.",
+    },
+    mobRMax: {
+      label: "Outer radius",
+      min: 0.3,
+      max: 1.2,
+      step: 0.02,
+      default: 0.8,
+      info: "Spiral reach on mobile as a fraction of the half-diagonal — how far the arms extend past the small stage.",
+    },
+    mobCardH: {
+      label: "Card h cap",
+      min: 0.08,
+      max: 0.5,
+      step: 0.005,
+      default: 0.3,
+      info: "Card height ceiling on mobile as a fraction of the viewport height.",
+    },
+    mobBirth: {
+      label: "Birth radius",
+      min: 0.02,
+      max: 0.3,
+      step: 0.005,
+      default: 0.08,
+      info: "Where cards are born on mobile, as a fraction of the outer radius.",
+    },
+    mobDensityX: {
+      label: "Density ×",
+      min: 1,
+      max: 1.6,
+      step: 0.02,
+      default: 1.15,
+      info: "Density multiplier on mobile — lets cards claim more of their (larger) neighbor gaps.",
     },
   },
 );

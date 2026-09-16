@@ -125,6 +125,23 @@ export default function HeadingFlow({
     [layoutVersion],
   );
 
+  // When the flow stops driving the hero letters (the ruler unmounts on a
+  // resize below the capability boundary, or the mode changes), release
+  // every inline style this component wrote so the wordmark stands in its
+  // natural resting state — a frozen mid-flip transform would strand it.
+  useEffect(
+    () => () => {
+      for (const el of heroWordmark.els) {
+        el.style.transform = "";
+        el.style.fontWeight = "";
+        el.style.fontStretch = "";
+        el.style.color = "";
+        el.style.opacity = "1";
+      }
+    },
+    [mode],
+  );
+
   // Re-render on any tuner change so render-applied look values (the
   // contrast pools) respond to their sliders live. The letters' per-frame
   // imperative styles survive re-renders — React only patches JSX
