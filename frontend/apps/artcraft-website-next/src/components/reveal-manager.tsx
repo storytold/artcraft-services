@@ -120,11 +120,27 @@ export default function RevealManager() {
           });
           return;
         }
-        ScrollTrigger.create({
-          trigger: group,
-          start: "top 85%",
-          once: true,
-          onEnter: () => gsap.to(children, { ...SHOWN, stagger: 0.08 }),
+        // Per-CHILD triggers, not one for the whole group: a tall grid's
+        // single trigger revealed every cell the moment the grid's top
+        // entered, so everything below the fold animated unseen and the
+        // section read as static against the drawn frames. Each cell now
+        // assembles as it arrives; cells sharing a row cascade left to
+        // right (delay from their horizontal position), which keeps the
+        // old stagger feel without a group-wide clock.
+        const groupRect = group.getBoundingClientRect();
+        children.forEach((child) => {
+          const delay =
+            groupRect.width > 0
+              ? ((child.getBoundingClientRect().left - groupRect.left) /
+                  groupRect.width) *
+                0.18
+              : 0;
+          ScrollTrigger.create({
+            trigger: child,
+            start: "top 88%",
+            once: true,
+            onEnter: () => gsap.to(child, { ...SHOWN, delay }),
+          });
         });
       });
 

@@ -61,11 +61,15 @@ export function SectionEyebrow({
   annotation?: string;
 }) {
   return (
-    <div className="sticky top-12 z-30 border-b border-line bg-bg/60 backdrop-blur-md">
-      <div
-        data-draw-eyebrow
-        className="flex items-center justify-between gap-4 px-6 py-3 md:px-10"
-      >
+    // The band owns BOTH hairlines: the top one keeps the eyebrow edged
+    // while it floats stuck mid-section (and coincides with the section's
+    // drawn rule at rest, so they read as one line). The whole band fades
+    // with the draw choreography — frost, rules, and contents together.
+    <div
+      data-draw-eyebrow
+      className="sticky top-12 z-30 border-y border-line bg-bg/60 backdrop-blur-md"
+    >
+      <div className="flex items-center justify-between gap-4 px-6 py-3 md:px-10">
         <p className="hud-label text-muted">
           <span className="text-faint">{index}</span>
           <span aria-hidden className="mx-2 text-faint">
