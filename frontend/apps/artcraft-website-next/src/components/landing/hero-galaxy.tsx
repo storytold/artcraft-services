@@ -702,6 +702,8 @@ function GalaxyScene({
           uHue: { value: 0.35 },
           uBaseW: { value: 1.2 },
           uPulseW: { value: 3.5 },
+          uWaveR: { value: 1e6 },
+          uWaveBand: { value: 220 },
         },
         vertexShader: /* glsl */ `
           attribute vec2 aN;
@@ -714,6 +716,8 @@ function GalaxyScene({
           uniform float uCount;
           uniform float uBaseW;
           uniform float uPulseW;
+          uniform float uWaveR;
+          uniform float uWaveBand;
           varying float vG;
           varying float vSide;
           varying float vArm;
@@ -728,6 +732,11 @@ function GalaxyScene({
             float g = exp(-0.5 * (s / sig) * (s / sig));
             // Fade pulses out over the blurred birth zone.
             g *= smoothstep(0.04, 0.14, aT);
+            // Intro choreography: pulses are uncovered by the same radial
+            // reveal wave that uncovers the cards (trailing band), so they
+            // appear rolling outward with the field. Post-intro the wave
+            // radius saturates past every arm; a tuner replay rewinds it.
+            g *= clamp((uWaveR - length(position.xy)) / uWaveBand, 0.0, 1.0);
             vG = g;
             vSide = aSide;
             vArm = aArm;
@@ -1450,6 +1459,8 @@ function GalaxyScene({
     pulseMat.uniforms.uCount.value = Math.round(lk.pulseCount);
     pulseMat.uniforms.uBaseW.value = lk.lineW;
     pulseMat.uniforms.uPulseW.value = lk.pulseW;
+    pulseMat.uniforms.uWaveR.value = waveEase * L.b * L.thetaExit;
+    pulseMat.uniforms.uWaveBand.value = Math.max(1, mv.waveBand);
 
     st.cullTimer -= dt;
     if (st.cullTimer <= 0) {

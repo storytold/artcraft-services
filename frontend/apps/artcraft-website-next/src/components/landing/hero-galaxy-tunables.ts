@@ -47,10 +47,7 @@ export const galaxyLayoutTuner = defineTunables(
       min: 8,
       max: 96,
       step: 1,
-      // 3× the 17-clip showcase pool: the round-robin deal lands every clip
-      // on exactly three cards, and the neighbor-gap sizing grows the cards
-      // to keep the same fill.
-      default: 51,
+      default: 64,
       info: "Cards riding the arms at the reference viewport size; smaller viewports scale this down proportionally (see Tuned @ Mpx).",
     },
     tunedMpx: {
@@ -74,9 +71,9 @@ export const galaxyLayoutTuner = defineTunables(
       min: 0,
       max: 1,
       step: 0.01,
-      // Golden-ratio conjugate: successive arms land at low-discrepancy
-      // phases within a slot gap, so no card count can ring-align them.
-      default: 0.38,
+      // In slot-gap units so no card count can ring-align the arms
+      // (the starfish); user-tuned scatter.
+      default: 0.76,
       info: "Per-arm conveyor stagger in slot gaps — 0 births all arms in lockstep rings; ~0.38 (golden) scatters them evenly at any card count.",
     },
     ticksPerArm: {
@@ -132,7 +129,7 @@ export const galaxyLayoutTuner = defineTunables(
       min: 1,
       max: 4,
       step: 1,
-      default: 2,
+      default: 1,
       info: "Underlay line density: guide curves per card arm (2 draws a phantom guide midway between arms). Mobile profile always keeps 1×.",
     },
     dedupPx: {
@@ -537,7 +534,7 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     min: 0.5,
     max: 3,
     step: 0.1,
-    default: 1.2,
+    default: 2,
     info: "Base thickness of the arm guide ribbons — the resting hairline weight.",
   },
   pulseAlpha: {
@@ -545,7 +542,7 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     min: 0,
     max: 1,
     step: 0.02,
-    default: 0.5,
+    default: 0.72,
     info: "Peak extra opacity of the color pulses traveling along the arm lines (0 = no pulses).",
   },
   pulseSpeed: {
@@ -553,7 +550,7 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     min: 0,
     max: 0.8,
     step: 0.01,
-    default: 0.22,
+    default: 0.19,
     info: "Pulse travel speed — band cycles per second along each arm, moving outward faster than the conveyor.",
   },
   pulseWidth: {
@@ -561,7 +558,7 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     min: 0.01,
     max: 0.25,
     step: 0.005,
-    default: 0.035,
+    default: 0.05,
     info: "Length of each comet as a fraction of its band — sharp head, longer tail behind.",
   },
   pulseW: {
@@ -577,7 +574,7 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     min: 1,
     max: 6,
     step: 1,
-    default: 2,
+    default: 3,
     info: "Simultaneous pulses riding each arm.",
   },
   pulseHue: {
@@ -585,7 +582,7 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     min: 0,
     max: 1,
     step: 0.02,
-    default: 0.35,
+    default: 0.4,
     info: "Dark theme only: per-arm hue rotation of the pulse color away from the accent — 0 keeps every arm brand blue, 1 spreads across the wheel. Light theme is always colorless.",
   },
   pulseDark: {
@@ -593,7 +590,7 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     min: 0,
     max: 1,
     step: 0.02,
-    default: 0.75,
+    default: 0.62,
     info: "Light theme only: darkness of the plain gray pulses (ink mixed over the paper; 1 = ink-black). Light mode carries the pulse with thickness, not color.",
   },
 });
