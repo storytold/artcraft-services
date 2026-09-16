@@ -29,15 +29,18 @@ export function SectionShell({
       <div className="relative mx-auto max-w-[1280px] border-x border-line">
         {ticks && (
           <>
+            {/* -top-[5px] centers the crossbar on the section's top
+                hairline; z-[31] keeps the downward stems above the frosted
+                eyebrow band (z-30), which otherwise swallows them. */}
             <span
               aria-hidden
               data-draw-tick
-              className="tick tick-half -top-[6px] -left-[6px]"
+              className="tick tick-half z-[31] -top-[5px] -left-[6px]"
             />
             <span
               aria-hidden
               data-draw-tick
-              className="tick tick-half -top-[6px] -right-[5px]"
+              className="tick tick-half z-[31] -top-[5px] -right-[5px]"
             />
           </>
         )}
