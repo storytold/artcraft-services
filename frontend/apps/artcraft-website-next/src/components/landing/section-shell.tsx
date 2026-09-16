@@ -32,12 +32,12 @@ export function SectionShell({
             <span
               aria-hidden
               data-draw-tick
-              className="tick -top-[6px] -left-[6px]"
+              className="tick tick-half -top-[6px] -left-[6px]"
             />
             <span
               aria-hidden
               data-draw-tick
-              className="tick -top-[6px] -right-[5px]"
+              className="tick tick-half -top-[6px] -right-[5px]"
             />
           </>
         )}

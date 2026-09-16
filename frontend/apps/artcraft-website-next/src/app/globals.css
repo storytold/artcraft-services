@@ -248,6 +248,12 @@ html[data-intro] .wm-letter {
   bottom: 0;
   width: 1px;
 }
+/* Half tick for marks sitting ON a top edge: the upper arm of the cross
+   is dropped so nothing pokes above the boundary (into the sticky
+   eyebrow band) — crossbar plus downward stem only. */
+.tick-half::before {
+  top: 5px;
+}
 .tick::after {
   top: 5px;
   left: 0;
