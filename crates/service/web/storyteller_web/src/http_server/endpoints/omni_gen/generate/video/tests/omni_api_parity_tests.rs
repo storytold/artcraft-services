@@ -12,8 +12,8 @@ use enums::common::generation::common_video_model::CommonVideoModel;
 use artcraft_api_keys::ArtcraftApiKey;
 
 use crate::http_server::endpoints::omni_gen::generate::video::tests::support::{
-  base_generate_request, to_omni_api_request, ExpectedCredits, Seconds, TestHarness,
-  STARTING_CREDITS,
+  base_generate_request, stub_traffic, to_omni_api_request, ExpectedCredits, Seconds,
+  TestHarness, STARTING_CREDITS,
 };
 
 mod billing_parity {
@@ -43,6 +43,26 @@ mod billing_parity {
       Seconds(5),
       ExpectedCredits(125),
     ).await;
+  }
+}
+
+mod generate_audio {
+  use super::*;
+
+  /// Seedance 2.0 / 2.5 always produce sound. Even when a caller explicitly
+  /// sends `generate_audio: false`, neither endpoint forwards the flag to
+  /// Kinovi — the key must be absent from the captured request body so Kinovi
+  /// falls back to its default of sound on.
+  #[tokio::test]
+  #[cfg_attr(feature = "skip_database_tests", ignore)]
+  async fn seedance_2p0_never_forwards_generate_audio_on_either_endpoint() {
+    assert_endpoints_omit_generate_audio(CommonVideoModel::Seedance2p0).await;
+  }
+
+  #[tokio::test]
+  #[cfg_attr(feature = "skip_database_tests", ignore)]
+  async fn seedance_2p5_never_forwards_generate_audio_on_either_endpoint() {
+    assert_endpoints_omit_generate_audio(CommonVideoModel::Seedance2p5).await;
   }
 }
 
@@ -194,4 +214,48 @@ async fn assert_endpoints_bill_identically(
     api_debit, expected_credits,
     "{:?}: omni_api debited the wrong amount", model,
   );
+}
+
+/// Run `model` with an explicit `generate_audio: false` through omni_gen
+/// (session cookie) and omni_api (API key); assert both succeed and neither
+/// captured Kinovi request carries a `generate_audio` key.
+async fn assert_endpoints_omit_generate_audio(model: CommonVideoModel) {
+  let harness = TestHarness::create().await;
+
+  // omni_gen, session-cookie user.
+  let web_user = harness.create_funded_user(STARTING_CREDITS).await;
+  let mut request = base_generate_request(model);
+  let web_prompt = format!("audio flag test web {}", request.idempotency_token.as_deref().unwrap());
+  request.prompt = Some(web_prompt.clone());
+  request.generate_audio = Some(false);
+  let response = harness
+    .post_generate(&web_user, request)
+    .await
+    .unwrap_or_else(|err| panic!("{:?}: omni_gen generation failed: {:?}", model, err));
+  assert!(response.success);
+
+  // omni_api, API-key user.
+  let api_user = harness.create_funded_user(STARTING_CREDITS).await;
+  let api_key = harness.create_api_key(&api_user).await;
+  let mut request = base_generate_request(model);
+  let api_prompt = format!("audio flag test api {}", request.idempotency_token.as_deref().unwrap());
+  request.prompt = Some(api_prompt.clone());
+  request.generate_audio = Some(false);
+  let response = harness
+    .post_generate_via_api_key(&api_key, request)
+    .await
+    .unwrap_or_else(|err| panic!("{:?}: omni_api generation failed: {:?}", model, err));
+  assert!(response.success);
+
+  let traffic = stub_traffic().lock().unwrap();
+  for (endpoint, prompt) in [("omni_gen", &web_prompt), ("omni_api", &api_prompt)] {
+    let params = traffic.workflows.iter()
+      .map(|request| &request["0"]["json"]["apiParams"])
+      .find(|params| params["prompt"].as_str() == Some(prompt))
+      .unwrap_or_else(|| panic!("{:?}: no captured Kinovi request for {}", model, endpoint));
+    assert!(
+      params.get("generate_audio").is_none(),
+      "{:?}: {} forwarded generate_audio to Kinovi: {}", model, endpoint, params,
+    );
+  }
 }

@@ -75,13 +75,34 @@ pub fn hydrate_to_router_request(
     },
     duration_seconds: request.duration_seconds,
     video_batch_count: request.video_batch_count,
-    generate_audio: request.generate_audio,
+    // Seedance 2.0 / 2.5 always generate sound. Kinovi honours an explicit
+    // `generate_audio: false`, and the frontend was sending one, so the flag
+    // is dropped here and never reaches Kinovi for these models.
+    generate_audio: if is_seedance_2x(&model) { None } else { request.generate_audio },
     // Set by the handler after probing reference video durations (only
     // models that bill input seconds use it).
     total_reference_video_input_seconds: None,
     request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::PayMoreUpgrade,
     idempotency_token: request.idempotency_token.clone(),
   })
+}
+
+fn is_seedance_2x(model: &RouterVideoModel) -> bool {
+  matches!(
+    model,
+    RouterVideoModel::Seedance2p0
+      | RouterVideoModel::Seedance2p0Fast
+      | RouterVideoModel::Seedance2p0Mini
+      | RouterVideoModel::Seedance2p0BytePlus
+      | RouterVideoModel::Seedance2p0BytePlusFast
+      | RouterVideoModel::Seedance2p0BytePlusMini
+      | RouterVideoModel::Seedance2p0BytePlusUltra
+      | RouterVideoModel::Seedance2p0BytePlusUltraFast
+      | RouterVideoModel::Seedance2p0BytePlusUltraMini
+      | RouterVideoModel::Seedance2p5Preview
+      | RouterVideoModel::Seedance2p5
+      | RouterVideoModel::Seedance2p5Ultra
+  )
 }
 
 fn convert_model(
@@ -144,7 +165,7 @@ mod tests {
     use serde_json::{json, Value};
 
     #[tokio::test]
-    async fn artcraft_http_request_reaches_kinovi_with_format_and_audio() {
+    async fn artcraft_http_request_reaches_kinovi_with_format_and_without_audio_flag() {
       // No media inputs or send: finalization needs a client but makes no HTTP calls.
       let client = RouterClient::KinoviWeb(RouterKinoviWebClient::new(
         KinoviWebSession::from_cookies_string(String::new()),
@@ -183,7 +204,7 @@ mod tests {
             });
             let expected_format = output_format.as_ref().and_then(Value::as_str).unwrap_or("mp4");
             assert_eq!(actual_format, Some(expected_format), "model: {model}");
-            assert_eq!(request.maybe_generate_audio, generate_audio);
+            assert_eq!(request.maybe_generate_audio, None, "generate_audio: {generate_audio:?}");
           }
         }
       }
@@ -206,6 +227,44 @@ mod tests {
           "model": "seedance_2p5", "output_format": output_format,
         }));
         assert!(request.is_err());
+      }
+    }
+  }
+
+  mod generate_audio {
+    use super::*;
+
+    #[test]
+    fn seedance_2x_drops_generate_audio() {
+      for model in [
+        CommonVideoModelEnum::Seedance2p0,
+        CommonVideoModelEnum::Seedance2p0Fast,
+        CommonVideoModelEnum::Seedance2p0Mini,
+        CommonVideoModelEnum::Seedance2p5,
+        CommonVideoModelEnum::Seedance2p5Ultra,
+      ] {
+        for generate_audio in [None, Some(true), Some(false)] {
+          let request = OmniGenVideoCostAndGenerateRequest {
+            model: Some(model),
+            generate_audio,
+            ..base_request()
+          };
+          let builder = hydrate_to_router_request(&request).expect("hydrate should succeed");
+          assert_eq!(builder.generate_audio, None, "model: {model:?}, generate_audio: {generate_audio:?}");
+        }
+      }
+    }
+
+    #[test]
+    fn other_models_keep_generate_audio() {
+      for generate_audio in [None, Some(true), Some(false)] {
+        let request = OmniGenVideoCostAndGenerateRequest {
+          model: Some(CommonVideoModelEnum::Veo3p1),
+          generate_audio,
+          ..base_request()
+        };
+        let builder = hydrate_to_router_request(&request).expect("hydrate should succeed");
+        assert_eq!(builder.generate_audio, generate_audio);
       }
     }
   }

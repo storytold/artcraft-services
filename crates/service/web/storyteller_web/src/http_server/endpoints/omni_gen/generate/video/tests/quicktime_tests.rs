@@ -74,7 +74,8 @@ async fn quicktime_uploads_are_video_references_with_mp4_or_mov_output() {
         .find(|params| params["prompt"].as_str() == Some(&prompt))
         .expect("captured Kinovi request");
       assert_eq!(params["output_format"], expected);
-      assert_eq!(params["generate_audio"], true);
+      // Seedance 2.x never forwards the audio flag; Kinovi defaults to sound on.
+      assert!(params.get("generate_audio").is_none(), "{}", params);
       assert_eq!(params["mode"], "reference");
       assert!(params["videoUrls"][0].as_str().is_some_and(|url| url.ends_with(".mov")), "{}", params);
       assert_eq!(traffic.uploads.get("fixture.mov").unwrap(), &bytes);
