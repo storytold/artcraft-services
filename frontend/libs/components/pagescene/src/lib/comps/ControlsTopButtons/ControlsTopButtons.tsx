@@ -15,6 +15,8 @@ import { DEFAULT_CAMERA_ASPECT_RATIO, ToastTypes } from "../../enums";
 import { getSceneGenerationMetaData } from "../../sceneMetadata";
 import { LoadUserScenes } from "./LoadUserScenes";
 
+import { TOOLBAR_BUTTON_CLASS_NAME } from "../toolbarStyles";
+
 const isNumberString = (s: string): boolean => /^\d+$/.test(s);
 
 export const ControlsTopButtons = () => {
@@ -170,7 +172,7 @@ export const ControlsTopButtons = () => {
   // visitors). We deliberately do NOT require sceneMeta.isModified;
   // dirty-tracking isn't plumbed end-to-end and saving shouldn't depend
   // on it. Anon still falls through to the signup CTA branch below.
-  const canSave = !!currentUserToken;
+  const canSave = !!currentUserToken || !!editor?.adapter.promptSignup;
 
   // A scene needs a name prompt before saving when it's brand-new (no
   // token) or has no usable title yet. Already-named saved scenes save
@@ -239,11 +241,11 @@ export const ControlsTopButtons = () => {
 
   return (
     <div className="flex flex-col gap-2 pl-3 pt-3">
-      <div className="flex gap-1.5">
+      <div className="flex items-center gap-1.5">
         <ButtonDropdown
           label="File"
           icon={FileIcon}
-          className="shadow-xl"
+          className={TOOLBAR_BUTTON_CLASS_NAME}
           options={[
             {
               label: "New scene",
@@ -311,7 +313,9 @@ export const ControlsTopButtons = () => {
             // that branch.
             {
               disabled: !canSave,
-              label: isVisitingOthersScene ? "Save copy" : "Save scene",
+              label: !currentUserToken
+                ? "Sign up to save"
+                : isVisitingOthersScene ? "Save copy" : "Save scene",
               description: "Ctrl+S",
               ...(!currentUserToken
                 ? {
@@ -379,7 +383,7 @@ export const ControlsTopButtons = () => {
 
         <Button
           icon={outlinerShowing ? SquareCheckIcon : SquareIcon}
-          className="shadow-xl"
+          className={TOOLBAR_BUTTON_CLASS_NAME}
           iconClassName={twMerge(
             "text-[16px]",
             outlinerShowing ? "text-white" : "text-white/20",
@@ -397,7 +401,7 @@ export const ControlsTopButtons = () => {
         <Button
           icon={KeyboardIcon}
           variant="secondary"
-          className="shadow-xl"
+          className={TOOLBAR_BUTTON_CLASS_NAME}
           iconClassName={twMerge(
             "text-[16px]",
             cheatsheetPinned ? "text-white" : "text-white/20",

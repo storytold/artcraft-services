@@ -14,7 +14,7 @@ import {
   PopoverPanel,
 } from "@headlessui/react";
 import { twMerge } from "tailwind-merge";
-import { Button } from "@storyteller/ui-button";
+import { Button, NEUTRAL_BUTTON_HOVER_CLASSES } from "@storyteller/ui-button";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -143,7 +143,7 @@ function PortalTooltip({
               zIndex: 9999,
             }}
             className={twMerge(
-              "pointer-events-auto rounded-[3px] bg-ui-panel p-3 border border-ui-panel-border text-base-fg",
+              "pointer-events-auto rounded-[3px] bg-ui-controls p-3 border border-ui-panel-border text-base-fg",
               className,
             )}
           >
@@ -260,7 +260,7 @@ function InfoHint({ content }: { content: ReactNode }) {
               transform: "translate(-50%, -100%)",
               zIndex: 10000,
             }}
-            className="pointer-events-auto rounded-[3px] border border-ui-panel-border bg-ui-panel px-3 py-1.5 text-center text-xs leading-relaxed text-base-fg"
+            className="pointer-events-auto rounded-[3px] border border-ui-panel-border bg-ui-controls px-3 py-1.5 text-center text-xs leading-relaxed text-base-fg"
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={() => {
               if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
@@ -357,8 +357,8 @@ function RichListRow({
       }}
       className={twMerge(
         "group flex cursor-pointer items-center gap-3 rounded-[3px] px-2 py-2 transition-colors",
-        item.selected ? "bg-ui-controls/70" : "hover:bg-ui-controls/50",
-        !item.selected && active ? "bg-ui-controls/50" : "",
+        item.selected ? "bg-white/10" : "hover:bg-white/5",
+        !item.selected && active ? "bg-white/5" : "",
         item.disabled ? "!cursor-not-allowed opacity-50" : "",
       )}
     >
@@ -367,7 +367,7 @@ function RichListRow({
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-none border text-base-fg/80 transition-colors",
           item.selected
             ? "border-white bg-white/10"
-            : "border-ui-controls-border bg-ui-controls/60",
+            : "border-ui-controls-border bg-white/5",
         )}
       >
         {item.icon}
@@ -634,7 +634,7 @@ function SubmenuFlyout({
               transform: "translateY(-50%)",
               zIndex: 9999,
             }}
-            className="pointer-events-auto w-[340px] rounded-[3px] border border-ui-panel-border bg-ui-panel p-1.5 text-base-fg"
+            className="pointer-events-auto w-[340px] rounded-[3px] border border-ui-panel-border bg-ui-controls p-1.5 text-base-fg"
           >
             <div className="mb-1 mt-0.5 px-1.5 text-sm font-normal text-base-fg opacity-70">
               {item.label}
@@ -644,7 +644,7 @@ function SubmenuFlyout({
                   slow bouncing arrow hinting to scroll up. */}
               <div
                 className={twMerge(
-                  "pointer-events-none absolute inset-x-0 top-0 z-20 flex h-10 items-start justify-center bg-gradient-to-b from-ui-panel to-transparent pt-1 transition-opacity duration-200",
+                  "pointer-events-none absolute inset-x-0 top-0 z-20 flex h-10 items-start justify-center bg-gradient-to-b from-ui-controls to-transparent pt-1 transition-opacity duration-200",
                   canScrollUp ? "opacity-100" : "opacity-0",
                 )}
               >
@@ -694,7 +694,7 @@ function SubmenuFlyout({
                   slow bouncing arrow hinting to scroll down. */}
               <div
                 className={twMerge(
-                  "pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-10 items-end justify-center bg-gradient-to-t from-ui-panel to-transparent pb-1 transition-opacity duration-200",
+                  "pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-10 items-end justify-center bg-gradient-to-t from-ui-controls to-transparent pb-1 transition-opacity duration-200",
                   canScrollDown ? "opacity-100" : "opacity-0",
                 )}
               >
@@ -852,9 +852,10 @@ export const PopoverMenu = ({
 
   const className = twMerge(
     "text-sm font-medium rounded-[3px] px-2.5 py-1.5",
-    "flex gap-2 items-center justify-center outline-none",
+    "flex gap-2 items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-white/60",
     "transition-colors duration-150",
-    "bg-ui-controls px-3 text-base-fg hover:bg-ui-controls/80 border border-ui-controls-border",
+    "bg-ui-controls px-3 text-base-fg border border-ui-controls-border",
+    NEUTRAL_BUTTON_HOVER_CLASSES,
     buttonClassName,
   );
 
@@ -1090,7 +1091,7 @@ export const PopoverMenu = ({
                   <div
                     ref={panelContentRef}
                     className={twMerge(
-                      "z-10 min-w-48 mt-2 rounded-[3px] bg-ui-panel p-1.5 border border-ui-panel-border overflow-visible",
+                      "z-10 min-w-48 mt-2 rounded-[3px] bg-ui-controls p-1.5 border border-ui-panel-border overflow-visible",
                       position === "top" ? "mb-2" : "mt-2",
                       panelClassName,
                     )}
@@ -1098,7 +1099,7 @@ export const PopoverMenu = ({
                     onMouseLeave={() => handlePanelMouseLeave(close)}
                   >
                     {panelTitle && (
-                      <div className="mb-2 mt-0.5 flex justify-between px-1.5 text-sm font-normal text-base-fg opacity-70">
+                      <div className="mb-1 flex items-center justify-between border-b border-ui-panel-border px-2 pb-2 pt-1 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-base-fg/60">
                         {panelTitle}
                         {panelActionLabel && (
                           <button
@@ -1125,7 +1126,7 @@ export const PopoverMenu = ({
                             with a slow bouncing arrow hinting to scroll up. */}
                         <div
                           className={twMerge(
-                            "pointer-events-none absolute inset-x-0 top-0 z-20 flex h-10 items-start justify-center bg-gradient-to-b from-ui-panel to-transparent pt-1 transition-opacity duration-200",
+                            "pointer-events-none absolute inset-x-0 top-0 z-20 flex h-10 items-start justify-center bg-gradient-to-b from-ui-controls to-transparent pt-1 transition-opacity duration-200",
                             canScrollUp ? "opacity-100" : "opacity-0",
                           )}
                         >
@@ -1222,7 +1223,7 @@ export const PopoverMenu = ({
                             with a slow bouncing arrow hinting to scroll down. */}
                         <div
                           className={twMerge(
-                            "pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-10 items-end justify-center bg-gradient-to-t from-ui-panel to-transparent pb-1 transition-opacity duration-200",
+                            "pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-10 items-end justify-center bg-gradient-to-t from-ui-controls to-transparent pb-1 transition-opacity duration-200",
                             canScrollDown ? "opacity-100" : "opacity-0",
                           )}
                         >
@@ -1232,7 +1233,7 @@ export const PopoverMenu = ({
                     ) : mode === "hoverSelect" ? (
                       <div className="relative flex flex-col text-sm text-base-fg overflow-visible">
                         {maxListHeight && canScrollUp && (
-                          <div className="absolute top-0 left-0 right-0 z-20 flex justify-center bg-gradient-to-b from-ui-panel via-ui-panel/80 to-transparent py-1.5 pointer-events-none">
+                          <div className="absolute top-0 left-0 right-0 z-20 flex justify-center bg-gradient-to-b from-ui-controls via-ui-controls/80 to-transparent py-1.5 pointer-events-none">
                             <ChevronUpIcon className="text-base-fg/60 text-xs animate-bounce" />
                           </div>
                         )}
@@ -1274,9 +1275,9 @@ export const PopoverMenu = ({
                                   "group flex cursor-pointer items-start gap-2 rounded-[3px] px-2 py-2 transition-all",
                                   item.selected
                                     ? "bg-white/10 border-l-2 border-white"
-                                    : "hover:bg-ui-controls/50",
+                                    : "hover:bg-white/5",
                                   !item.selected && openTooltipIdx === index
-                                    ? "bg-ui-controls/50"
+                                    ? "bg-white/5"
                                     : "",
                                   item.disabled
                                     ? "!cursor-not-allowed opacity-50"
@@ -1366,7 +1367,7 @@ export const PopoverMenu = ({
                                       position="right"
                                       delay={item.tooltipDelayMs ?? 300}
                                       interactive
-                                      className="!pointer-events-auto z-50 min-w-48 rounded-[3px] bg-ui-panel p-1.5 border border-ui-panel-border"
+                                      className="!pointer-events-auto z-50 min-w-48 rounded-[3px] bg-ui-controls p-1.5 border border-ui-panel-border"
                                       onOpenChange={(open) =>
                                         setOpenTooltipIdx((prev) =>
                                           open
@@ -1391,7 +1392,7 @@ export const PopoverMenu = ({
                           })}
                         </div>
                         {maxListHeight && canScrollDown && (
-                          <div className="absolute bottom-0 left-0 right-0 z-20 flex justify-center bg-gradient-to-t from-ui-panel via-ui-panel/80 to-transparent py-1.5 pointer-events-none">
+                          <div className="absolute bottom-0 left-0 right-0 z-20 flex justify-center bg-gradient-to-t from-ui-controls via-ui-controls/80 to-transparent py-1.5 pointer-events-none">
                             <ChevronDownIcon className="text-base-fg/60 text-xs animate-bounce" />
                           </div>
                         )}
@@ -1429,7 +1430,7 @@ export const PopoverMenu = ({
                                 position="right"
                                 delay={item.tooltipDelayMs ?? 1000}
                                 interactive
-                                className="!pointer-events-auto z-50 min-w-48 rounded-[3px] bg-ui-panel p-1.5 border border-ui-panel-border"
+                                className="!pointer-events-auto z-50 min-w-48 rounded-[3px] bg-ui-controls p-1.5 border border-ui-panel-border"
                                 onOpenChange={(open) =>
                                   setOpenTooltipIdx((prev) =>
                                     open ? index : prev === index ? null : prev,
@@ -1440,9 +1441,9 @@ export const PopoverMenu = ({
                                   className={twMerge(
                                     "flex w-full items-center shadow-none justify-between px-1.5",
                                     "font-sans text-sm font-medium normal-case tracking-normal",
-                                    "bg-transparent hover:bg-ui-controls/60",
+                                    "bg-transparent hover:bg-white/5",
                                     openTooltipIdx === index
-                                      ? "bg-ui-controls/60"
+                                      ? "bg-white/5"
                                       : "",
                                     mode === "toggle" && item.selected
                                       ? "hover:bg-ui-controls/80"
@@ -1512,7 +1513,7 @@ export const PopoverMenu = ({
                                 className={twMerge(
                                   "flex w-full items-center shadow-none justify-between px-1.5",
                                   "font-sans text-sm font-medium normal-case tracking-normal",
-                                  "bg-transparent hover:bg-ui-controls/60",
+                                  "bg-transparent hover:bg-white/5",
                                   mode === "toggle" && item.selected
                                     ? "hover:bg-ui-controls/80"
                                     : "",

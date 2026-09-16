@@ -1,3 +1,4 @@
+import { AUTH_LABEL_CLASSES, AUTH_INPUT_CLASSES, AUTH_PASSWORD_INPUT_CLASSES } from "../../components/auth/auth-form-styles";
 import { EyeIcon, EyeOffIcon, LoaderCircleIcon } from "lucide-react";
 import { DynamicIcon } from "@storyteller/icons";
 import { Button } from "@storyteller/ui-button";
@@ -11,7 +12,6 @@ import {
   GoogleLoginButton,
 } from "../../components/auth";
 import Seo from "../../components/seo";
-import { Reveal, RevealGroup } from "../../components/motion/reveal";
 import { refreshSession } from "../../lib/session";
 import { hasActiveSubscription } from "../../lib/billing";
 
@@ -70,7 +70,7 @@ const Login = () => {
         title="Login - ArtCraft"
         description="Login to your ArtCraft account."
       />
-      <AuthHeader title="Welcome Back" subtitle="Log in to your account" />
+      <AuthHeader title={<>Welcome <span className="font-serif-italic">back.</span></>} subtitle="Log in to your creative workspace." />
 
       <form
         className="space-y-4"
@@ -84,20 +84,11 @@ const Login = () => {
             {error}
           </div>
         )}
-
-        {/* The form fields cascade in as their own beat, distinct from the
-            shell/header settling. We lead with the email field on an almost-zero
-            delay so the primary input lands immediately — the entrance never
-            gates typing: inputs stay focusable and accept keystrokes while the
-            password/button below are still cascading in. */}
-        <RevealGroup
-          inView={false}
-          delayChildren={0.04}
-          stagger={0.08}
+        <div
           className="space-y-4"
         >
-          <Reveal className="space-y-2">
-            <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 ml-1">
+          <div className="space-y-2">
+            <label className={AUTH_LABEL_CLASSES}>
               Email or Username
             </label>
             <Input
@@ -105,12 +96,12 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com or username"
-              inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors"
+              inputClassName={AUTH_INPUT_CLASSES}
             />
-          </Reveal>
-          <Reveal className="space-y-2">
-            <div className="flex justify-between items-center ml-1">
-              <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className={AUTH_LABEL_CLASSES}>
                 Password
               </label>
               <Link
@@ -126,7 +117,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Min. 8 characters"
-                inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors pr-12"
+                inputClassName={AUTH_PASSWORD_INPUT_CLASSES}
               />
               <button
                 type="button"
@@ -137,9 +128,9 @@ const Login = () => {
                 <DynamicIcon icon={showPassword ? EyeOffIcon : EyeIcon} />
               </button>
             </div>
-          </Reveal>
+          </div>
 
-          <Reveal className="pt-2">
+          <div className="pt-2">
             <Button
               className="w-full justify-center h-10"
               type="submit"
@@ -151,32 +142,25 @@ const Login = () => {
                 "Log in"
               )}
             </Button>
-          </Reveal>
-        </RevealGroup>
-      </form>
-
-      {/* Secondary sign-in options pick up the same cascade just after the
-          fields (delay continues from the form group's three children above:
-          0.04 + 3 × 0.08). */}
-      <RevealGroup inView={false} delayChildren={0.28} stagger={0.08}>
-        <Reveal className="relative my-6 flex items-center justify-center">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/15" />
           </div>
-          <span className="relative bg-[#101014] px-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/40">
+        </div>
+      </form>
+      <div>
+        <div className="my-6 flex items-center gap-4 before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/40">
             or
           </span>
-        </Reveal>
+        </div>
 
-        <Reveal>
+        <div>
           <GoogleLoginButton
             mode="login"
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
           />
-        </Reveal>
+        </div>
 
-        <Reveal>
+        <div>
           <AuthFooter>
             Don't have an account?{" "}
             <Link
@@ -186,8 +170,8 @@ const Login = () => {
               Sign up
             </Link>
           </AuthFooter>
-        </Reveal>
-      </RevealGroup>
+        </div>
+      </div>
     </>
   );
 };

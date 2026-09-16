@@ -1,5 +1,6 @@
+import { CreateEmptyState } from "../../components/generation-gallery/CreateEmptyState";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LoaderCircleIcon, SparklesIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import {
   PromptBoxVFX,
   VFXResultCard,
@@ -267,7 +268,7 @@ export default function CreateVFX() {
           className="relative z-10 flex h-full items-center justify-center px-3 sm:px-6"
           style={{ paddingBottom: Math.max(promptBoxHeight + 32, 240) }}
         >
-          <EmptyState
+          <CreateEmptyState
             title="No background changes yet"
             subtitle="Upload a source video and a reference image, then optionally add a prompt."
           />
@@ -330,18 +331,3 @@ export default function CreateVFX() {
     </div>
   );
 }
-
-interface EmptyStateProps {
-  title: string;
-  subtitle: string;
-}
-
-const EmptyState = ({ title, subtitle }: EmptyStateProps) => (
-  <div className="flex max-w-md flex-col items-center gap-4 text-center">
-    <div className="flex h-12 w-12 items-center justify-center border border-white/15 bg-white/5">
-      <SparklesIcon  className="text-2xl text-white/40" />
-    </div>
-    <h3 className="text-2xl font-bold text-white">{title}</h3>
-    <p className="text-sm text-white/60 max-w-xs">{subtitle}</p>
-  </div>
-);

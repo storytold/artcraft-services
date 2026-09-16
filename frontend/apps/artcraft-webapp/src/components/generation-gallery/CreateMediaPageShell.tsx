@@ -1,3 +1,4 @@
+import { CreateEmptyState } from "./CreateEmptyState";
 import { type ReactNode, useState } from "react";
 import { LoaderCircleIcon } from "lucide-react";
 import { type PopoverItem } from "@storyteller/ui-popover";
@@ -127,14 +128,8 @@ export function CreateMediaPageShell({
                 <div className="px-3">{gridContent}</div>
               </div>
             ) : (
-              <div className="relative isolate flex h-full flex-col items-center justify-center px-6 text-center">
-                <div aria-hidden="true" className="create-empty-backdrop" />
-                <span className="relative z-[1] font-display text-lg text-ui-ink">
-                  {emptyStateTitle}
-                </span>
-                <span className="relative z-[1] pt-1 text-sm text-white/60">
-                  Your generations will appear here.
-                </span>
+              <div className="flex h-full items-center justify-center overflow-y-auto px-6 py-8">
+                <CreateEmptyState compact title={emptyStateTitle} subtitle="Your generations will appear here." />
               </div>
             )}
           </div>
@@ -149,25 +144,13 @@ export function CreateMediaPageShell({
     <div className="relative isolate flex h-full w-full bg-ui-background text-white">
       <Seo title={title} description={description} />
 
-      {/* Static landing-style rails stay inside the workspace and never
-          intercept input or cover the gallery once results arrive. */}
-      {!hasContent && (
-        <div aria-hidden="true" className="create-empty-backdrop" />
-      )}
-
       <div className="relative z-[1] h-full w-full">
         <div className="flex h-full w-full flex-col">
           {!hasContent && (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="animate-fade-in-up relative z-20 mb-32 flex max-w-3xl flex-col items-center justify-center px-6 text-center">
-                <h1 className="font-display text-3xl leading-tight text-ui-ink md:text-5xl">
-                  {emptyStateTitle}
-                </h1>
-                <span className="max-w-xl pt-3 text-sm leading-relaxed text-base-fg/70 md:text-base">
-                  {emptyStateSubtitle}
-                </span>
-                {emptyStateCta && <div className="pt-6">{emptyStateCta}</div>}
-              </div>
+            <div className="flex flex-1 items-center justify-center px-6" style={{ paddingBottom: bottomOffset }}>
+              <CreateEmptyState title={emptyStateTitle} subtitle={emptyStateSubtitle}>
+                {emptyStateCta}
+              </CreateEmptyState>
             </div>
           )}
 

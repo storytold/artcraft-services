@@ -32,7 +32,7 @@ const PLAN_STYLE: Record<
   },
 };
 const PLAN_BUTTON_CLASSES =
-  "h-11 w-full rounded-none bg-[var(--plan)] hover:bg-[var(--plan)] text-white hover:opacity-90";
+  "h-11 w-full text-[11px] rounded-none bg-[var(--plan)] hover:bg-[var(--plan)] text-white hover:opacity-90";
 const CONTACT_EMAIL = "hello@storyteller.ai";
 const ENTERPRISE_FEATURES = [
   "Bespoke credit allocation",
@@ -89,9 +89,9 @@ export function WebsitePricingTable({
             className="w-fit"
             listClassName="rounded-none"
             indicatorClassName="rounded-none"
-            tabClassName="w-24"
+            tabClassName="w-24 font-mono text-[11px] uppercase tracking-[0.1em]"
           />
-          <span className="pricing-hud bg-primary px-2 py-1 text-white">
+          <span className="pricing-hud pricing-sale-badge bg-primary px-2 py-1 text-white">
             {PROMO_PCT}% off · ends soon
           </span>
           <p className="pricing-hud hidden text-primary sm:block">

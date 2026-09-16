@@ -1,3 +1,4 @@
+import { AUTH_LABEL_CLASSES, AUTH_INPUT_CLASSES, AUTH_PASSWORD_INPUT_CLASSES, AUTH_FORM_PADDING } from "../../components/auth/auth-form-styles";
 import {
   ArrowLeftIcon,
   CircleCheckIcon,
@@ -12,6 +13,8 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PasswordResetApi, BillingApi } from "@storyteller/api";
 
+import { AuthHeader } from "../../components/auth/auth-layout";
+import { AuthPageFrame } from "../../components/auth/auth-page-frame";
 import Seo from "../../components/seo";
 
 const VerifyReset = () => {
@@ -102,30 +105,17 @@ const VerifyReset = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-ui-background text-white overflow-hidden flex flex-col">
+    <AuthPageFrame>
       <Seo
         title="Verify Password Reset - ArtCraft"
         description="Enter your verification code and new password."
       />
 
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#101014] border border-white/15 p-6 py-8">
+      <main className={AUTH_FORM_PADDING}>
+        <div className="w-full">
           {!success ? (
             <>
-              <div className="text-center mb-8">
-                <img
-                  src="/images/artcraft-icon.png"
-                  alt="ArtCraft"
-                  className="mx-auto mb-6 h-12 w-auto select-none pointer-events-none"
-                  draggable={false}
-                />
-                <h1 className="text-2xl font-semibold mb-2">
-                  Password Reset Verification
-                </h1>
-                <p className="text-white/60 text-sm">
-                  Enter the code sent to your email address.
-                </p>
-              </div>
+              <AuthHeader title={<>Set a new <span className="font-serif-italic">password.</span></>} subtitle="Enter your reset code and choose a new password." />
 
               <form
                 className="space-y-4"
@@ -142,7 +132,7 @@ const VerifyReset = () => {
 
                 {/* Verification Code */}
                 <div className="space-y-2">
-                  <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 ml-1">
+                  <label className={AUTH_LABEL_CLASSES}>
                     Verification Code
                   </label>
                   <Input
@@ -152,10 +142,10 @@ const VerifyReset = () => {
                     onChange={(e) => setVerificationCode(e.target.value)}
                     placeholder="Enter verification code"
                     isError={!!fieldErrors.verificationCode}
-                    inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors"
+                    inputClassName={AUTH_INPUT_CLASSES}
                   />
                   {fieldErrors.verificationCode && (
-                    <p className="text-red-400 text-xs ml-1">
+                    <p className="text-red-400 text-xs">
                       {fieldErrors.verificationCode}
                     </p>
                   )}
@@ -163,7 +153,7 @@ const VerifyReset = () => {
 
                 {/* New Password */}
                 <div className="space-y-2">
-                  <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 ml-1">
+                  <label className={AUTH_LABEL_CLASSES}>
                     New Password
                   </label>
                   <div className="relative">
@@ -174,7 +164,7 @@ const VerifyReset = () => {
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Enter new password"
                       isError={!!fieldErrors.newPassword}
-                      inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors pr-12"
+                      inputClassName={AUTH_PASSWORD_INPUT_CLASSES}
                     />
                     <button
                       type="button"
@@ -187,7 +177,7 @@ const VerifyReset = () => {
                     </button>
                   </div>
                   {fieldErrors.newPassword && (
-                    <p className="text-red-400 text-xs ml-1">
+                    <p className="text-red-400 text-xs">
                       {fieldErrors.newPassword}
                     </p>
                   )}
@@ -195,7 +185,7 @@ const VerifyReset = () => {
 
                 {/* Verify New Password */}
                 <div className="space-y-2">
-                  <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 ml-1">
+                  <label className={AUTH_LABEL_CLASSES}>
                     Verify New Password
                   </label>
                   <div className="relative">
@@ -206,7 +196,7 @@ const VerifyReset = () => {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Enter new password again"
                       isError={!!fieldErrors.confirmPassword}
-                      inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors pr-12"
+                      inputClassName={AUTH_PASSWORD_INPUT_CLASSES}
                     />
                     <button
                       type="button"
@@ -221,7 +211,7 @@ const VerifyReset = () => {
                     </button>
                   </div>
                   {fieldErrors.confirmPassword && (
-                    <p className="text-red-400 text-xs ml-1">
+                    <p className="text-red-400 text-xs">
                       {fieldErrors.confirmPassword}
                     </p>
                   )}
@@ -246,7 +236,7 @@ const VerifyReset = () => {
               <div className="mt-8 text-center text-sm">
                 <Link
                   to="/forgot-password"
-                  className="text-white/40 hover:text-white transition-colors flex items-center justify-center gap-2"
+                  className="text-white/60 hover:text-white transition-colors flex items-center justify-center gap-2"
                 >
                   <ArrowLeftIcon /> Request a new code
                 </Link>
@@ -277,11 +267,7 @@ const VerifyReset = () => {
           )}
         </div>
       </main>
-
-      <div className="relative z-10 py-6 text-center text-white/20 text-xs">
-        &copy; {new Date().getFullYear()} ArtCraft. All rights reserved.
-      </div>
-    </div>
+    </AuthPageFrame>
   );
 };
 

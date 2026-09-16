@@ -22,7 +22,7 @@ export function SceneSplashModal({
     <Modal
       isOpen={isOpen}
       onClose={close}
-      className="w-full max-w-3xl overflow-hidden border border-white/15 bg-ui-modal p-0"
+      className="w-full max-w-3xl overflow-hidden border border-white/15 bg-ui-controls p-0"
       childPadding={false}
       backdropClassName="!bg-black/80"
       closeOnOutsideClick

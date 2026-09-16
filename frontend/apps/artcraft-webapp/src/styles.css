@@ -527,37 +527,25 @@
   }
 }
 
-/* Quiet drafting grid and side rails echo the landing's section frames.
-   No masks, filters, animation, or viewport-sized layers on mobile. */
-.create-empty-backdrop {
+/* Fine registration marks echo the landing page section corners. */
+.frame-corner-mark {
   position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(242, 241, 238, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(242, 241, 238, 0.025) 1px, transparent 1px);
-  background-size: 96px 96px;
-  background-position: center;
-}
-
-.create-empty-backdrop::before {
-  content: "";
-  position: absolute;
-  inset: 12% clamp(24px, 6%, 96px) 20%;
-  border: 1px solid rgba(242, 241, 238, 0.1);
-}
-
-.create-empty-backdrop::after {
-  content: "";
-  position: absolute;
-  top: 12%;
-  left: clamp(24px, 6%, 96px);
   width: 11px;
   height: 11px;
-  transform: translate(-5px, -5px);
+  margin: -5px;
+  pointer-events: none;
   background:
-    linear-gradient(#74aaff, #74aaff) center / 1px 11px no-repeat,
-    linear-gradient(#74aaff, #74aaff) center / 11px 1px no-repeat;
+    linear-gradient(rgba(242, 241, 238, 0.4), rgba(242, 241, 238, 0.4)) center / 1px 11px no-repeat,
+    linear-gradient(rgba(242, 241, 238, 0.4), rgba(242, 241, 238, 0.4)) center / 11px 1px no-repeat;
+}
+
+/* Contained section borders match the landing without decorative extensions. */
+.create-empty-section {
+  margin-inline: 12px;
+  border: 1px solid rgba(242, 241, 238, 0.2);
+  background: rgba(242, 241, 238, 0.015);
+}
+
+@media (min-width: 640px) {
+  .create-empty-section { margin-inline: 32px; }
 }

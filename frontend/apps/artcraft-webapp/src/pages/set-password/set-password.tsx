@@ -1,3 +1,4 @@
+import { AUTH_LABEL_CLASSES, AUTH_PASSWORD_INPUT_CLASSES, AUTH_FORM_PADDING } from "../../components/auth/auth-form-styles";
 import { EyeIcon, EyeOffIcon, LoaderCircleIcon } from "lucide-react";
 import { DynamicIcon } from "@storyteller/icons";
 import { Button } from "@storyteller/ui-button";
@@ -6,6 +7,8 @@ import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { UsersApi } from "@storyteller/api";
 import { useSession, refreshSession } from "../../lib/session";
+import { AuthHeader } from "../../components/auth/auth-layout";
+import { AuthPageFrame } from "../../components/auth/auth-page-frame";
 import Seo from "../../components/seo";
 import { toast } from "../../components/toast/toast";
 
@@ -66,26 +69,15 @@ const SetPassword = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-ui-background text-white overflow-hidden flex flex-col">
+    <AuthPageFrame>
       <Seo
         title="Set Password - ArtCraft"
         description="Set a password for your ArtCraft account."
       />
 
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#101014] border border-white/15 p-6 py-8">
-          <div className="text-center mb-8">
-            <img
-              src="/images/artcraft-icon.png"
-              alt="ArtCraft"
-              className="mx-auto mb-6 h-12 w-auto select-none pointer-events-none"
-              draggable={false}
-            />
-            <h1 className="text-2xl font-semibold mb-2">Set a password</h1>
-            <p className="text-white/60 text-sm">
-              Create a password so you can also log into the desktop app
-            </p>
-          </div>
+      <main className={AUTH_FORM_PADDING}>
+        <div className="w-full">
+          <AuthHeader title={<>Set your <span className="font-serif-italic">password.</span></>} subtitle="Create a password to sign in on the web and desktop." />
 
           <form
             className="space-y-4"
@@ -101,7 +93,7 @@ const SetPassword = () => {
             )}
 
             <div className="space-y-2">
-              <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 ml-1">
+              <label className={AUTH_LABEL_CLASSES}>
                 Password
               </label>
               <div className="relative">
@@ -111,7 +103,7 @@ const SetPassword = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min. 8 characters"
                   autoFocus
-                  inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors pr-12"
+                  inputClassName={AUTH_PASSWORD_INPUT_CLASSES}
                 />
                 <button
                   type="button"
@@ -125,7 +117,7 @@ const SetPassword = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 ml-1">
+              <label className={AUTH_LABEL_CLASSES}>
                 Confirm password
               </label>
               <div className="relative">
@@ -134,7 +126,7 @@ const SetPassword = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter your password"
-                  inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors pr-12"
+                  inputClassName={AUTH_PASSWORD_INPUT_CLASSES}
                 />
                 <button
                   type="button"
@@ -165,11 +157,7 @@ const SetPassword = () => {
           </form>
         </div>
       </main>
-
-      <div className="relative z-10 py-6 text-center text-white/20 text-xs">
-        &copy; {new Date().getFullYear()} ArtCraft. All rights reserved.
-      </div>
-    </div>
+    </AuthPageFrame>
   );
 };
 

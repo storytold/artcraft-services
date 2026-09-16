@@ -88,7 +88,7 @@ const Pricing = () => {
             {hasPlan && (
               <Button
                 variant="secondary"
-                className="mt-6 gap-2 rounded-none"
+                className="mt-6 gap-2 rounded-none text-[11px]"
                 onClick={() => setCreditsModalOpen(true)}
               >
                 <CoinsIcon aria-hidden className="h-4 w-4" />
@@ -164,7 +164,7 @@ const Pricing = () => {
               {isLoggedIn ? (
                 <Button
                   variant="secondary"
-                  className="mt-6 gap-2 rounded-none"
+                  className="mt-6 gap-2 rounded-none text-[11px]"
                   onClick={() => setCreditsModalOpen(true)}
                 >
                   <CoinsIcon aria-hidden className="h-4 w-4 text-primary" />
