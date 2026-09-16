@@ -3,7 +3,7 @@ const FEATURED_VIDEO_URL =
 
 export const AuthShowcase = () => {
   return (
-    <div className="absolute inset-2 overflow-hidden bg-black">
+    <div className="absolute inset-0 overflow-hidden bg-ui-controls">
       {/* Muted background video (no controls) cropped to cover the pane */}
       <video
         src={FEATURED_VIDEO_URL}

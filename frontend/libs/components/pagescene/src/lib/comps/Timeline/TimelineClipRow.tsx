@@ -232,7 +232,7 @@ export const TimelineClipRow = ({
         /* overflow-hidden: strips are engine-clamped into the lane, but any
            transient out-of-range placement must clip here rather than paint
            over the add-button column. */
-        className="relative h-6 flex-1 overflow-hidden rounded-md bg-black/20"
+        className="relative h-6 flex-1 overflow-hidden rounded-md bg-white/5"
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
@@ -370,7 +370,7 @@ export const TimelineClipRow = ({
                 className={`absolute top-1/2 z-10 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
                   active
                     ? "border-brand-primary bg-brand-primary text-white"
-                    : "border-dashed border-white/30 bg-black/30 text-white/40 hover:border-white/60 hover:text-white/80"
+                    : "border-dashed border-white/30 bg-white/5 text-white/40 hover:border-white/60 hover:text-white/80"
                 }`}
                 style={{ left: `${midPct}%` }}
                 onPointerDown={(e) => e.stopPropagation()}

@@ -34,7 +34,7 @@ export const ToggleButton = ({
         hasLabel ? "px-3" : "w-[34px]",
         isActive
           ? "border-white/30 bg-brand-primary/40 hover:bg-brand-primary/40"
-          : "hover:border-white/30 hover:bg-ui-controls/80",
+          : "",
         className,
       )}
       variant="secondary"

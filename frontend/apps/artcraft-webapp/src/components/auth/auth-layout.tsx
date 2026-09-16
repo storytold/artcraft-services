@@ -1,11 +1,11 @@
+import { AUTH_FORM_PADDING } from "./auth-form-styles";
 import { ReactNode } from "react";
-import { Outlet, useNavigate, Navigate } from "react-router-dom";
-import { ArrowLeftIcon, LoaderCircleIcon } from "lucide-react";
-import { TruchetPattern } from "@storyteller/ui-vfx";
+import { Outlet, Navigate, Link } from "react-router-dom";
+import { LoaderCircleIcon } from "lucide-react";
 import { AuthShowcase } from "./auth-showcase";
+import { AuthPageFrame } from "./auth-page-frame";
 import { useMediaQuery } from "../ui/use-media-query";
 import { useSession } from "../../lib/session";
-import { Reveal, RevealGroup } from "../motion/reveal";
 
 /**
  * Persistent shell for the auth pages. Rendered as a layout route so the
@@ -18,12 +18,7 @@ export const AuthLayout = () => {
   // Only mount the showcase on wide screens (matches the `lg` breakpoint) so
   // mobile never downloads the demo videos.
   const showShowcase = useMediaQuery("(min-width: 1024px)");
-  const navigate = useNavigate();
   const { loggedIn, authChecked } = useSession();
-
-  const handleBack = () => {
-    navigate("/");
-  };
 
   // Already signed in? Never show the auth form — go straight home.
   if (loggedIn) {
@@ -31,39 +26,13 @@ export const AuthLayout = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ui-background p-4 text-white">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{
-          maskImage:
-            "radial-gradient(ellipse 70% 60% at 50% 40%, black 25%, transparent 80%)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 70% 60% at 50% 40%, black 25%, transparent 80%)",
-        }}
-      >
-        <TruchetPattern
-          intensity={0.5}
-          className="absolute inset-0 h-full w-full"
-        />
-      </div>
-
-      <div className="relative z-10 flex w-full max-w-5xl overflow-hidden border border-white/15 bg-[#101014] lg:min-h-[640px]">
+    <AuthPageFrame wide>
         {/* Form pane — only the inner content swaps per route (via Outlet), so
             this pane and the showcase beside it stay mounted across the
             login/signup toggle. */}
         <div className="relative flex w-full flex-col lg:w-1/2">
-          <button
-            type="button"
-            onClick={handleBack}
-            aria-label="Go back"
-            className="absolute left-5 top-5 z-20 flex h-9 w-9 items-center justify-center text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeftIcon />
-          </button>
-
-          <div className="flex flex-1 flex-col justify-center px-6 pb-10 pt-16 sm:px-10">
-            <div className="mx-auto w-full max-w-sm">
+          <div className={`flex flex-1 flex-col justify-center ${AUTH_FORM_PADDING}`}>
+            <div className="w-full">
               {authChecked ? (
                 <Outlet />
               ) : (
@@ -76,44 +45,39 @@ export const AuthLayout = () => {
             </div>
           </div>
 
-          <div className="px-8 pb-8 text-center text-xs text-white/60">
-            &copy; {new Date().getFullYear()} ArtCraft. All rights reserved.
-          </div>
         </div>
 
         {/* Showcase pane (desktop only) */}
         {showShowcase && (
-          <div className="relative lg:w-1/2">
+          <div className="relative border-l border-white/15 lg:w-1/2">
             <AuthShowcase />
           </div>
         )}
-      </div>
-    </div>
+    </AuthPageFrame>
   );
 };
 
 interface AuthHeaderProps {
-  title: string;
+  title: ReactNode;
   subtitle: string;
 }
 
 export const AuthHeader = ({ title, subtitle }: AuthHeaderProps) => (
-  <RevealGroup inView={false} stagger={0.08} className="mb-8 text-center">
-    <Reveal y={10}>
-      <img
-        src="/artcraft-icon.svg"
-        alt="ArtCraft"
-        className="mx-auto mb-6 h-12 w-auto select-none pointer-events-none"
-        draggable={false}
-      />
-    </Reveal>
-    <Reveal as="h1" y={10} className="mb-2 text-2xl font-semibold">
+  <div className="mb-8 text-left">
+    <Link
+      to="/"
+      aria-label="ArtCraft home"
+      className="mb-8 inline-flex rounded-sm transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/60"
+    >
+      <img src="/artcraft-icon.svg" alt="ArtCraft" className="h-8 w-8" />
+    </Link>
+    <h1 className="mb-3 text-balance font-display text-3xl leading-[1.05] tracking-tight sm:text-4xl">
       {title}
-    </Reveal>
-    <Reveal as="p" y={10} className="text-sm text-white/60">
+    </h1>
+    <p className="text-sm leading-relaxed text-white/60">
       {subtitle}
-    </Reveal>
-  </RevealGroup>
+    </p>
+  </div>
 );
 
 export const AuthFooter = ({ children }: { children: ReactNode }) => (

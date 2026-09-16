@@ -1,3 +1,4 @@
+import { AUTH_LABEL_CLASSES, AUTH_INPUT_CLASSES, AUTH_FORM_PADDING } from "../../components/auth/auth-form-styles";
 import { ArrowLeftIcon, LoaderCircleIcon, MailIcon } from "lucide-react";
 import { Button } from "@storyteller/ui-button";
 import { Input } from "@storyteller/ui-input";
@@ -5,6 +6,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PasswordResetApi } from "@storyteller/api";
 
+import { AuthHeader } from "../../components/auth/auth-layout";
+import { AuthPageFrame } from "../../components/auth/auth-page-frame";
 import Seo from "../../components/seo";
 
 const ForgotPassword = () => {
@@ -41,28 +44,17 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-ui-background text-white overflow-hidden flex flex-col">
+    <AuthPageFrame>
       <Seo
         title="Reset Password - ArtCraft"
         description="Reset your ArtCraft password."
       />
 
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#101014] border border-white/15 p-6 py-8">
+      <main className={AUTH_FORM_PADDING}>
+        <div className="w-full">
           {!submitted ? (
             <>
-              <div className="text-center mb-8">
-                <img
-                  src="/images/artcraft-icon.png"
-                  alt="ArtCraft"
-                  className="mx-auto mb-6 h-12 w-auto select-none pointer-events-none"
-                  draggable={false}
-                />
-                <h1 className="text-2xl font-semibold mb-2">Reset Password</h1>
-                <p className="text-white/60 text-sm">
-                  Enter your email to receive reset instructions
-                </p>
-              </div>
+              <AuthHeader title={<>Reset your <span className="font-serif-italic">password.</span></>} subtitle="Enter your email or username to receive a reset code." />
 
               <form
                 className="space-y-4"
@@ -78,7 +70,7 @@ const ForgotPassword = () => {
                 )}
 
                 <div className="space-y-2">
-                  <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 ml-1">
+                  <label className={AUTH_LABEL_CLASSES}>
                     Email or Username
                   </label>
                   <Input
@@ -87,7 +79,7 @@ const ForgotPassword = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 px-4 py-3 text-white placeholder-white/20 outline-none transition-colors"
+                    inputClassName={AUTH_INPUT_CLASSES}
                   />
                 </div>
 
@@ -134,18 +126,14 @@ const ForgotPassword = () => {
           <div className="mt-8 text-center text-sm">
             <Link
               to="/login"
-              className="text-white/40 hover:text-white transition-colors flex items-center justify-center gap-2"
+              className="text-white/60 hover:text-white transition-colors flex items-center justify-center gap-2"
             >
               <ArrowLeftIcon /> Back to Log in
             </Link>
           </div>
         </div>
       </main>
-
-      <div className="relative z-10 py-6 text-center text-white/20 text-xs">
-        &copy; {new Date().getFullYear()} ArtCraft. All rights reserved.
-      </div>
-    </div>
+    </AuthPageFrame>
   );
 };
 

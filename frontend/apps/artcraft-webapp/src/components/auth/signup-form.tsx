@@ -1,3 +1,4 @@
+import { AUTH_LABEL_CLASSES, AUTH_INPUT_CLASSES, AUTH_PASSWORD_INPUT_CLASSES } from "./auth-form-styles";
 import { EyeIcon, EyeOffIcon, LoaderCircleIcon } from "lucide-react";
 import { DynamicIcon } from "@storyteller/icons";
 import { Button } from "@storyteller/ui-button";
@@ -14,7 +15,6 @@ import {
 import { refreshSession } from "../../lib/session";
 import { hasActiveSubscription } from "../../lib/billing";
 import { GoogleLoginButton } from "./GoogleLoginButton";
-import { Reveal, RevealGroup } from "../motion/reveal";
 
 interface SignupFormProps {
   onSuccess: (isNewUser?: boolean) => void;
@@ -98,7 +98,7 @@ export const SignupForm = ({
   };
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={className}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -111,19 +111,11 @@ export const SignupForm = ({
             {error}
           </div>
         )}
-
-        {/* Fields cascade in as their own beat, leading with the email field on
-            an almost-zero delay so the primary input lands immediately — the
-            entrance never gates typing (inputs stay focusable mid-cascade).
-            Mirrors the login page. */}
-        <RevealGroup
-          inView={false}
-          delayChildren={0.04}
-          stagger={0.08}
+        <div
           className="space-y-4"
         >
-          <Reveal className="space-y-2">
-            <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">
+          <div className="space-y-2">
+            <label className={AUTH_LABEL_CLASSES}>
               Email
             </label>
             <Input
@@ -132,13 +124,13 @@ export const SignupForm = ({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               autoFocus={autoFocus}
-              inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 rounded-[3px] px-4 py-3 text-white placeholder-white/20 outline-none transition-colors"
+              inputClassName={AUTH_INPUT_CLASSES}
             />
-          </Reveal>
+          </div>
 
-          <Reveal className="space-y-2">
+          <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <label className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">
+              <label className={AUTH_LABEL_CLASSES}>
                 Password
               </label>
             </div>
@@ -148,7 +140,7 @@ export const SignupForm = ({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Min. 8 characters"
-                inputClassName="w-full bg-ui-controls border border-white/15 focus:border-white/40 rounded-[3px] px-4 py-3 text-white placeholder-white/20 outline-none transition-colors pr-12"
+                inputClassName={AUTH_PASSWORD_INPUT_CLASSES}
               />
               <button
                 type="button"
@@ -159,9 +151,9 @@ export const SignupForm = ({
                 <DynamicIcon icon={showPassword ? EyeOffIcon : EyeIcon} />
               </button>
             </div>
-          </Reveal>
+          </div>
 
-          <Reveal className="pt-2">
+          <div className="pt-2">
             <Button
               className="w-full justify-center h-10"
               type="submit"
@@ -173,36 +165,25 @@ export const SignupForm = ({
                 "Create account"
               )}
             </Button>
-          </Reveal>
-        </RevealGroup>
+          </div>
+        </div>
       </form>
 
-      {/* Secondary sign-up options continue the same cascade just after the
-          fields (delay continues from the form group's three children above:
-          0.04 + 3 × 0.08). */}
-      <RevealGroup
-        inView={false}
-        delayChildren={0.28}
-        stagger={0.08}
-        className="space-y-4"
-      >
-        <Reveal className="relative flex items-center justify-center py-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/10" />
-          </div>
-          <span className="relative bg-[#101014] px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-white/40">
+      <div>
+        <div className="my-6 flex items-center gap-4 before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/40">
             or
           </span>
-        </Reveal>
+        </div>
 
-        <Reveal>
+        <div>
           <GoogleLoginButton
             mode="signup"
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
           />
-        </Reveal>
-      </RevealGroup>
+        </div>
+      </div>
     </div>
   );
 };

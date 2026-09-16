@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
+import { NEUTRAL_BUTTON_HOVER_CLASSES } from "@storyteller/ui-button";
 import { ChevronRightIcon } from "lucide-react";
 
 interface MobileFieldButtonProps {
@@ -27,7 +28,8 @@ export function MobileFieldButton({
       disabled={disabled}
       className={twMerge(
         "flex w-full items-center gap-3 border border-ui-panel-border bg-ui-controls px-3.5 py-3 text-left transition-colors",
-        "hover:bg-ui-controls/80 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50",
+        NEUTRAL_BUTTON_HOVER_CLASSES,
+        "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ui-controls disabled:hover:border-ui-panel-border",
         className,
       )}
     >

@@ -43,7 +43,6 @@ import type { PopoverItem } from "@storyteller/ui-popover";
 import { v4 as uuidv4 } from "uuid";
 
 import { EngineContext } from "./contexts/EngineContext/EngineContext";
-import { AnonHintChip } from "./comps/AnonHintChip";
 import { AspectRatioMenu } from "./comps/AspectRatioMenu";
 import { ControlPanelSceneObject } from "./comps/ControlPanelSceneObject";
 import { Controls3D } from "./comps/Controls3D";
@@ -488,26 +487,25 @@ export const Stage3DBody = ({
               className="absolute left-0 top-0 w-full"
               onClick={handleOverlayClick}
             >
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex flex-col items-start gap-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 2xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                <div className="min-w-0 flex flex-col items-start gap-2">
                   {!isRecord && <ControlsTopButtons />}
                   {!isRecord && topBarStartSlot && (
                     <div className="pl-3">{topBarStartSlot}</div>
                   )}
                 </div>
-                <div className="flex flex-col items-center">
+                <div className="col-span-2 row-start-2 flex flex-col items-center 2xl:col-span-1 2xl:col-start-2 2xl:row-start-1">
                   <SceneModePill />
                   {!isRecord && (
                     <Controls3D showImageTo3DButton={showImageTo3DButton} />
                   )}
                 </div>
-                <div className="flex items-start justify-end gap-2 pr-3 pt-3">
+                <div className="col-start-2 row-start-1 flex min-w-0 flex-wrap items-start justify-end gap-2 pr-3 pt-3 2xl:col-start-3">
                   {/* Camera cluster: which camera drives the viewport +
                       the render-frame aspect ratio. */}
                   {!isRecord && <CameraStatusPill />}
                   {!isRecord && <AspectRatioMenu />}
                   {!isRecord && topBarEndSlot}
-                  {!isRecord && <AnonHintChip />}
                 </div>
               </div>
             </div>
