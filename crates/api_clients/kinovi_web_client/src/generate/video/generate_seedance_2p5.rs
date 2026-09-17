@@ -147,7 +147,7 @@ pub enum KinoviSeedance2p5OutputFormat {
 // |------------|----------------------|------------------------|
 // | 480p       |                   26 |          (no discount) |
 // | 720p       |                   59 |          (no discount) |
-// | 1080p      |               107.55 |                 103.25 |
+// | 1080p      |                143.4 |                 136.23 |
 //
 // With video references, the rate drops but the billed seconds are the
 // output duration PLUS the total seconds of reference video input
@@ -160,11 +160,14 @@ pub enum KinoviSeedance2p5OutputFormat {
 // |------------|----------------------|------------------------|
 // | 480p       |                   16 |          (no discount) |
 // | 720p       |                   35 |          (no discount) |
-// | 1080p      |                64.26 |                  61.69 |
+// | 1080p      |                85.68 |                   81.4 |
 //
-// The 1080p enterprise rates were spot-checked against the Kinovi site
-// (2026-08-17): 4s / 10s / 30s without a reference video showed 413 /
-// 1,032.5 / 3,097.5 credits. 480p and 720p have no separately negotiated
+// The 1080p rates come from the Kinovi billing portal's discount tab
+// (2026-09-17): the enterprise rate is the list rate less our 5% discount.
+// Until 2026-09-17 a 28%-off launch promo applied on top (103.25 / 61.69
+// enterprise, 107.55 / 64.26 consumer credits/sec); that promo has ended
+// and the rates below are the post-promo ones. 480p and 720p have no
+// separately negotiated
 // enterprise credit rate, so enterprise bills the same credits as consumer
 // (the tiers still convert to USD at their own purchase rates). Default
 // resolution (None) is 720p.
@@ -180,8 +183,8 @@ const SEEDANCE_2P5_720P: KinoviPricingRate = KinoviPricingRate {
   maybe_enterprise_credits: None,
 };
 const SEEDANCE_2P5_1080P: KinoviPricingRate = KinoviPricingRate {
-  consumer_credits: 107.55,
-  maybe_enterprise_credits: Some(103.25),
+  consumer_credits: 143.4,
+  maybe_enterprise_credits: Some(136.23),
 };
 
 /// Per-second credit rates when video references are attached. These REPLACE
@@ -196,8 +199,8 @@ const SEEDANCE_2P5_720P_VIDEO_REF: KinoviPricingRate = KinoviPricingRate {
   maybe_enterprise_credits: None,
 };
 const SEEDANCE_2P5_1080P_VIDEO_REF: KinoviPricingRate = KinoviPricingRate {
-  consumer_credits: 64.26,
-  maybe_enterprise_credits: Some(61.69),
+  consumer_credits: 85.68,
+  maybe_enterprise_credits: Some(81.4),
 };
 
 impl KinoviCostCalculatorTrait for GenerateSeedance2p5Request {
@@ -375,7 +378,7 @@ mod tests {
     // ── No video references: output-duration billing ──
     //
     // 480p = 26 credits/sec and 720p = 59 credits/sec at both tiers (no
-    // negotiated enterprise discount); 1080p = 107.55 consumer / 103.25
+    // negotiated enterprise discount); 1080p = 143.4 consumer / 136.23
     // enterprise credits/sec.
 
     mod without_video_references {
@@ -401,24 +404,24 @@ mod tests {
 
       #[test]
       fn table_1080p() {
-        // Enterprise 103.25 credits/sec — the 4s / 10s / 30s values were
-        // verified against the Kinovi site (413 / 1,032.5 / 3,097.5).
-        assert_eq!(t2v_1080(4).calculate_enterprise_costs().kinovi_credits, 413.0);
-        assert_eq!(t2v_1080(5).calculate_enterprise_costs().kinovi_credits, 516.25);
-        assert_eq!(t2v_1080(10).calculate_enterprise_costs().kinovi_credits, 1032.5);
-        assert_eq!(t2v_1080(15).calculate_enterprise_costs().kinovi_credits, 1548.75);
-        assert_eq!(t2v_1080(20).calculate_enterprise_costs().kinovi_credits, 2065.0);
-        assert_eq!(t2v_1080(25).calculate_enterprise_costs().kinovi_credits, 2581.25);
-        assert_eq!(t2v_1080(30).calculate_enterprise_costs().kinovi_credits, 3097.5);
+        // Enterprise 136.23 credits/sec (the 143.4 list rate less 5%), per
+        // the Kinovi billing portal on 2026-09-17.
+        assert_eq!(t2v_1080(4).calculate_enterprise_costs().kinovi_credits, 544.92);
+        assert_eq!(t2v_1080(5).calculate_enterprise_costs().kinovi_credits, 681.15);
+        assert_eq!(t2v_1080(10).calculate_enterprise_costs().kinovi_credits, 1362.3);
+        assert_eq!(t2v_1080(15).calculate_enterprise_costs().kinovi_credits, 2043.45);
+        assert_eq!(t2v_1080(20).calculate_enterprise_costs().kinovi_credits, 2724.6);
+        assert_eq!(t2v_1080(25).calculate_enterprise_costs().kinovi_credits, 3405.75);
+        assert_eq!(t2v_1080(30).calculate_enterprise_costs().kinovi_credits, 4086.9);
 
-        // Consumer 107.55 credits/sec.
-        assert_eq!(t2v_1080(4).calculate_consumer_costs().kinovi_credits, 430.2);
-        assert_eq!(t2v_1080(5).calculate_consumer_costs().kinovi_credits, 537.75);
-        assert_eq!(t2v_1080(10).calculate_consumer_costs().kinovi_credits, 1075.5);
-        assert_eq!(t2v_1080(15).calculate_consumer_costs().kinovi_credits, 1613.25);
-        assert_eq!(t2v_1080(20).calculate_consumer_costs().kinovi_credits, 2151.0);
-        assert_eq!(t2v_1080(25).calculate_consumer_costs().kinovi_credits, 2688.75);
-        assert_eq!(t2v_1080(30).calculate_consumer_costs().kinovi_credits, 3226.5);
+        // Consumer 143.4 credits/sec.
+        assert_eq!(t2v_1080(4).calculate_consumer_costs().kinovi_credits, 573.6);
+        assert_eq!(t2v_1080(5).calculate_consumer_costs().kinovi_credits, 717.0);
+        assert_eq!(t2v_1080(10).calculate_consumer_costs().kinovi_credits, 1434.0);
+        assert_eq!(t2v_1080(15).calculate_consumer_costs().kinovi_credits, 2151.0);
+        assert_eq!(t2v_1080(20).calculate_consumer_costs().kinovi_credits, 2868.0);
+        assert_eq!(t2v_1080(25).calculate_consumer_costs().kinovi_credits, 3585.0);
+        assert_eq!(t2v_1080(30).calculate_consumer_costs().kinovi_credits, 4302.0);
       }
 
       #[test]
@@ -456,7 +459,7 @@ mod tests {
 
         let mut request_1080 = keyframe_request(10);
         request_1080.output_resolution = Some(KinoviSeedance2p5OutputResolution::TenEightyP);
-        assert_eq!(request_1080.calculate_enterprise_costs().kinovi_credits, 1032.5);
+        assert_eq!(request_1080.calculate_enterprise_costs().kinovi_credits, 1362.3);
       }
 
       #[test]
@@ -489,7 +492,7 @@ mod tests {
     // ── With video references: input seconds are billed too ──
     //
     // 480p = 16 credits/sec and 720p = 35 credits/sec at both tiers; 1080p
-    // = 64.26 consumer / 61.69 enterprise credits/sec. All over
+    // = 85.68 consumer / 81.4 enterprise credits/sec. All over
     // (output duration + total_input_seconds) billed seconds.
 
     mod with_video_references {
@@ -541,21 +544,21 @@ mod tests {
         // seconds: billed seconds = 20 + clamp(input, 4, 30). E.g. a 10s
         // input video + 20s generation = 30 billed seconds.
         //
-        // Enterprise 61.69 credits/sec.
-        assert_eq!(video_ref_1080(20, Some(1)).calculate_enterprise_costs().kinovi_credits, 1480.56);
-        assert_eq!(video_ref_1080(20, Some(5)).calculate_enterprise_costs().kinovi_credits, 1542.25);
-        assert_eq!(video_ref_1080(20, Some(10)).calculate_enterprise_costs().kinovi_credits, 1850.7);
-        assert_eq!(video_ref_1080(20, Some(15)).calculate_enterprise_costs().kinovi_credits, 2159.15);
-        assert_eq!(video_ref_1080(20, Some(20)).calculate_enterprise_costs().kinovi_credits, 2467.6);
-        assert_eq!(video_ref_1080(20, Some(30)).calculate_enterprise_costs().kinovi_credits, 3084.5);
+        // Enterprise 81.4 credits/sec.
+        assert_eq!(video_ref_1080(20, Some(1)).calculate_enterprise_costs().kinovi_credits, 1953.6);
+        assert_eq!(video_ref_1080(20, Some(5)).calculate_enterprise_costs().kinovi_credits, 2035.0);
+        assert_eq!(video_ref_1080(20, Some(10)).calculate_enterprise_costs().kinovi_credits, 2442.0);
+        assert_eq!(video_ref_1080(20, Some(15)).calculate_enterprise_costs().kinovi_credits, 2849.0);
+        assert_eq!(video_ref_1080(20, Some(20)).calculate_enterprise_costs().kinovi_credits, 3256.0);
+        assert_eq!(video_ref_1080(20, Some(30)).calculate_enterprise_costs().kinovi_credits, 4070.0);
 
-        // Consumer 64.26 credits/sec.
-        assert_eq!(video_ref_1080(20, Some(1)).calculate_consumer_costs().kinovi_credits, 1542.24);
-        assert_eq!(video_ref_1080(20, Some(5)).calculate_consumer_costs().kinovi_credits, 1606.5);
-        assert_eq!(video_ref_1080(20, Some(10)).calculate_consumer_costs().kinovi_credits, 1927.8);
-        assert_eq!(video_ref_1080(20, Some(15)).calculate_consumer_costs().kinovi_credits, 2249.1);
-        assert_eq!(video_ref_1080(20, Some(20)).calculate_consumer_costs().kinovi_credits, 2570.4);
-        assert_eq!(video_ref_1080(20, Some(30)).calculate_consumer_costs().kinovi_credits, 3213.0);
+        // Consumer 85.68 credits/sec.
+        assert_eq!(video_ref_1080(20, Some(1)).calculate_consumer_costs().kinovi_credits, 2056.32);
+        assert_eq!(video_ref_1080(20, Some(5)).calculate_consumer_costs().kinovi_credits, 2142.0);
+        assert_eq!(video_ref_1080(20, Some(10)).calculate_consumer_costs().kinovi_credits, 2570.4);
+        assert_eq!(video_ref_1080(20, Some(15)).calculate_consumer_costs().kinovi_credits, 2998.8);
+        assert_eq!(video_ref_1080(20, Some(20)).calculate_consumer_costs().kinovi_credits, 3427.2);
+        assert_eq!(video_ref_1080(20, Some(30)).calculate_consumer_costs().kinovi_credits, 4284.0);
       }
 
       #[test]
@@ -574,9 +577,9 @@ mod tests {
         // 30-second maximum so the estimate never undershoots the charge.
         assert_eq!(video_ref_480(10, None).calculate_consumer_costs().kinovi_credits, 640.0);
         assert_eq!(video_ref_720(10, None).calculate_consumer_costs().kinovi_credits, 1400.0);
-        // 1080p: 40 billed seconds at 61.69 enterprise / 64.26 consumer.
-        assert_eq!(video_ref_1080(10, None).calculate_enterprise_costs().kinovi_credits, 2467.6);
-        assert_eq!(video_ref_1080(10, None).calculate_consumer_costs().kinovi_credits, 2570.4);
+        // 1080p: 40 billed seconds at 81.4 enterprise / 85.68 consumer.
+        assert_eq!(video_ref_1080(10, None).calculate_enterprise_costs().kinovi_credits, 3256.0);
+        assert_eq!(video_ref_1080(10, None).calculate_consumer_costs().kinovi_credits, 3427.2);
       }
 
       #[test]
@@ -649,47 +652,47 @@ mod tests {
 
       #[test]
       fn enterprise_cents_1080p_4s() {
-        // 413 credits; 41300/243.16 = 169.8470 cents.
+        // 544.92 credits; 54492/243.16 = 224.0994 cents.
         let cost = t2v_1080(4).calculate_enterprise_costs();
-        assert_eq!(cost.usd_cents_rounded_up, 170);
-        assert_eq!(cost.usd_cents_rounded_down, 169);
-        assert!((cost.usd_cents_fractional - 169.8470).abs() < FLOAT_TOLERANCE);
+        assert_eq!(cost.usd_cents_rounded_up, 225);
+        assert_eq!(cost.usd_cents_rounded_down, 224);
+        assert!((cost.usd_cents_fractional - 224.0994).abs() < FLOAT_TOLERANCE);
       }
 
       #[test]
       fn consumer_cents_1080p_4s() {
-        // 430.2 credits; 43020/192.98 = 222.9247 cents.
+        // 573.6 credits; 57360/192.98 = 297.2329 cents.
         let cost = t2v_1080(4).calculate_consumer_costs();
-        assert_eq!(cost.usd_cents_rounded_up, 223);
-        assert_eq!(cost.usd_cents_rounded_down, 222);
-        assert!((cost.usd_cents_fractional - 222.9247).abs() < FLOAT_TOLERANCE);
+        assert_eq!(cost.usd_cents_rounded_up, 298);
+        assert_eq!(cost.usd_cents_rounded_down, 297);
+        assert!((cost.usd_cents_fractional - 297.2329).abs() < FLOAT_TOLERANCE);
       }
 
       #[test]
       fn enterprise_cents_1080p_30s() {
-        // 3097.5 credits; 309750/243.16 = 1273.8526 cents.
+        // 4086.9 credits; 408690/243.16 = 1680.7452 cents.
         let cost = t2v_1080(30).calculate_enterprise_costs();
-        assert_eq!(cost.usd_cents_rounded_up, 1274);
-        assert_eq!(cost.usd_cents_rounded_down, 1273);
-        assert!((cost.usd_cents_fractional - 1273.8526).abs() < FLOAT_TOLERANCE);
+        assert_eq!(cost.usd_cents_rounded_up, 1681);
+        assert_eq!(cost.usd_cents_rounded_down, 1680);
+        assert!((cost.usd_cents_fractional - 1680.7452).abs() < FLOAT_TOLERANCE);
       }
 
       #[test]
       fn enterprise_cents_1080p_video_ref_30_billed_seconds() {
-        // 61.69 × 30 = 1850.7 credits; 185070/243.16 = 761.1038 cents.
+        // 81.4 × 30 = 2442 credits; 244200/243.16 = 1004.2770 cents.
         let cost = video_ref_1080(20, Some(10)).calculate_enterprise_costs();
-        assert_eq!(cost.usd_cents_rounded_up, 762);
-        assert_eq!(cost.usd_cents_rounded_down, 761);
-        assert!((cost.usd_cents_fractional - 761.1038).abs() < FLOAT_TOLERANCE);
+        assert_eq!(cost.usd_cents_rounded_up, 1005);
+        assert_eq!(cost.usd_cents_rounded_down, 1004);
+        assert!((cost.usd_cents_fractional - 1004.2770).abs() < FLOAT_TOLERANCE);
       }
 
       #[test]
       fn consumer_cents_1080p_video_ref_30_billed_seconds() {
-        // 64.26 × 30 = 1927.8 credits; 192780/192.98 = 998.9636 cents.
+        // 85.68 × 30 = 2570.4 credits; 257040/192.98 = 1331.9515 cents.
         let cost = video_ref_1080(20, Some(10)).calculate_consumer_costs();
-        assert_eq!(cost.usd_cents_rounded_up, 999);
-        assert_eq!(cost.usd_cents_rounded_down, 998);
-        assert!((cost.usd_cents_fractional - 998.9636).abs() < FLOAT_TOLERANCE);
+        assert_eq!(cost.usd_cents_rounded_up, 1332);
+        assert_eq!(cost.usd_cents_rounded_down, 1331);
+        assert!((cost.usd_cents_fractional - 1331.9515).abs() < FLOAT_TOLERANCE);
       }
     }
 
@@ -700,7 +703,7 @@ mod tests {
 
       #[test]
       fn video_reference_rate_is_cheaper_per_second() {
-        // 16 < 26, 35 < 59, and 61.69 < 103.25: the with-references rate is
+        // 16 < 26, 35 < 59, and 81.4 < 136.23: the with-references rate is
         // lower per billed second (the input seconds are where the money
         // goes). Compare at the minimum billed input (1s clamps to 4) —
         // unknown or zero input assumes the 30-second maximum, which would
