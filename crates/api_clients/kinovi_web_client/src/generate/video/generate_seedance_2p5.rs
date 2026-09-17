@@ -162,12 +162,8 @@ pub enum KinoviSeedance2p5OutputFormat {
 // | 720p       |                   35 |          (no discount) |
 // | 1080p      |                85.68 |                   81.4 |
 //
-// The 1080p rates come from the Kinovi billing portal's discount tab
-// (2026-09-17): the enterprise rate is the list rate less our 5% discount.
-// Until 2026-09-17 a 28%-off launch promo applied on top (103.25 / 61.69
-// enterprise, 107.55 / 64.26 consumer credits/sec); that promo has ended
-// and the rates below are the post-promo ones. 480p and 720p have no
-// separately negotiated
+// The 1080p rates were last updated 2026-09-17 (previously 107.55 / 103.25
+// and 64.26 / 61.69 credits/sec). 480p and 720p have no separately negotiated
 // enterprise credit rate, so enterprise bills the same credits as consumer
 // (the tiers still convert to USD at their own purchase rates). Default
 // resolution (None) is 720p.
@@ -404,8 +400,7 @@ mod tests {
 
       #[test]
       fn table_1080p() {
-        // Enterprise 136.23 credits/sec (the 143.4 list rate less 5%), per
-        // the Kinovi billing portal on 2026-09-17.
+        // Enterprise 136.23 credits/sec (2026-09-17).
         assert_eq!(t2v_1080(4).calculate_enterprise_costs().kinovi_credits, 544.92);
         assert_eq!(t2v_1080(5).calculate_enterprise_costs().kinovi_credits, 681.15);
         assert_eq!(t2v_1080(10).calculate_enterprise_costs().kinovi_credits, 1362.3);

@@ -137,14 +137,15 @@ pub fn seedance_2p5_preview_usd_cents(
 const SEEDANCE_2P5_CENTS_PER_SECOND_480P: f64 = 11.76954733;
 /// Seedance 2.5 — 720p price, USD cents per second.
 const SEEDANCE_2P5_CENTS_PER_SECOND_720P: f64 = 26.70781893;
-/// Seedance 2.5 — 1080p price, USD cents per second.
-const SEEDANCE_2P5_CENTS_PER_SECOND_1080P: f64 = 45.85869386;
+/// Seedance 2.5 — 1080p price, USD cents per second (updated 2026-09-17).
+const SEEDANCE_2P5_CENTS_PER_SECOND_1080P: f64 = 61.62732357;
 /// Seedance 2.5 — 480p price with video references, USD cents per second.
 const SEEDANCE_2P5_VIDEO_REFERENCE_CENTS_PER_SECOND_480P: f64 = 7.24279835;
 /// Seedance 2.5 — 720p price with video references, USD cents per second.
 const SEEDANCE_2P5_VIDEO_REFERENCE_CENTS_PER_SECOND_720P: f64 = 15.84362140;
-/// Seedance 2.5 — 1080p price with video references, USD cents per second.
-const SEEDANCE_2P5_VIDEO_REFERENCE_CENTS_PER_SECOND_1080P: f64 = 27.39973680;
+/// Seedance 2.5 — 1080p price with video references, USD cents per second
+/// (updated 2026-09-17).
+const SEEDANCE_2P5_VIDEO_REFERENCE_CENTS_PER_SECOND_1080P: f64 = 38.49728574;
 
 /// ArtCraft's price (USD cents) for Seedance 2.5.
 ///
@@ -199,14 +200,15 @@ pub fn seedance_2p5_usd_cents(
 const SEEDANCE_2P5_ULTRA_CENTS_PER_SECOND_480P: f64 = 13.90946502;
 /// Seedance 2.5 Ultra — 720p price, USD cents per second.
 const SEEDANCE_2P5_ULTRA_CENTS_PER_SECOND_720P: f64 = 31.56378601;
-/// Seedance 2.5 Ultra — 1080p price, USD cents per second.
-const SEEDANCE_2P5_ULTRA_CENTS_PER_SECOND_1080P: f64 = 50.10486922;
+/// Seedance 2.5 Ultra — 1080p price, USD cents per second (updated 2026-09-17).
+const SEEDANCE_2P5_ULTRA_CENTS_PER_SECOND_1080P: f64 = 67.22980753;
 /// Seedance 2.5 Ultra — 480p price with video references, USD cents per second.
 const SEEDANCE_2P5_ULTRA_VIDEO_REFERENCE_CENTS_PER_SECOND_480P: f64 = 8.55967078;
 /// Seedance 2.5 Ultra — 720p price with video references, USD cents per second.
 const SEEDANCE_2P5_ULTRA_VIDEO_REFERENCE_CENTS_PER_SECOND_720P: f64 = 18.72427984;
-/// Seedance 2.5 Ultra — 1080p price with video references, USD cents per second.
-const SEEDANCE_2P5_ULTRA_VIDEO_REFERENCE_CENTS_PER_SECOND_1080P: f64 = 29.93674947;
+/// Seedance 2.5 Ultra — 1080p price with video references, USD cents per
+/// second (updated 2026-09-17).
+const SEEDANCE_2P5_ULTRA_VIDEO_REFERENCE_CENTS_PER_SECOND_1080P: f64 = 41.84487580;
 
 /// ArtCraft's price (USD cents) for Seedance 2.5 Ultra.
 ///

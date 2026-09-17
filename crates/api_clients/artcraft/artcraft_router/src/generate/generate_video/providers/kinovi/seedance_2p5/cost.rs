@@ -145,9 +145,8 @@ mod tests {
 
     #[test]
     fn credits_1080p() {
-      // 136.23/sec enterprise (post-promo rate since 2026-09-17); fractional
-      // totals round to the nearest credit (681.15 → 681, 1362.3 → 1362,
-      // 4086.9 → 4087).
+      // 136.23/sec enterprise; fractional totals round to the nearest credit
+      // (681.15 → 681, 1362.3 → 1362, 4086.9 → 4087).
       assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 5, false, None), 681);
       assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 10, false, None), 1362);
       assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 30, false, None), 4087);
