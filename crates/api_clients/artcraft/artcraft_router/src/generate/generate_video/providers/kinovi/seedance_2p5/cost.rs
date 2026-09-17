@@ -100,7 +100,7 @@ impl KinoviSeedance2p5CostState {
     // per-model credit rate at our bulk credit purchase rate).
     let costs = pricing_request.calculate_enterprise_costs();
     // 2.5 bills whole credits at 480p/720p, so the rounding below is exact
-    // there; 1080p bills fractional credits (103.25/sec) and rounds to the
+    // there; 1080p bills fractional credits (136.23/sec) and rounds to the
     // nearest credit. The USD cents (the authoritative charge) are rounded
     // up.
     let cost_in_credits = costs.kinovi_credits.round() as u64;
@@ -125,7 +125,7 @@ mod tests {
   use super::*;
 
   // ── Credits without video references (26/sec at 480p, 59/sec at 720p,
-  //    103.25/sec at 1080p enterprise) ──
+  //    136.23/sec at 1080p enterprise) ──
 
   mod credits_without_video_references {
     use super::*;
@@ -145,11 +145,11 @@ mod tests {
 
     #[test]
     fn credits_1080p() {
-      // 103.25/sec enterprise; fractional totals round to the nearest credit
-      // (516.25 → 516, 1032.5 → 1033, 3097.5 → 3098).
-      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 5, false, None), 516);
-      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 10, false, None), 1033);
-      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 30, false, None), 3098);
+      // 136.23/sec enterprise; fractional totals round to the nearest credit
+      // (681.15 → 681, 1362.3 → 1362, 4086.9 → 4087).
+      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 5, false, None), 681);
+      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 10, false, None), 1362);
+      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 30, false, None), 4087);
     }
 
     #[test]
@@ -164,7 +164,7 @@ mod tests {
   }
 
   // ── Credits with video references (16/sec at 480p, 35/sec at 720p,
-  //    61.69/sec at 1080p enterprise, over output duration + input seconds) ──
+  //    81.4/sec at 1080p enterprise, over output duration + input seconds) ──
 
   mod credits_with_video_references {
     use super::*;
@@ -173,8 +173,8 @@ mod tests {
     fn thirty_second_output_with_ten_input_seconds_bills_forty() {
       assert_eq!(credits(Some(KinoviOutputResolution::FourEightyP), 30, true, Some(10)), 16 * 40);
       assert_eq!(credits(Some(KinoviOutputResolution::SevenTwentyP), 30, true, Some(10)), 35 * 40);
-      // 61.69/sec enterprise × 40 = 2467.6 → 2468 credits.
-      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 30, true, Some(10)), 2468);
+      // 81.4/sec enterprise × 40 = 3256 credits.
+      assert_eq!(credits(Some(KinoviOutputResolution::TenEightyP), 30, true, Some(10)), 3256);
     }
 
     #[test]

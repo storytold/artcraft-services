@@ -95,11 +95,11 @@ mod tests {
 
     #[test]
     fn table_1080p() {
-      // 50.10486922 ¢/s, rounded up.
-      assert_eq!(cents(Some(RouterResolution::TenEightyP), 4), 201);
-      assert_eq!(cents(Some(RouterResolution::TenEightyP), 5), 251);
-      assert_eq!(cents(Some(RouterResolution::TenEightyP), 10), 502);
-      assert_eq!(cents(Some(RouterResolution::TenEightyP), 30), 1504);
+      // 67.22980753 ¢/s, rounded up.
+      assert_eq!(cents(Some(RouterResolution::TenEightyP), 4), 269);
+      assert_eq!(cents(Some(RouterResolution::TenEightyP), 5), 337);
+      assert_eq!(cents(Some(RouterResolution::TenEightyP), 10), 673);
+      assert_eq!(cents(Some(RouterResolution::TenEightyP), 30), 2017);
     }
 
     #[test]
@@ -141,16 +141,16 @@ mod tests {
       assert_eq!(cents_with_video_refs(Some(RouterResolution::FourEightyP), 30, Some(10)), 343);
       // 18.72427984 ¢/s × 40 = 748.97 → 749¢.
       assert_eq!(cents_with_video_refs(Some(RouterResolution::SevenTwentyP), 30, Some(10)), 749);
-      // 29.93674947 ¢/s × 40 = 1197.47 → 1198¢.
-      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 30, Some(10)), 1198);
+      // 41.84487580 ¢/s × 40 = 1673.80 → 1674¢.
+      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 30, Some(10)), 1674);
     }
 
     #[test]
     fn table_1080p_with_ten_input_seconds() {
-      // 29.93674947 ¢/s over (output + 10) billed seconds, rounded up.
-      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 5, Some(10)), 450);
-      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 10, Some(10)), 599);
-      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 30, Some(10)), 1198);
+      // 41.84487580 ¢/s over (output + 10) billed seconds, rounded up.
+      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 5, Some(10)), 628);
+      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 10, Some(10)), 837);
+      assert_eq!(cents_with_video_refs(Some(RouterResolution::TenEightyP), 30, Some(10)), 1674);
     }
 
     #[test]
