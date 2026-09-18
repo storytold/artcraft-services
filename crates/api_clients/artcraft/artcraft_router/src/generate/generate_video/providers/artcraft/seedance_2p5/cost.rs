@@ -8,10 +8,11 @@ use crate::generate::generate_video::providers::artcraft::seedance_2p5::request:
 /// — when reference videos are attached — the total seconds of reference
 /// video input, which are billed on top of the output duration (at a lower
 /// per-second rate). The TOTAL input duration clamps to the 4..=30 second
-/// billing range. No batching.
+/// billing range. Batch count multiplies the total before rounding.
 pub struct ArtcraftSeedance2p5CostState {
   pub resolution: CommonResolution,
   pub duration_seconds: u16,
+  pub batch_count: u16,
   pub has_video_references: bool,
   pub maybe_total_input_seconds: Option<u16>,
 }
@@ -29,6 +30,7 @@ impl ArtcraftSeedance2p5CostState {
     Self {
       resolution,
       duration_seconds,
+      batch_count: request.request.video_batch_count.unwrap_or(1),
       has_video_references,
       maybe_total_input_seconds: request.total_input_seconds,
     }
@@ -43,6 +45,7 @@ impl ArtcraftSeedance2p5CostState {
     let usd_cents = seedance_2p5_usd_cents(
       self.resolution,
       self.duration_seconds,
+      self.batch_count,
       self.has_video_references,
       maybe_total_input_seconds,
     );

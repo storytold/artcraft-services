@@ -155,10 +155,11 @@ const SEEDANCE_2P5_VIDEO_REFERENCE_CENTS_PER_SECOND_1080P: f64 = 38.49728574;
 /// seconds = output duration. With video references, the per-second rate
 /// drops but the billed seconds are the output duration PLUS the total
 /// seconds of reference video input (clamped to the 4..=30 second billing
-/// range). The fractional total is rounded UP to a whole cent. No batching.
+/// range). Multiply by batch count before rounding UP to a whole cent.
 pub fn seedance_2p5_usd_cents(
   resolution: CommonResolution,
   duration_seconds: u16,
+  batch_count: u16,
   has_video_references: bool,
   maybe_total_input_seconds: Option<u16>,
 ) -> u64 {
@@ -193,7 +194,7 @@ pub fn seedance_2p5_usd_cents(
     (rate, u64::from(duration_seconds))
   };
 
-  (cents_per_second * billed_seconds as f64).ceil() as u64
+  (cents_per_second * billed_seconds as f64 * batch_count as f64).ceil() as u64
 }
 
 /// Seedance 2.5 Ultra — 480p price, USD cents per second.

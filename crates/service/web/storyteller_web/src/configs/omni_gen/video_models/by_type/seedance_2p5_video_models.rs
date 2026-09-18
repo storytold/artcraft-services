@@ -51,7 +51,7 @@ pub fn seedance_2p5_video_models() -> Vec<OmniGenVideoModelDetails> {
     bitrate_default: Some(CommonBitrate::Normal),
     output_format_options: Some(vec![CommonVideoOutputFormat::Mp4, CommonVideoOutputFormat::Mov]),
     output_format_default: Some(CommonVideoOutputFormat::Mp4),
-    batch_size_options: Some(vec![1]),
+    batch_size_options: Some(vec![1, 2, 3, 4]),
     batch_size_default: Some(1),
     duration_seconds_min: Some(4),
     duration_seconds_max: Some(30),

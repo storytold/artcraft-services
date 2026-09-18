@@ -27,7 +27,7 @@ pub fn happy_horse_video_models() -> Vec<OmniGenVideoModelDetails> {
       CommonResolution::TenEightyP,
     ]),
     resolution_default: Some(CommonResolution::SevenTwentyP),
-    batch_size_options: Some(vec![1, 2, 4]),
+    batch_size_options: Some(vec![1, 2, 3, 4]),
     batch_size_default: Some(1),
     duration_seconds_min: Some(3),
     duration_seconds_max: Some(15),

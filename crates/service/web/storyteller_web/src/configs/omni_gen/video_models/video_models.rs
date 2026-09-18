@@ -156,3 +156,24 @@ fn build_omni_gen_video_model_providers() -> Vec<OmniGenVideoModelProviderDetail
 
   providers
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn kinovi_batch_options_are_one_through_four() {
+    let models = build_omni_gen_video_models();
+    for model in [
+      CommonVideoModel::Seedance2p5,
+      CommonVideoModel::Seedance2p0,
+      CommonVideoModel::Seedance2p0Fast,
+      CommonVideoModel::Seedance2p0Mini,
+      CommonVideoModel::HappyHorse1p0,
+    ] {
+      let details = models.iter().find(|details| details.model == model).unwrap();
+      assert_eq!(details.batch_size_options.as_deref(), Some([1, 2, 3, 4].as_slice()), "{model:?}");
+      assert_eq!(details.batch_size_default, Some(1), "{model:?}");
+    }
+  }
+}

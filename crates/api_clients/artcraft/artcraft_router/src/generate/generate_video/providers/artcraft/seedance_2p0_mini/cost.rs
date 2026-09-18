@@ -108,18 +108,13 @@ mod tests {
   mod batch_pricing {
     use super::*;
 
-    /// Mini bills batches of 1-8 in full (the platform's 1/2/4 cap does not
-    /// apply). Once, batch 8 executed in full but billed as batch 4.
+    /// ArtCraft exposes batches of 1-4 and bills the entire planned batch.
     #[test]
     fn every_batch_size_720p_5s() {
       assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 1, false), 45);
       assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 2, false), 89);
       assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 3, false), 134);
       assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 4, false), 178);
-      assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 5, false), 223);
-      assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 6, false), 267);
-      assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 7, false), 312);
-      assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 8, false), 356);
     }
 
     #[test]
@@ -128,23 +123,16 @@ mod tests {
       assert_eq!(cents(RouterResolution::FourEightyP, 5, 2, false), 35);
       assert_eq!(cents(RouterResolution::FourEightyP, 5, 3, false), 52);
       assert_eq!(cents(RouterResolution::FourEightyP, 5, 4, false), 69);
-      assert_eq!(cents(RouterResolution::FourEightyP, 5, 5, false), 87);
-      assert_eq!(cents(RouterResolution::FourEightyP, 5, 6, false), 104);
-      assert_eq!(cents(RouterResolution::FourEightyP, 5, 7, false), 121);
-      assert_eq!(cents(RouterResolution::FourEightyP, 5, 8, false), 138);
     }
 
     #[test]
-    fn batch_eight_with_video_reference() {
-      assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 8, true), 429);
+    fn batch_four_with_video_reference() {
+      assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 4, true), 215);
     }
 
     #[test]
-    fn batch_above_eight_clamps_to_eight() {
-      assert_eq!(
-        cents(RouterResolution::SevenTwentyP, 5, 9, false),
-        cents(RouterResolution::SevenTwentyP, 5, 8, false),
-      );
+    fn batch_above_four_clamps_to_four() {
+      assert_eq!(cents(RouterResolution::SevenTwentyP, 5, 8, false), 178);
     }
   }
 
@@ -160,7 +148,7 @@ mod tests {
       ];
       for res in resolutions {
         for dur in [4u16, 5, 10, 15] {
-          for batch in [1u16, 2, 4] {
+          for batch in 1..=4 {
             for has_ref in [false, true] {
               let cost = build_cost(res, dur, batch, has_ref);
               assert_eq!(cost.cost_in_credits, cost.cost_in_usd_cents);
