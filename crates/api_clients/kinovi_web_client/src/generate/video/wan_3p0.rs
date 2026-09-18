@@ -13,6 +13,8 @@
 //! Pricing sources (all three modalities share each family's rates):
 //! - https://kinovi.ai/models/wan3-text-to-video
 //! - https://kinovi.ai/models/wan3-prime-ref-to-video
+//! Pricing maintenance and the September 23 promotion: `costs_wan_3p0.md`
+//! at the crate root.
 
 use serde_derive::Serialize;
 
@@ -28,7 +30,10 @@ pub const MAX_DURATION_SECONDS: u8 = 30;
 pub const MAX_REFERENCE_VIDEO_DURATION_MILLIS: u32 = 15_000;
 
 // Hundredths of a credit per OUTPUT second, as observed 2026-09-18.
-// Regular Wan's documented rates are promotional (30% off through Sep 23).
+// Regular Wan intentionally uses the promotional rates (30% off until 2026-09-23).
+// TODO(2026-09-24): Recheck live pricing using costs_wan_3p0.md at the crate root.
+// That note records advertised replacement rates, precision needs, and test updates.
+// Keep these promotional rates until a reviewed update; no automatic date switch.
 // Prime 480p is 18.86/s, so 30s costs 565.8, not 568.8 credits.
 // No separate enterprise credit discount has been supplied for these models.
 const WAN_CREDIT_HUNDREDTHS_PER_SECOND: [u64; 3] = [998, 1996, 3991];

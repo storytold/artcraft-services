@@ -29,6 +29,9 @@ const RESOLUTIONS: [KinoviWan3p0OutputResolution; 3] = [
 // Literal price snapshots from the supplied observations and Kinovi's model
 // pages, checked 2026-09-18. Keep independent of the calculator's rate tables.
 // Columns are 480p, 720p, 1080p; all three modalities have the same rates.
+// WAN_CREDITS and WAN_CENTS intentionally assert promotional prices until a
+// reviewed update after 2026-09-23. See costs_wan_3p0.md at the crate root for
+// advertised replacement rates and all expectations that need to change.
 const WAN_CREDITS: [(u8, [f64; 3]); 9] = [
   (2, [19.96, 39.92, 79.82]),
   (5, [49.9, 99.8, 199.55]),
