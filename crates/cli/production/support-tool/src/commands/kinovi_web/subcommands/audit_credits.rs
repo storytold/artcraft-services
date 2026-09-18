@@ -44,10 +44,6 @@ pub struct AuditCreditsArgs {
   #[arg(long, default_value_t = 250)]
   pub delay_ms: u64,
 
-  /// Read session cookies from this env var instead of SEEDANCE2PRO_COOKIES.
-  #[arg(long)]
-  pub cookies_env: Option<String>,
-
   /// Account label written into each CSV row. Defaults to the cookies env
   /// var name.
   #[arg(long)]
@@ -55,18 +51,8 @@ pub struct AuditCreditsArgs {
 }
 
 pub async fn run(state: &KinoviWebState, args: AuditCreditsArgs) -> anyhow::Result<()> {
-  let (cookies, account_label) = match &args.cookies_env {
-    Some(var) => (
-      easyenv::get_env_string_required(var)
-        .map_err(|err| anyhow!("Missing {} env var: {:?}", var, err))?,
-      args.account.clone().unwrap_or_else(|| var.clone()),
-    ),
-    None => (
-      state.cookies.clone(),
-      args.account.clone().unwrap_or_else(|| "SEEDANCE2PRO_COOKIES".to_string()),
-    ),
-  };
-  let session = KinoviWebSession::from_cookies_string(cookies);
+  let account_label = args.account.as_deref().unwrap_or(&state.cookies_env);
+  let session = KinoviWebSession::from_cookies_string(state.cookies.clone());
 
   let file_is_new = std::fs::metadata(&args.out).map(|m| m.len() == 0).unwrap_or(true);
   let mut out = OpenOptions::new().create(true).append(true).open(&args.out)
@@ -101,7 +87,7 @@ pub async fn run(state: &KinoviWebState, args: AuditCreditsArgs) -> anyhow::Resu
     let oldest_day = page.entries.last().map(|e| day_of(e)).unwrap_or_default();
 
     for entry in &page.entries {
-      write_entry_row(&mut out, &account_label, entry)?;
+      write_entry_row(&mut out, account_label, entry)?;
       rows += 1;
       let tally = type_tallies.entry(entry.entry_type.as_str().to_string()).or_insert((0, 0));
       tally.0 += 1;

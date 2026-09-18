@@ -11,28 +11,14 @@ use super::super::state::KinoviWebState;
 /// single CSV line: account,email,credits,available_credits.
 #[derive(Args)]
 pub struct AccountInfoArgs {
-  /// Read session cookies from this env var instead of SEEDANCE2PRO_COOKIES.
-  #[arg(long)]
-  pub cookies_env: Option<String>,
-
   /// Account label for the output line. Defaults to the cookies env var name.
   #[arg(long)]
   pub account: Option<String>,
 }
 
 pub async fn run(state: &KinoviWebState, args: AccountInfoArgs) -> anyhow::Result<()> {
-  let (cookies, account_label) = match &args.cookies_env {
-    Some(var) => (
-      easyenv::get_env_string_required(var)
-        .map_err(|err| anyhow!("Missing {} env var: {:?}", var, err))?,
-      args.account.clone().unwrap_or_else(|| var.clone()),
-    ),
-    None => (
-      state.cookies.clone(),
-      args.account.clone().unwrap_or_else(|| "SEEDANCE2PRO_COOKIES".to_string()),
-    ),
-  };
-  let session = KinoviWebSession::from_cookies_string(cookies);
+  let account_label = args.account.as_deref().unwrap_or(&state.cookies_env);
+  let session = KinoviWebSession::from_cookies_string(state.cookies.clone());
 
   let details = get_user_auth_details(GetUserAuthDetailsArgs {
     session: &session,

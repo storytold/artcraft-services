@@ -13,8 +13,24 @@ cargo run -p support-tool -- kinovi_web generate_video --prompt "A corgi at the 
 
 Requires a `.env-support-tool-secrets` file (or env vars) with:
 
-- `SEEDANCE2PRO_COOKIES` — session cookies for Kinovi/KinoviWeb API auth
+- `SEEDANCE2PRO_VOLCENGINE_COOKIES` — Volcengine cookies (legacy fallback: `SEEDANCE2PRO_COOKIES`)
+- `SEEDANCE2PRO_BYTEPLUS_COOKIES` — BytePlus cookies (legacy fallback: `SEEDANCE2PRO_ALT_COOKIES`)
+- `SEEDANCE2PRO_BYTEPLUS_ULTRA_COOKIES` — BytePlus Ultra cookies
 - `ARTCRAFT_COOKIES` — session cookies for ArtCraft API auth (format: `session=...; visitor=...`)
+
+All `kinovi_web` commands (also available as `kinovi` / `seedance2pro`) accept
+`--kinovi-account volcengine|byteplus|byteplusultra`, defaulting to `volcengine`.
+Use `--cookies-env ENV_VAR_NAME` to explicitly override that account's cookie
+configuration. The override has no default; when omitted, only the selected
+account's variables and its legacy fallback are checked. Either flag can appear
+before or after the subcommand. CSV account labels default to the resolved cookie
+env var name; `--account` still overrides the output label.
+
+```bash
+support-tool kinovi_web account_info --kinovi-account byteplus
+support-tool seedance2pro find_job --token <order_id> --kinovi-account byteplusultra
+support-tool kinovi_web account_info --kinovi-account byteplus --cookies-env CUSTOM_COOKIES
+```
 
 ## Architecture
 
