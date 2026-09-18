@@ -545,13 +545,56 @@ mod tests {
       }
     }
 
-    #[test]
-    fn batch_costs_and_request_count_agree() {
-      let mut request = r480(4);
-      request.batch_count = Some(KinoviSeedance2p5PreviewBatchCount::Eight);
-      assert_eq!(request.calculate_consumer_costs().kinovi_credits, 1476.8);
-      assert_eq!(request.calculate_enterprise_costs().kinovi_credits, 1348.16);
-      assert!(matches!(to_raw_request(request).batch_count, KinoviBatchCountRaw::Eight));
+    mod batch_tests {
+      use super::*;
+      use crate::test_utils::assert_batch_cost::assert_batch_cost;
+
+      #[test]
+      fn all_batches_scale_every_resolution_with_and_without_references() {
+        let batches = [
+          (None, 1),
+          (Some(KinoviSeedance2p5PreviewBatchCount::One), 1),
+          (Some(KinoviSeedance2p5PreviewBatchCount::Two), 2),
+          (Some(KinoviSeedance2p5PreviewBatchCount::Three), 3),
+          (Some(KinoviSeedance2p5PreviewBatchCount::Four), 4),
+          (Some(KinoviSeedance2p5PreviewBatchCount::Five), 5),
+          (Some(KinoviSeedance2p5PreviewBatchCount::Six), 6),
+          (Some(KinoviSeedance2p5PreviewBatchCount::Seven), 7),
+          (Some(KinoviSeedance2p5PreviewBatchCount::Eight), 8),
+        ];
+        for tier in [KinoviPricingTier::Enterprise, KinoviPricingTier::Consumer] {
+          for resolution in [
+            None,
+            Some(KinoviSeedance2p5PreviewOutputResolution::FourEightyP),
+            Some(KinoviSeedance2p5PreviewOutputResolution::SevenTwentyP),
+          ] {
+            for duration in [4, 5, 30] {
+              for has_references in [false, true] {
+                let mut request = build_request(duration, resolution);
+                if has_references {
+                  request = with_all_reference_types(request);
+                }
+                let single = request.calculate_costs(tier);
+                for (batch, count) in batches {
+                  request.batch_count = batch;
+                  let batched = request.calculate_costs(tier);
+                  let context = format!("{tier:?} {resolution:?} {duration}s {batch:?} references={has_references}");
+                  assert_batch_cost(single, batched, count, tier, &context);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      #[test]
+      fn batch_costs_and_request_count_agree() {
+        let mut request = r480(4);
+        request.batch_count = Some(KinoviSeedance2p5PreviewBatchCount::Eight);
+        assert_eq!(request.calculate_consumer_costs().kinovi_credits, 1476.8);
+        assert_eq!(request.calculate_enterprise_costs().kinovi_credits, 1348.16);
+        assert!(matches!(to_raw_request(request).batch_count, KinoviBatchCountRaw::Eight));
+      }
     }
 
     // ── Helpers ──

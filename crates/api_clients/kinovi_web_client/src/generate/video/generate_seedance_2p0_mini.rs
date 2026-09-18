@@ -514,24 +514,51 @@ mod tests {
 
     mod batch_tests {
       use super::*;
+      use crate::test_utils::assert_batch_cost::assert_batch_cost;
 
       #[test]
-      fn batch_scales_total_linearly_at_both_tiers() {
-        let by_count = [
-          (KinoviSeedance2p0MiniBatchCount::One, 1.0),
-          (KinoviSeedance2p0MiniBatchCount::Two, 2.0),
-          (KinoviSeedance2p0MiniBatchCount::Three, 3.0),
-          (KinoviSeedance2p0MiniBatchCount::Four, 4.0),
-          (KinoviSeedance2p0MiniBatchCount::Five, 5.0),
-          (KinoviSeedance2p0MiniBatchCount::Six, 6.0),
-          (KinoviSeedance2p0MiniBatchCount::Seven, 7.0),
-          (KinoviSeedance2p0MiniBatchCount::Eight, 8.0),
+      fn all_batches_scale_every_resolution_and_surcharge_at_both_tiers() {
+        let batches = [
+          (None, 1),
+          (Some(KinoviSeedance2p0MiniBatchCount::One), 1),
+          (Some(KinoviSeedance2p0MiniBatchCount::Two), 2),
+          (Some(KinoviSeedance2p0MiniBatchCount::Three), 3),
+          (Some(KinoviSeedance2p0MiniBatchCount::Four), 4),
+          (Some(KinoviSeedance2p0MiniBatchCount::Five), 5),
+          (Some(KinoviSeedance2p0MiniBatchCount::Six), 6),
+          (Some(KinoviSeedance2p0MiniBatchCount::Seven), 7),
+          (Some(KinoviSeedance2p0MiniBatchCount::Eight), 8),
         ];
         for tier in [KinoviPricingTier::Enterprise, KinoviPricingTier::Consumer] {
-          let base = r720(5).calculate_costs(tier).total_cost.kinovi_credits;
-          for (count, multiplier) in by_count {
-            let credits = build_request(5, None, Some(count)).calculate_costs(tier).total_cost.kinovi_credits;
-            assert_eq!(credits, base * multiplier, "batch {count:?} at {tier:?}");
+          for resolution in [
+            None,
+            Some(KinoviSeedance2p0MiniOutputResolution::FourEightyP),
+            Some(KinoviSeedance2p0MiniOutputResolution::SevenTwentyP),
+          ] {
+            for duration in [4, 5, 15] {
+              for references in [
+                None,
+                Some(vec![]),
+                Some(vec!["https://example.com/ref.mp4".to_string()]),
+                Some(vec!["https://example.com/ref1.mp4".to_string(), "https://example.com/ref2.mp4".to_string()]),
+              ] {
+                let mut request = build_request(duration, resolution, None);
+                request.reference_video_urls = references;
+                let single = request.calculate_costs(tier);
+                for (batch, count) in batches {
+                  request.batch_count = batch;
+                  let batched = request.calculate_costs(tier);
+                  let context = format!("{tier:?} {resolution:?} {duration}s {batch:?} references={:?}", request.reference_video_urls);
+                  assert_batch_cost(single.base_cost, batched.base_cost, count, tier, &context);
+                  assert_batch_cost(single.total_cost, batched.total_cost, count, tier, &context);
+                  match (single.video_reference_surcharge_cost, batched.video_reference_surcharge_cost) {
+                    (None, None) => {},
+                    (Some(single), Some(batched)) => assert_batch_cost(single, batched, count, tier, &context),
+                    _ => panic!("{context}: batch count changed surcharge presence"),
+                  }
+                }
+              }
+            }
           }
         }
       }

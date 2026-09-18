@@ -279,10 +279,37 @@ mod tests {
       use super::*;
 
       #[test]
-      fn batch_1_is_base() {
-        let base = r720(5).calculate_costs().kinovi_credits;
-        let explicit = make_request(5, None, Some(KinoviHappyHorse1p0BatchCount::One)).calculate_costs().kinovi_credits;
-        assert_eq!(base, explicit);
+      fn all_batches_scale_every_resolution_and_round_the_total() {
+        let batches = [
+          (None, 1),
+          (Some(KinoviHappyHorse1p0BatchCount::One), 1),
+          (Some(KinoviHappyHorse1p0BatchCount::Two), 2),
+          (Some(KinoviHappyHorse1p0BatchCount::Three), 3),
+          (Some(KinoviHappyHorse1p0BatchCount::Four), 4),
+        ];
+        for resolution in [
+          None,
+          Some(KinoviHappyHorse1p0OutputResolution::SevenTwentyP),
+          Some(KinoviHappyHorse1p0OutputResolution::TenEightyP),
+        ] {
+          for duration in [3, 5, 15] {
+            let single = make_request(duration, resolution, None).calculate_costs();
+            for (batch, count) in batches {
+              let batched = make_request(duration, resolution, batch).calculate_costs();
+              let context = format!("{resolution:?} {duration}s {batch:?}");
+              let expected_credits = single.kinovi_credits * count;
+              assert_eq!(batched.kinovi_credits, expected_credits, "{context}: credits");
+              assert!(
+                (batched.usd_cents_fractional - single.usd_cents_fractional * count as f64).abs() < 1e-8,
+                "{context}: fractional cents",
+              );
+              // Happy Horse currently uses the legacy 243 credits/dollar conversion.
+              let numerator = expected_credits * 100;
+              assert_eq!(batched.usd_cents_rounded_up, numerator.div_ceil(243), "{context}: rounded up");
+              assert_eq!(batched.usd_cents_rounded_down, numerator / 243, "{context}: rounded down");
+            }
+          }
+        }
       }
 
       #[test]

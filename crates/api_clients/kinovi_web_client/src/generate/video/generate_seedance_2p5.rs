@@ -733,6 +733,68 @@ mod tests {
 
     mod relative_tests {
       use super::*;
+      use crate::test_utils::assert_batch_cost::assert_batch_cost;
+
+      #[test]
+      fn all_batches_scale_every_resolution_modality_and_input_duration() {
+        let batches = [
+          (None, 1),
+          (Some(KinoviSeedance2p5BatchCount::One), 1),
+          (Some(KinoviSeedance2p5BatchCount::Two), 2),
+          (Some(KinoviSeedance2p5BatchCount::Three), 3),
+          (Some(KinoviSeedance2p5BatchCount::Four), 4),
+          (Some(KinoviSeedance2p5BatchCount::Five), 5),
+          (Some(KinoviSeedance2p5BatchCount::Six), 6),
+          (Some(KinoviSeedance2p5BatchCount::Seven), 7),
+          (Some(KinoviSeedance2p5BatchCount::Eight), 8),
+        ];
+        for tier in [KinoviPricingTier::Enterprise, KinoviPricingTier::Consumer] {
+          for resolution in [
+            None,
+            Some(KinoviSeedance2p5OutputResolution::FourEightyP),
+            Some(KinoviSeedance2p5OutputResolution::SevenTwentyP),
+            Some(KinoviSeedance2p5OutputResolution::TenEightyP),
+          ] {
+            for duration in [4, 5, 30] {
+              let text_request = text_to_video_request(duration, resolution);
+              let mut keyframe = keyframe_request(duration);
+              keyframe.output_resolution = resolution;
+              let mut image_audio = text_request.clone();
+              set_reference_urls(
+                &mut image_audio,
+                Some(vec!["https://example.com/image.png".to_string()]),
+                None,
+                Some(vec!["https://example.com/audio.mp3".to_string()]),
+              );
+              let mut empty_videos = text_request.clone();
+              set_reference_urls(&mut empty_videos, None, Some(vec![]), None);
+              let mut requests = vec![
+                ("text".to_string(), text_request.clone()),
+                ("keyframe".to_string(), keyframe),
+                ("image/audio".to_string(), image_audio),
+                ("empty videos".to_string(), empty_videos),
+              ];
+              // Include unknown/zero inputs, the minimum, ordinary input, the
+              // maximum, and values clamped at either end of the billed range.
+              for input_seconds in [None, Some(0), Some(1), Some(4), Some(10), Some(30), Some(31), Some(u8::MAX)] {
+                let mut request = text_request.clone();
+                set_reference_urls(&mut request, None, Some(vec!["https://example.com/ref.mp4".to_string()]), None);
+                request.total_input_seconds = input_seconds;
+                requests.push((format!("video input={input_seconds:?}"), request));
+              }
+              for (modality, mut request) in requests {
+                let single = request.calculate_costs(tier);
+                for (batch, count) in batches {
+                  request.batch_count = batch;
+                  let batched = request.calculate_costs(tier);
+                  let context = format!("{tier:?} {resolution:?} {duration}s {batch:?} {modality}");
+                  assert_batch_cost(single, batched, count, tier, &context);
+                }
+              }
+            }
+          }
+        }
+      }
 
       #[test]
       fn batch_multiplies_output_and_reference_input_costs() {
