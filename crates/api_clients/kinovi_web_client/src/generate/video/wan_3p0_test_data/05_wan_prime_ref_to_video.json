@@ -1,0 +1,14 @@
+{
+  "model": "wan3.0-prime-ref-to-video",
+  "contentMode": "normal",
+  "faceBlurMode": "off",
+  "prompt": "There's a shop full of lanterns. the camera orbits.",
+  "mode": "reference",
+  "aspectRatio": "16:9",
+  "duration": "10s",
+  "outputResolution": "480p",
+  "seed": 2028741236,
+  "uploadedUrls": [
+    "https://static.seedance2-pro.com/materials/20260918/1789740399001-2bb62f21.jpg"
+  ]
+}

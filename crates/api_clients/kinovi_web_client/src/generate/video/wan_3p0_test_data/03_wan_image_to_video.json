@@ -1,0 +1,13 @@
+{
+  "model": "wan3.0-prime-image-to-video",
+  "contentMode": "normal",
+  "faceBlurMode": "off",
+  "prompt": "A lighthouse over the coast",
+  "mode": "keyframe",
+  "aspectRatio": "16:9",
+  "duration": "5s",
+  "outputResolution": "720p",
+  "uploadedUrls": [
+    "https://static.seedance2-pro.com/materials/20260918/1789739927378-438b78db.png"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "model": "wan3.0-ref-to-video",
+  "contentMode": "normal",
+  "faceBlurMode": "off",
+  "prompt": "A corgi eats a watermelon",
+  "mode": "reference",
+  "aspectRatio": "16:9",
+  "duration": "5s",
+  "outputResolution": "720p"
+}
