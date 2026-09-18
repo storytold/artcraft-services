@@ -13,6 +13,8 @@ const MODEL_ID_PREFIX_FAMILIES: Array<[string, string]> = [
   ["minimax", "MiniMax"],
   ["hailuo", "MiniMax"],
   ["happy_horse", "Happy Horse"],
+  // Wan (Alibaba wanvideo) — grouped under its own name, not "Alibaba".
+  ["wan", "Wan"],
   ["vidu", "Vidu"],
   // ── Image ── (flux also covers the Flux 3 video model)
   ["flux", "Flux"],
@@ -50,6 +52,7 @@ export const FAMILY_ORDER: string[] = [
   "Grok",
   "Vidu",
   "Happy Horse",
+  "Wan",
   // Image families.
   "Nano Banana",
   "Seedream",
