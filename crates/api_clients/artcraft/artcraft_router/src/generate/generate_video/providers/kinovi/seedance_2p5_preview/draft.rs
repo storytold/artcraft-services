@@ -1,5 +1,5 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5_preview::{
-  GenerateSeedance2p5PreviewRequest, KinoviSeedance2p5PreviewAspectRatio,
+  GenerateSeedance2p5PreviewRequest, KinoviSeedance2p5PreviewBatchCount, KinoviSeedance2p5PreviewAspectRatio,
   KinoviSeedance2p5PreviewOutputResolution,
 };
 
@@ -20,6 +20,7 @@ pub struct KinoviSeedance2p5PreviewDraftState {
   pub aspect_ratio: KinoviSeedance2p5PreviewAspectRatio,
   pub resolution: Option<KinoviSeedance2p5PreviewOutputResolution>,
   pub duration_seconds: u8,
+  pub batch_count: KinoviSeedance2p5PreviewBatchCount,
 
   pub unhandled_request_state: Option<KinoviSeedance2p5PreviewRemainingItems>,
 }
@@ -67,6 +68,7 @@ impl KinoviSeedance2p5PreviewDraftState {
       aspect_ratio: Some(self.aspect_ratio),
       output_resolution: self.resolution,
       duration_seconds: self.duration_seconds,
+      batch_count: Some(self.batch_count),
       reference_image_urls,
       reference_video_urls,
       reference_audio_urls,

@@ -1,5 +1,6 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5::{
   KinoviSeedance2p5AspectRatio as KinoviAspectRatio,
+  KinoviSeedance2p5BatchCount as KinoviBatchCount,
   KinoviSeedance2p5Bitrate,
   KinoviSeedance2p5OutputFormat,
   KinoviSeedance2p5OutputResolution as KinoviOutputResolution,
@@ -61,7 +62,7 @@ fn do_build_kinovi_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> Res
   // The planned value below only applies to reference mode.
   let aspect_ratio = plan_aspect_ratio(builder.aspect_ratio.take(), strategy)?;
   let resolution = plan_output_resolution(builder.resolution.take(), strategy)?;
-  plan_batch_count(builder.video_batch_count.take(), strategy)?;
+  let batch_count = plan_batch_count(builder.video_batch_count.take(), strategy)?;
   let duration_seconds = plan_duration(builder.duration_seconds.take(), strategy)?;
   let prompt = builder.prompt.take().unwrap_or_default();
 
@@ -82,6 +83,7 @@ fn do_build_kinovi_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> Res
   };
 
   Ok(KinoviSeedance2p5DraftState {
+    batch_count,
     aspect_ratio,
     resolution,
     duration_seconds,
@@ -210,16 +212,23 @@ fn plan_output_resolution(
   }
 }
 
-// Seedance 2.5 generates a single video per request (no batching).
+// Seedance 2.5 supports batches of 1–8 videos.
 fn plan_batch_count(
   video_batch_count: Option<u16>,
   strategy: RequestMismatchMitigationStrategy,
-) -> Result<(), ArtcraftRouterError> {
+) -> Result<KinoviBatchCount, ArtcraftRouterError> {
   let count = video_batch_count.unwrap_or(1);
   match count {
     0 => Err(ArtcraftRouterError::Client(ClientError::UserRequestedZeroGenerations)),
-    1 => Ok(()),
-    // Over the maximum of 1.
+    1 => Ok(KinoviBatchCount::One),
+    2 => Ok(KinoviBatchCount::Two),
+    3 => Ok(KinoviBatchCount::Three),
+    4 => Ok(KinoviBatchCount::Four),
+    5 => Ok(KinoviBatchCount::Five),
+    6 => Ok(KinoviBatchCount::Six),
+    7 => Ok(KinoviBatchCount::Seven),
+    8 => Ok(KinoviBatchCount::Eight),
+    // Over the maximum of 8.
     _ => match strategy {
       RequestMismatchMitigationStrategy::ErrorOut => {
         Err(ArtcraftRouterError::Client(ClientError::ModelDoesNotSupportOption {
@@ -228,7 +237,7 @@ fn plan_batch_count(
         }))
       }
       RequestMismatchMitigationStrategy::PayMoreUpgrade
-      | RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(()),
+      | RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(KinoviBatchCount::Eight),
     },
   }
 }
@@ -352,6 +361,24 @@ mod tests {
           assert_eq!(actual_audio, generate_audio);
         }
       }
+    }
+  }
+
+  #[test]
+  fn supported_batches_reach_cost_estimation() {
+    use crate::generate::generate_video::providers::kinovi::seedance_2p5::cost::KinoviSeedance2p5CostState;
+
+    for count in 1..=8 {
+      let builder = GenerateVideoRequestBuilder {
+        video_batch_count: Some(count),
+        duration_seconds: Some(4),
+        resolution: Some(RouterResolution::FourEightyP),
+        request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::ErrorOut,
+        ..base_builder()
+      };
+      let draft = unwrap_draft(build_kinovi_seedance_2p5(builder));
+      let cost = KinoviSeedance2p5CostState::from_draft(&draft).estimate_cost();
+      assert_eq!(cost.cost_in_credits, Some((104.0 * f64::from(count)).round() as u64), "batch {count}");
     }
   }
 

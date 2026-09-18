@@ -68,6 +68,10 @@ pub enum KinoviSeedance2p0BatchCount {
   Two,
   Three,
   Four,
+  Five,
+  Six,
+  Seven,
+  Eight,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -166,6 +170,10 @@ impl KinoviCostCalculatorTrait for GenerateSeedance2p0Request {
       Some(KinoviSeedance2p0BatchCount::Two) => 2.0,
       Some(KinoviSeedance2p0BatchCount::Three) => 3.0,
       Some(KinoviSeedance2p0BatchCount::Four) => 4.0,
+      Some(KinoviSeedance2p0BatchCount::Five) => 5.0,
+      Some(KinoviSeedance2p0BatchCount::Six) => 6.0,
+      Some(KinoviSeedance2p0BatchCount::Seven) => 7.0,
+      Some(KinoviSeedance2p0BatchCount::Eight) => 8.0,
     };
 
     let output_seconds = f64::from(self.duration_seconds) * batch_multiplier;
@@ -274,6 +282,10 @@ fn map_batch_count(bc: Option<KinoviSeedance2p0BatchCount>) -> KinoviBatchCountR
     Some(KinoviSeedance2p0BatchCount::Two) => KinoviBatchCountRaw::Two,
     Some(KinoviSeedance2p0BatchCount::Three) => KinoviBatchCountRaw::Three,
     Some(KinoviSeedance2p0BatchCount::Four) => KinoviBatchCountRaw::Four,
+    Some(KinoviSeedance2p0BatchCount::Five) => KinoviBatchCountRaw::Five,
+    Some(KinoviSeedance2p0BatchCount::Six) => KinoviBatchCountRaw::Six,
+    Some(KinoviSeedance2p0BatchCount::Seven) => KinoviBatchCountRaw::Seven,
+    Some(KinoviSeedance2p0BatchCount::Eight) => KinoviBatchCountRaw::Eight,
   }
 }
 

@@ -28,6 +28,7 @@ pub struct GenerateSeedance2p5PreviewRequest {
   pub aspect_ratio: Option<KinoviSeedance2p5PreviewAspectRatio>,
   pub output_resolution: Option<KinoviSeedance2p5PreviewOutputResolution>,
   pub duration_seconds: u8,
+  pub batch_count: Option<KinoviSeedance2p5PreviewBatchCount>,
   /// Reference images, referenced in prompts as @image1, @image2, etc.
   pub reference_image_urls: Option<Vec<String>>,
   /// Reference videos, referenced in prompts as @video1, @video2, etc.
@@ -56,6 +57,19 @@ pub enum KinoviSeedance2p5PreviewAspectRatio {
 pub enum KinoviSeedance2p5PreviewOutputResolution {
   FourEightyP,
   SevenTwentyP,
+}
+
+/// Number of videos to generate in one request (1–8).
+#[derive(Debug, Clone, Copy)]
+pub enum KinoviSeedance2p5PreviewBatchCount {
+  One,
+  Two,
+  Three,
+  Four,
+  Five,
+  Six,
+  Seven,
+  Eight,
 }
 
 // ── Pricing ──
@@ -97,7 +111,18 @@ impl KinoviCostCalculatorTrait for GenerateSeedance2p5PreviewRequest {
       Some(KinoviSeedance2p5PreviewOutputResolution::FourEightyP) => SEEDANCE_2P5_PREVIEW_480P,
       Some(KinoviSeedance2p5PreviewOutputResolution::SevenTwentyP) | None => SEEDANCE_2P5_PREVIEW_720P,
     };
-    let total_credits = rate.credits(tier) * f64::from(self.duration_seconds);
+    let batch_multiplier: f64 = match self.batch_count {
+      None | Some(KinoviSeedance2p5PreviewBatchCount::One) => 1.0,
+      Some(KinoviSeedance2p5PreviewBatchCount::Two) => 2.0,
+      Some(KinoviSeedance2p5PreviewBatchCount::Three) => 3.0,
+      Some(KinoviSeedance2p5PreviewBatchCount::Four) => 4.0,
+      Some(KinoviSeedance2p5PreviewBatchCount::Five) => 5.0,
+      Some(KinoviSeedance2p5PreviewBatchCount::Six) => 6.0,
+      Some(KinoviSeedance2p5PreviewBatchCount::Seven) => 7.0,
+      Some(KinoviSeedance2p5PreviewBatchCount::Eight) => 8.0,
+    };
+
+    let total_credits = rate.credits(tier) * f64::from(self.duration_seconds) * batch_multiplier;
     tier.cost_from_credits(total_credits)
   }
 }
@@ -139,7 +164,7 @@ fn to_raw_request(req: GenerateSeedance2p5PreviewRequest) -> WorkflowRunTaskRequ
     aspect_ratio: map_aspect_ratio(req.aspect_ratio),
     output_resolution: Some(map_output_resolution(req.output_resolution)),
     duration_seconds: req.duration_seconds,
-    batch_count: KinoviBatchCountRaw::One,
+    batch_count: map_batch_count(req.batch_count),
     start_frame_url: None,
     end_frame_url: None,
     reference_image_urls: req.reference_image_urls,
@@ -171,6 +196,19 @@ fn map_output_resolution(res: Option<KinoviSeedance2p5PreviewOutputResolution>) 
     // Unset resolves to 720p — MUST stay in lockstep with calculate_costs(),
     // which prices None as 720p.
     Some(KinoviSeedance2p5PreviewOutputResolution::SevenTwentyP) | None => KinoviOutputResolutionRaw::SevenTwentyP,
+  }
+}
+
+fn map_batch_count(bc: Option<KinoviSeedance2p5PreviewBatchCount>) -> KinoviBatchCountRaw {
+  match bc {
+    Some(KinoviSeedance2p5PreviewBatchCount::One) | None => KinoviBatchCountRaw::One,
+    Some(KinoviSeedance2p5PreviewBatchCount::Two) => KinoviBatchCountRaw::Two,
+    Some(KinoviSeedance2p5PreviewBatchCount::Three) => KinoviBatchCountRaw::Three,
+    Some(KinoviSeedance2p5PreviewBatchCount::Four) => KinoviBatchCountRaw::Four,
+    Some(KinoviSeedance2p5PreviewBatchCount::Five) => KinoviBatchCountRaw::Five,
+    Some(KinoviSeedance2p5PreviewBatchCount::Six) => KinoviBatchCountRaw::Six,
+    Some(KinoviSeedance2p5PreviewBatchCount::Seven) => KinoviBatchCountRaw::Seven,
+    Some(KinoviSeedance2p5PreviewBatchCount::Eight) => KinoviBatchCountRaw::Eight,
   }
 }
 
@@ -507,6 +545,15 @@ mod tests {
       }
     }
 
+    #[test]
+    fn batch_costs_and_request_count_agree() {
+      let mut request = r480(4);
+      request.batch_count = Some(KinoviSeedance2p5PreviewBatchCount::Eight);
+      assert_eq!(request.calculate_consumer_costs().kinovi_credits, 1476.8);
+      assert_eq!(request.calculate_enterprise_costs().kinovi_credits, 1348.16);
+      assert!(matches!(to_raw_request(request).batch_count, KinoviBatchCountRaw::Eight));
+    }
+
     // ── Helpers ──
 
     fn build_request(
@@ -514,6 +561,7 @@ mod tests {
       output_resolution: Option<KinoviSeedance2p5PreviewOutputResolution>,
     ) -> GenerateSeedance2p5PreviewRequest {
       GenerateSeedance2p5PreviewRequest {
+        batch_count: None,
         prompt: String::new(),
         aspect_ratio: None,
         output_resolution,
@@ -556,6 +604,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5PreviewRequest {
+          batch_count: None,
           prompt: "A man is running from a t-rex".to_string(),
           aspect_ratio: Some(KinoviSeedance2p5PreviewAspectRatio::Landscape16x9),
           output_resolution: Some(KinoviSeedance2p5PreviewOutputResolution::FourEightyP),
@@ -582,6 +631,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5PreviewRequest {
+          batch_count: None,
           prompt: "A corgi and a shiba are playing chess against one another".to_string(),
           aspect_ratio: None,
           output_resolution: None,

@@ -167,7 +167,7 @@ fn plan_output_resolution(
   }
 }
 
-// Seedance2p0Fast supports batch counts of 1 through 4.
+// Seedance2p0Fast supports batch counts of 1 through 8.
 fn plan_batch_count(
   video_batch_count: Option<u16>,
   strategy: RequestMismatchMitigationStrategy,
@@ -179,7 +179,11 @@ fn plan_batch_count(
     2 => Ok(KinoviBatchCount::Two),
     3 => Ok(KinoviBatchCount::Three),
     4 => Ok(KinoviBatchCount::Four),
-    // 5 and above:
+    5 => Ok(KinoviBatchCount::Five),
+    6 => Ok(KinoviBatchCount::Six),
+    7 => Ok(KinoviBatchCount::Seven),
+    8 => Ok(KinoviBatchCount::Eight),
+    // 9 and above:
     _ => match strategy {
       RequestMismatchMitigationStrategy::ErrorOut => {
         Err(ArtcraftRouterError::Client(ClientError::ModelDoesNotSupportOption {
@@ -187,8 +191,8 @@ fn plan_batch_count(
           value: format!("{}", count),
         }))
       }
-      RequestMismatchMitigationStrategy::PayMoreUpgrade => Ok(KinoviBatchCount::Four),
-      RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(KinoviBatchCount::Four),
+      RequestMismatchMitigationStrategy::PayMoreUpgrade => Ok(KinoviBatchCount::Eight),
+      RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(KinoviBatchCount::Eight),
     },
   }
 }
@@ -254,6 +258,24 @@ mod tests {
   use super::*;
 
   // ── Materialized field conversions ──
+
+  #[test]
+  fn supported_batches_reach_cost_estimation() {
+    use crate::generate::generate_video::providers::kinovi::seedance_2p0_fast::cost::KinoviSeedance2p0FastCostState;
+
+    for count in 1..=8 {
+      let builder = GenerateVideoRequestBuilder {
+        video_batch_count: Some(count),
+        duration_seconds: Some(4),
+        resolution: Some(RouterResolution::FourEightyP),
+        request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::ErrorOut,
+        ..kinovi_web_fast_builder()
+      };
+      let draft = unwrap_draft(build_kinovi_seedance_2p0_fast(builder));
+      let cost = KinoviSeedance2p0FastCostState::from_draft(&draft).estimate_cost();
+      assert_eq!(cost.cost_in_credits, Some((42.0 * f64::from(count)).round() as u64), "batch {count}");
+    }
+  }
 
   mod materialized_field_conversions {
     use super::*;

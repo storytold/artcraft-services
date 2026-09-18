@@ -48,6 +48,7 @@ pub struct GenerateSeedance2p5Request {
   pub output_resolution: Option<KinoviSeedance2p5OutputResolution>,
 
   pub duration_seconds: u8,
+  pub batch_count: Option<KinoviSeedance2p5BatchCount>,
 
   /// CALCULATION-ONLY (never sent on the wire): the total seconds of
   /// reference video input, summed across all reference videos. When video
@@ -135,6 +136,19 @@ pub enum KinoviSeedance2p5Bitrate {
 pub enum KinoviSeedance2p5OutputFormat {
   Mp4,
   Mov,
+}
+
+/// Number of videos to generate in one request (1–8).
+#[derive(Debug, Clone, Copy)]
+pub enum KinoviSeedance2p5BatchCount {
+  One,
+  Two,
+  Three,
+  Four,
+  Five,
+  Six,
+  Seven,
+  Eight,
 }
 
 // ── Pricing ──
@@ -233,7 +247,18 @@ impl KinoviCostCalculatorTrait for GenerateSeedance2p5Request {
       (rate, u64::from(self.duration_seconds))
     };
 
-    let total_credits = rate.credits(tier) * billed_seconds as f64;
+    let batch_multiplier: f64 = match self.batch_count {
+      None | Some(KinoviSeedance2p5BatchCount::One) => 1.0,
+      Some(KinoviSeedance2p5BatchCount::Two) => 2.0,
+      Some(KinoviSeedance2p5BatchCount::Three) => 3.0,
+      Some(KinoviSeedance2p5BatchCount::Four) => 4.0,
+      Some(KinoviSeedance2p5BatchCount::Five) => 5.0,
+      Some(KinoviSeedance2p5BatchCount::Six) => 6.0,
+      Some(KinoviSeedance2p5BatchCount::Seven) => 7.0,
+      Some(KinoviSeedance2p5BatchCount::Eight) => 8.0,
+    };
+
+    let total_credits = rate.credits(tier) * billed_seconds as f64 * batch_multiplier;
     tier.cost_from_credits(total_credits)
   }
 }
@@ -308,7 +333,7 @@ fn to_raw_request(req: GenerateSeedance2p5Request) -> WorkflowRunTaskRequest {
     aspect_ratio,
     output_resolution: Some(map_output_resolution(req.output_resolution)),
     duration_seconds: req.duration_seconds,
-    batch_count: KinoviBatchCountRaw::One,
+    batch_count: map_batch_count(req.batch_count),
     start_frame_url,
     end_frame_url,
     reference_image_urls,
@@ -351,6 +376,19 @@ fn map_output_resolution(res: Option<KinoviSeedance2p5OutputResolution>) -> Kino
     // which prices None as 720p.
     Some(KinoviSeedance2p5OutputResolution::SevenTwentyP) | None => KinoviOutputResolutionRaw::SevenTwentyP,
     Some(KinoviSeedance2p5OutputResolution::TenEightyP) => KinoviOutputResolutionRaw::TenEightyP,
+  }
+}
+
+fn map_batch_count(bc: Option<KinoviSeedance2p5BatchCount>) -> KinoviBatchCountRaw {
+  match bc {
+    Some(KinoviSeedance2p5BatchCount::One) | None => KinoviBatchCountRaw::One,
+    Some(KinoviSeedance2p5BatchCount::Two) => KinoviBatchCountRaw::Two,
+    Some(KinoviSeedance2p5BatchCount::Three) => KinoviBatchCountRaw::Three,
+    Some(KinoviSeedance2p5BatchCount::Four) => KinoviBatchCountRaw::Four,
+    Some(KinoviSeedance2p5BatchCount::Five) => KinoviBatchCountRaw::Five,
+    Some(KinoviSeedance2p5BatchCount::Six) => KinoviBatchCountRaw::Six,
+    Some(KinoviSeedance2p5BatchCount::Seven) => KinoviBatchCountRaw::Seven,
+    Some(KinoviSeedance2p5BatchCount::Eight) => KinoviBatchCountRaw::Eight,
   }
 }
 
@@ -697,6 +735,15 @@ mod tests {
       use super::*;
 
       #[test]
+      fn batch_multiplies_output_and_reference_input_costs() {
+        let mut request = video_ref_480(5, Some(10));
+        request.batch_count = Some(KinoviSeedance2p5BatchCount::Eight);
+        assert_eq!(request.calculate_consumer_costs().kinovi_credits, 1920.0);
+        assert_eq!(request.calculate_enterprise_costs().kinovi_credits, 1920.0);
+        assert!(matches!(to_raw_request(request).batch_count, KinoviBatchCountRaw::Eight));
+      }
+
+      #[test]
       fn video_reference_rate_is_cheaper_per_second() {
         // 16 < 26, 35 < 59, and 81.4 < 136.23: the with-references rate is
         // lower per billed second (the input seconds are where the money
@@ -769,6 +816,7 @@ mod tests {
       output_resolution: Option<KinoviSeedance2p5OutputResolution>,
     ) -> GenerateSeedance2p5Request {
       GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: String::new(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: None,
@@ -800,6 +848,7 @@ mod tests {
 
     fn keyframe_request(duration: u8) -> GenerateSeedance2p5Request {
       GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: String::new(),
         modality: KinoviSeedance2p5Modality::Keyframe {
           start_frame_url: "https://example.com/start.png".to_string(),
@@ -862,6 +911,7 @@ mod tests {
     #[test]
     fn keyframe_maps_frames_and_no_references() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "Car drives into the sunset".to_string(),
         modality: KinoviSeedance2p5Modality::Keyframe {
           start_frame_url: "https://example.com/start.png".to_string(),
@@ -888,6 +938,7 @@ mod tests {
     #[test]
     fn reference_maps_references_and_no_frames() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "The t-rex @image1 eats the banana".to_string(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: Some(KinoviSeedance2p5AspectRatio::UltraWide21x9),
@@ -918,6 +969,7 @@ mod tests {
     #[test]
     fn resolution_1080p_maps_to_raw_1080p() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "A car driving on the beach".to_string(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: None,
@@ -940,6 +992,7 @@ mod tests {
     #[test]
     fn reference_aspect_ratio_defaults_to_16x9() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "Lightning hits a building".to_string(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: None,
@@ -972,6 +1025,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "Lightning hits a building".to_string(),
           modality: KinoviSeedance2p5Modality::Reference {
             aspect_ratio: Some(KinoviSeedance2p5AspectRatio::Landscape16x9),
@@ -1006,6 +1060,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "A car driving on the beach".to_string(),
           modality: KinoviSeedance2p5Modality::Reference {
             aspect_ratio: Some(KinoviSeedance2p5AspectRatio::Landscape16x9),
@@ -1038,6 +1093,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "Car drives into the sunset".to_string(),
           modality: KinoviSeedance2p5Modality::Keyframe {
             start_frame_url: "https://static.seedance2-pro.com/materials/20260807/1786128486168-a2bf6132.png".to_string(),
@@ -1068,6 +1124,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "Car drives into the sunset".to_string(),
           modality: KinoviSeedance2p5Modality::Keyframe {
             start_frame_url: "https://static.seedance2-pro.com/materials/20260807/1786128486168-a2bf6132.png".to_string(),
@@ -1098,6 +1155,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "The t-rex @image1 eats the banana @image2".to_string(),
           modality: KinoviSeedance2p5Modality::Reference {
             aspect_ratio: Some(KinoviSeedance2p5AspectRatio::UltraWide21x9),

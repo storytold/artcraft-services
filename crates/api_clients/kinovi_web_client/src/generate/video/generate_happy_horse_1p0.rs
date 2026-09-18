@@ -49,6 +49,7 @@ pub enum KinoviHappyHorse1p0OutputResolution {
 pub enum KinoviHappyHorse1p0BatchCount {
   One,
   Two,
+  Three,
   Four,
 }
 
@@ -79,6 +80,7 @@ impl GenerateHappyHorse1p0Request {
     let batch_multiplier: u64 = match self.batch_count {
       None | Some(KinoviHappyHorse1p0BatchCount::One) => 1,
       Some(KinoviHappyHorse1p0BatchCount::Two) => 2,
+      Some(KinoviHappyHorse1p0BatchCount::Three) => 3,
       Some(KinoviHappyHorse1p0BatchCount::Four) => 4,
     };
 
@@ -174,6 +176,7 @@ fn map_batch_count(bc: Option<KinoviHappyHorse1p0BatchCount>) -> KinoviBatchCoun
   match bc {
     Some(KinoviHappyHorse1p0BatchCount::One) | None => KinoviBatchCountRaw::One,
     Some(KinoviHappyHorse1p0BatchCount::Two) => KinoviBatchCountRaw::Two,
+    Some(KinoviHappyHorse1p0BatchCount::Three) => KinoviBatchCountRaw::Three,
     Some(KinoviHappyHorse1p0BatchCount::Four) => KinoviBatchCountRaw::Four,
   }
 }

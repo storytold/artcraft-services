@@ -134,6 +134,7 @@ fn plan_batch_count(
     0 => Err(ArtcraftRouterError::Client(ClientError::UserRequestedZeroGenerations)),
     1 => Ok(None),
     2 => Ok(Some(KinoviHappyHorse1p0BatchCount::Two)),
+    3 => Ok(Some(KinoviHappyHorse1p0BatchCount::Three)),
     4 => Ok(Some(KinoviHappyHorse1p0BatchCount::Four)),
     _ => match strategy {
       RequestMismatchMitigationStrategy::ErrorOut => {
@@ -143,10 +144,10 @@ fn plan_batch_count(
         }))
       }
       RequestMismatchMitigationStrategy::PayMoreUpgrade => {
-        Ok(Some(if count >= 4 { KinoviHappyHorse1p0BatchCount::Four } else { KinoviHappyHorse1p0BatchCount::Two }))
+        Ok(Some(KinoviHappyHorse1p0BatchCount::Four))
       }
       RequestMismatchMitigationStrategy::PayLessDowngrade => {
-        Ok(Some(if count <= 2 { KinoviHappyHorse1p0BatchCount::Two } else { KinoviHappyHorse1p0BatchCount::Four }))
+        Ok(Some(KinoviHappyHorse1p0BatchCount::Four))
       }
     },
   }
@@ -176,6 +177,24 @@ mod tests {
   use super::*;
 
   // ── Materialized field conversions ──
+
+  #[test]
+  fn supported_batches_reach_cost_estimation() {
+    use crate::generate::generate_video::providers::kinovi::happy_horse_1p0::cost::KinoviHappyHorse1p0CostState;
+
+    for count in 1..=4 {
+      let builder = GenerateVideoRequestBuilder {
+        video_batch_count: Some(count),
+        duration_seconds: Some(4),
+        resolution: Some(RouterResolution::SevenTwentyP),
+        request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::ErrorOut,
+        ..happy_horse_builder()
+      };
+      let draft = unwrap_draft(build_kinovi_happy_horse_1p0(builder));
+      let cost = KinoviHappyHorse1p0CostState::from_draft(&draft).estimate_cost();
+      assert_eq!(cost.cost_in_credits, Some((132.0 * f64::from(count)).round() as u64), "batch {count}");
+    }
+  }
 
   mod materialized_field_conversions {
     use super::*;

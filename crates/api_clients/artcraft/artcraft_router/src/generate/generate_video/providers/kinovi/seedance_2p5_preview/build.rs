@@ -1,5 +1,6 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5_preview::{
   KinoviSeedance2p5PreviewAspectRatio as KinoviAspectRatio,
+  KinoviSeedance2p5PreviewBatchCount as KinoviBatchCount,
   KinoviSeedance2p5PreviewOutputResolution as KinoviOutputResolution,
 };
 
@@ -47,7 +48,7 @@ fn do_build_kinovi_seedance_2p5_preview(mut builder: GenerateVideoRequestBuilder
 
   let aspect_ratio = plan_aspect_ratio(builder.aspect_ratio.take(), strategy)?;
   let resolution = plan_output_resolution(builder.resolution.take(), strategy)?;
-  plan_batch_count(builder.video_batch_count.take(), strategy)?;
+  let batch_count = plan_batch_count(builder.video_batch_count.take(), strategy)?;
   let duration_seconds = plan_duration(builder.duration_seconds.take(), strategy)?;
   let prompt = builder.prompt.take().unwrap_or_default();
 
@@ -61,6 +62,7 @@ fn do_build_kinovi_seedance_2p5_preview(mut builder: GenerateVideoRequestBuilder
   };
 
   Ok(KinoviSeedance2p5PreviewDraftState {
+    batch_count,
     aspect_ratio,
     resolution,
     duration_seconds,
@@ -177,16 +179,23 @@ fn plan_output_resolution(
   }
 }
 
-// Seedance 2.5 Preview generates a single video per request (no batching).
+// Seedance 2.5 Preview supports batches of 1–8 videos.
 fn plan_batch_count(
   video_batch_count: Option<u16>,
   strategy: RequestMismatchMitigationStrategy,
-) -> Result<(), ArtcraftRouterError> {
+) -> Result<KinoviBatchCount, ArtcraftRouterError> {
   let count = video_batch_count.unwrap_or(1);
   match count {
     0 => Err(ArtcraftRouterError::Client(ClientError::UserRequestedZeroGenerations)),
-    1 => Ok(()),
-    // Over the maximum of 1.
+    1 => Ok(KinoviBatchCount::One),
+    2 => Ok(KinoviBatchCount::Two),
+    3 => Ok(KinoviBatchCount::Three),
+    4 => Ok(KinoviBatchCount::Four),
+    5 => Ok(KinoviBatchCount::Five),
+    6 => Ok(KinoviBatchCount::Six),
+    7 => Ok(KinoviBatchCount::Seven),
+    8 => Ok(KinoviBatchCount::Eight),
+    // Over the maximum of 8.
     _ => match strategy {
       RequestMismatchMitigationStrategy::ErrorOut => {
         Err(ArtcraftRouterError::Client(ClientError::ModelDoesNotSupportOption {
@@ -195,7 +204,7 @@ fn plan_batch_count(
         }))
       }
       RequestMismatchMitigationStrategy::PayMoreUpgrade
-      | RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(()),
+      | RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(KinoviBatchCount::Eight),
     },
   }
 }
@@ -247,6 +256,24 @@ mod tests {
   use crate::generate::generate_video::video_generation_draft_or_request::VideoGenerationDraftOrRequest;
 
   use super::*;
+
+  #[test]
+  fn supported_batches_reach_cost_estimation() {
+    use crate::generate::generate_video::providers::kinovi::seedance_2p5_preview::cost::KinoviSeedance2p5PreviewCostState;
+
+    for count in 1..=8 {
+      let builder = GenerateVideoRequestBuilder {
+        video_batch_count: Some(count),
+        duration_seconds: Some(4),
+        resolution: Some(RouterResolution::FourEightyP),
+        request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::ErrorOut,
+        ..preview_builder()
+      };
+      let draft = unwrap_draft(build_kinovi_seedance_2p5_preview(builder));
+      let cost = KinoviSeedance2p5PreviewCostState::from_draft(&draft).estimate_cost();
+      assert_eq!(cost.cost_in_credits, Some((168.52 * f64::from(count)).round() as u64), "batch {count}");
+    }
+  }
 
   mod materialized_field_conversions {
     use super::*;
@@ -346,19 +373,20 @@ mod tests {
     }
 
     #[test]
-    fn batch_over_one_downgrades_to_single() {
+    fn batch_over_eight_downgrades_to_eight() {
       let builder = GenerateVideoRequestBuilder {
-        video_batch_count: Some(4),
+        video_batch_count: Some(9),
         request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::PayLessDowngrade,
         ..preview_builder()
       };
-      assert!(build_kinovi_seedance_2p5_preview(builder).is_ok());
+      let draft = unwrap_draft(build_kinovi_seedance_2p5_preview(builder));
+      assert!(matches!(draft.batch_count, KinoviBatchCount::Eight));
     }
 
     #[test]
-    fn batch_over_one_error_out() {
+    fn batch_over_eight_error_out() {
       let builder = GenerateVideoRequestBuilder {
-        video_batch_count: Some(4),
+        video_batch_count: Some(9),
         request_mismatch_mitigation_strategy: RequestMismatchMitigationStrategy::ErrorOut,
         ..preview_builder()
       };
