@@ -6,3 +6,4 @@ pub mod seedance_2p5;
 pub mod seedance_2p5_preview;
 pub(crate) mod resolve;
 pub(crate) mod upload;
+pub mod wan_3p0;

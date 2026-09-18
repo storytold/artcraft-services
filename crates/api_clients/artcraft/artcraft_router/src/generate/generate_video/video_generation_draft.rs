@@ -1,3 +1,5 @@
+use crate::generate::generate_video::providers::kinovi::wan_3p0::cost::KinoviWan3p0CostState;
+use crate::generate::generate_video::providers::kinovi::wan_3p0::draft::KinoviWan3p0DraftState;
 use crate::api::router_provider::RouterProvider;
 use crate::errors::artcraft_router_error::ArtcraftRouterError;
 use crate::generate::generate_video::video_generation_cost_estimate::VideoGenerationCostEstimate;
@@ -21,6 +23,8 @@ use crate::generate::generate_video::video_generation_request::VideoGenerationRe
  */
 #[derive(Clone, Debug)]
 pub enum VideoGenerationDraftRequest {
+  KinoviWan3p0(KinoviWan3p0DraftState),
+  KinoviWan3p0Prime(KinoviWan3p0DraftState),
   KinoviHappyHorse1p0(KinoviHappyHorse1p0DraftState),
   KinoviSeedance2p0(KinoviSeedance2p0DraftState),
   KinoviSeedance2p0Fast(KinoviSeedance2p0FastDraftState),
@@ -33,6 +37,8 @@ impl VideoGenerationDraftRequest {
 
   pub fn get_provider(&self) -> RouterProvider {
     match self {
+      Self::KinoviWan3p0(_) => RouterProvider::KinoviWeb,
+      Self::KinoviWan3p0Prime(_) => RouterProvider::KinoviWeb,
       Self::KinoviHappyHorse1p0(_) => RouterProvider::KinoviWeb,
       Self::KinoviSeedance2p0(_) => RouterProvider::KinoviWeb,
       Self::KinoviSeedance2p0Fast(_) => RouterProvider::KinoviWeb,
@@ -45,6 +51,8 @@ impl VideoGenerationDraftRequest {
   /// Return a cost estimate to fulfill the request.
   pub fn estimate_cost(&self) -> Result<VideoGenerationCostEstimate, ArtcraftRouterError> {
     match self {
+      VideoGenerationDraftRequest::KinoviWan3p0(state) => Ok(KinoviWan3p0CostState::from_draft(state).estimate_cost()),
+      VideoGenerationDraftRequest::KinoviWan3p0Prime(state) => Ok(KinoviWan3p0CostState::from_draft(state).estimate_cost()),
       VideoGenerationDraftRequest::KinoviHappyHorse1p0(draft) => Ok(KinoviHappyHorse1p0CostState::from_draft(draft).estimate_cost()),
       VideoGenerationDraftRequest::KinoviSeedance2p0(draft) => Ok(KinoviSeedance2p0CostState::from_draft(draft).estimate_cost()),
       VideoGenerationDraftRequest::KinoviSeedance2p0Fast(draft) => Ok(KinoviSeedance2p0FastCostState::from_draft(draft).estimate_cost()),
@@ -58,6 +66,12 @@ impl VideoGenerationDraftRequest {
   /// This may involve uploading media to the provider.
   pub async fn finalize(self, draft_context: VideoGenerationDraftContext<'_>) -> Result<VideoGenerationRequest, ArtcraftRouterError> {
     match self {
+      VideoGenerationDraftRequest::KinoviWan3p0(draft) => {
+        Ok(VideoGenerationRequest::KinoviWan3p0(draft.to_request(&draft_context).await?))
+      },
+      VideoGenerationDraftRequest::KinoviWan3p0Prime(draft) => {
+        Ok(VideoGenerationRequest::KinoviWan3p0Prime(draft.to_request(&draft_context).await?))
+      },
       VideoGenerationDraftRequest::KinoviHappyHorse1p0(mut draft) => {
         let result = draft.to_request(&draft_context).await?;
         Ok(VideoGenerationRequest::KinoviHappyHorse1p0(result))

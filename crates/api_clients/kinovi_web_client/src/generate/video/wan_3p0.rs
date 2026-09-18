@@ -243,3 +243,53 @@ pub(super) fn invalid_field(field: &'static str, value: impl ToString, reason: i
   }
   .into()
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  const FLOAT_TOLERANCE: f64 = 1e-9;
+
+  #[test]
+  fn regular_and_prime_credit_prices_match_the_promotion() {
+    let cases: &[(Wan3p0Model, KinoviWan3p0OutputResolution, u8, f64)] = &[
+      (Wan3p0Model::TextToVideo, KinoviWan3p0OutputResolution::FourEightyP, 2, 19.96),
+      (Wan3p0Model::ImageToVideo, KinoviWan3p0OutputResolution::SevenTwentyP, 5, 99.8),
+      (Wan3p0Model::RefToVideo, KinoviWan3p0OutputResolution::TenEightyP, 10, 399.1),
+      (Wan3p0Model::PrimeTextToVideo, KinoviWan3p0OutputResolution::FourEightyP, 2, 37.72),
+      (Wan3p0Model::PrimeImageToVideo, KinoviWan3p0OutputResolution::SevenTwentyP, 5, 194.15),
+      (Wan3p0Model::PrimeRefToVideo, KinoviWan3p0OutputResolution::TenEightyP, 10, 776.6),
+    ];
+    for (model, resolution, duration, credits) in cases {
+      let enterprise = model.calculate_costs(Some(*resolution), *duration, KinoviPricingTier::Enterprise);
+      let consumer = model.calculate_costs(Some(*resolution), *duration, KinoviPricingTier::Consumer);
+      assert!((enterprise.kinovi_credits - credits).abs() < FLOAT_TOLERANCE);
+      assert!((consumer.kinovi_credits - credits).abs() < FLOAT_TOLERANCE);
+      assert!(consumer.usd_cents_fractional > enterprise.usd_cents_fractional);
+    }
+  }
+
+  #[test]
+  fn all_wan_modalities_scale_linearly_with_duration() {
+    for model in [
+      Wan3p0Model::TextToVideo,
+      Wan3p0Model::ImageToVideo,
+      Wan3p0Model::RefToVideo,
+      Wan3p0Model::PrimeTextToVideo,
+      Wan3p0Model::PrimeImageToVideo,
+      Wan3p0Model::PrimeRefToVideo,
+    ] {
+      let two_seconds = model.calculate_costs(
+        Some(KinoviWan3p0OutputResolution::SevenTwentyP),
+        2,
+        KinoviPricingTier::Enterprise,
+      );
+      let ten_seconds = model.calculate_costs(
+        Some(KinoviWan3p0OutputResolution::SevenTwentyP),
+        10,
+        KinoviPricingTier::Enterprise,
+      );
+      assert!((ten_seconds.kinovi_credits - two_seconds.kinovi_credits * 5.0).abs() < FLOAT_TOLERANCE);
+    }
+  }
+}

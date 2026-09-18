@@ -9,6 +9,8 @@
 //! idempotency, media/character resolution, reference-video probing,
 //! billing, provider dispatch, and job/prompt record writing.
 
+use artcraft_router::generate::generate_video::providers::wan_3p0_common::normalize_wan_3p0_builder;
+use super::wan_3p0_reference_duration::validate_wan_3p0_reference_duration;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -154,16 +156,24 @@ server_state.maybe_media_cdn_override_url.as_deref(),
       &mut mysql_connection,
     ).await?;
 
+  let is_wan = matches!(request.model, Some(CommonVideoModel::Wan3p0 | CommonVideoModel::Wan3p0Prime));
+  let mut router_builder = hydrate_to_router_request(request)?;
+  if is_wan {
+    router_builder = normalize_wan_3p0_builder(router_builder).map_err(|error| {
+      CommonWebError::BadInputWithSimpleMessage(error.to_string())
+    })?;
+  }
+
   // ==================== REFERENCE VIDEO INPUT SECONDS ==================== //
 
-  // Seedance 2.5 bills reference-video input seconds on top of the output
-  // duration. Stored durations can't be trusted for billing, so every
+  // Seedance 2.5 bills reference-video input seconds; Wan needs them for
+  // its combined input/output limit. Stored durations cannot be trusted, so every
   // reference video is downloaded and ffprobed; the downloaded files are
   // kept and handed to the pipeline so the Kinovi upload reuses them
   // instead of downloading the same bytes twice.
   let mut maybe_probed_reference_videos: Option<ProbedReferenceVideos> = None;
 
-  if matches!(request.model, Some(CommonVideoModel::Seedance2p5 | CommonVideoModel::Seedance2p5Ultra)) {
+  if is_wan || matches!(request.model, Some(CommonVideoModel::Seedance2p5 | CommonVideoModel::Seedance2p5Ultra)) {
     if let Some(video_tokens) = request.reference_video_media_tokens.as_deref().filter(|tokens| !tokens.is_empty()) {
       let video_sources = fetch_reference_video_sources(
         video_tokens,
@@ -174,10 +184,17 @@ server_state.maybe_media_cdn_override_url.as_deref(),
       ).await?;
 
       // Downloads + ffprobe are slow — release the pool slot across them,
-      // then re-acquire for billing. Probing never fails the generation:
-      // unmeasurable files bill at the 30-second worst case.
+      // then re-acquire for billing. Seedance uses a billing fallback for
+      // unmeasurable files; Wan requires a successful measurement.
       drop(mysql_connection);
       let probed = download_and_probe_reference_videos(&video_sources).await;
+      if is_wan {
+        router_builder.total_reference_video_input_seconds = Some(
+          validate_wan_3p0_reference_duration(
+            router_builder.duration_seconds.unwrap_or(5), &probed.durations_millis,
+          )?,
+        );
+      }
       mysql_connection = server_state.mysql_pool.acquire().await?;
 
       maybe_probed_reference_videos = Some(probed);
@@ -186,9 +203,10 @@ server_state.maybe_media_cdn_override_url.as_deref(),
 
   // ==================== HYDRATE ROUTER REQUEST ==================== //
 
-  let mut router_builder = hydrate_to_router_request(&request)?;
-  router_builder.total_reference_video_input_seconds =
-    maybe_probed_reference_videos.as_ref().map(|probed| probed.total_input_seconds);
+  if !is_wan {
+    router_builder.total_reference_video_input_seconds =
+      maybe_probed_reference_videos.as_ref().map(|probed| probed.total_input_seconds);
+  }
 
   // ==================== PIPELINE DISPATCH ==================== //
 
