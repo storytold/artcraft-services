@@ -549,6 +549,58 @@ mod tests {
       use super::*;
       use crate::test_utils::assert_batch_cost::assert_batch_cost;
 
+      const BATCHES: [KinoviSeedance2p5PreviewBatchCount; 8] = [
+        KinoviSeedance2p5PreviewBatchCount::One,
+        KinoviSeedance2p5PreviewBatchCount::Two,
+        KinoviSeedance2p5PreviewBatchCount::Three,
+        KinoviSeedance2p5PreviewBatchCount::Four,
+        KinoviSeedance2p5PreviewBatchCount::Five,
+        KinoviSeedance2p5PreviewBatchCount::Six,
+        KinoviSeedance2p5PreviewBatchCount::Seven,
+        KinoviSeedance2p5PreviewBatchCount::Eight,
+      ];
+
+      // Each pair is (credits, USD cents rounded up), for batches 1 through 8.
+      // Pin literal totals so rate changes fail independently of scaling checks.
+      #[test]
+      fn fixed_five_second_batch_prices_with_and_without_references() {
+        let cases = [
+          (KinoviSeedance2p5PreviewOutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (230.75, 120), (461.50, 240), (692.25, 359), (923.00, 479),
+            (1153.75, 598), (1384.50, 718), (1615.25, 838), (1846.00, 957),
+          ]),
+          (KinoviSeedance2p5PreviewOutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (460.15, 239), (920.30, 477), (1380.45, 716), (1840.60, 954),
+            (2300.75, 1193), (2760.90, 1431), (3221.05, 1670), (3681.20, 1908),
+          ]),
+          (KinoviSeedance2p5PreviewOutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (210.65, 87), (421.30, 174), (631.95, 260), (842.60, 347),
+            (1053.25, 434), (1263.90, 520), (1474.55, 607), (1685.20, 694),
+          ]),
+          (KinoviSeedance2p5PreviewOutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (421.3, 174), (842.6, 347), (1263.9, 520), (1685.2, 694),
+            (2106.5, 867), (2527.8, 1040), (2949.1, 1213), (3370.4, 1387),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for has_references in [false, true] {
+            for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+              let mut request = build_request(5, Some(resolution));
+              request.batch_count = Some(batch);
+              if has_references {
+                request = with_all_reference_types(request);
+              }
+              let cost = request.calculate_costs(tier);
+              assert_eq!(
+                (cost.kinovi_credits, cost.usd_cents_rounded_up),
+                (credits, usd_cents),
+                "{resolution:?} {tier:?} {batch:?} references={has_references}",
+              );
+            }
+          }
+        }
+      }
+
       #[test]
       fn all_batches_scale_every_resolution_with_and_without_references() {
         let batches = [

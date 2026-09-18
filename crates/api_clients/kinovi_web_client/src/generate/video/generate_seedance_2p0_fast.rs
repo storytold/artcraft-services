@@ -542,6 +542,86 @@ mod tests {
       use super::*;
       use crate::test_utils::assert_batch_cost::assert_batch_cost;
 
+      const BATCHES: [KinoviSeedance2p0FastBatchCount; 8] = [
+        KinoviSeedance2p0FastBatchCount::One,
+        KinoviSeedance2p0FastBatchCount::Two,
+        KinoviSeedance2p0FastBatchCount::Three,
+        KinoviSeedance2p0FastBatchCount::Four,
+        KinoviSeedance2p0FastBatchCount::Five,
+        KinoviSeedance2p0FastBatchCount::Six,
+        KinoviSeedance2p0FastBatchCount::Seven,
+        KinoviSeedance2p0FastBatchCount::Eight,
+      ];
+
+      // Each pair is (credits, USD cents rounded up), for batches 1 through 8.
+      // Pin literal totals so rate changes fail independently of scaling checks.
+      #[test]
+      fn fixed_five_second_batch_prices_without_video_reference() {
+        let cases = [
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (70.0, 37), (140.0, 73), (210.0, 109), (280.0, 146),
+            (350.0, 182), (420.0, 218), (490.0, 254), (560.0, 291),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (140.0, 73), (280.0, 146), (420.0, 218), (560.0, 291),
+            (700.0, 363), (840.0, 436), (980.0, 508), (1120.0, 581),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (52.5, 22), (105.0, 44), (157.5, 65), (210.0, 87),
+            (262.5, 108), (315.0, 130), (367.5, 152), (420.0, 173),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (105.0, 44), (210.0, 87), (315.0, 130), (420.0, 173),
+            (525.0, 216), (630.0, 260), (735.0, 303), (840.0, 346),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let request = build_request(5, Some(resolution), Some(batch));
+            let cost = request.calculate_costs(tier).total_cost;
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
+
+      #[test]
+      fn fixed_five_second_batch_prices_with_video_reference() {
+        let cases = [
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (90.0, 47), (180.0, 94), (270.0, 140), (360.0, 187),
+            (450.0, 234), (540.0, 280), (630.0, 327), (720.0, 374),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (170.0, 89), (340.0, 177), (510.0, 265), (680.0, 353),
+            (850.0, 441), (1020.0, 529), (1190.0, 617), (1360.0, 705),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (67.5, 28), (135.0, 56), (202.5, 84), (270.0, 112),
+            (337.5, 139), (405.0, 167), (472.5, 195), (540.0, 223),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (127.5, 53), (255.0, 105), (382.5, 158), (510.0, 210),
+            (637.5, 263), (765.0, 315), (892.5, 368), (1020.0, 420),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let request = build_request(5, Some(resolution), Some(batch));
+            let request = with_video_ref(request);
+            let cost = request.calculate_costs(tier).total_cost;
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
+
       #[test]
       fn all_batches_scale_every_resolution_and_surcharge_at_both_tiers() {
         let batches = [

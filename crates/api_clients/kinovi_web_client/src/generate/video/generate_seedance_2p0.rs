@@ -626,6 +626,118 @@ mod tests {
       use super::*;
       use crate::test_utils::assert_batch_cost::assert_batch_cost;
 
+      const BATCHES: [KinoviSeedance2p0BatchCount; 8] = [
+        KinoviSeedance2p0BatchCount::One,
+        KinoviSeedance2p0BatchCount::Two,
+        KinoviSeedance2p0BatchCount::Three,
+        KinoviSeedance2p0BatchCount::Four,
+        KinoviSeedance2p0BatchCount::Five,
+        KinoviSeedance2p0BatchCount::Six,
+        KinoviSeedance2p0BatchCount::Seven,
+        KinoviSeedance2p0BatchCount::Eight,
+      ];
+
+      // Each pair is (credits, USD cents rounded up), for batches 1 through 8.
+      // Pin literal totals so rate changes fail independently of scaling checks.
+      #[test]
+      fn fixed_five_second_batch_prices_without_video_reference() {
+        let cases = [
+          (KinoviSeedance2p0OutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (75.0, 39), (150.0, 78), (225.0, 117), (300.0, 156),
+            (375.0, 195), (450.0, 234), (525.0, 273), (600.0, 311),
+          ]),
+          (KinoviSeedance2p0OutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (200.0, 104), (400.0, 208), (600.0, 311), (800.0, 415),
+            (1000.0, 519), (1200.0, 622), (1400.0, 726), (1600.0, 830),
+          ]),
+          (KinoviSeedance2p0OutputResolution::TenEightyP, KinoviPricingTier::Consumer, [
+            (450.0, 234), (900.0, 467), (1350.0, 700), (1800.0, 933),
+            (2250.0, 1166), (2700.0, 1400), (3150.0, 1633), (3600.0, 1866),
+          ]),
+          (KinoviSeedance2p0OutputResolution::FourK, KinoviPricingTier::Consumer, [
+            (1000.0, 519), (2000.0, 1037), (3000.0, 1555), (4000.0, 2073),
+            (5000.0, 2591), (6000.0, 3110), (7000.0, 3628), (8000.0, 4146),
+          ]),
+          (KinoviSeedance2p0OutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (75.0, 31), (150.0, 62), (225.0, 93), (300.0, 124),
+            (375.0, 155), (450.0, 186), (525.0, 216), (600.0, 247),
+          ]),
+          (KinoviSeedance2p0OutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (189.5, 78), (379.0, 156), (568.5, 234), (758.0, 312),
+            (947.5, 390), (1137.0, 468), (1326.5, 546), (1516.0, 624),
+          ]),
+          (KinoviSeedance2p0OutputResolution::TenEightyP, KinoviPricingTier::Enterprise, [
+            (450.0, 186), (900.0, 371), (1350.0, 556), (1800.0, 741),
+            (2250.0, 926), (2700.0, 1111), (3150.0, 1296), (3600.0, 1481),
+          ]),
+          (KinoviSeedance2p0OutputResolution::FourK, KinoviPricingTier::Enterprise, [
+            (1000.0, 412), (2000.0, 823), (3000.0, 1234), (4000.0, 1646),
+            (5000.0, 2057), (6000.0, 2468), (7000.0, 2879), (8000.0, 3291),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let request = build_request(5, Some(resolution), Some(batch));
+            let cost = request.calculate_costs(tier).total_cost;
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
+
+      #[test]
+      fn fixed_five_second_batch_prices_with_video_reference() {
+        let cases = [
+          (KinoviSeedance2p0OutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (95.0, 50), (190.0, 99), (285.0, 148), (380.0, 197),
+            (475.0, 247), (570.0, 296), (665.0, 345), (760.0, 394),
+          ]),
+          (KinoviSeedance2p0OutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (240.0, 125), (480.0, 249), (720.0, 374), (960.0, 498),
+            (1200.0, 622), (1440.0, 747), (1680.0, 871), (1920.0, 995),
+          ]),
+          (KinoviSeedance2p0OutputResolution::TenEightyP, KinoviPricingTier::Consumer, [
+            (540.0, 280), (1080.0, 560), (1620.0, 840), (2160.0, 1120),
+            (2700.0, 1400), (3240.0, 1679), (3780.0, 1959), (4320.0, 2239),
+          ]),
+          (KinoviSeedance2p0OutputResolution::FourK, KinoviPricingTier::Consumer, [
+            (1200.0, 622), (2400.0, 1244), (3600.0, 1866), (4800.0, 2488),
+            (6000.0, 3110), (7200.0, 3731), (8400.0, 4353), (9600.0, 4975),
+          ]),
+          (KinoviSeedance2p0OutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (95.0, 40), (190.0, 79), (285.0, 118), (380.0, 157),
+            (475.0, 196), (570.0, 235), (665.0, 274), (760.0, 313),
+          ]),
+          (KinoviSeedance2p0OutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (227.4, 94), (454.8, 188), (682.2, 281), (909.6, 375),
+            (1137.0, 468), (1364.4, 562), (1591.8, 655), (1819.2, 749),
+          ]),
+          (KinoviSeedance2p0OutputResolution::TenEightyP, KinoviPricingTier::Enterprise, [
+            (540.0, 223), (1080.0, 445), (1620.0, 667), (2160.0, 889),
+            (2700.0, 1111), (3240.0, 1333), (3780.0, 1555), (4320.0, 1777),
+          ]),
+          (KinoviSeedance2p0OutputResolution::FourK, KinoviPricingTier::Enterprise, [
+            (1200.0, 494), (2400.0, 988), (3600.0, 1481), (4800.0, 1975),
+            (6000.0, 2468), (7200.0, 2962), (8400.0, 3455), (9600.0, 3949),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let request = build_request(5, Some(resolution), Some(batch));
+            let request = with_video_ref(request);
+            let cost = request.calculate_costs(tier).total_cost;
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
+
       #[test]
       fn all_batches_scale_every_resolution_and_surcharge_at_both_tiers() {
         let batches = [

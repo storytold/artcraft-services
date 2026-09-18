@@ -278,6 +278,36 @@ mod tests {
     mod batch_tests {
       use super::*;
 
+      const BATCHES: [KinoviHappyHorse1p0BatchCount; 4] = [
+        KinoviHappyHorse1p0BatchCount::One,
+        KinoviHappyHorse1p0BatchCount::Two,
+        KinoviHappyHorse1p0BatchCount::Three,
+        KinoviHappyHorse1p0BatchCount::Four,
+      ];
+
+      #[test]
+      fn fixed_five_second_batch_prices() {
+        // Each pair is (credits, USD cents rounded up), for batches 1 through 4.
+        let cases = [
+          (KinoviHappyHorse1p0OutputResolution::SevenTwentyP, [
+            (165, 68), (330, 136), (495, 204), (660, 272),
+          ]),
+          (KinoviHappyHorse1p0OutputResolution::TenEightyP, [
+            (330, 136), (660, 272), (990, 408), (1320, 544),
+          ]),
+        ];
+        for (resolution, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let cost = make_request(5, Some(resolution), Some(batch)).calculate_costs();
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {batch:?}",
+            );
+          }
+        }
+      }
+
       #[test]
       fn all_batches_scale_every_resolution_and_round_the_total() {
         let batches = [
