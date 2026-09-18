@@ -1,0 +1,21 @@
+{
+  "model": "wan3.0-ref-to-video",
+  "contentMode": "normal",
+  "faceBlurMode": "off",
+  "prompt": "The Image 2 is on the beach Video 1 . There's a lighthouse Image 1 . The shiba says Audio 1",
+  "mode": "reference",
+  "aspectRatio": "4:3",
+  "duration": "5s",
+  "outputResolution": "1080p",
+  "videoUrl": "https://static.seedance2-pro.com/materials/20260918/1789740067508-9b952e67.mp4",
+  "videoUrls": [
+    "https://static.seedance2-pro.com/materials/20260918/1789740067508-9b952e67.mp4"
+  ],
+  "audioUrls": [
+    "https://static.seedance2-pro.com/materials/20260918/1789740228370-3f5d9623.wav"
+  ],
+  "uploadedUrls": [
+    "https://static.seedance2-pro.com/materials/20260918/1789740059548-4149c254.png",
+    "https://static.seedance2-pro.com/materials/20260918/1789740077221-9702e67d.png"
+  ]
+}

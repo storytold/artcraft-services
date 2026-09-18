@@ -1,0 +1,9 @@
+{
+  "model": "wan3.0-text-to-video",
+  "contentMode": "normal",
+  "faceBlurMode": "off",
+  "prompt": "A shiba eats a pie",
+  "aspectRatio": "16:9",
+  "duration": "5s",
+  "outputResolution": "720p"
+}
