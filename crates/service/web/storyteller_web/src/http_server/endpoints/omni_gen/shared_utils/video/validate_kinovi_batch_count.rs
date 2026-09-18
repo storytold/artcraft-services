@@ -13,6 +13,13 @@ pub(crate) fn validate_kinovi_batch_count(
       | CommonVideoModel::Seedance2p0
       | CommonVideoModel::Seedance2p0Fast
       | CommonVideoModel::Seedance2p0Mini
+      | CommonVideoModel::Seedance2p5Ultra
+      | CommonVideoModel::Seedance2p0BytePlus
+      | CommonVideoModel::Seedance2p0BytePlusFast
+      | CommonVideoModel::Seedance2p0BytePlusMini
+      | CommonVideoModel::Seedance2p0BytePlusUltra
+      | CommonVideoModel::Seedance2p0BytePlusUltraFast
+      | CommonVideoModel::Seedance2p0BytePlusUltraMini
       | CommonVideoModel::HappyHorse1p0
   )) && !(1..=4).contains(&video_batch_count.unwrap_or(1)) {
     return Err(CommonWebError::BadInputWithSimpleMessage(
@@ -33,11 +40,18 @@ mod tests {
 
   use super::*;
 
-  const MODELS: [CommonVideoModel; 5] = [
+  const MODELS: [CommonVideoModel; 12] = [
     CommonVideoModel::Seedance2p5,
     CommonVideoModel::Seedance2p0,
     CommonVideoModel::Seedance2p0Fast,
     CommonVideoModel::Seedance2p0Mini,
+    CommonVideoModel::Seedance2p5Ultra,
+    CommonVideoModel::Seedance2p0BytePlus,
+    CommonVideoModel::Seedance2p0BytePlusFast,
+    CommonVideoModel::Seedance2p0BytePlusMini,
+    CommonVideoModel::Seedance2p0BytePlusUltra,
+    CommonVideoModel::Seedance2p0BytePlusUltraFast,
+    CommonVideoModel::Seedance2p0BytePlusUltraMini,
     CommonVideoModel::HappyHorse1p0,
   ];
 
@@ -67,14 +81,7 @@ mod tests {
   #[test]
   fn other_models_keep_their_existing_validation() {
     for model in [
-      CommonVideoModel::Seedance2p5Ultra,
       CommonVideoModel::Seedance2p5Preview,
-      CommonVideoModel::Seedance2p0BytePlus,
-      CommonVideoModel::Seedance2p0BytePlusFast,
-      CommonVideoModel::Seedance2p0BytePlusMini,
-      CommonVideoModel::Seedance2p0BytePlusUltra,
-      CommonVideoModel::Seedance2p0BytePlusUltraFast,
-      CommonVideoModel::Seedance2p0BytePlusUltraMini,
       CommonVideoModel::Veo3p1,
     ] {
       for result in validate_both(model, Some(8)) {

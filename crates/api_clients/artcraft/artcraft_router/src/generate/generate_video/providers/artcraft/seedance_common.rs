@@ -218,11 +218,12 @@ const SEEDANCE_2P5_ULTRA_VIDEO_REFERENCE_CENTS_PER_SECOND_1080P: f64 = 41.844875
 /// this fallback is only a failsafe). Without video references, billed
 /// seconds = output duration. With video references, the per-second rate
 /// drops but the billed seconds are the output duration PLUS the total
-/// seconds of reference video input. The fractional total is rounded UP to
-/// a whole cent. No batching.
+/// seconds of reference video input. Multiply by batch count before rounding
+/// UP to a whole cent.
 pub fn seedance_2p5_ultra_usd_cents(
   resolution: CommonResolution,
   duration_seconds: u16,
+  batch_count: u16,
   has_video_references: bool,
   maybe_total_input_seconds: Option<u16>,
 ) -> u64 {
@@ -257,7 +258,7 @@ pub fn seedance_2p5_ultra_usd_cents(
     (rate, u64::from(duration_seconds))
   };
 
-  (cents_per_second * billed_seconds as f64).ceil() as u64
+  (cents_per_second * billed_seconds as f64 * batch_count as f64).ceil() as u64
 }
 
 #[allow(clippy::too_many_arguments)]

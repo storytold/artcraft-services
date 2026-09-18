@@ -14,11 +14,18 @@ use crate::generate::generate_video::generate_video_request_builder::GenerateVid
 use crate::generate::generate_video::video_generation_draft_or_request::VideoGenerationDraftOrRequest;
 use crate::generate::generate_video::video_generation_request::VideoGenerationRequest;
 
-const MODELS: [RouterVideoModel; 5] = [
+const MODELS: [RouterVideoModel; 12] = [
   RouterVideoModel::Seedance2p5,
   RouterVideoModel::Seedance2p0,
   RouterVideoModel::Seedance2p0Fast,
   RouterVideoModel::Seedance2p0Mini,
+  RouterVideoModel::Seedance2p5Ultra,
+  RouterVideoModel::Seedance2p0BytePlus,
+  RouterVideoModel::Seedance2p0BytePlusFast,
+  RouterVideoModel::Seedance2p0BytePlusMini,
+  RouterVideoModel::Seedance2p0BytePlusUltra,
+  RouterVideoModel::Seedance2p0BytePlusUltraFast,
+  RouterVideoModel::Seedance2p0BytePlusUltraMini,
   RouterVideoModel::HappyHorse1p0,
 ];
 
@@ -88,7 +95,9 @@ mod batch_planning {
 mod retail_prices {
   use super::*;
   use RouterResolution::{FourEightyP, FourK, SevenTwentyP, TenEightyP};
-  use RouterVideoModel::{HappyHorse1p0, Seedance2p0, Seedance2p0Fast, Seedance2p0Mini, Seedance2p5};
+  use RouterVideoModel::{HappyHorse1p0, Seedance2p0, Seedance2p0Fast, Seedance2p0Mini, Seedance2p5,
+    Seedance2p5Ultra, Seedance2p0BytePlus, Seedance2p0BytePlusFast, Seedance2p0BytePlusMini, Seedance2p0BytePlusUltra, Seedance2p0BytePlusUltraFast, Seedance2p0BytePlusUltraMini,
+  };
 
   #[test]
   fn five_second_prices_for_every_resolution_and_batch() {
@@ -98,6 +107,9 @@ mod retail_prices {
       (Seedance2p5, FourEightyP, [59, 118, 177, 236]),
       (Seedance2p5, SevenTwentyP, [134, 268, 401, 535]),
       (Seedance2p5, TenEightyP, [309, 617, 925, 1233]),
+      (Seedance2p5Ultra, FourEightyP, [70, 140, 209, 279]),
+      (Seedance2p5Ultra, SevenTwentyP, [158, 316, 474, 632]),
+      (Seedance2p5Ultra, TenEightyP, [337, 673, 1009, 1345]),
       (Seedance2p0, FourEightyP, [39, 78, 117, 155]),
       (Seedance2p0, SevenTwentyP, [93, 185, 278, 370]),
       (Seedance2p0, TenEightyP, [233, 466, 699, 933]),
@@ -106,6 +118,22 @@ mod retail_prices {
       (Seedance2p0Fast, SevenTwentyP, [64, 127, 191, 255]),
       (Seedance2p0Mini, FourEightyP, [18, 35, 52, 69]),
       (Seedance2p0Mini, SevenTwentyP, [45, 89, 134, 178]),
+      (Seedance2p0BytePlus, FourEightyP, [50, 100, 150, 200]),
+      (Seedance2p0BytePlus, SevenTwentyP, [125, 250, 375, 500]),
+      (Seedance2p0BytePlus, TenEightyP, [250, 500, 750, 1000]),
+      (Seedance2p0BytePlus, FourK, [475, 950, 1425, 1900]),
+      (Seedance2p0BytePlusUltra, FourEightyP, [50, 100, 150, 200]),
+      (Seedance2p0BytePlusUltra, SevenTwentyP, [125, 250, 375, 500]),
+      (Seedance2p0BytePlusUltra, TenEightyP, [250, 500, 750, 1000]),
+      (Seedance2p0BytePlusUltra, FourK, [475, 950, 1425, 1900]),
+      (Seedance2p0BytePlusFast, FourEightyP, [45, 90, 135, 180]),
+      (Seedance2p0BytePlusFast, SevenTwentyP, [100, 200, 300, 400]),
+      (Seedance2p0BytePlusUltraFast, FourEightyP, [45, 90, 135, 180]),
+      (Seedance2p0BytePlusUltraFast, SevenTwentyP, [100, 200, 300, 400]),
+      (Seedance2p0BytePlusMini, FourEightyP, [18, 36, 54, 71]),
+      (Seedance2p0BytePlusMini, SevenTwentyP, [46, 91, 137, 182]),
+      (Seedance2p0BytePlusUltraMini, FourEightyP, [18, 36, 54, 71]),
+      (Seedance2p0BytePlusUltraMini, SevenTwentyP, [46, 91, 137, 182]),
       (HappyHorse1p0, SevenTwentyP, [85, 171, 256, 342]),
       (HappyHorse1p0, TenEightyP, [171, 342, 513, 684]),
     ] {
@@ -120,6 +148,9 @@ mod retail_prices {
       (Seedance2p5, FourEightyP, [109, 218, 326, 435]),
       (Seedance2p5, SevenTwentyP, [238, 476, 713, 951]),
       (Seedance2p5, TenEightyP, [578, 1155, 1733, 2310]),
+      (Seedance2p5Ultra, FourEightyP, [129, 257, 386, 514]),
+      (Seedance2p5Ultra, SevenTwentyP, [281, 562, 843, 1124]),
+      (Seedance2p5Ultra, TenEightyP, [628, 1256, 1884, 2511]),
       (Seedance2p0, FourEightyP, [45, 89, 133, 177]),
       (Seedance2p0, SevenTwentyP, [111, 221, 331, 441]),
       (Seedance2p0, TenEightyP, [256, 511, 767, 1022]),
@@ -129,6 +160,22 @@ mod retail_prices {
       // Preserve Mini's existing floating-point round-up behavior.
       (Seedance2p0Mini, FourEightyP, [22, 44, 66, 88]),
       (Seedance2p0Mini, SevenTwentyP, [54, 108, 161, 215]),
+      (Seedance2p0BytePlus, FourEightyP, [51, 102, 153, 204]),
+      (Seedance2p0BytePlus, SevenTwentyP, [129, 257, 386, 514]),
+      (Seedance2p0BytePlus, TenEightyP, [289, 578, 867, 1156]),
+      (Seedance2p0BytePlus, FourK, [595, 1190, 1785, 2380]),
+      (Seedance2p0BytePlusUltra, FourEightyP, [51, 102, 153, 204]),
+      (Seedance2p0BytePlusUltra, SevenTwentyP, [129, 257, 386, 514]),
+      (Seedance2p0BytePlusUltra, TenEightyP, [289, 578, 867, 1156]),
+      (Seedance2p0BytePlusUltra, FourK, [595, 1190, 1785, 2380]),
+      (Seedance2p0BytePlusFast, FourEightyP, [49, 97, 145, 193]),
+      (Seedance2p0BytePlusFast, SevenTwentyP, [103, 205, 308, 410]),
+      (Seedance2p0BytePlusUltraFast, FourEightyP, [49, 97, 145, 193]),
+      (Seedance2p0BytePlusUltraFast, SevenTwentyP, [103, 205, 308, 410]),
+      (Seedance2p0BytePlusMini, FourEightyP, [23, 45, 68, 90]),
+      (Seedance2p0BytePlusMini, SevenTwentyP, [55, 110, 165, 219]),
+      (Seedance2p0BytePlusUltraMini, FourEightyP, [23, 45, 68, 90]),
+      (Seedance2p0BytePlusUltraMini, SevenTwentyP, [55, 110, 165, 219]),
     ] {
       let mut builder = builder(model, resolution, None);
       builder.reference_videos = Some(VideoListRef::MediaFileTokens(vec![
@@ -141,16 +188,19 @@ mod retail_prices {
 
   #[test]
   fn seedance_2p5_input_duration_clamping_and_fallback_scale_with_batch() {
-    for (resolution, minimum, maximum) in [
-      (FourEightyP, [66, 131, 196, 261], [254, 507, 761, 1014]),
-      (SevenTwentyP, [143, 286, 428, 571], [555, 1110, 1664, 2219]),
-      (TenEightyP, [347, 693, 1040, 1386], [1348, 2695, 4043, 5390]),
+    for (model, resolution, minimum, maximum) in [
+      (Seedance2p5, FourEightyP, [66, 131, 196, 261], [254, 507, 761, 1014]),
+      (Seedance2p5, SevenTwentyP, [143, 286, 428, 571], [555, 1110, 1664, 2219]),
+      (Seedance2p5, TenEightyP, [347, 693, 1040, 1386], [1348, 2695, 4043, 5390]),
+      (Seedance2p5Ultra, FourEightyP, [78, 155, 232, 309], [300, 600, 899, 1199]),
+      (Seedance2p5Ultra, SevenTwentyP, [169, 338, 506, 675], [656, 1311, 1967, 2622]),
+      (Seedance2p5Ultra, TenEightyP, [377, 754, 1130, 1507], [1465, 2930, 4394, 5859]),
     ] {
       for (input_seconds, expected) in [
         (Some(1), minimum), (Some(4), minimum),
         (None, maximum), (Some(0), maximum), (Some(30), maximum), (Some(99), maximum),
       ] {
-        let mut builder = builder(Seedance2p5, resolution, None);
+        let mut builder = builder(model, resolution, None);
         builder.reference_videos = Some(VideoListRef::MediaFileTokens(vec![
           MediaFileToken::new("mf_reference".to_string()),
         ]));
@@ -194,6 +244,13 @@ fn http_request(request: VideoGenerationDraftOrRequest) -> OmniGenVideoCostAndGe
       VideoGenerationRequest::ArtcraftSeedance2p0(state) => state.request,
       VideoGenerationRequest::ArtcraftSeedance2p0Fast(state) => state.request,
       VideoGenerationRequest::ArtcraftSeedance2p0Mini(state) => state.request,
+      VideoGenerationRequest::ArtcraftSeedance2p5Ultra(state) => state.request,
+      VideoGenerationRequest::ArtcraftSeedance2p0BytePlus(state) => state.request,
+      VideoGenerationRequest::ArtcraftSeedance2p0BytePlusFast(state) => state.request,
+      VideoGenerationRequest::ArtcraftSeedance2p0BytePlusMini(state) => state.request,
+      VideoGenerationRequest::ArtcraftSeedance2p0BytePlusUltra(state) => state.request,
+      VideoGenerationRequest::ArtcraftSeedance2p0BytePlusUltraFast(state) => state.request,
+      VideoGenerationRequest::ArtcraftSeedance2p0BytePlusUltraMini(state) => state.request,
       VideoGenerationRequest::ArtcraftHappyHorse1p0(state) => state.request,
       other => panic!("Unexpected request: {other:?}"),
     },

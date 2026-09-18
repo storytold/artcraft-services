@@ -158,6 +158,13 @@ mod tests {
       (CommonVideoModel::Seedance2p0, [93, 185, 278, 370]),
       (CommonVideoModel::Seedance2p0Fast, [64, 127, 191, 255]),
       (CommonVideoModel::Seedance2p0Mini, [45, 89, 134, 178]),
+      (CommonVideoModel::Seedance2p5Ultra, [158, 316, 474, 632]),
+      (CommonVideoModel::Seedance2p0BytePlus, [125, 250, 375, 500]),
+      (CommonVideoModel::Seedance2p0BytePlusFast, [100, 200, 300, 400]),
+      (CommonVideoModel::Seedance2p0BytePlusMini, [46, 91, 137, 182]),
+      (CommonVideoModel::Seedance2p0BytePlusUltra, [125, 250, 375, 500]),
+      (CommonVideoModel::Seedance2p0BytePlusUltraFast, [100, 200, 300, 400]),
+      (CommonVideoModel::Seedance2p0BytePlusUltraMini, [46, 91, 137, 182]),
       (CommonVideoModel::HappyHorse1p0, [85, 171, 256, 342]),
     ] {
       for (index, price) in expected_prices.iter().copied().enumerate() {

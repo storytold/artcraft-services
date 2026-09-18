@@ -3,27 +3,21 @@ use enums::common::generation::common_video_model::CommonVideoModel as CommonVid
 use crate::errors::artcraft_router_error::ArtcraftRouterError;
 use crate::generate::generate_video::generate_video_request_builder::GenerateVideoRequestBuilder;
 use crate::generate::generate_video::providers::artcraft::build_common::{
-  build_artcraft_omni_video_request, plan_mini_batch_count, SupportedResolutions, UltraWideSupport,
+  build_artcraft_omni_video_request, SupportedResolutions, UltraWideSupport,
 };
 use crate::generate::generate_video::providers::artcraft::seedance_2p0_bpu_mini::request::ArtcraftSeedance2p0BytePlusUltraMiniRequestState;
 use crate::generate::generate_video::video_generation_draft_or_request::VideoGenerationDraftOrRequest;
 use crate::generate::generate_video::video_generation_request::VideoGenerationRequest;
 
-pub fn build_artcraft_seedance_2p0_bpu_mini(mut builder: GenerateVideoRequestBuilder) -> Result<VideoGenerationDraftOrRequest, ArtcraftRouterError> {
+pub fn build_artcraft_seedance_2p0_bpu_mini(builder: GenerateVideoRequestBuilder) -> Result<VideoGenerationDraftOrRequest, ArtcraftRouterError> {
   // Seedance 2.0 Mini supports 480p and 720p only (higher resolutions downgrade
   // to 720p), and all six aspect ratios including 21:9.
-  // Mini supports batches of 1-8, wider than the shared 1/2/4 planning.
-  // Take the batch out before the shared build and set it after.
-  let strategy = builder.request_mismatch_mitigation_strategy;
-  let batch_count = plan_mini_batch_count(builder.video_batch_count.take(), strategy)?;
-
-  let mut request = build_artcraft_omni_video_request(
+  let request = build_artcraft_omni_video_request(
     builder,
     CommonVideoModelEnum::Seedance2p0BytePlusUltraMini,
     SupportedResolutions::Fast,
     UltraWideSupport::Supported,
   )?;
-  request.video_batch_count = Some(batch_count);
 
   let state = ArtcraftSeedance2p0BytePlusUltraMiniRequestState { request };
   Ok(VideoGenerationDraftOrRequest::Request(VideoGenerationRequest::ArtcraftSeedance2p0BytePlusUltraMini(state)))
@@ -87,18 +81,17 @@ mod tests {
     }
 
     #[test]
-    fn batch_count_up_to_eight_passed_through() {
-      // Mini supports batches of 1-8; execution and billing must agree.
-      for batch in 1..=8u16 {
+    fn batch_count_up_to_four_passed_through() {
+      for batch in 1..=4u16 {
         let req = unwrap_request(builder_with(move |b| { b.video_batch_count = Some(batch); }));
         assert_eq!(req.request.video_batch_count, Some(batch));
       }
     }
 
     #[test]
-    fn batch_count_above_eight_clamps_to_eight() {
-      let req = unwrap_request(builder_with(|b| { b.video_batch_count = Some(9); }));
-      assert_eq!(req.request.video_batch_count, Some(8));
+    fn batch_count_above_four_clamps_to_four() {
+      let req = unwrap_request(builder_with(|b| { b.video_batch_count = Some(8); }));
+      assert_eq!(req.request.video_batch_count, Some(4));
     }
 
     #[test]

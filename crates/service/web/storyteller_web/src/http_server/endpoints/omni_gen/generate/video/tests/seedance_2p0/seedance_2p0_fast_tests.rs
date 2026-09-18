@@ -88,8 +88,8 @@ mod seedance_2p0_fast {
     }
   }
 
-  /// Every batch size 1-10 at every resolution (5s).
-  /// Batches over the platform max of 4 downgrade to 4 (3 upgrades to 4); execution and billing agree.
+  /// Every supported batch size 1-4 at every resolution (5s).
+  /// Batches 1-4 are preserved; larger batches are rejected before billing.
   /// 1080p and 4K downgrade to 720p (and price accordingly).
   #[tokio::test]
   #[cfg_attr(feature = "skip_database_tests", ignore)]
@@ -101,42 +101,18 @@ mod seedance_2p0_fast {
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(2), ExpectedCredits(71)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(3), ExpectedCredits(107)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(4), ExpectedCredits(143)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(5), ExpectedCredits(143)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(6), ExpectedCredits(143)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(7), ExpectedCredits(143)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(8), ExpectedCredits(143)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(9), ExpectedCredits(143)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(10), ExpectedCredits(143)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(1), ExpectedCredits(64)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(2), ExpectedCredits(127)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(3), ExpectedCredits(191)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(4), ExpectedCredits(255)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(5), ExpectedCredits(255)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(6), ExpectedCredits(255)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(7), ExpectedCredits(255)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(8), ExpectedCredits(255)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(9), ExpectedCredits(255)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(10), ExpectedCredits(255)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(1), ExpectedCredits(64)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(2), ExpectedCredits(127)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(3), ExpectedCredits(191)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(4), ExpectedCredits(255)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(5), ExpectedCredits(255)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(6), ExpectedCredits(255)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(7), ExpectedCredits(255)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(8), ExpectedCredits(255)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(9), ExpectedCredits(255)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(10), ExpectedCredits(255)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(1), ExpectedCredits(64)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(2), ExpectedCredits(127)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(3), ExpectedCredits(191)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(4), ExpectedCredits(255)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(5), ExpectedCredits(255)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(6), ExpectedCredits(255)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(7), ExpectedCredits(255)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(8), ExpectedCredits(255)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(9), ExpectedCredits(255)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(10), ExpectedCredits(255)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -156,27 +132,15 @@ mod seedance_2p0_fast {
       (Some(CommonResolution::FourEightyP), Seconds(6), Batch(2), ExpectedCredits(86)),
       (Some(CommonResolution::FourEightyP), Seconds(7), Batch(3), ExpectedCredits(150)),
       (Some(CommonResolution::FourEightyP), Seconds(9), Batch(4), ExpectedCredits(257)),
-      (Some(CommonResolution::FourEightyP), Seconds(11), Batch(5), ExpectedCredits(314)),
-      (Some(CommonResolution::FourEightyP), Seconds(13), Batch(8), ExpectedCredits(371)),
-      (Some(CommonResolution::FourEightyP), Seconds(15), Batch(10), ExpectedCredits(428)),
       (Some(CommonResolution::SevenTwentyP), Seconds(6), Batch(2), ExpectedCredits(153)),
       (Some(CommonResolution::SevenTwentyP), Seconds(7), Batch(3), ExpectedCredits(267)),
       (Some(CommonResolution::SevenTwentyP), Seconds(9), Batch(4), ExpectedCredits(458)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(11), Batch(5), ExpectedCredits(560)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(13), Batch(8), ExpectedCredits(662)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(15), Batch(10), ExpectedCredits(764)),
       (Some(CommonResolution::TenEightyP), Seconds(6), Batch(2), ExpectedCredits(153)),
       (Some(CommonResolution::TenEightyP), Seconds(7), Batch(3), ExpectedCredits(267)),
       (Some(CommonResolution::TenEightyP), Seconds(9), Batch(4), ExpectedCredits(458)),
-      (Some(CommonResolution::TenEightyP), Seconds(11), Batch(5), ExpectedCredits(560)),
-      (Some(CommonResolution::TenEightyP), Seconds(13), Batch(8), ExpectedCredits(662)),
-      (Some(CommonResolution::TenEightyP), Seconds(15), Batch(10), ExpectedCredits(764)),
       (Some(CommonResolution::FourK), Seconds(6), Batch(2), ExpectedCredits(153)),
       (Some(CommonResolution::FourK), Seconds(7), Batch(3), ExpectedCredits(267)),
       (Some(CommonResolution::FourK), Seconds(9), Batch(4), ExpectedCredits(458)),
-      (Some(CommonResolution::FourK), Seconds(11), Batch(5), ExpectedCredits(560)),
-      (Some(CommonResolution::FourK), Seconds(13), Batch(8), ExpectedCredits(662)),
-      (Some(CommonResolution::FourK), Seconds(15), Batch(10), ExpectedCredits(764)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -252,8 +216,8 @@ mod seedance_2p0_fast {
   }
 
   /// With video references Fast switches to its with-references rate card (480p 8.41, 720p 15.60 cents/s, ceil-rounded). Charges are asserted on the refunded ledger entry (the fixture media is unreachable).
-  /// Every batch size 1-10 at every resolution (5s).
-  /// Batches over the platform max of 4 downgrade to 4 (3 upgrades to 4); execution and billing agree.
+  /// Every supported batch size 1-4 at every resolution (5s).
+  /// Batches 1-4 are preserved; larger batches are rejected before billing.
   #[tokio::test]
   #[cfg_attr(feature = "skip_database_tests", ignore)]
   async fn video_references_charge_every_batch_size_at_every_resolution() {
@@ -264,42 +228,18 @@ mod seedance_2p0_fast {
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(2), ExpectedCredits(85)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(3), ExpectedCredits(127)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(4), ExpectedCredits(169)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(5), ExpectedCredits(169)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(6), ExpectedCredits(169)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(7), ExpectedCredits(169)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(8), ExpectedCredits(169)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(9), ExpectedCredits(169)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(10), ExpectedCredits(169)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(1), ExpectedCredits(78)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(2), ExpectedCredits(156)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(3), ExpectedCredits(234)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(4), ExpectedCredits(312)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(5), ExpectedCredits(312)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(6), ExpectedCredits(312)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(7), ExpectedCredits(312)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(8), ExpectedCredits(312)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(9), ExpectedCredits(312)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(10), ExpectedCredits(312)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(1), ExpectedCredits(78)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(2), ExpectedCredits(156)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(3), ExpectedCredits(234)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(4), ExpectedCredits(312)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(5), ExpectedCredits(312)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(6), ExpectedCredits(312)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(7), ExpectedCredits(312)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(8), ExpectedCredits(312)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(9), ExpectedCredits(312)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(10), ExpectedCredits(312)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(1), ExpectedCredits(78)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(2), ExpectedCredits(156)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(3), ExpectedCredits(234)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(4), ExpectedCredits(312)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(5), ExpectedCredits(312)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(6), ExpectedCredits(312)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(7), ExpectedCredits(312)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(8), ExpectedCredits(312)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(9), ExpectedCredits(312)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(10), ExpectedCredits(312)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -336,27 +276,15 @@ mod seedance_2p0_fast {
       (Some(CommonResolution::FourEightyP), Seconds(6), Batch(2), ExpectedCredits(101)),
       (Some(CommonResolution::FourEightyP), Seconds(7), Batch(3), ExpectedCredits(177)),
       (Some(CommonResolution::FourEightyP), Seconds(9), Batch(4), ExpectedCredits(303)),
-      (Some(CommonResolution::FourEightyP), Seconds(11), Batch(5), ExpectedCredits(371)),
-      (Some(CommonResolution::FourEightyP), Seconds(13), Batch(8), ExpectedCredits(438)),
-      (Some(CommonResolution::FourEightyP), Seconds(15), Batch(10), ExpectedCredits(505)),
       (Some(CommonResolution::SevenTwentyP), Seconds(6), Batch(2), ExpectedCredits(188)),
       (Some(CommonResolution::SevenTwentyP), Seconds(7), Batch(3), ExpectedCredits(328)),
       (Some(CommonResolution::SevenTwentyP), Seconds(9), Batch(4), ExpectedCredits(562)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(11), Batch(5), ExpectedCredits(687)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(13), Batch(8), ExpectedCredits(812)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(15), Batch(10), ExpectedCredits(936)),
       (Some(CommonResolution::TenEightyP), Seconds(6), Batch(2), ExpectedCredits(188)),
       (Some(CommonResolution::TenEightyP), Seconds(7), Batch(3), ExpectedCredits(328)),
       (Some(CommonResolution::TenEightyP), Seconds(9), Batch(4), ExpectedCredits(562)),
-      (Some(CommonResolution::TenEightyP), Seconds(11), Batch(5), ExpectedCredits(687)),
-      (Some(CommonResolution::TenEightyP), Seconds(13), Batch(8), ExpectedCredits(812)),
-      (Some(CommonResolution::TenEightyP), Seconds(15), Batch(10), ExpectedCredits(936)),
       (Some(CommonResolution::FourK), Seconds(6), Batch(2), ExpectedCredits(188)),
       (Some(CommonResolution::FourK), Seconds(7), Batch(3), ExpectedCredits(328)),
       (Some(CommonResolution::FourK), Seconds(9), Batch(4), ExpectedCredits(562)),
-      (Some(CommonResolution::FourK), Seconds(11), Batch(5), ExpectedCredits(687)),
-      (Some(CommonResolution::FourK), Seconds(13), Batch(8), ExpectedCredits(812)),
-      (Some(CommonResolution::FourK), Seconds(15), Batch(10), ExpectedCredits(936)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -438,8 +366,8 @@ mod seedance_2p0_bp_fast {
     }
   }
 
-  /// Every batch size 1-10 at every resolution (5s).
-  /// Batches over the platform max of 4 downgrade to 4 (3 upgrades to 4); execution and billing agree.
+  /// Every supported batch size 1-4 at every resolution (5s).
+  /// Batches 1-4 are preserved; larger batches are rejected before billing.
   /// 1080p and 4K downgrade to 720p (and price accordingly).
   #[tokio::test]
   #[cfg_attr(feature = "skip_database_tests", ignore)]
@@ -451,42 +379,18 @@ mod seedance_2p0_bp_fast {
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(2), ExpectedCredits(90)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(3), ExpectedCredits(135)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(4), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(5), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(6), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(7), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(8), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(9), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(10), ExpectedCredits(180)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(1), ExpectedCredits(100)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(2), ExpectedCredits(200)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(3), ExpectedCredits(300)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(4), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(5), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(6), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(7), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(8), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(9), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(10), ExpectedCredits(400)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(1), ExpectedCredits(100)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(2), ExpectedCredits(200)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(3), ExpectedCredits(300)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(4), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(5), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(6), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(7), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(8), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(9), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(10), ExpectedCredits(400)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(1), ExpectedCredits(100)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(2), ExpectedCredits(200)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(3), ExpectedCredits(300)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(4), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(5), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(6), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(7), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(8), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(9), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(10), ExpectedCredits(400)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -506,27 +410,15 @@ mod seedance_2p0_bp_fast {
       (Some(CommonResolution::FourEightyP), Seconds(6), Batch(2), ExpectedCredits(108)),
       (Some(CommonResolution::FourEightyP), Seconds(7), Batch(3), ExpectedCredits(189)),
       (Some(CommonResolution::FourEightyP), Seconds(9), Batch(4), ExpectedCredits(324)),
-      (Some(CommonResolution::FourEightyP), Seconds(11), Batch(5), ExpectedCredits(396)),
-      (Some(CommonResolution::FourEightyP), Seconds(13), Batch(8), ExpectedCredits(468)),
-      (Some(CommonResolution::FourEightyP), Seconds(15), Batch(10), ExpectedCredits(540)),
       (Some(CommonResolution::SevenTwentyP), Seconds(6), Batch(2), ExpectedCredits(240)),
       (Some(CommonResolution::SevenTwentyP), Seconds(7), Batch(3), ExpectedCredits(420)),
       (Some(CommonResolution::SevenTwentyP), Seconds(9), Batch(4), ExpectedCredits(720)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(11), Batch(5), ExpectedCredits(880)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(13), Batch(8), ExpectedCredits(1040)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(15), Batch(10), ExpectedCredits(1200)),
       (Some(CommonResolution::TenEightyP), Seconds(6), Batch(2), ExpectedCredits(240)),
       (Some(CommonResolution::TenEightyP), Seconds(7), Batch(3), ExpectedCredits(420)),
       (Some(CommonResolution::TenEightyP), Seconds(9), Batch(4), ExpectedCredits(720)),
-      (Some(CommonResolution::TenEightyP), Seconds(11), Batch(5), ExpectedCredits(880)),
-      (Some(CommonResolution::TenEightyP), Seconds(13), Batch(8), ExpectedCredits(1040)),
-      (Some(CommonResolution::TenEightyP), Seconds(15), Batch(10), ExpectedCredits(1200)),
       (Some(CommonResolution::FourK), Seconds(6), Batch(2), ExpectedCredits(240)),
       (Some(CommonResolution::FourK), Seconds(7), Batch(3), ExpectedCredits(420)),
       (Some(CommonResolution::FourK), Seconds(9), Batch(4), ExpectedCredits(720)),
-      (Some(CommonResolution::FourK), Seconds(11), Batch(5), ExpectedCredits(880)),
-      (Some(CommonResolution::FourK), Seconds(13), Batch(8), ExpectedCredits(1040)),
-      (Some(CommonResolution::FourK), Seconds(15), Batch(10), ExpectedCredits(1200)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -602,8 +494,8 @@ mod seedance_2p0_bp_fast {
   }
 
   /// The BytePlus Fast rate card is flat: reference videos never change the price. Charges are asserted on the refunded ledger entry (the fixture media is unreachable).
-  /// Every batch size 1-10 at every resolution (5s).
-  /// Batches over the platform max of 4 downgrade to 4 (3 upgrades to 4); execution and billing agree.
+  /// Every supported batch size 1-4 at every resolution (5s).
+  /// Batches 1-4 are preserved; larger batches are rejected before billing.
   #[tokio::test]
   #[cfg_attr(feature = "skip_database_tests", ignore)]
   async fn video_references_charge_every_batch_size_at_every_resolution() {
@@ -614,42 +506,18 @@ mod seedance_2p0_bp_fast {
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(2), ExpectedCredits(97)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(3), ExpectedCredits(145)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(4), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(5), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(6), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(7), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(8), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(9), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(10), ExpectedCredits(193)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(1), ExpectedCredits(103)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(2), ExpectedCredits(205)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(3), ExpectedCredits(308)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(4), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(5), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(6), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(7), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(8), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(9), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(10), ExpectedCredits(410)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(1), ExpectedCredits(103)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(2), ExpectedCredits(205)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(3), ExpectedCredits(308)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(4), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(5), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(6), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(7), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(8), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(9), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(10), ExpectedCredits(410)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(1), ExpectedCredits(103)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(2), ExpectedCredits(205)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(3), ExpectedCredits(308)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(4), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(5), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(6), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(7), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(8), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(9), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(10), ExpectedCredits(410)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -686,27 +554,15 @@ mod seedance_2p0_bp_fast {
       (Some(CommonResolution::FourEightyP), Seconds(6), Batch(2), ExpectedCredits(116)),
       (Some(CommonResolution::FourEightyP), Seconds(7), Batch(3), ExpectedCredits(203)),
       (Some(CommonResolution::FourEightyP), Seconds(9), Batch(4), ExpectedCredits(348)),
-      (Some(CommonResolution::FourEightyP), Seconds(11), Batch(5), ExpectedCredits(425)),
-      (Some(CommonResolution::FourEightyP), Seconds(13), Batch(8), ExpectedCredits(502)),
-      (Some(CommonResolution::FourEightyP), Seconds(15), Batch(10), ExpectedCredits(579)),
       (Some(CommonResolution::SevenTwentyP), Seconds(6), Batch(2), ExpectedCredits(246)),
       (Some(CommonResolution::SevenTwentyP), Seconds(7), Batch(3), ExpectedCredits(431)),
       (Some(CommonResolution::SevenTwentyP), Seconds(9), Batch(4), ExpectedCredits(738)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(11), Batch(5), ExpectedCredits(902)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(13), Batch(8), ExpectedCredits(1066)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(15), Batch(10), ExpectedCredits(1230)),
       (Some(CommonResolution::TenEightyP), Seconds(6), Batch(2), ExpectedCredits(246)),
       (Some(CommonResolution::TenEightyP), Seconds(7), Batch(3), ExpectedCredits(431)),
       (Some(CommonResolution::TenEightyP), Seconds(9), Batch(4), ExpectedCredits(738)),
-      (Some(CommonResolution::TenEightyP), Seconds(11), Batch(5), ExpectedCredits(902)),
-      (Some(CommonResolution::TenEightyP), Seconds(13), Batch(8), ExpectedCredits(1066)),
-      (Some(CommonResolution::TenEightyP), Seconds(15), Batch(10), ExpectedCredits(1230)),
       (Some(CommonResolution::FourK), Seconds(6), Batch(2), ExpectedCredits(246)),
       (Some(CommonResolution::FourK), Seconds(7), Batch(3), ExpectedCredits(431)),
       (Some(CommonResolution::FourK), Seconds(9), Batch(4), ExpectedCredits(738)),
-      (Some(CommonResolution::FourK), Seconds(11), Batch(5), ExpectedCredits(902)),
-      (Some(CommonResolution::FourK), Seconds(13), Batch(8), ExpectedCredits(1066)),
-      (Some(CommonResolution::FourK), Seconds(15), Batch(10), ExpectedCredits(1230)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -804,8 +660,8 @@ mod seedance_2p0_bpu_fast {
     }
   }
 
-  /// Every batch size 1-10 at every resolution (5s).
-  /// Batches over the platform max of 4 downgrade to 4 (3 upgrades to 4); execution and billing agree.
+  /// Every supported batch size 1-4 at every resolution (5s).
+  /// Batches 1-4 are preserved; larger batches are rejected before billing.
   /// 1080p and 4K downgrade to 720p (and price accordingly).
   #[tokio::test]
   #[cfg_attr(feature = "skip_database_tests", ignore)]
@@ -817,42 +673,18 @@ mod seedance_2p0_bpu_fast {
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(2), ExpectedCredits(90)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(3), ExpectedCredits(135)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(4), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(5), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(6), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(7), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(8), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(9), ExpectedCredits(180)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(10), ExpectedCredits(180)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(1), ExpectedCredits(100)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(2), ExpectedCredits(200)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(3), ExpectedCredits(300)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(4), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(5), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(6), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(7), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(8), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(9), ExpectedCredits(400)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(10), ExpectedCredits(400)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(1), ExpectedCredits(100)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(2), ExpectedCredits(200)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(3), ExpectedCredits(300)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(4), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(5), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(6), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(7), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(8), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(9), ExpectedCredits(400)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(10), ExpectedCredits(400)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(1), ExpectedCredits(100)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(2), ExpectedCredits(200)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(3), ExpectedCredits(300)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(4), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(5), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(6), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(7), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(8), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(9), ExpectedCredits(400)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(10), ExpectedCredits(400)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -872,27 +704,15 @@ mod seedance_2p0_bpu_fast {
       (Some(CommonResolution::FourEightyP), Seconds(6), Batch(2), ExpectedCredits(108)),
       (Some(CommonResolution::FourEightyP), Seconds(7), Batch(3), ExpectedCredits(189)),
       (Some(CommonResolution::FourEightyP), Seconds(9), Batch(4), ExpectedCredits(324)),
-      (Some(CommonResolution::FourEightyP), Seconds(11), Batch(5), ExpectedCredits(396)),
-      (Some(CommonResolution::FourEightyP), Seconds(13), Batch(8), ExpectedCredits(468)),
-      (Some(CommonResolution::FourEightyP), Seconds(15), Batch(10), ExpectedCredits(540)),
       (Some(CommonResolution::SevenTwentyP), Seconds(6), Batch(2), ExpectedCredits(240)),
       (Some(CommonResolution::SevenTwentyP), Seconds(7), Batch(3), ExpectedCredits(420)),
       (Some(CommonResolution::SevenTwentyP), Seconds(9), Batch(4), ExpectedCredits(720)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(11), Batch(5), ExpectedCredits(880)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(13), Batch(8), ExpectedCredits(1040)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(15), Batch(10), ExpectedCredits(1200)),
       (Some(CommonResolution::TenEightyP), Seconds(6), Batch(2), ExpectedCredits(240)),
       (Some(CommonResolution::TenEightyP), Seconds(7), Batch(3), ExpectedCredits(420)),
       (Some(CommonResolution::TenEightyP), Seconds(9), Batch(4), ExpectedCredits(720)),
-      (Some(CommonResolution::TenEightyP), Seconds(11), Batch(5), ExpectedCredits(880)),
-      (Some(CommonResolution::TenEightyP), Seconds(13), Batch(8), ExpectedCredits(1040)),
-      (Some(CommonResolution::TenEightyP), Seconds(15), Batch(10), ExpectedCredits(1200)),
       (Some(CommonResolution::FourK), Seconds(6), Batch(2), ExpectedCredits(240)),
       (Some(CommonResolution::FourK), Seconds(7), Batch(3), ExpectedCredits(420)),
       (Some(CommonResolution::FourK), Seconds(9), Batch(4), ExpectedCredits(720)),
-      (Some(CommonResolution::FourK), Seconds(11), Batch(5), ExpectedCredits(880)),
-      (Some(CommonResolution::FourK), Seconds(13), Batch(8), ExpectedCredits(1040)),
-      (Some(CommonResolution::FourK), Seconds(15), Batch(10), ExpectedCredits(1200)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -968,8 +788,8 @@ mod seedance_2p0_bpu_fast {
   }
 
   /// The BytePlus Fast rate card is flat: reference videos never change the price. Charges are asserted on the refunded ledger entry (the fixture media is unreachable).
-  /// Every batch size 1-10 at every resolution (5s).
-  /// Batches over the platform max of 4 downgrade to 4 (3 upgrades to 4); execution and billing agree.
+  /// Every supported batch size 1-4 at every resolution (5s).
+  /// Batches 1-4 are preserved; larger batches are rejected before billing.
   #[tokio::test]
   #[cfg_attr(feature = "skip_database_tests", ignore)]
   async fn video_references_charge_every_batch_size_at_every_resolution() {
@@ -980,42 +800,18 @@ mod seedance_2p0_bpu_fast {
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(2), ExpectedCredits(97)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(3), ExpectedCredits(145)),
       (Some(CommonResolution::FourEightyP), Seconds(5), Batch(4), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(5), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(6), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(7), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(8), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(9), ExpectedCredits(193)),
-      (Some(CommonResolution::FourEightyP), Seconds(5), Batch(10), ExpectedCredits(193)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(1), ExpectedCredits(103)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(2), ExpectedCredits(205)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(3), ExpectedCredits(308)),
       (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(4), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(5), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(6), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(7), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(8), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(9), ExpectedCredits(410)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(5), Batch(10), ExpectedCredits(410)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(1), ExpectedCredits(103)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(2), ExpectedCredits(205)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(3), ExpectedCredits(308)),
       (Some(CommonResolution::TenEightyP), Seconds(5), Batch(4), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(5), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(6), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(7), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(8), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(9), ExpectedCredits(410)),
-      (Some(CommonResolution::TenEightyP), Seconds(5), Batch(10), ExpectedCredits(410)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(1), ExpectedCredits(103)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(2), ExpectedCredits(205)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(3), ExpectedCredits(308)),
       (Some(CommonResolution::FourK), Seconds(5), Batch(4), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(5), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(6), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(7), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(8), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(9), ExpectedCredits(410)),
-      (Some(CommonResolution::FourK), Seconds(5), Batch(10), ExpectedCredits(410)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
@@ -1052,27 +848,15 @@ mod seedance_2p0_bpu_fast {
       (Some(CommonResolution::FourEightyP), Seconds(6), Batch(2), ExpectedCredits(116)),
       (Some(CommonResolution::FourEightyP), Seconds(7), Batch(3), ExpectedCredits(203)),
       (Some(CommonResolution::FourEightyP), Seconds(9), Batch(4), ExpectedCredits(348)),
-      (Some(CommonResolution::FourEightyP), Seconds(11), Batch(5), ExpectedCredits(425)),
-      (Some(CommonResolution::FourEightyP), Seconds(13), Batch(8), ExpectedCredits(502)),
-      (Some(CommonResolution::FourEightyP), Seconds(15), Batch(10), ExpectedCredits(579)),
       (Some(CommonResolution::SevenTwentyP), Seconds(6), Batch(2), ExpectedCredits(246)),
       (Some(CommonResolution::SevenTwentyP), Seconds(7), Batch(3), ExpectedCredits(431)),
       (Some(CommonResolution::SevenTwentyP), Seconds(9), Batch(4), ExpectedCredits(738)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(11), Batch(5), ExpectedCredits(902)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(13), Batch(8), ExpectedCredits(1066)),
-      (Some(CommonResolution::SevenTwentyP), Seconds(15), Batch(10), ExpectedCredits(1230)),
       (Some(CommonResolution::TenEightyP), Seconds(6), Batch(2), ExpectedCredits(246)),
       (Some(CommonResolution::TenEightyP), Seconds(7), Batch(3), ExpectedCredits(431)),
       (Some(CommonResolution::TenEightyP), Seconds(9), Batch(4), ExpectedCredits(738)),
-      (Some(CommonResolution::TenEightyP), Seconds(11), Batch(5), ExpectedCredits(902)),
-      (Some(CommonResolution::TenEightyP), Seconds(13), Batch(8), ExpectedCredits(1066)),
-      (Some(CommonResolution::TenEightyP), Seconds(15), Batch(10), ExpectedCredits(1230)),
       (Some(CommonResolution::FourK), Seconds(6), Batch(2), ExpectedCredits(246)),
       (Some(CommonResolution::FourK), Seconds(7), Batch(3), ExpectedCredits(431)),
       (Some(CommonResolution::FourK), Seconds(9), Batch(4), ExpectedCredits(738)),
-      (Some(CommonResolution::FourK), Seconds(11), Batch(5), ExpectedCredits(902)),
-      (Some(CommonResolution::FourK), Seconds(13), Batch(8), ExpectedCredits(1066)),
-      (Some(CommonResolution::FourK), Seconds(15), Batch(10), ExpectedCredits(1230)),
     ];
 
     for (resolution, seconds, batch, expected) in cases {
