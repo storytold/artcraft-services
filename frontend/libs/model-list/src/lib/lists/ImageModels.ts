@@ -415,6 +415,9 @@ export const IMAGE_MODELS: ImageModel[] = [
     ],
     defaultQuality: CommonQuality.High,
     qualityOptions: [
+      CommonQuality.Auto,
+      CommonQuality.Max,
+      CommonQuality.XHigh,
       CommonQuality.High,
       CommonQuality.Medium,
       CommonQuality.Low,
@@ -450,6 +453,9 @@ export const IMAGE_MODELS: ImageModel[] = [
     ],
     defaultQuality: CommonQuality.High,
     qualityOptions: [
+      CommonQuality.Auto,
+      CommonQuality.Max,
+      CommonQuality.XHigh,
       CommonQuality.High,
       CommonQuality.Medium,
       CommonQuality.Low,

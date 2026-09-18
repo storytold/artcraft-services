@@ -384,6 +384,9 @@ fn build_omni_gen_image_models() -> Vec<OmniGenImageModelDetails> {
     aspect_ratio_default: Some(CommonAspectRatio::Square),
     aspect_ratio_default_when_editing: Some(CommonAspectRatio::Auto),
     quality_options: Some(vec![
+      CommonQuality::Auto,
+      CommonQuality::Max,
+      CommonQuality::XHigh,
       CommonQuality::High,
       CommonQuality::Medium,
       CommonQuality::Low,
@@ -422,6 +425,9 @@ fn build_omni_gen_image_models() -> Vec<OmniGenImageModelDetails> {
     aspect_ratio_default: Some(CommonAspectRatio::Square),
     aspect_ratio_default_when_editing: Some(CommonAspectRatio::Auto),
     quality_options: Some(vec![
+      CommonQuality::Auto,
+      CommonQuality::Max,
+      CommonQuality::XHigh,
       CommonQuality::High,
       CommonQuality::Medium,
       CommonQuality::Low,
@@ -673,7 +679,17 @@ mod tests {
       assert_eq!(details.text_prompt_supported, Some(true));
       assert_eq!(details.image_refs_supported, Some(true));
       assert_eq!(details.default_quality, Some(CommonQuality::High));
-      assert_eq!(details.quality_options.as_ref().map(|q| q.len()), Some(3));
+      assert_eq!(
+        details.quality_options.as_deref(),
+        Some(&[
+          CommonQuality::Auto,
+          CommonQuality::Max,
+          CommonQuality::XHigh,
+          CommonQuality::High,
+          CommonQuality::Medium,
+          CommonQuality::Low,
+        ][..]),
+      );
       assert_eq!(details.resolution_default, Some(CommonResolution::OneK));
       assert_eq!(details.resolution_options.as_ref().map(|r| r.len()), Some(4));
       assert_eq!(details.aspect_ratio_default_when_editing, Some(CommonAspectRatio::Auto));

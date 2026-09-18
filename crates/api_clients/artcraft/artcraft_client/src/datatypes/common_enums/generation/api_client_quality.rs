@@ -8,6 +8,9 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "String", into = "String")]
 pub enum ApiClientQuality {
+  Auto,
+  Max,
+  XHigh,
   High,
   Medium,
   Low,
@@ -18,6 +21,9 @@ pub enum ApiClientQuality {
 impl From<String> for ApiClientQuality {
   fn from(value: String) -> Self {
     match value.as_str() {
+      "auto" => Self::Auto,
+      "max" => Self::Max,
+      "xhigh" => Self::XHigh,
       "high" => Self::High,
       "medium" => Self::Medium,
       "low" => Self::Low,
@@ -29,6 +35,9 @@ impl From<String> for ApiClientQuality {
 impl From<ApiClientQuality> for String {
   fn from(value: ApiClientQuality) -> Self {
     match value {
+      ApiClientQuality::Auto => "auto".to_string(),
+      ApiClientQuality::Max => "max".to_string(),
+      ApiClientQuality::XHigh => "xhigh".to_string(),
       ApiClientQuality::High => "high".to_string(),
       ApiClientQuality::Medium => "medium".to_string(),
       ApiClientQuality::Low => "low".to_string(),
@@ -58,6 +67,9 @@ mod tests {
   #[test]
   fn every_known_variant_round_trips() {
     let all = [
+      (ApiClientQuality::Auto, "auto"),
+      (ApiClientQuality::Max, "max"),
+      (ApiClientQuality::XHigh, "xhigh"),
       (ApiClientQuality::High, "high"),
       (ApiClientQuality::Medium, "medium"),
       (ApiClientQuality::Low, "low"),
