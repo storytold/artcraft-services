@@ -165,6 +165,8 @@ fn map_video_model(model: CommonVideoModel) -> Result<RouterVideoModel, HandlerE
     CommonVideoModel::Seedance2p5 => RouterVideoModel::Seedance2p5,
     CommonVideoModel::Seedance2p5Ultra => RouterVideoModel::Seedance2p5Ultra,
     CommonVideoModel::HappyHorse1p0 => RouterVideoModel::HappyHorse1p0,
+    CommonVideoModel::Wan3p0 => RouterVideoModel::Wan3p0,
+    CommonVideoModel::Wan3p0Prime => RouterVideoModel::Wan3p0Prime,
     CommonVideoModel::MinimaxH3 => RouterVideoModel::MinimaxH3,
     CommonVideoModel::MinimaxH3Turbo => RouterVideoModel::MinimaxH3Turbo,
     CommonVideoModel::MinimaxH3Ultra => RouterVideoModel::MinimaxH3Ultra,

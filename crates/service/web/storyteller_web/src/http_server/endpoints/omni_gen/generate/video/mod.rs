@@ -11,3 +11,4 @@ pub mod insert_db_job;
 // `pub(crate)` so other modules' database tests can reuse `support::TestHarness`.
 #[cfg(test)]
 pub(crate) mod tests;
+mod wan_3p0_reference_duration;

@@ -1,4 +1,4 @@
-//! Download + ffprobe reference videos for input-seconds billing.
+//! Download + ffprobe reference videos for billing and duration validation.
 //!
 //! Models that bill reference-video input seconds (e.g. Seedance 2.5) need
 //! ACCURATE durations. The `media_files` row's stored duration isn't always
@@ -25,7 +25,9 @@
 //! The TOTAL is what gets billed; the router clamps it to the model's
 //! billing range (e.g. 4..=30 seconds for Seedance 2.5).
 //!
-//! Probing NEVER fails a generation: a file whose download or ffprobe fails
+//! This helper returns partial results when a download or ffprobe fails.
+//! Seedance billing uses a fallback; Wan rejects unmeasurable references.
+//! For input-seconds billing, a file whose download or ffprobe fails
 //! is billed at the worst-case [`MAX_BILLED_INPUT_SECONDS`] instead (and is
 //! not kept on disk — the provider upload re-downloads it itself).
 
@@ -61,6 +63,10 @@ pub struct ProbedReferenceVideos {
   /// Sum of per-file ffprobed durations, each rounded UP to a whole second,
   /// counted once per reference (duplicates bill per reference).
   pub total_input_seconds: u16,
+
+  /// Actual durations in request order, preserving duplicates. None means
+  /// download/probe failed; duration validation must not use billing fallbacks.
+  pub durations_millis: Vec<Option<u64>>,
 
   /// Source CDN URL → local temp file path, one entry per unique file.
   /// Pass to the router as `predownloaded_media_paths` so uploads reuse the
@@ -173,35 +179,38 @@ pub async fn download_and_probe_reference_videos(
   let mut temp_files: Vec<NamedTempFile> = Vec::new();
   let mut local_paths_by_url: HashMap<String, PathBuf> = HashMap::new();
   let mut seconds_by_url: HashMap<String, u64> = HashMap::new();
+  let mut durations_by_url: HashMap<String, Option<u64>> = HashMap::new();
 
   for source in sources {
     if seconds_by_url.contains_key(&source.cdn_url) {
       continue; // Already downloaded and probed this file.
     }
 
-    let billed_seconds = match download_and_probe_one(source).await {
+    let (billed_seconds, maybe_duration_millis) = match download_and_probe_one(source).await {
       Ok((temp_file, duration_millis)) => {
         info!("Probed reference video {} at {}ms", source.media_token, duration_millis);
         local_paths_by_url.insert(source.cdn_url.clone(), temp_file.path().to_path_buf());
         temp_files.push(temp_file);
-        duration_millis.div_ceil(1_000)
+        (duration_millis.div_ceil(1_000), Some(duration_millis))
       }
       Err(err) => {
         warn!(
-          "Failed to download/probe reference video {}; billing the {}s worst case: {:?}",
+          "Failed to download/probe reference video {}; using the {}s billing fallback: {:?}",
           source.media_token, MAX_BILLED_INPUT_SECONDS, err,
         );
-        u64::from(MAX_BILLED_INPUT_SECONDS)
+        (u64::from(MAX_BILLED_INPUT_SECONDS), None)
       }
     };
 
     seconds_by_url.insert(source.cdn_url.clone(), billed_seconds);
+    durations_by_url.insert(source.cdn_url.clone(), maybe_duration_millis);
   }
 
   let total_input_seconds = total_billed_seconds(sources, &seconds_by_url);
 
   ProbedReferenceVideos {
     total_input_seconds,
+    durations_millis: sources.iter().map(|source| durations_by_url[&source.cdn_url]).collect(),
     local_paths_by_url,
     _temp_files: temp_files,
   }

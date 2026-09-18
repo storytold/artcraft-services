@@ -1,3 +1,5 @@
+use crate::generate::generate_video::providers::kinovi::wan_3p0::build::build_kinovi_wan_3p0;
+use crate::generate::generate_video::providers::artcraft::wan_3p0::build::build_artcraft_wan_3p0;
 use crate::api::audio_list_ref::AudioListRef;
 use crate::api::character_list_ref::CharacterListRef;
 use crate::api::router_aspect_ratio::RouterAspectRatio;
@@ -142,10 +144,12 @@ pub struct GenerateVideoRequestBuilder {
   /// so it's best to be explicit.
   pub generate_audio: Option<bool>,
 
-  /// CALCULATION-ONLY (never sent to any provider): the total seconds of
+  /// Local pricing/validation metadata (never sent to a provider): total seconds of
   /// reference video input, summed across all reference videos and rounded
   /// up to whole seconds per file. Models that bill reference-video input
-  /// seconds (e.g. Seedance 2.5) add this to the billed duration.
+  /// seconds (e.g. Seedance 2.5) add this to the billed duration. Wan uses
+  /// the ceiling of the combined measured duration to validate its output
+  /// budget; reference seconds do not affect Wan pricing.
   pub total_reference_video_input_seconds: Option<u16>,
 
   /// If the request is a mismatch with the (model/provider), how to mitigate it.
@@ -192,6 +196,7 @@ impl GenerateVideoRequestBuilder {
       (RouterProvider::Artcraft, RouterVideoModel::GrokImagineVideo1p5) => build_artcraft_grok_imagine_video_1p5(self),
       (RouterProvider::Artcraft, RouterVideoModel::Flux3) => build_artcraft_flux_3(self),
       (RouterProvider::Artcraft, RouterVideoModel::Flux3Draft) => build_artcraft_flux_3_draft(self),
+      (RouterProvider::Artcraft, RouterVideoModel::Wan3p0 | RouterVideoModel::Wan3p0Prime) => build_artcraft_wan_3p0(self),
       (RouterProvider::Artcraft, RouterVideoModel::HappyHorse1p0) => build_artcraft_happy_horse_1p0(self),
       (RouterProvider::Artcraft, RouterVideoModel::Kling16Pro) => build_artcraft_kling_1_6_pro(self),
       (RouterProvider::Artcraft, RouterVideoModel::Kling21Master) => build_artcraft_kling_2_1_master(self),
@@ -254,6 +259,7 @@ impl GenerateVideoRequestBuilder {
       (RouterProvider::GrokApi, RouterVideoModel::GrokImagineVideo) => build_grok_api_grok_imagine_video(self),
       (RouterProvider::GrokApi, RouterVideoModel::GrokImagineVideo1p5) => build_grok_api_grok_imagine_video_1p5(self),
       // Kinovi
+      (RouterProvider::KinoviWeb, RouterVideoModel::Wan3p0 | RouterVideoModel::Wan3p0Prime) => build_kinovi_wan_3p0(self),
       (RouterProvider::KinoviWeb, RouterVideoModel::HappyHorse1p0) => build_kinovi_happy_horse_1p0(self),
       (RouterProvider::KinoviWeb, RouterVideoModel::Seedance2p0) => build_kinovi_seedance_2p0(self),
       (RouterProvider::KinoviWeb, RouterVideoModel::Seedance2p0Fast) => build_kinovi_seedance_2p0_fast(self),

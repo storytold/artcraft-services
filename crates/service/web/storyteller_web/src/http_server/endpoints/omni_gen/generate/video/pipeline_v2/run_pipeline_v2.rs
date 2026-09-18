@@ -68,6 +68,7 @@ pub async fn run_pipeline_v2(args: RunPipelineV2Args<'_>) -> Result<PipelineResu
   let router_builder = router_builder.clone();
 
   let provider = match router_builder.model {
+    RouterVideoModel::Wan3p0 | RouterVideoModel::Wan3p0Prime => RouterProvider::KinoviWeb,
     RouterVideoModel::HappyHorse1p0 => RouterProvider::KinoviWeb,
     RouterVideoModel::Seedance2p0 => RouterProvider::KinoviWeb,
     RouterVideoModel::Seedance2p0Fast => RouterProvider::KinoviWeb,

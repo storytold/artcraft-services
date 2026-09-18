@@ -1,3 +1,4 @@
+use super::by_type::wan_video_models::wan_video_models;
 use artcraft_api_defs::omni_gen::models::omni_gen_video_models::{OmniGenVideoModelDetails, OmniGenVideoModelProviderDetails, OmniGenVideoModelsResponse, OmniGenVideoProviderModelDetails};
 use enums::common::generation::common_video_model::CommonVideoModel;
 use enums::common::generation_provider::GenerationProvider;
@@ -41,6 +42,7 @@ fn build_omni_gen_video_models() -> Vec<OmniGenVideoModelDetails> {
   models.extend(sora_video_models());
   models.extend(veo_video_models());
   models.extend(vidu_video_models());
+  models.extend(wan_video_models());
 
   models
 }
@@ -51,6 +53,8 @@ fn build_omni_gen_video_model_providers() -> Vec<OmniGenVideoModelProviderDetail
   providers.push(OmniGenVideoModelProviderDetails {
     provider: GenerationProvider::Artcraft,
     models: vec![
+      OmniGenVideoProviderModelDetails { model: CommonVideoModel::Wan3p0, overrides: None },
+      OmniGenVideoProviderModelDetails { model: CommonVideoModel::Wan3p0Prime, overrides: None },
       OmniGenVideoProviderModelDetails {
         model: CommonVideoModel::Seedance1p5Pro,
         overrides: None,

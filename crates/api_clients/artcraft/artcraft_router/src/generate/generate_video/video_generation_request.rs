@@ -1,3 +1,7 @@
+use crate::generate::generate_video::providers::kinovi::wan_3p0::cost::KinoviWan3p0CostState;
+use crate::generate::generate_video::providers::kinovi::wan_3p0::request::KinoviWan3p0RequestState;
+use crate::generate::generate_video::providers::artcraft::wan_3p0::cost::ArtcraftWan3p0CostState;
+use crate::generate::generate_video::providers::artcraft::wan_3p0::request::ArtcraftWan3p0RequestState;
 use crate::api::router_provider::RouterProvider;
 use crate::client::router_client::RouterClient;
 use crate::errors::artcraft_router_error::ArtcraftRouterError;
@@ -148,6 +152,8 @@ pub enum VideoGenerationRequest {
   ArtcraftGrokImagineVideo1p5(ArtcraftGrokImagineVideo1p5RequestState),
   ArtcraftFlux3(ArtcraftFlux3RequestState),
   ArtcraftFlux3Draft(ArtcraftFlux3DraftRequestState),
+  ArtcraftWan3p0(ArtcraftWan3p0RequestState),
+  ArtcraftWan3p0Prime(ArtcraftWan3p0RequestState),
   ArtcraftHappyHorse1p0(ArtcraftHappyHorse1p0RequestState),
   ArtcraftKling16Pro(ArtcraftKling16ProRequestState),
   ArtcraftKling21Master(ArtcraftKling21MasterRequestState),
@@ -207,6 +213,8 @@ pub enum VideoGenerationRequest {
   FalViduQ3Turbo(FalViduQ3TurboRequestState),
   GrokApiGrokImagineVideo(GrokApiGrokImagineVideoRequestState),
   GrokApiGrokImagineVideo1p5(GrokApiGrokImagineVideo1p5RequestState),
+  KinoviWan3p0(KinoviWan3p0RequestState),
+  KinoviWan3p0Prime(KinoviWan3p0RequestState),
   KinoviHappyHorse1p0(KinoviHappyHorse1p0RequestState),
   KinoviSeedance2p0(KinoviSeedance2p0RequestState),
   KinoviSeedance2p0Fast(KinoviSeedance2p0FastRequestState),
@@ -221,6 +229,8 @@ impl VideoGenerationRequest {
     match self {
       Self::ArtcraftGrokImagineVideo(_) => RouterProvider::Artcraft,
       Self::ArtcraftGrokImagineVideo1p5(_) => RouterProvider::Artcraft,
+      Self::ArtcraftWan3p0(_) => RouterProvider::Artcraft,
+      Self::ArtcraftWan3p0Prime(_) => RouterProvider::Artcraft,
       Self::ArtcraftHappyHorse1p0(_) => RouterProvider::Artcraft,
       Self::ArtcraftKling16Pro(_) => RouterProvider::Artcraft,
       Self::ArtcraftKling21Master(_) => RouterProvider::Artcraft,
@@ -282,6 +292,8 @@ impl VideoGenerationRequest {
       Self::FalViduQ3Turbo(_) => RouterProvider::Fal,
       Self::GrokApiGrokImagineVideo(_) => RouterProvider::GrokApi,
       Self::GrokApiGrokImagineVideo1p5(_) => RouterProvider::GrokApi,
+      Self::KinoviWan3p0(_) => RouterProvider::KinoviWeb,
+      Self::KinoviWan3p0Prime(_) => RouterProvider::KinoviWeb,
       Self::KinoviHappyHorse1p0(_) => RouterProvider::KinoviWeb,
       Self::KinoviSeedance2p0(_) => RouterProvider::KinoviWeb,
       Self::KinoviSeedance2p0Fast(_) => RouterProvider::KinoviWeb,
@@ -296,6 +308,8 @@ impl VideoGenerationRequest {
     match self {
       VideoGenerationRequest::ArtcraftGrokImagineVideo(request) => Ok(ArtcraftGrokImagineVideoCostState::from_request(request).estimate_cost()),
       VideoGenerationRequest::ArtcraftGrokImagineVideo1p5(request) => ArtcraftGrokImagineVideo1p5CostState::from_request(request).estimate_cost(),
+      VideoGenerationRequest::ArtcraftWan3p0(state) => Ok(ArtcraftWan3p0CostState::from_request(state).estimate_cost()),
+      VideoGenerationRequest::ArtcraftWan3p0Prime(state) => Ok(ArtcraftWan3p0CostState::from_request(state).estimate_cost()),
       VideoGenerationRequest::ArtcraftHappyHorse1p0(request) => Ok(ArtcraftHappyHorse1p0CostState::from_request(request).estimate_cost()),
       VideoGenerationRequest::ArtcraftKling16Pro(request) => Ok(ArtcraftKling16ProCostState::from_request(request).estimate_cost()),
       VideoGenerationRequest::ArtcraftKling21Master(request) => Ok(ArtcraftKling21MasterCostState::from_request(request).estimate_cost()),
@@ -357,6 +371,8 @@ impl VideoGenerationRequest {
       VideoGenerationRequest::FalViduQ3Turbo(request) => Ok(FalViduQ3TurboCostState::from_request(request).estimate_cost()),
       VideoGenerationRequest::GrokApiGrokImagineVideo(request) => Ok(GrokApiGrokImagineVideoCostState::from_request(request).estimate_cost()),
       VideoGenerationRequest::GrokApiGrokImagineVideo1p5(request) => GrokApiGrokImagineVideo1p5CostState::from_request(request).estimate_cost(),
+      VideoGenerationRequest::KinoviWan3p0(state) => Ok(KinoviWan3p0CostState::from_request(state).estimate_cost()),
+      VideoGenerationRequest::KinoviWan3p0Prime(state) => Ok(KinoviWan3p0CostState::from_request(state).estimate_cost()),
       VideoGenerationRequest::KinoviHappyHorse1p0(request) => Ok(KinoviHappyHorse1p0CostState::from_request(request).estimate_cost()),
       VideoGenerationRequest::KinoviSeedance2p0(request) => Ok(KinoviSeedance2p0CostState::from_request(request).estimate_cost()),
       VideoGenerationRequest::KinoviSeedance2p0Fast(request) => Ok(KinoviSeedance2p0FastCostState::from_request(request).estimate_cost()),
@@ -377,6 +393,12 @@ impl VideoGenerationRequest {
       VideoGenerationRequest::ArtcraftGrokImagineVideo1p5(request) => {
         let client_ref = client.get_artcraft_client_ref()?;
         request.send(client_ref).await
+      },
+      VideoGenerationRequest::ArtcraftWan3p0(request) => {
+        request.send(client.get_artcraft_client_ref()?).await
+      },
+      VideoGenerationRequest::ArtcraftWan3p0Prime(request) => {
+        request.send(client.get_artcraft_client_ref()?).await
       },
       VideoGenerationRequest::ArtcraftHappyHorse1p0(request) => {
         let client_ref = client.get_artcraft_client_ref()?;
@@ -621,6 +643,12 @@ impl VideoGenerationRequest {
       VideoGenerationRequest::GrokApiGrokImagineVideo1p5(request) => {
         let client_ref = client.get_grok_api_client_ref()?;
         request.send(client_ref).await
+      },
+      VideoGenerationRequest::KinoviWan3p0(request) => {
+        request.send(client.get_kinovi_web_client_ref()?).await
+      },
+      VideoGenerationRequest::KinoviWan3p0Prime(request) => {
+        request.send(client.get_kinovi_web_client_ref()?).await
       },
       VideoGenerationRequest::KinoviHappyHorse1p0(request) => {
         let client_ref = client.get_kinovi_web_client_ref()?;

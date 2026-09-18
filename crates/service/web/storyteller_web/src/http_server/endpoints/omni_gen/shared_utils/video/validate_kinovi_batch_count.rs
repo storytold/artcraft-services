@@ -26,6 +26,13 @@ pub(crate) fn validate_kinovi_batch_count(
       "video_batch_count must be between 1 and 4 for this model".to_string(),
     ));
   }
+  if matches!(model, Some(CommonVideoModel::Wan3p0 | CommonVideoModel::Wan3p0Prime))
+    && video_batch_count.unwrap_or(1) != 1
+  {
+    return Err(CommonWebError::BadInputWithSimpleMessage(
+      "video_batch_count must be 1 for Wan 3.0 models".to_string(),
+    ));
+  }
   Ok(())
 }
 
@@ -55,6 +62,8 @@ mod tests {
     CommonVideoModel::HappyHorse1p0,
   ];
 
+  const WAN_MODELS: [CommonVideoModel; 2] = [CommonVideoModel::Wan3p0, CommonVideoModel::Wan3p0Prime];
+
   #[test]
   fn both_endpoints_accept_batches_one_through_four_and_default() {
     for model in MODELS {
@@ -73,6 +82,22 @@ mod tests {
         for result in validate_both(model, Some(batch)) {
           assert!(matches!(result, Err(CommonWebError::BadInputWithSimpleMessage(_))),
             "{:?}, batch {}", model, batch);
+        }
+      }
+    }
+  }
+
+  #[test]
+  fn wan_accepts_only_a_single_output() {
+    for model in WAN_MODELS {
+      for batch in [None, Some(1)] {
+        for result in validate_both(model, batch) {
+          assert!(result.is_ok(), "{:?}, batch {:?}: {:?}", model, batch, result);
+        }
+      }
+      for batch in [0, 2, 3, 4, 8, u16::MAX] {
+        for result in validate_both(model, Some(batch)) {
+          assert!(result.is_err(), "{:?}, batch {}", model, batch);
         }
       }
     }
