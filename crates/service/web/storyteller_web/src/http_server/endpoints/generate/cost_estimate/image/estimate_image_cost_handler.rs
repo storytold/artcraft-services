@@ -192,10 +192,13 @@ fn map_resolution(res: CommonResolution) -> RouterResolution {
   }
 }
 
-fn map_quality(res: CommonQuality) -> RouterQuality {
-  match res {
-    CommonQuality::Low => RouterQuality::Low,
-    CommonQuality::Medium => RouterQuality::Medium,
+fn map_quality(quality: CommonQuality) -> RouterQuality {
+  match quality {
+    CommonQuality::Auto => RouterQuality::Auto,
+    CommonQuality::Max => RouterQuality::Max,
+    CommonQuality::XHigh => RouterQuality::XHigh,
     CommonQuality::High => RouterQuality::High,
+    CommonQuality::Medium => RouterQuality::Medium,
+    CommonQuality::Low => RouterQuality::Low,
   }
 }

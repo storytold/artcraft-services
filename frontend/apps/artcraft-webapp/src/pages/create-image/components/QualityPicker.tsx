@@ -10,6 +10,9 @@ interface QualityPickerProps {
 }
 
 const QUALITY_LABELS: Record<string, string> = {
+  auto: "Auto",
+  max: "Max",
+  xhigh: "Extra High",
   high: "High",
   medium: "Medium",
   low: "Low",
