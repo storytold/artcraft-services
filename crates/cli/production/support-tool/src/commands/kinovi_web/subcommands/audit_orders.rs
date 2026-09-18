@@ -43,31 +43,15 @@ pub struct AuditOrdersArgs {
   #[arg(long, default_value_t = 250)]
   pub delay_ms: u64,
 
-  /// Read session cookies from this env var instead of SEEDANCE2PRO_COOKIES
-  /// (e.g. SEEDANCE2PRO_VOLCENGINE_COOKIES / SEEDANCE2PRO_BYTEPLUS_COOKIES /
-  /// SEEDANCE2PRO_BYTEPLUS_ULTRA_COOKIES to audit each Kinovi account).
-  #[arg(long)]
-  pub cookies_env: Option<String>,
-
   /// Account label written into each CSV row. Defaults to the cookies env
-  /// var name (or "SEEDANCE2PRO_COOKIES").
+  /// var name.
   #[arg(long)]
   pub account: Option<String>,
 }
 
 pub async fn run(state: &KinoviWebState, args: AuditOrdersArgs) -> anyhow::Result<()> {
-  let (cookies, account_label) = match &args.cookies_env {
-    Some(var) => (
-      easyenv::get_env_string_required(var)
-        .map_err(|err| anyhow!("Missing {} env var: {:?}", var, err))?,
-      args.account.clone().unwrap_or_else(|| var.clone()),
-    ),
-    None => (
-      state.cookies.clone(),
-      args.account.clone().unwrap_or_else(|| "SEEDANCE2PRO_COOKIES".to_string()),
-    ),
-  };
-  let session = KinoviWebSession::from_cookies_string(cookies);
+  let account_label = args.account.as_deref().unwrap_or(&state.cookies_env);
+  let session = KinoviWebSession::from_cookies_string(state.cookies.clone());
 
   let file_is_new = std::fs::metadata(&args.out).map(|m| m.len() == 0).unwrap_or(true);
   let mut out = OpenOptions::new().create(true).append(true).open(&args.out)
@@ -106,7 +90,7 @@ pub async fn run(state: &KinoviWebState, args: AuditOrdersArgs) -> anyhow::Resul
         stats.skipped_before_window += 1;
         continue;
       }
-      write_order_row(&mut out, &account_label, order)?;
+      write_order_row(&mut out, account_label, order)?;
       stats.record(order);
     }
     out.flush()?;
@@ -133,7 +117,7 @@ pub async fn run(state: &KinoviWebState, args: AuditOrdersArgs) -> anyhow::Resul
     tokio::time::sleep(Duration::from_millis(args.delay_ms)).await;
   }
 
-  stats.print_summary(&account_label, cursor);
+  stats.print_summary(account_label, cursor);
   Ok(())
 }
 
