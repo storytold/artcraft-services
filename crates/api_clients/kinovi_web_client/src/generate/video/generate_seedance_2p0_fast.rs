@@ -66,6 +66,10 @@ pub enum KinoviSeedance2p0FastBatchCount {
   Two,
   Three,
   Four,
+  Five,
+  Six,
+  Seven,
+  Eight,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,6 +144,10 @@ impl KinoviCostCalculatorTrait for GenerateSeedance2p0FastRequest {
       Some(KinoviSeedance2p0FastBatchCount::Two) => 2.0,
       Some(KinoviSeedance2p0FastBatchCount::Three) => 3.0,
       Some(KinoviSeedance2p0FastBatchCount::Four) => 4.0,
+      Some(KinoviSeedance2p0FastBatchCount::Five) => 5.0,
+      Some(KinoviSeedance2p0FastBatchCount::Six) => 6.0,
+      Some(KinoviSeedance2p0FastBatchCount::Seven) => 7.0,
+      Some(KinoviSeedance2p0FastBatchCount::Eight) => 8.0,
     };
 
     let output_seconds = f64::from(self.duration_seconds) * batch_multiplier;
@@ -244,6 +252,10 @@ fn map_batch_count(bc: Option<KinoviSeedance2p0FastBatchCount>) -> KinoviBatchCo
     Some(KinoviSeedance2p0FastBatchCount::Two) => KinoviBatchCountRaw::Two,
     Some(KinoviSeedance2p0FastBatchCount::Three) => KinoviBatchCountRaw::Three,
     Some(KinoviSeedance2p0FastBatchCount::Four) => KinoviBatchCountRaw::Four,
+    Some(KinoviSeedance2p0FastBatchCount::Five) => KinoviBatchCountRaw::Five,
+    Some(KinoviSeedance2p0FastBatchCount::Six) => KinoviBatchCountRaw::Six,
+    Some(KinoviSeedance2p0FastBatchCount::Seven) => KinoviBatchCountRaw::Seven,
+    Some(KinoviSeedance2p0FastBatchCount::Eight) => KinoviBatchCountRaw::Eight,
   }
 }
 
@@ -528,18 +540,131 @@ mod tests {
 
     mod batch_tests {
       use super::*;
+      use crate::test_utils::assert_batch_cost::assert_batch_cost;
+
+      const BATCHES: [KinoviSeedance2p0FastBatchCount; 8] = [
+        KinoviSeedance2p0FastBatchCount::One,
+        KinoviSeedance2p0FastBatchCount::Two,
+        KinoviSeedance2p0FastBatchCount::Three,
+        KinoviSeedance2p0FastBatchCount::Four,
+        KinoviSeedance2p0FastBatchCount::Five,
+        KinoviSeedance2p0FastBatchCount::Six,
+        KinoviSeedance2p0FastBatchCount::Seven,
+        KinoviSeedance2p0FastBatchCount::Eight,
+      ];
+
+      // Each pair is (credits, USD cents rounded up), for batches 1 through 8.
+      // Pin literal totals so rate changes fail independently of scaling checks.
+      #[test]
+      fn fixed_five_second_batch_prices_without_video_reference() {
+        let cases = [
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (70.0, 37), (140.0, 73), (210.0, 109), (280.0, 146),
+            (350.0, 182), (420.0, 218), (490.0, 254), (560.0, 291),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (140.0, 73), (280.0, 146), (420.0, 218), (560.0, 291),
+            (700.0, 363), (840.0, 436), (980.0, 508), (1120.0, 581),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (52.5, 22), (105.0, 44), (157.5, 65), (210.0, 87),
+            (262.5, 108), (315.0, 130), (367.5, 152), (420.0, 173),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (105.0, 44), (210.0, 87), (315.0, 130), (420.0, 173),
+            (525.0, 216), (630.0, 260), (735.0, 303), (840.0, 346),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let request = build_request(5, Some(resolution), Some(batch));
+            let cost = request.calculate_costs(tier).total_cost;
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
 
       #[test]
-      fn batch_multiplies_at_both_tiers() {
+      fn fixed_five_second_batch_prices_with_video_reference() {
+        let cases = [
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (90.0, 47), (180.0, 94), (270.0, 140), (360.0, 187),
+            (450.0, 234), (540.0, 280), (630.0, 327), (720.0, 374),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (170.0, 89), (340.0, 177), (510.0, 265), (680.0, 353),
+            (850.0, 441), (1020.0, 529), (1190.0, 617), (1360.0, 705),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (67.5, 28), (135.0, 56), (202.5, 84), (270.0, 112),
+            (337.5, 139), (405.0, 167), (472.5, 195), (540.0, 223),
+          ]),
+          (KinoviSeedance2p0FastOutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (127.5, 53), (255.0, 105), (382.5, 158), (510.0, 210),
+            (637.5, 263), (765.0, 315), (892.5, 368), (1020.0, 420),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let request = build_request(5, Some(resolution), Some(batch));
+            let request = with_video_ref(request);
+            let cost = request.calculate_costs(tier).total_cost;
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
+
+      #[test]
+      fn all_batches_scale_every_resolution_and_surcharge_at_both_tiers() {
+        let batches = [
+          (None, 1),
+          (Some(KinoviSeedance2p0FastBatchCount::One), 1),
+          (Some(KinoviSeedance2p0FastBatchCount::Two), 2),
+          (Some(KinoviSeedance2p0FastBatchCount::Three), 3),
+          (Some(KinoviSeedance2p0FastBatchCount::Four), 4),
+          (Some(KinoviSeedance2p0FastBatchCount::Five), 5),
+          (Some(KinoviSeedance2p0FastBatchCount::Six), 6),
+          (Some(KinoviSeedance2p0FastBatchCount::Seven), 7),
+          (Some(KinoviSeedance2p0FastBatchCount::Eight), 8),
+        ];
         for tier in [KinoviPricingTier::Enterprise, KinoviPricingTier::Consumer] {
-          let base = r720(5).calculate_costs(tier).total_cost.kinovi_credits;
-          for (batch, multiplier) in [
-            (KinoviSeedance2p0FastBatchCount::Two, 2.0),
-            (KinoviSeedance2p0FastBatchCount::Three, 3.0),
-            (KinoviSeedance2p0FastBatchCount::Four, 4.0),
+          for resolution in [
+            None,
+            Some(KinoviSeedance2p0FastOutputResolution::FourEightyP),
+            Some(KinoviSeedance2p0FastOutputResolution::SevenTwentyP),
           ] {
-            let batched = build_request(5, None, Some(batch)).calculate_costs(tier).total_cost.kinovi_credits;
-            assert_eq!(batched, base * multiplier, "{batch:?} at {tier:?}");
+            for duration in [4, 5, 15] {
+              for references in [
+                None,
+                Some(vec![]),
+                Some(vec!["https://example.com/ref.mp4".to_string()]),
+                Some(vec!["https://example.com/ref1.mp4".to_string(), "https://example.com/ref2.mp4".to_string()]),
+              ] {
+                let mut request = build_request(duration, resolution, None);
+                request.reference_video_urls = references;
+                let single = request.calculate_costs(tier);
+                for (batch, count) in batches {
+                  request.batch_count = batch;
+                  let batched = request.calculate_costs(tier);
+                  let context = format!("{tier:?} {resolution:?} {duration}s {batch:?} references={:?}", request.reference_video_urls);
+                  assert_batch_cost(single.base_cost, batched.base_cost, count, tier, &context);
+                  assert_batch_cost(single.total_cost, batched.total_cost, count, tier, &context);
+                  match (single.video_reference_surcharge_cost, batched.video_reference_surcharge_cost) {
+                    (None, None) => {},
+                    (Some(single), Some(batched)) => assert_batch_cost(single, batched, count, tier, &context),
+                    _ => panic!("{context}: batch count changed surcharge presence"),
+                  }
+                }
+              }
+            }
           }
         }
       }

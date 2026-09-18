@@ -1,4 +1,5 @@
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::endpoints::omni_gen::shared_utils::video::validate_kinovi_batch_count::validate_kinovi_batch_count;
 use crate::http_server::endpoints::omni_api::shared_utils::video::validate_seedance_2p0_limits::validate_seedance_2p0_limits;
 use crate::http_server::endpoints::omni_api::shared_utils::video::validate_when_image_required::validate_when_image_required;
 use artcraft_api_defs::omni_api::generate_requests::omni_api_video_generate_request::OmniApiVideoGenerateRequest;
@@ -7,6 +8,7 @@ use artcraft_api_defs::omni_api::generate_requests::omni_api_video_generate_requ
 pub fn validate_video_request(
   request: &OmniApiVideoGenerateRequest,
 ) -> Result<(), CommonWebError> {
+  validate_kinovi_batch_count(request.model, request.video_batch_count)?;
   validate_when_image_required(request)?;
   validate_seedance_2p0_limits(request)?;
   Ok(())

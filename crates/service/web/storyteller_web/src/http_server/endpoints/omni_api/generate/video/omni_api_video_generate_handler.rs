@@ -137,3 +137,58 @@ fn to_omni_gen_request(request: OmniApiVideoGenerateRequest) -> OmniGenVideoCost
     estimate_only: None,
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use artcraft_router::api::router_provider::RouterProvider;
+  use enums::common::generation::common_video_model::CommonVideoModel;
+  use serde_json::json;
+
+  use crate::http_server::endpoints::omni_gen::generate::video::helpers::hydrate_router_request::hydrate_to_router_request;
+  use crate::http_server::endpoints::omni_gen::shared_utils::video::validate_video_request::validate_video_request as validate_omni_gen;
+
+  use super::*;
+
+  #[test]
+  fn kinovi_batches_reach_shared_generation_with_the_full_retail_price() {
+    // Both handlers use this hydration and ArtCraft pricing path. The API
+    // handler additionally converts its request into the omni_gen shape.
+    for (model, expected_prices) in [
+      (CommonVideoModel::Seedance2p5, [134, 268, 401, 535]),
+      (CommonVideoModel::Seedance2p0, [93, 185, 278, 370]),
+      (CommonVideoModel::Seedance2p0Fast, [64, 127, 191, 255]),
+      (CommonVideoModel::Seedance2p0Mini, [45, 89, 134, 178]),
+      (CommonVideoModel::Seedance2p5Ultra, [158, 316, 474, 632]),
+      (CommonVideoModel::Seedance2p0BytePlus, [125, 250, 375, 500]),
+      (CommonVideoModel::Seedance2p0BytePlusFast, [100, 200, 300, 400]),
+      (CommonVideoModel::Seedance2p0BytePlusMini, [46, 91, 137, 182]),
+      (CommonVideoModel::Seedance2p0BytePlusUltra, [125, 250, 375, 500]),
+      (CommonVideoModel::Seedance2p0BytePlusUltraFast, [100, 200, 300, 400]),
+      (CommonVideoModel::Seedance2p0BytePlusUltraMini, [46, 91, 137, 182]),
+      (CommonVideoModel::HappyHorse1p0, [85, 171, 256, 342]),
+    ] {
+      for (index, price) in expected_prices.iter().copied().enumerate() {
+        let batch = index as u16 + 1;
+        let body = json!({
+          "model": model,
+          "duration_seconds": 5,
+          "resolution": "seven_twenty_p",
+          "video_batch_count": batch,
+        });
+        let api_request: OmniApiVideoGenerateRequest = serde_json::from_value(body.clone()).unwrap();
+        validate_video_request(&api_request).unwrap();
+        let converted_request = to_omni_gen_request(api_request);
+        let gen_request: OmniGenVideoCostAndGenerateRequest = serde_json::from_value(body).unwrap();
+        for request in [gen_request, converted_request] {
+          validate_omni_gen(&request).unwrap();
+          let builder = hydrate_to_router_request(&request).unwrap();
+          assert_eq!(builder.video_batch_count, Some(batch), "{model:?}");
+          assert!(matches!(builder.provider, RouterProvider::Artcraft));
+          let cost = builder.build2().unwrap().estimate_cost().unwrap();
+          assert_eq!(cost.cost_in_credits, Some(price), "{model:?}, batch {batch}");
+          assert_eq!(cost.cost_in_usd_cents, Some(price), "{model:?}, batch {batch}");
+        }
+      }
+    }
+  }
+}

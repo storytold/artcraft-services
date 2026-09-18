@@ -48,6 +48,7 @@ pub struct GenerateSeedance2p5Request {
   pub output_resolution: Option<KinoviSeedance2p5OutputResolution>,
 
   pub duration_seconds: u8,
+  pub batch_count: Option<KinoviSeedance2p5BatchCount>,
 
   /// CALCULATION-ONLY (never sent on the wire): the total seconds of
   /// reference video input, summed across all reference videos. When video
@@ -135,6 +136,19 @@ pub enum KinoviSeedance2p5Bitrate {
 pub enum KinoviSeedance2p5OutputFormat {
   Mp4,
   Mov,
+}
+
+/// Number of videos to generate in one request (1–8).
+#[derive(Debug, Clone, Copy)]
+pub enum KinoviSeedance2p5BatchCount {
+  One,
+  Two,
+  Three,
+  Four,
+  Five,
+  Six,
+  Seven,
+  Eight,
 }
 
 // ── Pricing ──
@@ -233,7 +247,18 @@ impl KinoviCostCalculatorTrait for GenerateSeedance2p5Request {
       (rate, u64::from(self.duration_seconds))
     };
 
-    let total_credits = rate.credits(tier) * billed_seconds as f64;
+    let batch_multiplier: f64 = match self.batch_count {
+      None | Some(KinoviSeedance2p5BatchCount::One) => 1.0,
+      Some(KinoviSeedance2p5BatchCount::Two) => 2.0,
+      Some(KinoviSeedance2p5BatchCount::Three) => 3.0,
+      Some(KinoviSeedance2p5BatchCount::Four) => 4.0,
+      Some(KinoviSeedance2p5BatchCount::Five) => 5.0,
+      Some(KinoviSeedance2p5BatchCount::Six) => 6.0,
+      Some(KinoviSeedance2p5BatchCount::Seven) => 7.0,
+      Some(KinoviSeedance2p5BatchCount::Eight) => 8.0,
+    };
+
+    let total_credits = rate.credits(tier) * billed_seconds as f64 * batch_multiplier;
     tier.cost_from_credits(total_credits)
   }
 }
@@ -308,7 +333,7 @@ fn to_raw_request(req: GenerateSeedance2p5Request) -> WorkflowRunTaskRequest {
     aspect_ratio,
     output_resolution: Some(map_output_resolution(req.output_resolution)),
     duration_seconds: req.duration_seconds,
-    batch_count: KinoviBatchCountRaw::One,
+    batch_count: map_batch_count(req.batch_count),
     start_frame_url,
     end_frame_url,
     reference_image_urls,
@@ -351,6 +376,19 @@ fn map_output_resolution(res: Option<KinoviSeedance2p5OutputResolution>) -> Kino
     // which prices None as 720p.
     Some(KinoviSeedance2p5OutputResolution::SevenTwentyP) | None => KinoviOutputResolutionRaw::SevenTwentyP,
     Some(KinoviSeedance2p5OutputResolution::TenEightyP) => KinoviOutputResolutionRaw::TenEightyP,
+  }
+}
+
+fn map_batch_count(bc: Option<KinoviSeedance2p5BatchCount>) -> KinoviBatchCountRaw {
+  match bc {
+    Some(KinoviSeedance2p5BatchCount::One) | None => KinoviBatchCountRaw::One,
+    Some(KinoviSeedance2p5BatchCount::Two) => KinoviBatchCountRaw::Two,
+    Some(KinoviSeedance2p5BatchCount::Three) => KinoviBatchCountRaw::Three,
+    Some(KinoviSeedance2p5BatchCount::Four) => KinoviBatchCountRaw::Four,
+    Some(KinoviSeedance2p5BatchCount::Five) => KinoviBatchCountRaw::Five,
+    Some(KinoviSeedance2p5BatchCount::Six) => KinoviBatchCountRaw::Six,
+    Some(KinoviSeedance2p5BatchCount::Seven) => KinoviBatchCountRaw::Seven,
+    Some(KinoviSeedance2p5BatchCount::Eight) => KinoviBatchCountRaw::Eight,
   }
 }
 
@@ -691,10 +729,185 @@ mod tests {
       }
     }
 
+    mod batch_price_tests {
+      use super::*;
+
+      const BATCHES: [KinoviSeedance2p5BatchCount; 8] = [
+        KinoviSeedance2p5BatchCount::One,
+        KinoviSeedance2p5BatchCount::Two,
+        KinoviSeedance2p5BatchCount::Three,
+        KinoviSeedance2p5BatchCount::Four,
+        KinoviSeedance2p5BatchCount::Five,
+        KinoviSeedance2p5BatchCount::Six,
+        KinoviSeedance2p5BatchCount::Seven,
+        KinoviSeedance2p5BatchCount::Eight,
+      ];
+
+      // Each pair is (credits, USD cents rounded up), for batches 1 through 8.
+      // Pin literal totals so rate changes fail independently of scaling checks.
+      // Video-reference cases bill 5s output + 10s input per video.
+      #[test]
+      fn fixed_five_second_batch_prices_without_video_reference() {
+        let cases = [
+          (KinoviSeedance2p5OutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (130.0, 68), (260.0, 135), (390.0, 203), (520.0, 270),
+            (650.0, 337), (780.0, 405), (910.0, 472), (1040.0, 539),
+          ]),
+          (KinoviSeedance2p5OutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (295.0, 153), (590.0, 306), (885.0, 459), (1180.0, 612),
+            (1475.0, 765), (1770.0, 918), (2065.0, 1071), (2360.0, 1223),
+          ]),
+          (KinoviSeedance2p5OutputResolution::TenEightyP, KinoviPricingTier::Consumer, [
+            (717.0, 372), (1434.0, 744), (2151.0, 1115), (2868.0, 1487),
+            (3585.0, 1858), (4302.0, 2230), (5019.0, 2601), (5736.0, 2973),
+          ]),
+          (KinoviSeedance2p5OutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (130.0, 54), (260.0, 107), (390.0, 161), (520.0, 214),
+            (650.0, 268), (780.0, 321), (910.0, 375), (1040.0, 428),
+          ]),
+          (KinoviSeedance2p5OutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (295.0, 122), (590.0, 243), (885.0, 364), (1180.0, 486),
+            (1475.0, 607), (1770.0, 728), (2065.0, 850), (2360.0, 971),
+          ]),
+          (KinoviSeedance2p5OutputResolution::TenEightyP, KinoviPricingTier::Enterprise, [
+            (681.15, 281), (1362.30, 561), (2043.45, 841), (2724.60, 1121),
+            (3405.75, 1401), (4086.90, 1681), (4768.05, 1961), (5449.20, 2241),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let mut request = text_to_video_request(5, Some(resolution));
+            request.batch_count = Some(batch);
+            let cost = request.calculate_costs(tier);
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
+
+      #[test]
+      fn fixed_five_second_batch_prices_with_video_reference() {
+        let cases = [
+          (KinoviSeedance2p5OutputResolution::FourEightyP, KinoviPricingTier::Consumer, [
+            (240.0, 125), (480.0, 249), (720.0, 374), (960.0, 498),
+            (1200.0, 622), (1440.0, 747), (1680.0, 871), (1920.0, 995),
+          ]),
+          (KinoviSeedance2p5OutputResolution::SevenTwentyP, KinoviPricingTier::Consumer, [
+            (525.0, 273), (1050.0, 545), (1575.0, 817), (2100.0, 1089),
+            (2625.0, 1361), (3150.0, 1633), (3675.0, 1905), (4200.0, 2177),
+          ]),
+          (KinoviSeedance2p5OutputResolution::TenEightyP, KinoviPricingTier::Consumer, [
+            (1285.2, 666), (2570.4, 1332), (3855.6, 1998), (5140.8, 2664),
+            (6426.0, 3330), (7711.2, 3996), (8996.4, 4662), (10281.6, 5328),
+          ]),
+          (KinoviSeedance2p5OutputResolution::FourEightyP, KinoviPricingTier::Enterprise, [
+            (240.0, 99), (480.0, 198), (720.0, 297), (960.0, 395),
+            (1200.0, 494), (1440.0, 593), (1680.0, 691), (1920.0, 790),
+          ]),
+          (KinoviSeedance2p5OutputResolution::SevenTwentyP, KinoviPricingTier::Enterprise, [
+            (525.0, 216), (1050.0, 432), (1575.0, 648), (2100.0, 864),
+            (2625.0, 1080), (3150.0, 1296), (3675.0, 1512), (4200.0, 1728),
+          ]),
+          (KinoviSeedance2p5OutputResolution::TenEightyP, KinoviPricingTier::Enterprise, [
+            (1221.0, 503), (2442.0, 1005), (3663.0, 1507), (4884.0, 2009),
+            (6105.0, 2511), (7326.0, 3013), (8547.0, 3515), (9768.0, 4018),
+          ]),
+        ];
+        for (resolution, tier, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let mut request = text_to_video_request(5, Some(resolution));
+            request.batch_count = Some(batch);
+            set_reference_urls(&mut request, None, Some(vec!["https://example.com/ref.mp4".to_string()]), None);
+            request.total_input_seconds = Some(10);
+            let cost = request.calculate_costs(tier);
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {tier:?} {batch:?}",
+            );
+          }
+        }
+      }
+    }
+
     // ── Relative pricing ──
 
     mod relative_tests {
       use super::*;
+      use crate::test_utils::assert_batch_cost::assert_batch_cost;
+
+      #[test]
+      fn all_batches_scale_every_resolution_modality_and_input_duration() {
+        let batches = [
+          (None, 1),
+          (Some(KinoviSeedance2p5BatchCount::One), 1),
+          (Some(KinoviSeedance2p5BatchCount::Two), 2),
+          (Some(KinoviSeedance2p5BatchCount::Three), 3),
+          (Some(KinoviSeedance2p5BatchCount::Four), 4),
+          (Some(KinoviSeedance2p5BatchCount::Five), 5),
+          (Some(KinoviSeedance2p5BatchCount::Six), 6),
+          (Some(KinoviSeedance2p5BatchCount::Seven), 7),
+          (Some(KinoviSeedance2p5BatchCount::Eight), 8),
+        ];
+        for tier in [KinoviPricingTier::Enterprise, KinoviPricingTier::Consumer] {
+          for resolution in [
+            None,
+            Some(KinoviSeedance2p5OutputResolution::FourEightyP),
+            Some(KinoviSeedance2p5OutputResolution::SevenTwentyP),
+            Some(KinoviSeedance2p5OutputResolution::TenEightyP),
+          ] {
+            for duration in [4, 5, 30] {
+              let text_request = text_to_video_request(duration, resolution);
+              let mut keyframe = keyframe_request(duration);
+              keyframe.output_resolution = resolution;
+              let mut image_audio = text_request.clone();
+              set_reference_urls(
+                &mut image_audio,
+                Some(vec!["https://example.com/image.png".to_string()]),
+                None,
+                Some(vec!["https://example.com/audio.mp3".to_string()]),
+              );
+              let mut empty_videos = text_request.clone();
+              set_reference_urls(&mut empty_videos, None, Some(vec![]), None);
+              let mut requests = vec![
+                ("text".to_string(), text_request.clone()),
+                ("keyframe".to_string(), keyframe),
+                ("image/audio".to_string(), image_audio),
+                ("empty videos".to_string(), empty_videos),
+              ];
+              // Include unknown/zero inputs, the minimum, ordinary input, the
+              // maximum, and values clamped at either end of the billed range.
+              for input_seconds in [None, Some(0), Some(1), Some(4), Some(10), Some(30), Some(31), Some(u8::MAX)] {
+                let mut request = text_request.clone();
+                set_reference_urls(&mut request, None, Some(vec!["https://example.com/ref.mp4".to_string()]), None);
+                request.total_input_seconds = input_seconds;
+                requests.push((format!("video input={input_seconds:?}"), request));
+              }
+              for (modality, mut request) in requests {
+                let single = request.calculate_costs(tier);
+                for (batch, count) in batches {
+                  request.batch_count = batch;
+                  let batched = request.calculate_costs(tier);
+                  let context = format!("{tier:?} {resolution:?} {duration}s {batch:?} {modality}");
+                  assert_batch_cost(single, batched, count, tier, &context);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      #[test]
+      fn batch_multiplies_output_and_reference_input_costs() {
+        let mut request = video_ref_480(5, Some(10));
+        request.batch_count = Some(KinoviSeedance2p5BatchCount::Eight);
+        assert_eq!(request.calculate_consumer_costs().kinovi_credits, 1920.0);
+        assert_eq!(request.calculate_enterprise_costs().kinovi_credits, 1920.0);
+        assert!(matches!(to_raw_request(request).batch_count, KinoviBatchCountRaw::Eight));
+      }
 
       #[test]
       fn video_reference_rate_is_cheaper_per_second() {
@@ -769,6 +982,7 @@ mod tests {
       output_resolution: Option<KinoviSeedance2p5OutputResolution>,
     ) -> GenerateSeedance2p5Request {
       GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: String::new(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: None,
@@ -800,6 +1014,7 @@ mod tests {
 
     fn keyframe_request(duration: u8) -> GenerateSeedance2p5Request {
       GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: String::new(),
         modality: KinoviSeedance2p5Modality::Keyframe {
           start_frame_url: "https://example.com/start.png".to_string(),
@@ -862,6 +1077,7 @@ mod tests {
     #[test]
     fn keyframe_maps_frames_and_no_references() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "Car drives into the sunset".to_string(),
         modality: KinoviSeedance2p5Modality::Keyframe {
           start_frame_url: "https://example.com/start.png".to_string(),
@@ -888,6 +1104,7 @@ mod tests {
     #[test]
     fn reference_maps_references_and_no_frames() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "The t-rex @image1 eats the banana".to_string(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: Some(KinoviSeedance2p5AspectRatio::UltraWide21x9),
@@ -918,6 +1135,7 @@ mod tests {
     #[test]
     fn resolution_1080p_maps_to_raw_1080p() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "A car driving on the beach".to_string(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: None,
@@ -940,6 +1158,7 @@ mod tests {
     #[test]
     fn reference_aspect_ratio_defaults_to_16x9() {
       let raw = to_raw_request(GenerateSeedance2p5Request {
+        batch_count: None,
         prompt: "Lightning hits a building".to_string(),
         modality: KinoviSeedance2p5Modality::Reference {
           aspect_ratio: None,
@@ -972,6 +1191,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "Lightning hits a building".to_string(),
           modality: KinoviSeedance2p5Modality::Reference {
             aspect_ratio: Some(KinoviSeedance2p5AspectRatio::Landscape16x9),
@@ -1006,6 +1226,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "A car driving on the beach".to_string(),
           modality: KinoviSeedance2p5Modality::Reference {
             aspect_ratio: Some(KinoviSeedance2p5AspectRatio::Landscape16x9),
@@ -1038,6 +1259,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "Car drives into the sunset".to_string(),
           modality: KinoviSeedance2p5Modality::Keyframe {
             start_frame_url: "https://static.seedance2-pro.com/materials/20260807/1786128486168-a2bf6132.png".to_string(),
@@ -1068,6 +1290,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "Car drives into the sunset".to_string(),
           modality: KinoviSeedance2p5Modality::Keyframe {
             start_frame_url: "https://static.seedance2-pro.com/materials/20260807/1786128486168-a2bf6132.png".to_string(),
@@ -1098,6 +1321,7 @@ mod tests {
         session: &session,
         host_override: None,
         request: GenerateSeedance2p5Request {
+          batch_count: None,
           prompt: "The t-rex @image1 eats the banana @image2".to_string(),
           modality: KinoviSeedance2p5Modality::Reference {
             aspect_ratio: Some(KinoviSeedance2p5AspectRatio::UltraWide21x9),

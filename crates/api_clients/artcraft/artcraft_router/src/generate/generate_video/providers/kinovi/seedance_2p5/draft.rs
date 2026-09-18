@@ -1,5 +1,5 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5::{
-  GenerateSeedance2p5Request, KinoviSeedance2p5AspectRatio, KinoviSeedance2p5Bitrate, KinoviSeedance2p5Modality,
+  GenerateSeedance2p5Request, KinoviSeedance2p5BatchCount, KinoviSeedance2p5AspectRatio, KinoviSeedance2p5Bitrate, KinoviSeedance2p5Modality,
   KinoviSeedance2p5OutputFormat, KinoviSeedance2p5OutputResolution,
 };
 
@@ -27,6 +27,7 @@ pub struct KinoviSeedance2p5DraftState {
   pub resolution: Option<KinoviSeedance2p5OutputResolution>,
 
   pub duration_seconds: u8,
+  pub batch_count: KinoviSeedance2p5BatchCount,
 
   /// Calculation-only: total seconds of reference video input, summed across
   /// all reference videos (each rounded up to a whole second).
@@ -113,6 +114,7 @@ impl KinoviSeedance2p5DraftState {
       modality,
       output_resolution: self.resolution,
       duration_seconds: self.duration_seconds,
+      batch_count: Some(self.batch_count),
       total_input_seconds: self.total_input_seconds,
       use_face_blur_hack: None,
       maybe_bitrate: self.maybe_bitrate,

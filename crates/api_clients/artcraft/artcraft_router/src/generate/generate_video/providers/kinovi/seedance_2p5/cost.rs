@@ -1,5 +1,5 @@
 use kinovi_web_client::generate::video::generate_seedance_2p5::{
-  GenerateSeedance2p5Request, KinoviSeedance2p5Modality, KinoviSeedance2p5OutputResolution,
+  GenerateSeedance2p5Request, KinoviSeedance2p5BatchCount, KinoviSeedance2p5Modality, KinoviSeedance2p5OutputResolution,
   MAX_BILLED_INPUT_SECONDS, MIN_BILLED_INPUT_SECONDS,
 };
 use kinovi_web_client::pricing::kinovi_cost_calculator_trait::KinoviCostCalculatorTrait;
@@ -18,6 +18,7 @@ use crate::generate::generate_video::providers::kinovi::seedance_2p5::request::K
 pub struct KinoviSeedance2p5CostState {
   pub resolution: Option<KinoviSeedance2p5OutputResolution>,
   pub duration_seconds: u8,
+  pub batch_count: Option<KinoviSeedance2p5BatchCount>,
   pub has_video_references: bool,
   pub total_input_seconds: Option<u8>,
 }
@@ -32,6 +33,7 @@ impl KinoviSeedance2p5CostState {
     Self {
       resolution: request.request.output_resolution,
       duration_seconds: request.request.duration_seconds,
+      batch_count: request.request.batch_count,
       has_video_references,
       total_input_seconds: request.request.total_input_seconds,
     }
@@ -49,6 +51,7 @@ impl KinoviSeedance2p5CostState {
     Self {
       resolution: draft.resolution,
       duration_seconds: draft.duration_seconds,
+      batch_count: Some(draft.batch_count),
       has_video_references,
       total_input_seconds: draft.total_input_seconds,
     }
@@ -57,7 +60,7 @@ impl KinoviSeedance2p5CostState {
   pub fn estimate_cost(&self) -> VideoGenerationCostEstimate {
     // Delegate to the kinovi_web_client calculator via a pricing-only
     // request. Only the modality's video references, the resolution, the
-    // duration, and the input seconds affect the price.
+    // duration, batch count, and the input seconds affect the price.
     let modality = if self.has_video_references {
       KinoviSeedance2p5Modality::Reference {
         aspect_ratio: None,
@@ -89,6 +92,7 @@ impl KinoviSeedance2p5CostState {
       modality,
       output_resolution: self.resolution,
       duration_seconds: self.duration_seconds,
+      batch_count: self.batch_count,
       total_input_seconds,
       use_face_blur_hack: None,
       maybe_bitrate: None,
@@ -230,7 +234,7 @@ mod tests {
     has_video_references: bool,
     total_input_seconds: Option<u8>,
   ) -> KinoviSeedance2p5CostState {
-    KinoviSeedance2p5CostState { resolution, duration_seconds, has_video_references, total_input_seconds }
+    KinoviSeedance2p5CostState { batch_count: None, resolution, duration_seconds, has_video_references, total_input_seconds }
   }
 
   fn credits(

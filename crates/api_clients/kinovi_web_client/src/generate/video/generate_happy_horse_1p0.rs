@@ -49,6 +49,7 @@ pub enum KinoviHappyHorse1p0OutputResolution {
 pub enum KinoviHappyHorse1p0BatchCount {
   One,
   Two,
+  Three,
   Four,
 }
 
@@ -79,6 +80,7 @@ impl GenerateHappyHorse1p0Request {
     let batch_multiplier: u64 = match self.batch_count {
       None | Some(KinoviHappyHorse1p0BatchCount::One) => 1,
       Some(KinoviHappyHorse1p0BatchCount::Two) => 2,
+      Some(KinoviHappyHorse1p0BatchCount::Three) => 3,
       Some(KinoviHappyHorse1p0BatchCount::Four) => 4,
     };
 
@@ -174,6 +176,7 @@ fn map_batch_count(bc: Option<KinoviHappyHorse1p0BatchCount>) -> KinoviBatchCoun
   match bc {
     Some(KinoviHappyHorse1p0BatchCount::One) | None => KinoviBatchCountRaw::One,
     Some(KinoviHappyHorse1p0BatchCount::Two) => KinoviBatchCountRaw::Two,
+    Some(KinoviHappyHorse1p0BatchCount::Three) => KinoviBatchCountRaw::Three,
     Some(KinoviHappyHorse1p0BatchCount::Four) => KinoviBatchCountRaw::Four,
   }
 }
@@ -275,11 +278,68 @@ mod tests {
     mod batch_tests {
       use super::*;
 
+      const BATCHES: [KinoviHappyHorse1p0BatchCount; 4] = [
+        KinoviHappyHorse1p0BatchCount::One,
+        KinoviHappyHorse1p0BatchCount::Two,
+        KinoviHappyHorse1p0BatchCount::Three,
+        KinoviHappyHorse1p0BatchCount::Four,
+      ];
+
       #[test]
-      fn batch_1_is_base() {
-        let base = r720(5).calculate_costs().kinovi_credits;
-        let explicit = make_request(5, None, Some(KinoviHappyHorse1p0BatchCount::One)).calculate_costs().kinovi_credits;
-        assert_eq!(base, explicit);
+      fn fixed_five_second_batch_prices() {
+        // Each pair is (credits, USD cents rounded up), for batches 1 through 4.
+        let cases = [
+          (KinoviHappyHorse1p0OutputResolution::SevenTwentyP, [
+            (165, 68), (330, 136), (495, 204), (660, 272),
+          ]),
+          (KinoviHappyHorse1p0OutputResolution::TenEightyP, [
+            (330, 136), (660, 272), (990, 408), (1320, 544),
+          ]),
+        ];
+        for (resolution, prices) in cases {
+          for (batch, (credits, usd_cents)) in BATCHES.into_iter().zip(prices) {
+            let cost = make_request(5, Some(resolution), Some(batch)).calculate_costs();
+            assert_eq!(
+              (cost.kinovi_credits, cost.usd_cents_rounded_up),
+              (credits, usd_cents),
+              "{resolution:?} {batch:?}",
+            );
+          }
+        }
+      }
+
+      #[test]
+      fn all_batches_scale_every_resolution_and_round_the_total() {
+        let batches = [
+          (None, 1),
+          (Some(KinoviHappyHorse1p0BatchCount::One), 1),
+          (Some(KinoviHappyHorse1p0BatchCount::Two), 2),
+          (Some(KinoviHappyHorse1p0BatchCount::Three), 3),
+          (Some(KinoviHappyHorse1p0BatchCount::Four), 4),
+        ];
+        for resolution in [
+          None,
+          Some(KinoviHappyHorse1p0OutputResolution::SevenTwentyP),
+          Some(KinoviHappyHorse1p0OutputResolution::TenEightyP),
+        ] {
+          for duration in [3, 5, 15] {
+            let single = make_request(duration, resolution, None).calculate_costs();
+            for (batch, count) in batches {
+              let batched = make_request(duration, resolution, batch).calculate_costs();
+              let context = format!("{resolution:?} {duration}s {batch:?}");
+              let expected_credits = single.kinovi_credits * count;
+              assert_eq!(batched.kinovi_credits, expected_credits, "{context}: credits");
+              assert!(
+                (batched.usd_cents_fractional - single.usd_cents_fractional * count as f64).abs() < 1e-8,
+                "{context}: fractional cents",
+              );
+              // Happy Horse currently uses the legacy 243 credits/dollar conversion.
+              let numerator = expected_credits * 100;
+              assert_eq!(batched.usd_cents_rounded_up, numerator.div_ceil(243), "{context}: rounded up");
+              assert_eq!(batched.usd_cents_rounded_down, numerator / 243, "{context}: rounded down");
+            }
+          }
+        }
       }
 
       #[test]

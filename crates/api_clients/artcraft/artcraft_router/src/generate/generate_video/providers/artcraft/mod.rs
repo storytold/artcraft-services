@@ -2,6 +2,8 @@ pub(crate) mod build_common;
 pub(crate) mod seedance_common;
 #[cfg(test)]
 mod parity_tests;
+#[cfg(test)]
+mod kinovi_batch_tests;
 pub mod grok_imagine_video;
 pub mod grok_imagine_video_1p5;
 pub mod flux_3;
@@ -43,4 +45,3 @@ pub mod veo_3p1_fast;
 pub mod veo_3p1_lite;
 pub mod vidu_q3;
 pub mod vidu_q3_turbo;
-

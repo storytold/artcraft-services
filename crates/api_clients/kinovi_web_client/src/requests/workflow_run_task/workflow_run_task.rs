@@ -817,6 +817,30 @@ mod tests {
     }
 
     #[test]
+    fn batch_count_serializes_for_all_video_models() {
+      for model in [
+        KinoviModelTypeRaw::Seedance2Pro,
+        KinoviModelTypeRaw::Seedance2Fast,
+        KinoviModelTypeRaw::Seedance2Mini,
+        KinoviModelTypeRaw::Seedance2p5,
+        KinoviModelTypeRaw::Seedance2p5Preview,
+        KinoviModelTypeRaw::HappyHorse1p0,
+      ] {
+        let batches = match model {
+          KinoviModelTypeRaw::HappyHorse1p0 => [(KinoviBatchCountRaw::One, None), (KinoviBatchCountRaw::Three, Some(3))],
+          _ => [(KinoviBatchCountRaw::One, None), (KinoviBatchCountRaw::Eight, Some(8))],
+        };
+        for (batch, expected) in batches {
+          let mut request = mini_request(KinoviAspectRatioRaw::Landscape16x9, None, batch);
+          request.model_type = model;
+          let body = serde_json::to_value(build_batch_request(request)).unwrap();
+          let params = &body["0"]["json"]["apiParams"];
+          assert_eq!(params.get("batchCount"), expected.map(serde_json::Value::from).as_ref(), "{model:?}");
+        }
+      }
+    }
+
+    #[test]
     fn non_mini_still_uses_resolution_field() {
       let mut req = mini_request(KinoviAspectRatioRaw::Landscape16x9, None, KinoviBatchCountRaw::One);
       req.model_type = KinoviModelTypeRaw::Seedance2Pro;

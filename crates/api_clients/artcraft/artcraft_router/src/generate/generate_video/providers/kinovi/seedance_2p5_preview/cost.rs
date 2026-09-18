@@ -1,18 +1,18 @@
 use kinovi_web_client::pricing::kinovi_cost_calculator_trait::KinoviCostCalculatorTrait;
 use kinovi_web_client::generate::video::generate_seedance_2p5_preview::{
-  GenerateSeedance2p5PreviewRequest, KinoviSeedance2p5PreviewOutputResolution,
+  GenerateSeedance2p5PreviewRequest, KinoviSeedance2p5PreviewBatchCount, KinoviSeedance2p5PreviewOutputResolution,
 };
 
 use crate::generate::generate_video::video_generation_cost_estimate::VideoGenerationCostEstimate;
 use crate::generate::generate_video::providers::kinovi::seedance_2p5_preview::draft::KinoviSeedance2p5PreviewDraftState;
 use crate::generate::generate_video::providers::kinovi::seedance_2p5_preview::request::KinoviSeedance2p5PreviewRequestState;
 
-/// Only the resolution and duration matter — Seedance 2.5 Preview has no
-/// video-reference surcharge and no batching, so references never change the
-/// price.
+/// Resolution, duration, and batch count determine the price.
+/// Seedance 2.5 Preview has no video-reference surcharge.
 pub struct KinoviSeedance2p5PreviewCostState {
   pub resolution: Option<KinoviSeedance2p5PreviewOutputResolution>,
   pub duration_seconds: u8,
+  pub batch_count: Option<KinoviSeedance2p5PreviewBatchCount>,
 }
 
 impl KinoviSeedance2p5PreviewCostState {
@@ -20,6 +20,7 @@ impl KinoviSeedance2p5PreviewCostState {
     Self {
       resolution: request.request.output_resolution,
       duration_seconds: request.request.duration_seconds,
+      batch_count: request.request.batch_count,
     }
   }
 
@@ -27,6 +28,7 @@ impl KinoviSeedance2p5PreviewCostState {
     Self {
       resolution: draft.resolution,
       duration_seconds: draft.duration_seconds,
+      batch_count: Some(draft.batch_count),
     }
   }
 
@@ -34,6 +36,7 @@ impl KinoviSeedance2p5PreviewCostState {
     let pricing_request = GenerateSeedance2p5PreviewRequest {
       output_resolution: self.resolution,
       duration_seconds: self.duration_seconds,
+      batch_count: self.batch_count,
 
       // No impact on price (references never affect 2.5 Preview pricing)
       prompt: String::new(),
@@ -139,7 +142,7 @@ mod tests {
   // ── Helpers ──
 
   fn cost_state(resolution: Option<KinoviOutputResolution>, duration_seconds: u8) -> KinoviSeedance2p5PreviewCostState {
-    KinoviSeedance2p5PreviewCostState { resolution, duration_seconds }
+    KinoviSeedance2p5PreviewCostState { batch_count: None, resolution, duration_seconds }
   }
 
   fn credits(resolution: Option<KinoviOutputResolution>, duration_seconds: u8) -> u64 {

@@ -43,10 +43,8 @@ pub fn build_artcraft_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> 
   }
 
   // 2.5 allows 4-30 second durations (longer than the shared 4-15 range in
-  // build_common) and generates a single video per request. Plan both here,
-  // leaving None for the shared builder, then set them after.
+  // build_common). Plan duration here and use the shared 1-4 batch planner.
   let duration_seconds = plan_duration(builder.duration_seconds.take(), strategy)?;
-  plan_batch_count(builder.video_batch_count.take(), strategy)?;
 
   let total_input_seconds = builder.total_reference_video_input_seconds.take();
   let generate_audio = builder.generate_audio.take();
@@ -58,7 +56,6 @@ pub fn build_artcraft_seedance_2p5(mut builder: GenerateVideoRequestBuilder) -> 
     UltraWideSupport::Supported,
   )?;
   request.duration_seconds = duration_seconds;
-  request.video_batch_count = Some(1);
   request.generate_audio = generate_audio;
 
   let state = ArtcraftSeedance2p5RequestState { request, total_input_seconds };
@@ -83,28 +80,6 @@ fn plan_duration(
         }))
       }
       _ => Ok(Some(d.clamp(MIN, MAX))),
-    },
-  }
-}
-
-// Seedance 2.5 generates a single video per request (no batching).
-fn plan_batch_count(
-  video_batch_count: Option<u16>,
-  strategy: RequestMismatchMitigationStrategy,
-) -> Result<(), ArtcraftRouterError> {
-  let count = video_batch_count.unwrap_or(1);
-  match count {
-    0 => Err(ArtcraftRouterError::Client(ClientError::UserRequestedZeroGenerations)),
-    1 => Ok(()),
-    _ => match strategy {
-      RequestMismatchMitigationStrategy::ErrorOut => {
-        Err(ArtcraftRouterError::Client(ClientError::ModelDoesNotSupportOption {
-          field: "video_batch_count",
-          value: format!("{}", count),
-        }))
-      }
-      RequestMismatchMitigationStrategy::PayMoreUpgrade
-      | RequestMismatchMitigationStrategy::PayLessDowngrade => Ok(()),
     },
   }
 }
@@ -153,9 +128,11 @@ mod tests {
     }
 
     #[test]
-    fn batch_count_is_always_one() {
-      let req = unwrap_request(builder_with(|b| { b.video_batch_count = Some(4); }));
-      assert_eq!(req.request.video_batch_count, Some(1));
+    fn batch_counts_one_through_four_are_preserved() {
+      for batch_count in 1..=4 {
+        let req = unwrap_request(builder_with(|b| { b.video_batch_count = Some(batch_count); }));
+        assert_eq!(req.request.video_batch_count, Some(batch_count));
+      }
     }
 
     #[test]
