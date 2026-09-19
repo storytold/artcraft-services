@@ -9,6 +9,7 @@ import {
 import { toast } from "../../components/toast/toast";
 import { errMsg, mapLeanListItemToGalleryItem } from "./library-media-map";
 import { useLibraryTagsStore } from "./library-tags-store";
+import { getFolderMoveDestinations } from "./folder-move";
 
 // ── Bulk selection store ────────────────────────────────────────────────────
 // Kept in its own module store (not page state) so each gallery tile can
@@ -92,6 +93,7 @@ interface LibraryFoldersState {
     parentId: string | null,
   ) => Promise<UiFolder | null>;
   renameFolder: (folderId: string, name: string) => Promise<void>;
+  moveFolder: (folderId: string, parentId: string | null) => Promise<boolean>;
   setFolderStar: (folderId: string, hasStar: boolean) => Promise<void>;
   setFolderColor: (folderId: string, colorCode: string | null) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
@@ -206,6 +208,51 @@ export const useLibraryFoldersStore = create<LibraryFoldersState>(
       } catch (err) {
         console.error("Failed to load folders:", err);
         set({ foldersLoaded: true });
+      }
+    },
+
+    moveFolder: async (folderId, parentId) => {
+      const folders = get().folders;
+      const folder = folders.find((f) => f.id === folderId);
+      if (!folder) return false;
+      if (folder.parentId === parentId) return true;
+      if (
+        parentId &&
+        !getFolderMoveDestinations(folders, folderId).some((f) => f.id === parentId)
+      ) {
+        toast.error(
+          "Choose a destination outside this folder and its subfolders.",
+        );
+        return false;
+      }
+      try {
+        const result = parentId
+          ? await foldersApi.AddSubfolders({
+              folderToken: parentId,
+              subfolderTokens: [folderId],
+            })
+          : await foldersApi.RemoveSubfolders({
+              folderToken: folder.parentId!,
+              subfolderTokens: [folderId],
+            });
+        const accepted = parentId
+          ? Array.isArray(result.data) && result.data.includes(folderId)
+          : typeof result.data === "number" && result.data > 0;
+        if (!result.success || !accepted) {
+          toast.error(result.errorMessage || "Could not move folder. Please try again.");
+          return false;
+        }
+        // Only the moved node changes; its media and descendant links stay intact.
+        set((s) => ({
+          folders: s.folders.map((f) =>
+            f.id === folderId ? { ...f, parentId } : f,
+          ),
+        }));
+        toast.success("Folder moved");
+        return true;
+      } catch (err) {
+        toast.error(`Failed to move folder: ${errMsg(err)}`);
+        return false;
       }
     },
 

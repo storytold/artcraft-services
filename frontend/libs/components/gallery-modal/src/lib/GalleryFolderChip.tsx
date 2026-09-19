@@ -7,6 +7,7 @@ interface GalleryFolderChipProps {
   folder: GalleryFolder;
   /** Direct subfolder count, shown as a subtitle. */
   childCount: number;
+  draggable?: boolean;
   onOpen: (folderId: string) => void;
   /**
    * Opens the shared folder context menu (rename / delete / color / star /
@@ -41,6 +42,7 @@ const ChipImg = ({ src, className }: { src: string; className: string }) => {
 export const GalleryFolderChip: React.FC<GalleryFolderChipProps> = ({
   folder,
   childCount,
+  draggable = false,
   onOpen,
   onContextMenu,
 }) => {
@@ -60,6 +62,7 @@ export const GalleryFolderChip: React.FC<GalleryFolderChipProps> = ({
     <button
       type="button"
       data-folder-id={folder.id}
+      draggable={draggable}
       onClick={() => onOpen(folder.id)}
       onContextMenu={(e) => {
         e.preventDefault();
