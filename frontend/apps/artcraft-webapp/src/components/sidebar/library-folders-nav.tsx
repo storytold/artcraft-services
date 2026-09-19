@@ -2,7 +2,14 @@ import { SidebarActiveIndicator } from "./sidebar-active-indicator";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRightIcon, FolderIcon, FolderOpenIcon, Grid3x3Icon, PlusIcon, StarIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  Grid3x3Icon,
+  PlusIcon,
+  StarIcon,
+} from "lucide-react";
 import { compareFolders } from "@storyteller/ui-gallery-modal";
 import { EASE_EMPHASIS } from "../../lib/motion";
 import {
@@ -15,6 +22,7 @@ import {
 } from "../ui/sidebar";
 import { useLibraryFoldersStore } from "../../pages/library/library-folders-store";
 import { LibraryTagsNav } from "./library-tags-nav";
+import { useFolderDrag } from "../../pages/library/use-folder-drag";
 
 /**
  * The "Library" sidebar section: Unsorted + Folders entries, plus the user's
@@ -29,9 +37,9 @@ export function LibraryFoldersNav({
   onNavClick: () => void;
 }) {
   const navigate = useNavigate();
+  const folderDrag = useFolderDrag();
   const onFolders =
-    pathname === "/library/folders" ||
-    pathname.startsWith("/library/folder_");
+    pathname === "/library/folders" || pathname.startsWith("/library/folder_");
   const onFolderless = pathname === "/library/folderless";
   const onTags =
     pathname === "/library/tags" || pathname.startsWith("/library/tag_");
@@ -44,7 +52,9 @@ export function LibraryFoldersNav({
 
   const folders = useLibraryFoldersStore((s) => s.folders);
   const activeFolderId = useLibraryFoldersStore((s) => s.activeFolderId);
-  const openNewFolderModal = useLibraryFoldersStore((s) => s.openNewFolderModal);
+  const openNewFolderModal = useLibraryFoldersStore(
+    (s) => s.openNewFolderModal,
+  );
   const setContextMenu = useLibraryFoldersStore((s) => s.setContextMenu);
 
   // Folders are the primary organization tool — default expanded.
@@ -55,18 +65,57 @@ export function LibraryFoldersNav({
     [folders],
   );
 
-  // Highlight whichever root branch the active folder lives in.
-  const activeRootId = useMemo(() => {
-    if (!activeFolderId) return null;
+  // Reveal the active folder's ancestors and its immediate children.
+  const activeBranch = useMemo(() => {
     const byId = new Map(folders.map((f) => [f.id, f]));
     const seen = new Set<string>();
-    let cursor = byId.get(activeFolderId);
-    while (cursor && cursor.parentId && !seen.has(cursor.id)) {
+    let cursor = activeFolderId ? byId.get(activeFolderId) : undefined;
+    while (cursor && !seen.has(cursor.id)) {
       seen.add(cursor.id);
-      cursor = byId.get(cursor.parentId);
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
     }
-    return cursor?.id ?? null;
+    return seen;
   }, [folders, activeFolderId]);
+  const [branchOverrides, setBranchOverrides] = useState<{
+    activeId: string | null;
+    values: Record<string, boolean>;
+  }>({ activeId: null, values: {} });
+  const visibleFolders = useMemo(() => {
+    const children = new Map<string | null, typeof folders>();
+    for (const folder of folders) {
+      const siblings = children.get(folder.parentId) ?? [];
+      siblings.push(folder);
+      children.set(folder.parentId, siblings);
+    }
+    for (const siblings of children.values()) siblings.sort(compareFolders);
+    const rows: {
+      folder: (typeof folders)[number];
+      depth: number;
+      hasChildren: boolean;
+      open: boolean;
+    }[] = [];
+    const seen = new Set<string>();
+    const visit = (parentId: string | null, depth: number) => {
+      for (const folder of children.get(parentId) ?? []) {
+        if (seen.has(folder.id)) continue;
+        seen.add(folder.id);
+        const override =
+          branchOverrides.activeId === activeFolderId
+            ? branchOverrides.values[folder.id]
+            : undefined;
+        const open = override ?? activeBranch.has(folder.id);
+        rows.push({
+          folder,
+          depth,
+          hasChildren: children.has(folder.id),
+          open,
+        });
+        if (open) visit(folder.id, depth + 1);
+      }
+    };
+    visit(null, 0);
+    return rows;
+  }, [folders, activeBranch, activeFolderId, branchOverrides]);
 
   const goToFolder = (id: string) => {
     navigate(`/library/${id}`);
@@ -74,7 +123,7 @@ export function LibraryFoldersNav({
   };
 
   return (
-    <SidebarGroup>
+    <SidebarGroup {...folderDrag}>
       <div className="flex items-center justify-between">
         <SidebarGroupLabel>Assets</SidebarGroupLabel>
         {inLibraryArea && (
@@ -84,7 +133,7 @@ export function LibraryFoldersNav({
             aria-label="New folder"
             className="mr-1 flex h-5 w-5 items-center justify-center text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors group-data-[collapsible=icon]:hidden"
           >
-            <PlusIcon  className="text-xs" />
+            <PlusIcon className="text-xs" />
           </button>
         )}
       </div>
@@ -119,7 +168,12 @@ export function LibraryFoldersNav({
               isActive={onFolders && !activeFolderId}
               tooltip="Folders"
             >
-              <Link to="/library/folders" onClick={onNavClick}>
+              <Link
+                to="/library/folders"
+                onClick={onNavClick}
+                data-folder-root
+                className="[&.folder-drag-over]:bg-primary/20"
+              >
                 <FolderIcon />
                 <span>Folders</span>
               </Link>
@@ -132,8 +186,8 @@ export function LibraryFoldersNav({
                 className="absolute right-1 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors group-data-[collapsible=icon]:hidden"
               >
                 <ChevronRightIcon
-                  
-                  className={`text-[10px] transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
+                  className={`text-[10px] transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+                />
               </button>
             )}
           </SidebarMenuItem>
@@ -149,41 +203,69 @@ export function LibraryFoldersNav({
                 className="list-none overflow-hidden group-data-[collapsible=icon]:hidden"
               >
                 <ul className="flex w-full min-w-0 flex-col gap-0.5">
-                  {rootFolders.map((folder) => (
-                    <SidebarMenuItem key={folder.id}>
-                      {onFolders && activeRootId === folder.id && <SidebarActiveIndicator />}
-                      <SidebarMenuButton
-                        isActive={onFolders && activeRootId === folder.id}
-                        tooltip={folder.name}
-                        data-folder-id={folder.id}
-                        onClick={() => goToFolder(folder.id)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setContextMenu({
-                            folderId: folder.id,
-                            x: e.clientX,
-                            y: e.clientY,
-                          });
-                        }}
-                        className="pl-5 [&.folder-drag-over]:bg-primary/20 [&.folder-drag-over]:text-sidebar-foreground"
-                      >
-                        <FolderIcon
-                          
-                          className={folder.colorCode ? "" : "text-primary"}
-                          style={
-                            folder.colorCode
-                              ? { color: folder.colorCode }
-                              : undefined
-                          } />
-                        <span className="truncate">{folder.name}</span>
-                        {folder.hasStar && (
-                          <StarIcon
-                            
-                            className="ml-auto text-[10px] text-amber-400" />
+                  {visibleFolders.map(
+                    ({ folder, depth, hasChildren, open }) => (
+                      <SidebarMenuItem key={folder.id}>
+                        {onFolders && activeFolderId === folder.id && (
+                          <SidebarActiveIndicator />
                         )}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                        <SidebarMenuButton
+                          isActive={onFolders && activeFolderId === folder.id}
+                          tooltip={folder.name}
+                          data-folder-id={folder.id}
+                          draggable
+                          style={{ paddingLeft: 28 + depth * 16 }}
+                          onClick={() => goToFolder(folder.id)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setContextMenu({
+                              folderId: folder.id,
+                              x: e.clientX,
+                              y: e.clientY,
+                            });
+                          }}
+                          className="pl-5 [&.folder-drag-over]:bg-primary/20 [&.folder-drag-over]:text-sidebar-foreground"
+                        >
+                          <FolderIcon
+                            className={folder.colorCode ? "" : "text-primary"}
+                            style={
+                              folder.colorCode
+                                ? { color: folder.colorCode }
+                                : undefined
+                            }
+                          />
+                          <span className="truncate">{folder.name}</span>
+                          {folder.hasStar && (
+                            <StarIcon className="ml-auto text-[10px] text-amber-400" />
+                          )}
+                        </SidebarMenuButton>
+                        {hasChildren && (
+                          <button
+                            type="button"
+                            aria-label={`${open ? "Collapse" : "Expand"} ${folder.name}`}
+                            aria-expanded={open}
+                            className="absolute top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded hover:bg-sidebar-accent"
+                            style={{ left: 4 + depth * 16 }}
+                            onClick={() =>
+                              setBranchOverrides((previous) => ({
+                                activeId: activeFolderId,
+                                values: {
+                                  ...(previous.activeId === activeFolderId
+                                    ? previous.values
+                                    : {}),
+                                  [folder.id]: !open,
+                                },
+                              }))
+                            }
+                          >
+                            <ChevronRightIcon
+                              className={`h-3 w-3 transition-transform ${open ? "rotate-90" : ""}`}
+                            />
+                          </button>
+                        )}
+                      </SidebarMenuItem>
+                    ),
+                  )}
                 </ul>
               </motion.li>
             )}

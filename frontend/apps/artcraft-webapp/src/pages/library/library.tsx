@@ -77,6 +77,8 @@ import {
   type UiFolder,
 } from "./library-folders-store";
 import { mapRawToGalleryItem } from "./library-media-map";
+import { MoveFolderDialog } from "./move-folder-dialog";
+import { useFolderDrag } from "./use-folder-drag";
 import {
   compareTagsByUseCount,
   useLibraryTagsStore,
@@ -177,6 +179,7 @@ const GRID_CLASS =
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Library() {
+  const folderDrag = useFolderDrag();
   // `:slug` is either a media-class filter (images/videos/meshes), a folder
   // token (prefixed `folder_`), the static `tags` tab, or a tag token
   // (prefixed `tag_`). `/library/folders` (static) has no slug.
@@ -250,6 +253,8 @@ export default function Library() {
   const newFolderModal = useLibraryFoldersStore((s) => s.newFolderModal);
   const renameTarget = useLibraryFoldersStore((s) => s.renameTarget);
   const contextMenu = useLibraryFoldersStore((s) => s.contextMenu);
+  const [moveTarget, setMoveTarget] = useState<string | null>(null);
+  const movingFolder = folders.find((f) => f.id === moveTarget);
   const loadFolders = useLibraryFoldersStore((s) => s.loadFolders);
   const setActiveFolder = useLibraryFoldersStore((s) => s.setActiveFolder);
   const createFolder = useLibraryFoldersStore((s) => s.createFolder);
@@ -617,11 +622,13 @@ export default function Library() {
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0 || lightboxOpen) return;
       const target = e.target as HTMLElement;
+      // React portal events bubble here even though dialogs are outside the grid.
+      if (!e.currentTarget.contains(target)) return;
       // Start only on blank background — never from tiles, folder cards,
       // controls, or opted-out chrome (header / bulk bar).
       if (
         target.closest(
-          "[data-media-id], [data-folder-id], button, a, input, [data-no-marquee]",
+          "[data-media-id], [data-folder-id], button, a, input, select, textarea, [role='dialog'], [data-no-marquee]",
         )
       ) {
         return;
@@ -1106,6 +1113,7 @@ export default function Library() {
       // hijack the drag. Form fields opt back in so dialog inputs stay editable.
       className="relative min-h-full w-full shrink-0 select-none [&_input]:select-text [&_textarea]:select-text bg-ui-background pb-8 px-3 sm:px-4 md:px-8 lg:px-12"
       onPointerDown={handleMarqueePointerDown}
+      {...folderDrag}
     >
       <div className="mx-auto max-w-[1600px]">
         {/* Header — sticky below navbar */}
@@ -1446,6 +1454,7 @@ export default function Library() {
               <div className={GRID_CLASS}>
                 {currentSubfolders.map((folder) => (
                   <GalleryFolderChip
+                    draggable
                     key={folder.id}
                     folder={folder}
                     childCount={subfolderCount(folder.id)}
@@ -1728,6 +1737,14 @@ export default function Library() {
         onClose={closeNewFolderModal}
       />
 
+      {/* Move folder dialog */}
+      {movingFolder && (
+        <MoveFolderDialog
+          key={movingFolder.id}
+          folder={movingFolder}
+          onClose={() => setMoveTarget(null)}
+        />
+      )}
       {/* Rename dialog */}
       <FolderNameDialog
         isOpen={!!renameTarget}
@@ -1815,6 +1832,17 @@ export default function Library() {
               >
                 <PencilIcon className="w-4" />
                 <span>Rename</span>
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-2 py-2 hover:bg-ui-controls/60 text-sm text-base-fg"
+                onClick={() => {
+                  setMoveTarget(contextMenu.folderId);
+                  setContextMenu(null);
+                }}
+              >
+                <FolderOpenIcon className="w-4" />
+                <span>Move folder…</span>
               </button>
               <button
                 type="button"
