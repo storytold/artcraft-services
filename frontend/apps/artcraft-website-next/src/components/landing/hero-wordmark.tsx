@@ -4,16 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { heroWordmark } from "@/components/ruler/ruler-shared";
 import { introClock, introTuner, onIntroReplay } from "@/lib/intro";
-import { defineTunables, useTunerStore } from "@/lib/tuner";
+import { useTunerStore } from "@/lib/tuner";
+import {
+  WORDMARK_FONT,
+  WORDMARK_STRETCH,
+  wordmarkDefaults,
+  wordmarkTuner,
+} from "./wordmark-tunables";
 
 const WORDMARK_TEXT = "ARTCRAFT";
-// Variable Archivo at its poster extreme — the Archivo Black look, but on
-// the same variable family as every heading, so HeadingFlow can
-// interpolate weight/width down to the display setting (620 / 118%)
-// during the hero flip.
-const WORDMARK_FONT = "var(--font-archivo), system-ui, sans-serif";
-const WORDMARK_WEIGHT = 900;
-const WORDMARK_STRETCH = "125%";
 
 // The leading A is the brand mark, not the glyph — an inline SVG in
 // currentColor, so the ruler's solid-ink dimming, hover, and press states
@@ -21,81 +20,6 @@ const WORDMARK_STRETCH = "125%";
 // is measured like any letter's, so all downstream metrics just work, and
 // it rides the entire heading lifecycle.
 const LOGO_ASPECT = 116.34 / 97.5;
-
-// The logo's optical fit against the glyphs is dialed by eye: the browser
-// aligns an inline SVG's BOX bottom to the text baseline, but glyph ink is
-// placed from font metrics (baseline overshoot, cap forms sitting a hair
-// off the geometric lines in heavy masters) — there is no CSS auto-sync
-// between SVG geometry and type ink, so cap height, baseline lift, and
-// side bearing are live knobs to tune and bake.
-const wordmarkTuner = defineTunables("wordmark", "Wordmark", {
-  logoCap: {
-    label: "Logo cap em",
-    min: 0.5,
-    max: 1,
-    step: 0.005,
-    default: 0.7,
-    info: "Height of the logo-A relative to the font size — match it to the caps' visual height.",
-  },
-  logoLift: {
-    label: "Logo lift em",
-    min: -0.1,
-    max: 0.1,
-    step: 0.002,
-    default: -0.006,
-    info: "Vertical baseline correction of the logo-A: positive raises it. Syncs the SVG's box-bottom alignment with the glyphs' ink baseline.",
-  },
-  logoPad: {
-    label: "Logo pad em",
-    min: 0,
-    max: 0.15,
-    step: 0.005,
-    default: 0.05,
-    info: "Side bearing between the logo-A and the R, standing in for the glyph spacing the SVG doesn't have.",
-  },
-  bladeTuck: {
-    label: "Blade tuck em",
-    min: 0,
-    max: 0.5,
-    step: 0.01,
-    default: 0.12,
-    info: "Extra distance the sliding word starts tucked behind the blade edge — kills any sliver peeking past the clip at rest.",
-  },
-  scrimPadX: {
-    label: "Scrim pad x",
-    min: 0,
-    max: 320,
-    step: 8,
-    default: 128,
-    info: "How far the contrast scrim behind the center stack extends horizontally beyond the content.",
-  },
-  scrimPadY: {
-    label: "Scrim pad y",
-    min: 0,
-    max: 240,
-    step: 8,
-    default: 88,
-    info: "How far the contrast scrim extends vertically beyond the content.",
-  },
-  scrimBg: {
-    label: "Scrim peak %",
-    min: 40,
-    max: 95,
-    step: 1,
-    default: 78,
-    info: "Peak page-background strength at the scrim's center — the contrast pocket the wordmark and copy sit in over the galaxy.",
-  },
-});
-
-function wordmarkDefaults(): { [K in keyof typeof wordmarkTuner.defs]: number } {
-  const out = {} as { [K in keyof typeof wordmarkTuner.defs]: number };
-  for (const key of Object.keys(wordmarkTuner.defs) as Array<
-    keyof typeof wordmarkTuner.defs
-  >) {
-    out[key] = wordmarkTuner.defs[key].default;
-  }
-  return out;
-}
 
 // The contrast pocket behind the center stack — a radial page-bg gradient
 // over the galaxy, live-tunable (pads + peak strength) in the Wordmark
@@ -226,8 +150,8 @@ export default function HeroMasthead() {
       probe.style.cssText =
         "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;font-size:100px;line-height:1;";
       probe.style.fontFamily = WORDMARK_FONT;
-      probe.style.fontWeight = String(WORDMARK_WEIGHT);
-      probe.style.fontStretch = WORDMARK_STRETCH;
+      probe.style.fontWeight = String(wm.weight);
+      probe.style.fontStretch = `${WORDMARK_STRETCH}%`;
       // Letter 0 is the logo (fixed em advance), so only RTCRAFT is
       // probed; the logo's advance joins the per-px run analytically.
       probe.textContent = WORDMARK_TEXT.slice(1);
@@ -436,8 +360,8 @@ export default function HeroMasthead() {
         className="relative whitespace-pre text-ink-strong"
         style={{
           fontFamily: WORDMARK_FONT,
-          fontWeight: WORDMARK_WEIGHT,
-          fontStretch: WORDMARK_STRETCH,
+          fontWeight: wm.weight,
+          fontStretch: `${WORDMARK_STRETCH}%`,
           // Pre-measure fallback: analytically ≈ box width / the word's
           // advance run (~5.6em), so even the first server-rendered frame
           // sits at the right scale — a bare vw fallback rendered the
