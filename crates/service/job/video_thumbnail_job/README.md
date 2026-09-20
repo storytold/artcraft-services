@@ -1,4 +1,50 @@
-# Video thumbnail timing
+# Video thumbnail worker
+
+## Scheduling and resource settings
+
+| Environment variable                       | Default | Meaning                                      |
+| ------------------------------------------ | ------- | -------------------------------------------- |
+| VIDEO_THUMBNAIL_CONCURRENCY                | 1       | Maximum simultaneous complete file attempts  |
+| VIDEO_THUMBNAIL_POLL_INTERVAL_MILLIS       | 5000    | Idle polling interval                        |
+| VIDEO_THUMBNAIL_RETRY_CACHE_CAPACITY       | 10000   | Maximum cached failed media IDs              |
+| VIDEO_THUMBNAIL_RETRY_INITIAL_DELAY_MILLIS | 30000   | Backoff after the first failed attempt       |
+| VIDEO_THUMBNAIL_RETRY_MAX_DELAY_MILLIS     | 1800000 | Maximum backoff (configurable up to one day) |
+
+Failures back off for 30 seconds, 60 seconds, 120 seconds, and so on, capped at
+30 minutes by default. Successful retries clear their failure history. The
+cache retains only IDs, attempt counts, and monotonic timestamps. At capacity,
+the least recently failed entry is evicted. Restarts and eviction reset that
+entry's history; no failure state is persisted in the database. Invalid files
+are periodically retried rather than permanently marked failed.
+
+Files in backoff are skipped, and pagination advances even across pages made
+entirely of skipped files. Within each page, untried files precede due retries.
+The worker starts at most the configured number of attempts, admitting another
+as soon as a slot is free. The concurrency limit covers downloads, processing,
+uploads, and the database update. Raising it does not coordinate other pods;
+multiple pods still require distinct shard assignments.
+
+FFmpeg runs on Tokio's blocking pool, one process at a time per file. Each
+process uses one codec thread and one filter thread, and is killed and reaped
+after 60 seconds if it has not finished. Stderr is spooled to a temporary file;
+only its final 16 KiB is read into memory on failure. GIF previews fit within
+360x360 and contain at most 50 frames (five seconds at ten frames per second).
+Portrait GIFs are consequently smaller than the former 360px-wide previews.
+
+These controls reduce memory use but do not guarantee an OOM-free decode:
+source resolution, codec reference frames, and multiple concurrent files still
+matter. Keep concurrency at one initially. With the previously observed
+approximately 560 MiB container peak, two jobs are not proven safe under a 1 GiB
+memory limit. Measure representative large inputs before raising concurrency.
+
+On cgroup v2, `thumbnail_memory` logs container `current_bytes`, `peak_bytes`,
+and `limit_bytes` every ten seconds, including FFmpeg children and charged file
+cache. Usage at or above 80% of the limit is logged as a warning. The peak is a
+container lifetime high-water mark, not a per-file allocation. Memory reporting
+is advisory; it does not pause admission or replace the container memory limit.
+Unavailable metrics (including on macOS) are reported without blocking work.
+
+## Timing
 
 The worker emits `thumbnail_timing` followed by a JSON object at the start and
 end of every attempt. Filter by `media_file_token` to correlate events.

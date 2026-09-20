@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 use log::{error, info};
@@ -40,7 +41,7 @@ pub async fn process_single_media_file(
   let result = download_video(deps, media_file).await;
   timing.log_stage("download", stage_started_at, result.is_ok());
   let downloaded = match result {
-    Ok(d) => d,
+    Ok(d) => Arc::new(d),
     Err(err) => {
       error!("Failed to download video for {}: {:?}", media_file.token.as_str(), err);
       return alert_pager_and_return_err(&deps.pager, "Video download failed", err);
@@ -60,12 +61,16 @@ pub async fn process_single_media_file(
   let jpg_path = downloaded.temp_dir.path().join("thumbnail.jpg");
 
   let stage_started_at = Instant::now();
-  let result = ffmpeg_video_first_frame_to_jpg_thumbnail(
-    FfmpegVideoFirstFrameToJpgThumbnailArgs {
-      input_video_path: &downloaded.file_path,
-      output_jpg_path: &jpg_path,
-    },
-  );
+  // Retain the owning temp directory inside the blocking task, even if the
+  // async caller is cancelled. Await the task before releasing this job's slot.
+  let source = Arc::clone(&downloaded);
+  let destination = jpg_path.clone();
+  let result = tokio::task::spawn_blocking(move || {
+    ffmpeg_video_first_frame_to_jpg_thumbnail(FfmpegVideoFirstFrameToJpgThumbnailArgs {
+      input_video_path: &source.file_path,
+      output_jpg_path: &destination,
+    })
+  }).await.map_err(anyhow::Error::from).and_then(|result| result);
   timing.log_stage("jpg_generation", stage_started_at, result.is_ok());
   if let Err(err) = result {
     error!("Failed to generate JPG thumbnail for {}: {:?}", media_file.token.as_str(), err);
@@ -90,12 +95,14 @@ pub async fn process_single_media_file(
   let gif_path = downloaded.temp_dir.path().join("thumbnail.gif");
 
   let stage_started_at = Instant::now();
-  let result = ffmpeg_video_gif_preview(
-    FfmpegVideoGifPreviewArgs {
-      input_video_path: &downloaded.file_path,
-      output_gif_path: &gif_path,
-    },
-  );
+  let source = Arc::clone(&downloaded);
+  let destination = gif_path.clone();
+  let result = tokio::task::spawn_blocking(move || {
+    ffmpeg_video_gif_preview(FfmpegVideoGifPreviewArgs {
+      input_video_path: &source.file_path,
+      output_gif_path: &destination,
+    })
+  }).await.map_err(anyhow::Error::from).and_then(|result| result);
   timing.log_stage("gif_generation", stage_started_at, result.is_ok());
   if let Err(err) = result {
     error!("Failed to generate GIF preview for {}: {:?}", media_file.token.as_str(), err);

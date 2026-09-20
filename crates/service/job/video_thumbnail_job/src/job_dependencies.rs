@@ -7,6 +7,8 @@ use pager::client::pager::Pager;
 use server_environment::ServerEnvironment;
 use sqlx::MySqlPool;
 
+use crate::startup::worker_config::WorkerConfig;
+
 /// Optional sharding configuration for distributing work across parallel job instances.
 pub struct ShardInfo {
   pub number_of_shards: u8,
@@ -25,6 +27,8 @@ pub struct JobDependencies {
 
   /// How long to sleep between poll iterations when there is no work (milliseconds).
   pub poll_interval_millis: u64,
+
+  pub worker_config: WorkerConfig,
 
   /// Minimum delay between successive database queries within a single poll cycle (milliseconds).
   pub query_delay_millis: u64,

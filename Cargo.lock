@@ -10390,6 +10390,7 @@ dependencies = [
  "easyenv",
  "errors",
  "ffmpeg_utils",
+ "futures 0.3.32",
  "jobs_common",
  "log",
  "mysql_queries",
