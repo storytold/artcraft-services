@@ -211,6 +211,8 @@ server_state.maybe_media_cdn_override_url.as_deref(),
   // ==================== PIPELINE DISPATCH ==================== //
 
   let kinovi_account = match request.model {
+    // Wan uses shared2@ (the BytePlus Ultra account) without separate Ultra model variants.
+    Some(CommonVideoModel::Wan3p0 | CommonVideoModel::Wan3p0Prime) => KinoviAccount::BytePlusUltra,
     // BytePlus Ultra
     Some(CommonVideoModel::Seedance2p0BytePlusUltra) => KinoviAccount::BytePlusUltra,
     Some(CommonVideoModel::Seedance2p0BytePlusUltraFast) => KinoviAccount::BytePlusUltra,
