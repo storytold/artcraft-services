@@ -1,10 +1,10 @@
-use anyhow::bail;
-use log::{error, info};
-use std::io::Write;
+use log::info;
 use std::path::Path;
 use std::process::Command;
 
 use errors::AnyhowResult;
+
+use crate::ffmpeg::run_thumbnail_ffmpeg::run_thumbnail_ffmpeg;
 
 pub struct FfmpegVideoFirstFrameToJpgThumbnailArgs<I: AsRef<Path>, O: AsRef<Path>> {
   pub input_video_path: I,
@@ -24,26 +24,20 @@ pub fn ffmpeg_video_first_frame_to_jpg_thumbnail<I: AsRef<Path>, O: AsRef<Path>>
   command
       .arg("-nostdin")
       .arg("-y")
+      .arg("-loglevel").arg("error")
+      .arg("-nostats")
+      .arg("-threads").arg("1")
+      .arg("-filter_threads").arg("1")
       .arg("-sseof").arg("-1")
       .arg("-i").arg(args.input_video_path.as_ref())
+      .arg("-threads").arg("1")
       .arg("-vf").arg("scale=320:320:force_original_aspect_ratio=decrease")
       .arg("-vframes").arg("1")
       .arg(args.output_jpg_path.as_ref());
 
   info!("Calling ffmpeg (jpg thumbnail)...");
 
-  let output = command.output()?;
-
-  if !output.status.success() {
-    error!("bad exit status: {}", output.status);
-
-    let _r = std::io::stdout().write_all(&output.stdout);
-    let _r = std::io::stderr().write_all(&output.stderr);
-
-    bail!("ffmpeg jpg thumbnail failed: {:?}", output.status.to_string());
-  }
-
-  Ok(())
+  run_thumbnail_ffmpeg(command)
 }
 
 #[cfg(test)]

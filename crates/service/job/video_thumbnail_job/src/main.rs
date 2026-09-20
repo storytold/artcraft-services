@@ -29,6 +29,7 @@ use crate::http_server::run_http_server::{launch_http_server, CreateServerArgs};
 use crate::job::main_loop::main_loop;
 use crate::job_dependencies::{JobDependencies, ShardInfo};
 use crate::startup::build_pager::build_pager;
+use crate::startup::worker_config::WorkerConfig;
 
 pub mod http_server;
 pub mod job;
@@ -98,8 +99,17 @@ async fn main() -> AnyhowResult<()> {
   // Job polling and timing configuration
   let poll_interval_millis: u64 = easyenv::get_env_num(
     "VIDEO_THUMBNAIL_POLL_INTERVAL_MILLIS",
-    30_000,
+    5_000,
   )?;
+
+  let worker_config = WorkerConfig::from_env()?;
+  info!(
+    "Thumbnail worker concurrency={} retry_cache_capacity={} retry_initial_delay_ms={} retry_max_delay_ms={}",
+    worker_config.concurrency,
+    worker_config.retry_cache_capacity,
+    worker_config.retry_initial_delay.as_millis(),
+    worker_config.retry_max_delay.as_millis(),
+  );
 
   let query_delay_millis: u64 = easyenv::get_env_num(
     "VIDEO_THUMBNAIL_QUERY_DELAY_MILLIS",
@@ -175,6 +185,7 @@ async fn main() -> AnyhowResult<()> {
     server_environment,
     job_stats,
     poll_interval_millis,
+    worker_config,
     query_delay_millis,
     query_failure_retry_delay_millis,
     custom_max_lookback_hours,

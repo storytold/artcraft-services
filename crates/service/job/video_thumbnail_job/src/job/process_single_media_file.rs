@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Instant;
 
 use log::{error, info};
 use tempdir::TempDir;
@@ -11,6 +13,7 @@ use mysql_queries::queries::media_files::thumbnails::list_video_media_files_with
 use mysql_queries::queries::media_files::thumbnails::update_video_media_file_with_thumbnail::update_video_media_file_with_thumbnail;
 
 use crate::job::alert_on_error::alert_pager_and_return_err;
+use crate::job::thumbnail_timing::ThumbnailTiming;
 use crate::job_dependencies::JobDependencies;
 
 /// A downloaded video file alongside its owning temp directory.
@@ -24,6 +27,7 @@ pub struct DownloadedFile {
 pub async fn process_single_media_file(
   deps: &JobDependencies,
   media_file: &VideoMediaFileWithoutThumbnail,
+  timing: &ThumbnailTiming<'_>,
 ) -> anyhow::Result<()> {
 
   info!(
@@ -33,8 +37,11 @@ pub async fn process_single_media_file(
     media_file.created_at,
   );
 
-  let downloaded = match download_video(deps, media_file).await {
-    Ok(d) => d,
+  let stage_started_at = Instant::now();
+  let result = download_video(deps, media_file).await;
+  timing.log_stage("download", stage_started_at, result.is_ok());
+  let downloaded = match result {
+    Ok(d) => Arc::new(d),
     Err(err) => {
       error!("Failed to download video for {}: {:?}", media_file.token.as_str(), err);
       return alert_pager_and_return_err(&deps.pager, "Video download failed", err);
@@ -53,12 +60,19 @@ pub async fn process_single_media_file(
   // Generate jpg thumbnail
   let jpg_path = downloaded.temp_dir.path().join("thumbnail.jpg");
 
-  if let Err(err) = ffmpeg_video_first_frame_to_jpg_thumbnail(
-    FfmpegVideoFirstFrameToJpgThumbnailArgs {
-      input_video_path: &downloaded.file_path,
-      output_jpg_path: &jpg_path,
-    },
-  ) {
+  let stage_started_at = Instant::now();
+  // Retain the owning temp directory inside the blocking task, even if the
+  // async caller is cancelled. Await the task before releasing this job's slot.
+  let source = Arc::clone(&downloaded);
+  let destination = jpg_path.clone();
+  let result = tokio::task::spawn_blocking(move || {
+    ffmpeg_video_first_frame_to_jpg_thumbnail(FfmpegVideoFirstFrameToJpgThumbnailArgs {
+      input_video_path: &source.file_path,
+      output_jpg_path: &destination,
+    })
+  }).await.map_err(anyhow::Error::from).and_then(|result| result);
+  timing.log_stage("jpg_generation", stage_started_at, result.is_ok());
+  if let Err(err) = result {
     error!("Failed to generate JPG thumbnail for {}: {:?}", media_file.token.as_str(), err);
     return alert_pager_and_return_err(&deps.pager, "JPG thumbnail generation failed", err.into());
   }
@@ -67,7 +81,10 @@ pub async fn process_single_media_file(
 
   let jpg_object_path = format!("{video_object_path}{VIDEO_STATIC_JPG_THUMBNAIL_SUFFIX}");
 
-  if let Err(err) = deps.public_bucket_client.upload_filename(&jpg_object_path, &jpg_path).await {
+  let stage_started_at = Instant::now();
+  let result = deps.public_bucket_client.upload_filename(&jpg_object_path, &jpg_path).await;
+  timing.log_stage("jpg_upload", stage_started_at, result.is_ok());
+  if let Err(err) = result {
     error!("Failed to upload JPG thumbnail for {}: {:?}", media_file.token.as_str(), err);
     return alert_pager_and_return_err(&deps.pager, "JPG thumbnail upload failed", err);
   }
@@ -77,12 +94,17 @@ pub async fn process_single_media_file(
   // Generate gif thumbnail
   let gif_path = downloaded.temp_dir.path().join("thumbnail.gif");
 
-  if let Err(err) = ffmpeg_video_gif_preview(
-    FfmpegVideoGifPreviewArgs {
-      input_video_path: &downloaded.file_path,
-      output_gif_path: &gif_path,
-    },
-  ) {
+  let stage_started_at = Instant::now();
+  let source = Arc::clone(&downloaded);
+  let destination = gif_path.clone();
+  let result = tokio::task::spawn_blocking(move || {
+    ffmpeg_video_gif_preview(FfmpegVideoGifPreviewArgs {
+      input_video_path: &source.file_path,
+      output_gif_path: &destination,
+    })
+  }).await.map_err(anyhow::Error::from).and_then(|result| result);
+  timing.log_stage("gif_generation", stage_started_at, result.is_ok());
+  if let Err(err) = result {
     error!("Failed to generate GIF preview for {}: {:?}", media_file.token.as_str(), err);
     return alert_pager_and_return_err(&deps.pager, "GIF preview generation failed", err.into());
   }
@@ -91,7 +113,10 @@ pub async fn process_single_media_file(
 
   let gif_object_path = format!("{video_object_path}{VIDEO_ANIMATED_GIF_THUMBNAIL_SUFFIX}");
 
-  if let Err(err) = deps.public_bucket_client.upload_filename(&gif_object_path, &gif_path).await {
+  let stage_started_at = Instant::now();
+  let result = deps.public_bucket_client.upload_filename(&gif_object_path, &gif_path).await;
+  timing.log_stage("gif_upload", stage_started_at, result.is_ok());
+  if let Err(err) = result {
     error!("Failed to upload GIF preview for {}: {:?}", media_file.token.as_str(), err);
     return alert_pager_and_return_err(&deps.pager, "GIF preview upload failed", err);
   }
@@ -101,11 +126,14 @@ pub async fn process_single_media_file(
   info!("Marking thumbnail job for {:?} done", media_file.token);
 
   // Mark the media file as having a thumbnail in the database.
-  if let Err(err) = update_video_media_file_with_thumbnail(
+  let stage_started_at = Instant::now();
+  let result = update_video_media_file_with_thumbnail(
     &media_file.token,
     CURRENT_VIDEO_THUMBNAIL_VERSION,
     &deps.mysql_pool,
-  ).await {
+  ).await;
+  timing.log_stage("database_update", stage_started_at, result.is_ok());
+  if let Err(err) = result {
     error!("Failed to update thumbnail version for {}: {:?}", media_file.token.as_str(), err);
     return alert_pager_and_return_err(&deps.pager, "Thumbnail DB update failed", err.into());
   }

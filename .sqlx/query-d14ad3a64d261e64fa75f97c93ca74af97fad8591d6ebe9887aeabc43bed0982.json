@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "\nSELECT\n    id,\n    token as `token: MediaFileToken`,\n    created_at as `created_at: DateTime<Utc>`,\n    maybe_thumbnail_version as `maybe_thumbnail_version: u8`,\n    public_bucket_directory_hash,\n    maybe_public_bucket_prefix,\n    maybe_public_bucket_extension\nFROM media_files\nWHERE\n    id >= (SELECT COALESCE(MIN(id), 0) FROM media_files WHERE created_at >= NOW() - INTERVAL ? HOUR)\n    AND id < ?\n    AND media_class = ?\n    AND maybe_thumbnail_version IS NULL\n    AND user_deleted_at IS NULL\n    AND mod_deleted_at IS NULL\nORDER BY id DESC\nLIMIT ?\n    ",
+  "query": "\nSELECT\n    media.id,\n    media.token as `token: MediaFileToken`,\n    media.created_at as `created_at: DateTime<Utc>`,\n    NOW(6) as `database_read_at!: DateTime<Utc>`,\n    jobs.successfully_completed_at as `maybe_generation_completed_at?: DateTime<Utc>`,\n    media.maybe_thumbnail_version as `maybe_thumbnail_version: u8`,\n    media.public_bucket_directory_hash,\n    media.maybe_public_bucket_prefix,\n    media.maybe_public_bucket_extension\nFROM media_files AS media\nLEFT JOIN generic_inference_jobs AS jobs ON jobs.token = media.maybe_source_job_token\nWHERE\n    media.id >= (SELECT COALESCE(MIN(id), 0) FROM media_files WHERE created_at >= NOW() - INTERVAL ? HOUR)\n    AND media.id < ?\n    AND media.media_class = ?\n    AND media.maybe_thumbnail_version IS NULL\n    AND media.user_deleted_at IS NULL\n    AND media.mod_deleted_at IS NULL\nORDER BY media.id DESC\nLIMIT ?\n    ",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,26 @@
       },
       {
         "ordinal": 3,
+        "name": "database_read_at!: DateTime<Utc>",
+        "type_info": {
+          "type": "Datetime",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 63,
+          "max_size": 26
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "maybe_generation_completed_at?: DateTime<Utc>",
+        "type_info": {
+          "type": "Timestamp",
+          "flags": "BINARY",
+          "char_set": 63,
+          "max_size": 19
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "maybe_thumbnail_version: u8",
         "type_info": {
           "type": "Tiny",
@@ -44,7 +64,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 6,
         "name": "public_bucket_directory_hash",
         "type_info": {
           "type": "VarString",
@@ -54,7 +74,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "maybe_public_bucket_prefix",
         "type_info": {
           "type": "VarString",
@@ -64,7 +84,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "maybe_public_bucket_extension",
         "type_info": {
           "type": "VarString",
@@ -81,11 +101,13 @@
       false,
       false,
       false,
+      false,
+      true,
       true,
       false,
       true,
       true
     ]
   },
-  "hash": "daed2dcd03b3c9fbdb9057b743df078f43e2af87a2c31f418234f98da5ff979f"
+  "hash": "d14ad3a64d261e64fa75f97c93ca74af97fad8591d6ebe9887aeabc43bed0982"
 }
