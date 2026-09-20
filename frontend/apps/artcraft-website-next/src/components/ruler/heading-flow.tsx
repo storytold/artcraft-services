@@ -22,6 +22,12 @@ import {
   rulerLookTuner,
   rulerMotionTuner,
 } from "./ruler-tunables";
+import {
+  DISPLAY_STRETCH,
+  DISPLAY_WEIGHT,
+  WORDMARK_STRETCH,
+  wordmarkTuner,
+} from "@/components/landing/wordmark-tunables";
 
 // The ruler's heading lifecycle. Each section's heading is a word with
 // three homes, all in the ruler gutter:
@@ -48,10 +54,11 @@ import {
 // the top current-heading slot as the wordmark is about to duck under the
 // nav (title-condenses-into-header), no queue home and no rail ride. From
 // the stack onward it behaves like any section (demotes when FEATURES
-// flips in). The hero letters render variable Archivo at the poster
-// extreme (wght 900 / wdth 125% — the Archivo Black look) and morph to
-// the headings' display setting (620 / 118%) during the flip: one
-// variable family, so weight and width genuinely interpolate.
+// flips in). The hero letters render variable Archivo at the wordmark's
+// resting cut (tunable weight / wdth 125%, dialed to the logo mark's
+// stroke) and morph to the headings' display setting (620 / 118%) during
+// the flip: one variable family, so weight and width genuinely
+// interpolate.
 
 // A letter's pose on screen. x/y are the letter center in viewport px.
 type Pose = {
@@ -473,16 +480,22 @@ export default function HeadingFlow({
             }px, ${
               y - (heroWordmark.baseDocY[i] - scrollY)
             }px, 0) rotate(${rot}deg) scale(${scale * scaleFix})`;
-            // Variable-font morph: the wordmark's poster cut (wght 900,
-            // wdth 125%) eases into the headings' display setting
-            // (620, 118%) letter by letter with the flight — the weight
-            // difference lands unnoticed inside the motion. Gated on real
-            // flip progress: the REST branch also runs this pass with
-            // e = 1 (from == to), and ungated it rendered the resting
-            // wordmark at 620, snapping to 900 the instant a flip began.
+            // Variable-font morph: the wordmark's resting cut eases into
+            // the headings' display setting letter by letter with the
+            // flight — the weight difference lands unnoticed inside the
+            // motion. Gated on real flip progress: the REST branch also
+            // runs this pass with e = 1 (from == to), and ungated it
+            // rendered the resting wordmark at the display weight,
+            // snapping back the instant a flip began.
             const wp = flipP > 0 ? e : 0;
-            el.style.fontWeight = String(Math.round(900 - 280 * wp));
-            el.style.fontStretch = `${(125 - 7 * wp).toFixed(1)}%`;
+            const w0 = wordmarkTuner.read().weight;
+            el.style.fontWeight = String(
+              Math.round(w0 - (w0 - DISPLAY_WEIGHT) * wp),
+            );
+            el.style.fontStretch = `${(
+              WORDMARK_STRETCH -
+              (WORDMARK_STRETCH - DISPLAY_STRETCH) * wp
+            ).toFixed(1)}%`;
           } else {
             el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
           }
