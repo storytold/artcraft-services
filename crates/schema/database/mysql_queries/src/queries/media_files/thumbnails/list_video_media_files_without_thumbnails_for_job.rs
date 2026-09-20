@@ -27,6 +27,11 @@ pub struct VideoMediaFileWithoutThumbnail {
   pub id: i64,
   pub token: MediaFileToken,
   pub created_at: DateTime<Utc>,
+  /// Database statement-start time, shared by every row in this page.
+  pub database_read_at: DateTime<Utc>,
+  /// Our job's successful finalization time, not the provider's completion time.
+  /// Uploads, legacy records, and jobs still being finalized can have no timestamp.
+  pub maybe_generation_completed_at: Option<DateTime<Utc>>,
   pub maybe_thumbnail_version: Option<u8>,
   pub public_bucket_directory_hash: String,
   pub maybe_public_bucket_prefix: Option<String>,
@@ -51,22 +56,25 @@ pub async fn list_video_media_files_without_thumbnails_for_job<'e, 'c, E>(
     VideoMediaFileWithoutThumbnail,
     r#"
 SELECT
-    id,
-    token as `token: MediaFileToken`,
-    created_at as `created_at: DateTime<Utc>`,
-    maybe_thumbnail_version as `maybe_thumbnail_version: u8`,
-    public_bucket_directory_hash,
-    maybe_public_bucket_prefix,
-    maybe_public_bucket_extension
-FROM media_files
+    media.id,
+    media.token as `token: MediaFileToken`,
+    media.created_at as `created_at: DateTime<Utc>`,
+    NOW(6) as `database_read_at!: DateTime<Utc>`,
+    jobs.successfully_completed_at as `maybe_generation_completed_at?: DateTime<Utc>`,
+    media.maybe_thumbnail_version as `maybe_thumbnail_version: u8`,
+    media.public_bucket_directory_hash,
+    media.maybe_public_bucket_prefix,
+    media.maybe_public_bucket_extension
+FROM media_files AS media
+LEFT JOIN generic_inference_jobs AS jobs ON jobs.token = media.maybe_source_job_token
 WHERE
-    id >= (SELECT COALESCE(MIN(id), 0) FROM media_files WHERE created_at >= NOW() - INTERVAL ? HOUR)
-    AND id < ?
-    AND media_class = ?
-    AND maybe_thumbnail_version IS NULL
-    AND user_deleted_at IS NULL
-    AND mod_deleted_at IS NULL
-ORDER BY id DESC
+    media.id >= (SELECT COALESCE(MIN(id), 0) FROM media_files WHERE created_at >= NOW() - INTERVAL ? HOUR)
+    AND media.id < ?
+    AND media.media_class = ?
+    AND media.maybe_thumbnail_version IS NULL
+    AND media.user_deleted_at IS NULL
+    AND media.mod_deleted_at IS NULL
+ORDER BY media.id DESC
 LIMIT ?
     "#,
     max_lookback_hours,

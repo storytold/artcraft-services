@@ -39,6 +39,7 @@ server_environment = { path = "../../../lib/server_environment" }
 # External
 actix-web.workspace = true
 anyhow.workspace = true
+chrono.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_derive.workspace = true

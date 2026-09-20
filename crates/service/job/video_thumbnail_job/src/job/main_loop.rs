@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use log::{error, info, warn};
 
@@ -10,6 +10,7 @@ use mysql_queries::queries::media_files::thumbnails::list_video_media_files_with
 use crate::job::alert_on_error::alert_pager_and_return_err;
 use crate::job_dependencies::JobDependencies;
 use crate::job::process_single_media_file::process_single_media_file;
+use crate::job::thumbnail_timing::ThumbnailTiming;
 
 pub async fn main_loop(deps: JobDependencies) {
   while !deps.application_shutdown.get() {
@@ -51,6 +52,7 @@ async fn run_batch_cycle(deps: &JobDependencies) -> anyhow::Result<u64> {
       break;
     }
 
+    let query_started_at = Instant::now();
     let result = list_video_media_files_without_thumbnails_for_job(
       ListVideoMediaFilesWithoutThumbnailsArgs {
         custom_max_lookback_hours: deps.custom_max_lookback_hours,
@@ -59,6 +61,13 @@ async fn run_batch_cycle(deps: &JobDependencies) -> anyhow::Result<u64> {
         executor: &deps.mysql_pool,
       },
     ).await?;
+    let query_finished_at = Instant::now();
+
+    info!(
+      "thumbnail_page fetched_count={} database_query_ms={}",
+      result.media_files.len(),
+      query_finished_at.duration_since(query_started_at).as_millis(),
+    );
 
     if result.media_files.is_empty() {
       break;
@@ -77,7 +86,11 @@ async fn run_batch_cycle(deps: &JobDependencies) -> anyhow::Result<u64> {
         }
       }
 
-      match process_single_media_file(deps, media_file).await {
+      let timing = ThumbnailTiming::start(media_file, query_started_at, query_finished_at);
+      let result = process_single_media_file(deps, media_file, &timing).await;
+      timing.finish(result.is_ok());
+
+      match result {
         Ok(()) => {
           let _ = deps.job_stats.increment_success_count();
           total_processed += 1;
