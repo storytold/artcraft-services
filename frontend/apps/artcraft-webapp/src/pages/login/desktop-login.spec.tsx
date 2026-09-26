@@ -33,17 +33,17 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("website login approval integration", () => {
-  it("reviews the real API response and requires consent plus matching code before approval", async () => {
+describe("webapp login approval integration", () => {
+  it("shows the code and IP, then approves with one explicit button click", async () => {
     renderPage();
     expect(await screen.findByText("google_user")).toBeTruthy();
     expect(screen.getByText("2001:db8::42")).toBeTruthy();
     expect(screen.getByText("WDJB-MJHT")).toBeTruthy();
     const approve = screen.getByRole("button", { name: "Approve desktop login" }) as HTMLButtonElement;
-    expect(approve.disabled).toBe(true);
+    expect(approve.disabled).toBe(false);
+    expect(screen.queryByRole("checkbox")).toBeNull();
     expect(transport).toHaveBeenCalledTimes(1);
     expect(window.location.hash).toBe("");
-    fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(approve);
     await screen.findByText("Desktop login approved. Return to ArtCraft to finish signing in.");
     expect(JSON.parse(transport.mock.calls[1][1].body)).toEqual({ approval_token: APPROVAL_TOKEN, approve: true });
@@ -51,7 +51,7 @@ describe("website login approval integration", () => {
     expect(sessionStorage.getItem("artcraft_pending_desktop_approval")).toBeNull();
   });
 
-  it("records decline without requiring the match checkbox or issuing a session", async () => {
+  it("records decline without issuing a session", async () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Decline" }));
     await screen.findByText("Desktop login declined. No session was created.");
@@ -86,6 +86,45 @@ describe("website login approval integration", () => {
     renderPage();
     await screen.findByText(/request or account session is no longer valid/);
     await waitFor(() => expect(transport).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([
+    { ...REVIEW, success: false },
+    { ...REVIEW, status: "unknown_future_state" },
+    { ...REVIEW, expires_at: "invalid-date" },
+  ])("does not offer approval for an invalid review: %j", async (review) => {
+    transport.mockImplementation(async () => response(review));
+    renderPage();
+    await screen.findByText(/Unable to load this login request/);
+    expect(screen.queryByRole("button", { name: "Approve desktop login" })).toBeNull();
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains consent after a lost decision response and allows an idempotent retry", async () => {
+    renderPage();
+    await screen.findByText("google_user");
+    transport.mockRejectedValueOnce(new Error("Network unavailable"));
+    fireEvent.click(screen.getByRole("button", { name: "Approve desktop login" }));
+    await screen.findByText(/Unable to confirm your choice/);
+    expect(sessionStorage.getItem("artcraft_pending_desktop_approval")).toBe(APPROVAL_TOKEN);
+    fireEvent.click(screen.getByRole("button", { name: "Approve desktop login" }));
+    await screen.findByText(/Desktop login approved/);
+    expect(transport.mock.calls[1][1].body).toBe(transport.mock.calls[2][1].body);
+  });
+
+  it.each([
+    ["approved", null, "Desktop login approved"],
+    ["redeemed", null, "Desktop login approved"],
+    ["failed", "user_declined", "Desktop login declined"],
+    ["failed", "expired", "This login request expired"],
+  ])("shows terminal %s/%s without offering another decision", async (status, failure, message) => {
+    transport.mockImplementation(async () => response({ ...REVIEW, status, maybe_failure_type: failure }));
+    renderPage();
+    await screen.findByText(new RegExp(message!));
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Approve desktop login" })).toBeNull();
+    expect(sessionStorage.getItem("artcraft_pending_desktop_approval")).toBeNull();
+    expect(transport).toHaveBeenCalledTimes(1);
   });
 
   it("rejects external or protocol-relative authentication return URLs", () => {

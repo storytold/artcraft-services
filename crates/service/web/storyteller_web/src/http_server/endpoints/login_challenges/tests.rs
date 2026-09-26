@@ -29,6 +29,44 @@ const BROWSER_IP: &str = "198.51.100.20";
 
 #[actix_web::test]
 #[cfg_attr(feature = "skip_database_tests", ignore)]
+async fn both_browser_sites_can_review_approve_and_decline() {
+  let h = Harness::create().await;
+  let app = test::init_service(App::new().app_data(web::Data::new(h.db.pool.clone())).app_data(web::Data::new(h.signer.clone())).configure(handlers::configure).route("/protected", web::get().to(protected))).await;
+  let mut minted = 0;
+  for origin in ["https://getartcraft.com", "https://www.getartcraft.com", "https://app.getartcraft.com"] {
+    for approve in [false, true] {
+      let created: CreateLoginChallengeResponse = test::read_body_json(post(&app, &h, "create", json!({}), false).await).await;
+      let approval = approval_token(&created);
+      let request = test::TestRequest::post().uri("/v1/login_challenges/review").insert_header(("Origin", origin)).insert_header(("session", h.cookie.as_str())).set_json(json!({"approval_token": approval})).to_request();
+      let review: ReviewLoginChallengeResponse = test::call_and_read_body_json(&app, request).await;
+      assert_eq!(review.status, LoginChallengeState::Pending);
+      assert_eq!(review.username, h.user.username);
+      let request = test::TestRequest::post().uri("/v1/login_challenges/decide").insert_header(("Origin", origin)).insert_header(("session", h.cookie.as_str())).set_json(json!({"approval_token": approval, "approve": approve})).to_request();
+      let decision: LoginChallengeResponse = test::call_and_read_body_json(&app, request).await;
+      assert!(decision.maybe_signed_session.is_none());
+      assert_eq!(fixtures::bridge_session_count(&h.db.pool).await, minted);
+      let polled = post(&app, &h, "poll", json!({"device_token": created.device_token}), false).await;
+      if approve {
+        let cookie = polled.response().cookies().find(|c| c.name() == "session").unwrap().into_owned();
+        let downstream = test::call_service(&app, test::TestRequest::get().uri("/protected").cookie(cookie).to_request()).await;
+        assert_eq!(downstream.status(), StatusCode::OK);
+        let body: Value = test::read_body_json(downstream).await;
+        assert_eq!(body["user_token"], h.user.user_token.as_str());
+        minted += 1;
+      } else {
+        assert!(!polled.headers().contains_key("set-cookie"));
+        let result: LoginChallengeResponse = test::read_body_json(polled).await;
+        assert_eq!(result.maybe_failure_type, Some(LoginChallengeFailure::UserDeclined));
+        assert!(result.maybe_signed_session.is_none());
+      }
+      assert_eq!(fixtures::bridge_session_count(&h.db.pool).await, minted);
+    }
+  }
+  h.db.destroy().await;
+}
+
+#[actix_web::test]
+#[cfg_attr(feature = "skip_database_tests", ignore)]
 async fn approval_mints_once_and_cookie_authenticates_downstream() {
   let h = Harness::create().await;
   let app = test::init_service(App::new().app_data(web::Data::new(h.db.pool.clone())).app_data(web::Data::new(h.signer.clone())).configure(handlers::configure).route("/protected", web::get().to(protected))).await;

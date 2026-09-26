@@ -78,7 +78,7 @@ describe("website desktop login with real auth and approval clients", () => {
     const reviewCall = bridgeCalls("review")[0];
     expect(reviewCall[1].headers.session).toBe("browser_session");
     expect(JSON.parse(reviewCall[1].body)).toEqual({ approval_token: APPROVAL_TOKEN });
-    fireEvent.click(screen.getByRole("checkbox"));
+    expect(screen.queryByRole("checkbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Approve desktop login" }));
     await screen.findByText(/Desktop login approved/);
     expect(bridgeCalls("decide")).toHaveLength(1);
@@ -87,7 +87,7 @@ describe("website desktop login with real auth and approval clients", () => {
     expect(bridgeCalls("poll")).toHaveLength(0);
   });
 
-  it("lets an existing session decline without another login or code confirmation", async () => {
+  it("lets an existing session decline without another login", async () => {
     signedIn = true;
     useSessionStore.setState({ user: USER as any, loggedIn: true });
     renderPage();

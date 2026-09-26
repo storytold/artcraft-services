@@ -84,3 +84,28 @@ pub fn rate_limit(ip: &str, create: bool) -> Result<(), CommonWebError> {
   *count += 1;
   Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+  use actix_web::test::TestRequest;
+  use super::require_approval_origin;
+
+  #[test]
+  fn both_local_sites_require_a_local_api() {
+    for origin in ["http://localhost:4200", "http://127.0.0.1:4200", "http://localhost:4201", "http://127.0.0.1:4201"] {
+      for host in ["localhost:12345", "127.0.0.1:12345", "api.storyteller.ai"] {
+        let request = TestRequest::post().insert_header(("Host", host)).insert_header(("Origin", origin)).to_http_request();
+        assert_eq!(require_approval_origin(&request).is_ok(), host != "api.storyteller.ai");
+      }
+    }
+  }
+
+  #[test]
+  fn approval_origins_require_exact_matches() {
+    for origin in ["https://getartcraft.com.evil.example", "https://app.getartcraft.com.evil.example", "http://getartcraft.com", "http://localhost:4202", "null"] {
+      let request = TestRequest::post().insert_header(("Host", "localhost:12345")).insert_header(("Origin", origin)).to_http_request();
+      assert!(require_approval_origin(&request).is_err());
+    }
+    assert!(require_approval_origin(&TestRequest::post().to_http_request()).is_err());
+  }
+}

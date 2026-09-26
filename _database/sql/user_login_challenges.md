@@ -197,11 +197,19 @@ Production gateways can additionally enforce aggregate limits across replicas.
 A worker expires up to 1,000 abandoned challenges every 30 seconds. Audit retention
 is intentionally not an automatic purge policy in this change.
 
-The production website route is `https://app.getartcraft.com/login/desktop`. Local
-API requests use `http://localhost:4201/login/desktop`; run that webapp with
-`USE_LOCAL_API=1` so approval reaches the same database. The token is kept
-in tab-scoped session storage through login, including Google login for accounts
-without a subscription. Returning to the page still requires explicit consent.
+Both browser applications implement `/login/desktop`: `https://getartcraft.com`
+(including `www`) and `https://app.getartcraft.com`. They share the approval UI in
+`frontend/libs/login`. The API currently advertises the webapp URL. Local API
+requests advertise `http://localhost:4201/login/desktop`; the website also handles
+the route on port 4200. Run either frontend with `USE_LOCAL_API=1` so approval
+reaches the same local API; local origins cannot approve production challenges.
+The website signs in inline to preserve its origin-scoped pending token and
+mobile session header. The webapp preserves the return destination through login,
+signup, and password reset, bypassing billing redirects for desktop consent.
+Tokens stay in tab-scoped session storage, are removed from URL fragments before
+tracking, and are cleared on terminal results. Returning from authentication
+always requires explicit consent. The code stays visible for comparison; a single
+Approve or Decline click records the choice, without an extra checkbox.
 The desktop displays the QR code, code comparison, countdown, and status. Opening
 the website invokes the native system browser. Network errors back off up to 30
 seconds; closing the dialog stops polling and cancels the native handle. A response
@@ -214,6 +222,11 @@ keeps the private device token and signed session out of IPC/JavaScript; the UI
 holds only a local handle and public display data. After verifying the downstream
 session, Rust installs and persists the cookie in the native HTTP jar and updates
 the credential manager. No browser session is copied into the desktop.
+The desktop login/signup modal also uses Rust commands for its initial session
+check and password forms. Website/QR buttons appear only in login mode. Unknown
+optional feature flags in the session response are ignored by older desktops;
+malformed authentication data still fails verification. A stale initial session
+check cannot reset a pending or completed login.
 
 ## Integration tests
 
@@ -231,6 +244,7 @@ From the services repository:
 SQLX_OFFLINE=true cargo test --offline -p storyteller-web --bin storyteller-web login_challenges
 cd frontend
 npm exec vitest -- run --config apps/artcraft-webapp/vite.config.ts src/pages/login/desktop-login.spec.tsx src/pages/login/login-bridge-continuation.spec.tsx
+npm exec vitest -- run --config apps/artcraft-website/vite.config.ts src/pages/login/desktop-login.spec.tsx
 ```
 
 `SQLX_OFFLINE` controls compile-time query metadata only. These tests still execute
@@ -241,27 +255,31 @@ From the desktop repository:
 ```sh
 SQLX_OFFLINE=true cargo test --offline -p artcraft --lib login_bridge_tests
 cd frontend
-npm exec vitest -- run --config libs/components/login-modal/vite.config.ts src/lib/DesktopLoginBridge.spec.tsx
+npm exec vitest -- run --config libs/components/login-modal/vite.config.ts src/lib/DesktopLoginBridge.spec.tsx src/lib/login-modal.spec.tsx
 ```
 
 Coverage:
 
-- Six backend integration tests: passwordless account approval, zero sessions
+- Seven backend integration tests: both production browser origins, passwordless account approval, zero sessions
   before redemption, rejection/audit IPs, token separation, CSRF, MCP rejection,
   invalid approving sessions, concurrent decisions/redemptions, response-loss
   retries, abandoned expiry, expiry during lock contention, revocation, bans,
   signed-cookie authentication through the production session guard, and an issued
   session remaining valid after the challenge expires.
-- Eight browser tests: API/consent interaction, code/IP display, decline, expiry,
-  invalid requests, safe return URLs, login continuation, and Google sign-in
+- Twenty-five browser tests: API/consent interaction, code/IP display, decline,
+  expiry, terminal/unknown states, lost-response retries, safe return URLs,
+  website inline Google/password sign-in, and webapp login/signup/password-reset
   continuation without subscription gating or bridge credentials in SSO requests.
-- Eight desktop UI tests: IPC-only transport (JavaScript HTTP is forbidden),
+- Thirteen desktop UI tests: IPC-only transport (JavaScript HTTP is forbidden),
   native browser invocation, QR/code values, polling, verified user results,
-  decline, timeout, network backoff, cancellation, and host/status diagnostics.
-- Ten native tests: real API bindings against ephemeral loopback HTTP servers,
+  decline, timeout, network backoff, cancellation, host/status diagnostics,
+  login-only button placement, native password forms, and stale session checks.
+- Thirteen native tests: real API bindings against ephemeral loopback HTTP servers,
   downstream verification before cookie installation, persistence, retries,
   rejection, timeout, cancellation during HTTP, unknown states, no redirects,
-  redacted errors, local/production origin isolation, and visitor-only telemetry.
+  redacted errors, local/production origin isolation, visitor-only telemetry,
+  forward-compatible feature flags, malformed session data, and native password
+  login/signup/session recheck. Desktop tests do not connect to MySQL.
 
 Frontend tests replace external Google/native boundaries; they do not
 perform a live Google OAuth exchange or drive a packaged Tauri GUI. Backend tests
@@ -272,7 +290,7 @@ sessions; bridge consent/redemption always checks MySQL directly.
 Validation also covered both migration directions, nullable compatibility with
 legacy session writers, uniqueness constraints, fail-closed expiry defaults, and
 matching materialized schemas. The focused web TypeScript check and the production
-webapp Nx build (including 52 dependency tasks) passed. Broad workspace TypeScript
+builds of both browser apps (including 53 dependency tasks) passed. Broad workspace TypeScript
 checks have existing errors. The desktop Nx build is blocked by the existing
 `api -> tauri-api -> api` cycle; its direct Vite login bundle builds but declaration
 checks report unavailable dependency outputs. A source-only desktop check reports

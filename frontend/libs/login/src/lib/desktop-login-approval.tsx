@@ -15,7 +15,6 @@ interface DesktopLoginApprovalProps {
 export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopLoginApprovalProps) {
   const [token] = useState(captureLoginBridgeContext);
   const [review, setReview] = useState<LoginChallengeReview | null>(null);
-  const [matched, setMatched] = useState(false);
   const [busy, setBusy] = useState(false);
   const deciding = useRef(false);
   const [message, setMessage] = useState("");
@@ -28,7 +27,6 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
     let active = true;
     setReview(null);
     setMessage("");
-    setMatched(false);
     new LoginChallengesApi().review(token).then((result) => {
       if (!active) return;
       const completion = completionMessage(result);
@@ -64,7 +62,7 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
 
   const decide = async (approve: boolean) => {
     if (!token || !review || !loggedIn || deciding.current || finished ||
-        Date.now() >= Date.parse(review.expires_at) || (approve && !matched)) return;
+        Date.now() >= Date.parse(review.expires_at)) return;
     deciding.current = true;
     setBusy(true);
     setMessage("");
@@ -98,12 +96,8 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
         <p className="mt-3 break-all text-sm text-white/70">Requesting IP: <code>{review.requesting_ip}</code></p>
         <p className="mt-5">Make sure this code matches the code on your desktop:</p>
         <p className="my-5 text-center font-mono text-2xl tracking-widest sm:text-3xl">{review.confirmation_code.slice(0, 4)}-{review.confirmation_code.slice(4)}</p>
-        <label className="flex items-start gap-3 text-sm">
-          <input type="checkbox" checked={matched} disabled={busy} onChange={(event) => setMatched(event.target.checked)} />
-          <span>I started this request on my desktop and the codes match.</span>
-        </label>
         <div className="mt-6 flex flex-wrap gap-3">
-          <button className="flex-1 bg-white px-4 py-3 font-medium text-black disabled:opacity-40" disabled={!matched || busy} onClick={() => decide(true)}>Approve desktop login</button>
+          <button className="flex-1 bg-white px-4 py-3 font-medium text-black disabled:opacity-40" disabled={busy} onClick={() => decide(true)}>Approve desktop login</button>
           <button className="border border-white/30 px-4 py-3 disabled:opacity-40" disabled={busy} onClick={() => decide(false)}>Decline</button>
         </div>
       </>}
