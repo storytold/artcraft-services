@@ -54,8 +54,8 @@ export default function MediaPage({ token }: { token: string }) {
   return (
     <SectionShell className="min-h-[70vh] overflow-x-clip md:overflow-x-visible">
       <SectionEyebrow index="01" label="Shared creation" annotation={kind ? MEDIA_LABELS[kind] : "Made with ArtCraft"} />
-      <header className="flex flex-wrap items-end justify-between gap-6 px-6 py-8 md:px-10 md:py-10">
-        <div className="min-w-0 flex-1">
+      <header className="flex flex-col items-start gap-6 px-6 py-8 sm:flex-row sm:items-end sm:justify-between md:px-10 md:py-10">
+        <div className="w-full min-w-0 flex-1 sm:w-auto">
           <p className="hud-label mb-3 text-faint">The artist’s viewport</p>
           <h1 className="break-words font-display text-3xl font-medium leading-tight tracking-tight text-ink-strong sm:text-4xl">
             {media ? title : <>Shared <Accent>creation</Accent>.</>}

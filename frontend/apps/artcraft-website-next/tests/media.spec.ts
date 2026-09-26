@@ -11,7 +11,7 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 test.beforeEach(async ({ page }) => {
   // All API calls are fulfilled locally, including navbar/session/referral
   // requests. These tests never reach production or a database.
-  await page.route(`${API}/**`, (route) => route.fulfill({ json: { success: true, logged_in: false } }));
+  await page.route("**/v1/**", (route) => route.fulfill({ json: { success: true, logged_in: false } }));
   await page.route(`${CDN}/**`, (route) => route.fulfill({ body: PNG, contentType: "image/png" }));
 });
 
@@ -79,6 +79,20 @@ test("music loads in an audio player and shows its transcript", async ({ page })
   await expect(page.getByText("Fixture song lyrics")).toBeVisible();
 });
 
+test("live waveform reflects the playing audio samples", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await mockMedia(page, fixture("audio", "wav"));
+  await page.route(`${CDN}/asset.wav*`, (route) => serveBytes(route, wav(), "audio/wav"));
+  await page.goto("/media/m_fixture_audio");
+  await page.getByRole("button", { name: "Play audio" }).click();
+  await expect.poll(async () => {
+    const path = await page.getByLabel("Live audio waveform").locator("path").last().getAttribute("d");
+    return [...(path ?? "").matchAll(/,([\d.-]+)/g)].some((match) => Math.abs(Number(match[1]) - 36) > 1);
+  }).toBe(true);
+  await page.getByRole("button", { name: "Pause audio" }).click();
+  await expect(page.getByRole("button", { name: "Play audio" })).toBeVisible();
+});
+
 for (const kind of ["mesh", "splat"] as const) {
   test(`interactive ${kind} supports orbit, zoom, pan, and reset with no WebGL errors`, async ({ page }) => {
     const errors: string[] = [];
@@ -109,6 +123,10 @@ for (const kind of ["mesh", "splat"] as const) {
     await expect.poll(hash).not.toBe(before);
     before = await hash();
     await page.getByRole("button", { name: "Reset view" }).click();
+    await expect.poll(hash).not.toBe(before);
+    before = await hash();
+    await page.getByRole("button", { name: "Rotate left", exact: true }).click();
+    await page.getByRole("button", { name: "Zoom out", exact: true }).click();
     await expect.poll(hash).not.toBe(before);
     await page.screenshot({ path: test.info().outputPath(`${kind}.png`) });
     expect(errors).toEqual([]);
@@ -165,11 +183,10 @@ test("mobile layouts and both themes preserve the preview and actions", async ({
   await expect(page.getByRole("group", { name: "Audio player" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Download file" })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("mobile-light.png"), fullPage: true });
-  const overflow = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth,
-    elements: Array.from(document.querySelectorAll("main *")).filter((el) => el.getBoundingClientRect().right > innerWidth + 1).map((el) => ({ tag: el.tagName, class: el.className, right: el.getBoundingClientRect().right })).slice(0, 8) }));
-  expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(18, 19, 22)");
   await page.screenshot({ path: test.info().outputPath("mobile-dark.png"), fullPage: true });
 });
 
