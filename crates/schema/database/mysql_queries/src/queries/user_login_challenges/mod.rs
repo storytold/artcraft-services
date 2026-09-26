@@ -1,2 +1,9 @@
-pub mod challenge_queries;
-pub mod session_queries;
+pub mod create_challenge;
+pub mod decide_challenge;
+pub mod expire_abandoned_challenges;
+pub mod expire_challenge;
+pub mod is_challenge_expired;
+pub mod lock_by_approval;
+pub mod lock_by_device;
+pub mod login_challenge;
+pub mod mark_redeemed;

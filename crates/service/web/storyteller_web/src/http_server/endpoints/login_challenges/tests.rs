@@ -10,7 +10,8 @@ use actix_web::dev::{Service, ServiceResponse};
 use actix_web::http::StatusCode;
 use actix_web::{test, web, App, HttpRequest};
 use artcraft_api_defs::users::login_challenges::*;
-use mysql_queries::queries::user_login_challenges::challenge_queries::{lock_by_device, expire_abandoned_challenges};
+use mysql_queries::queries::user_login_challenges::expire_abandoned_challenges::{expire_abandoned_challenges, ExpireAbandonedChallengesArgs};
+use mysql_queries::queries::user_login_challenges::lock_by_device::{lock_by_device, LockByDeviceArgs};
 use mysql_testing::fixtures::login_challenges as fixtures;
 use mysql_testing::fixtures::mcp_sessions::create_test_mcp_session;
 use mysql_testing::fixtures::users::{create_test_user, TestUser};
@@ -215,7 +216,10 @@ async fn expiry_is_checked_after_waiting_for_the_redemption_lock() {
   let hash = security::secret_hash(&created.device_token).unwrap();
   fixtures::set_challenge_deadline(&h.db.pool, &hash, 1).await;
   let mut lock = h.db.pool.begin().await.unwrap();
-  lock_by_device(&hash, &mut lock).await.unwrap().unwrap();
+  lock_by_device(LockByDeviceArgs {
+    device_hash: &hash,
+    mysql_executor: &mut *lock,
+  }).await.unwrap().unwrap();
   let (response, _) = tokio::join!(post(&app, &h, "poll", json!({"device_token": created.device_token}), false), async {
     tokio::time::sleep(Duration::from_millis(1500)).await;
     lock.commit().await.unwrap();
@@ -252,13 +256,17 @@ async fn competing_decisions_are_immutable_and_abandoned_requests_expire() {
     }
     let hash = security::secret_hash(&created.device_token).unwrap();
     fixtures::set_challenge_deadline(&h.db.pool, &hash, -1).await;
-    assert_eq!(expire_abandoned_challenges(&h.db.pool).await.unwrap(), 1);
+    assert_eq!(expire_abandoned_challenges(ExpireAbandonedChallengesArgs {
+      mysql_executor: &h.db.pool,
+    }).await.unwrap(), 1);
     let audit = fixtures::audit(&h.db.pool, &hash).await;
     assert_eq!(audit.failure.as_deref(), Some("expired"));
     assert!(audit.failure_ip.is_none());
     assert!(audit.session_id.is_none());
   }
-  assert_eq!(expire_abandoned_challenges(&h.db.pool).await.unwrap(), 0);
+  assert_eq!(expire_abandoned_challenges(ExpireAbandonedChallengesArgs {
+    mysql_executor: &h.db.pool,
+  }).await.unwrap(), 0);
   h.db.destroy().await;
 }
 
