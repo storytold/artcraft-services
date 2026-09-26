@@ -265,7 +265,15 @@ export type MediaFile = {
 export type PromptContextImage = {
   media_token: string;
   semantic: string;
-  media_links: { cdn_url: string; maybe_thumbnail_template: string | null };
+  media_links: {
+    cdn_url: string;
+    maybe_thumbnail_template: string | null;
+    /** Set for video references: a still frame and its thumbnail template. */
+    maybe_video_previews: {
+      still: string;
+      still_thumbnail_template: string | null;
+    } | null;
+  };
 };
 
 export type Prompt = {
