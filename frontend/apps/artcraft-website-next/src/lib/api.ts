@@ -238,6 +238,72 @@ export function logWebReferral(maybeReferralUrl?: string): Promise<void> {
   }).then(() => undefined);
 }
 
+// ── Shared media (the /media/[token] share page) ─────────────────────────
+// Mirrors MediaFilesApi.GetMediaFileByToken / PromptsApi.GetPromptsByToken
+// from the shared lib, trimmed to the fields the share page renders.
+
+export type MediaUser = {
+  user_token: string;
+  username: string;
+  display_name: string;
+  email_gravatar_hash: string;
+};
+
+export type MediaFile = {
+  token: string;
+  media_class: string | null;
+  maybe_creator_user: MediaUser | null;
+  maybe_prompt_token: string | null;
+  media_links: {
+    cdn_url: string;
+    /** Contains a `{WIDTH}` placeholder. */
+    thumbnail_template: string | null;
+  };
+  created_at: string;
+};
+
+export type PromptContextImage = {
+  media_token: string;
+  semantic: string;
+  media_links: { cdn_url: string; maybe_thumbnail_template: string | null };
+};
+
+export type Prompt = {
+  token: string;
+  maybe_positive_prompt: string | null;
+  maybe_generation_provider: string | null;
+  maybe_model_type: string | null;
+  maybe_context_images: PromptContextImage[] | null;
+  maybe_aspect_ratio: string | null;
+  maybe_resolution: string | null;
+  maybe_duration_seconds: number | null;
+  maybe_generate_audio: boolean | null;
+};
+
+export function mediaFilePath(token: string): string {
+  return `/v1/media_files/file/${encodeURIComponent(token)}`;
+}
+
+export function getMediaFile(token: string): Promise<ApiResult<MediaFile>> {
+  return request<{ media_file?: MediaFile }>(mediaFilePath(token)).then((r) => {
+    if (!r.success) return r;
+    return r.data.media_file
+      ? { success: true, data: r.data.media_file }
+      : { success: false, errorMessage: "Media not found" };
+  });
+}
+
+export function getPrompt(token: string): Promise<ApiResult<Prompt>> {
+  return request<{ prompt?: Prompt }>(
+    `/v1/prompts/${encodeURIComponent(token)}`,
+  ).then((r) => {
+    if (!r.success) return r;
+    return r.data.prompt
+      ? { success: true, data: r.data.prompt }
+      : { success: false, errorMessage: "Prompt not found" };
+  });
+}
+
 function checkoutRequest(
   path: string,
   body: unknown,
