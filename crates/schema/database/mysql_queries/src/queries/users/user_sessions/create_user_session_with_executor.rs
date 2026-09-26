@@ -19,9 +19,10 @@ INSERT INTO user_sessions (
   token,
   user_token,
   ip_address_creation,
+  maybe_creation_type,
   expires_at
 )
-VALUES ( ?, ?, ?, NOW() + interval 1 year )
+VALUES ( ?, ?, ?, 'direct_login', NOW() + interval 1 year )
     "#,
     session_token.as_str(),
     user_token.as_str(),

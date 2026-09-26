@@ -48,6 +48,7 @@ import { SignupCtaModal } from "../components/signup-cta-modal";
 import { InsufficientCreditsModal } from "../components/insufficient-credits-modal";
 import { GlobalActionReminder } from "../components/global-action-reminder";
 import { useSession } from "../lib/session";
+import { DesktopLogin } from "../pages/login/desktop-login";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -144,6 +145,7 @@ export function App() {
     <>
       <ScrollToTop />
       <Routes>
+        <Route path="/login/desktop" element={<DesktopLogin />} />
         {/* Public — no chrome, no auth gate. login/signup share a layout route
             so the showcase pane (and its video) stays mounted when toggling
             between them. */}

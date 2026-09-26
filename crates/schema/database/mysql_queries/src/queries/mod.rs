@@ -41,6 +41,7 @@ pub mod unsubscribe_reason;
 pub mod uploaded_video_notes;
 pub mod uploaded_videos;
 pub mod user_impersonation_requests;
+pub mod user_login_challenges;
 pub mod user_referral_codes;
 pub mod user_referrals;
 pub mod user_daily_spends;

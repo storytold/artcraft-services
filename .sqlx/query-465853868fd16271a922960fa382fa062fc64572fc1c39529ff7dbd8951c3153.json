@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 5
+    }
+  },
+  "hash": "465853868fd16271a922960fa382fa062fc64572fc1c39529ff7dbd8951c3153",
+  "query": "\nINSERT INTO user_login_challenges\n  (token, approval_token_sha256, device_token_sha256, confirmation_code, ip_address_creation, created_at, expires_at)\nVALUES (?, ?, ?, ?, ?, NOW(), NOW() + INTERVAL 20 MINUTE)\n"
+}

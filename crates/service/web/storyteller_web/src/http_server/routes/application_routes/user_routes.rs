@@ -32,6 +32,7 @@ pub fn add_user_routes<T, B> (app: App<T>) -> App<T>
       >,
 {
   app
+      .configure(crate::http_server::endpoints::login_challenges::handlers::configure)
       .service(
         // TODO(bt,2022-11-16): non-/v1/ endpoints are deprecated and subject for future removal
         web::resource("/create_account")

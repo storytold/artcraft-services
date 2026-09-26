@@ -1,0 +1,58 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL | PRIMARY_KEY | AUTO_INCREMENT",
+          "max_size": 20,
+          "type": "LongLong"
+        }
+      },
+      {
+        "name": "token",
+        "ordinal": 1,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "user_token",
+        "ordinal": 2,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "username",
+        "ordinal": 3,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 80,
+          "type": "VarString"
+        }
+      }
+    ],
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "parameters": {
+      "Right": 1
+    }
+  },
+  "hash": "8bfbb8bef3bec235f37c5f4f5c2f3a8b0833241a63da122b8abd97cd9b71208f",
+  "query": "\nSELECT s.id, s.token, s.user_token, u.username FROM user_sessions s JOIN users u ON u.token = s.user_token\nWHERE s.token = ? AND s.deleted_at IS NULL AND s.expires_at > NOW()\n  AND s.maybe_impersonation_user_token IS NULL AND u.is_banned = FALSE\n  AND u.user_deleted_at IS NULL AND u.mod_deleted_at IS NULL\n"
+}

@@ -36,9 +36,10 @@ INSERT INTO user_sessions (
   user_token,
   maybe_impersonation_user_token,
   ip_address_creation,
+  maybe_creation_type,
   expires_at
 )
-VALUES (?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, 'impersonation', ?)
     "#,
     session_token.as_str(),
     args.user_token.as_str(),

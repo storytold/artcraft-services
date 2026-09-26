@@ -1,11 +1,12 @@
 import { AUTH_FORM_PADDING } from "./auth-form-styles";
 import { ReactNode } from "react";
-import { Outlet, Navigate, Link } from "react-router-dom";
+import { Outlet, Navigate, Link, useSearchParams } from "react-router-dom";
 import { LoaderCircleIcon } from "lucide-react";
 import { AuthShowcase } from "./auth-showcase";
 import { AuthPageFrame } from "./auth-page-frame";
 import { useMediaQuery } from "../ui/use-media-query";
 import { useSession } from "../../lib/session";
+import { safeAuthReturnPath } from "../../lib/login-bridge-context";
 
 /**
  * Persistent shell for the auth pages. Rendered as a layout route so the
@@ -15,14 +16,15 @@ import { useSession } from "../../lib/session";
  * (AuthHeader) and footer (AuthFooter) into the outlet.
  */
 export const AuthLayout = () => {
+  const [searchParams] = useSearchParams();
   // Only mount the showcase on wide screens (matches the `lg` breakpoint) so
   // mobile never downloads the demo videos.
   const showShowcase = useMediaQuery("(min-width: 1024px)");
   const { loggedIn, authChecked } = useSession();
 
-  // Already signed in? Never show the auth form — go straight home.
+  // Preserve a safe return path when session refresh completes during login.
   if (loggedIn) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={safeAuthReturnPath(searchParams.get("from"))} replace />;
   }
 
   return (

@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "d68616cd92f80feedf269e04c8d96087f0c44ee12b8cc2768793095e39fd5a35",
+  "query": "\nUPDATE user_login_challenges SET status = 'failed', maybe_failure_type = 'expired', maybe_failed_at = expires_at\nWHERE status IN ('pending', 'approved') AND expires_at <= NOW() ORDER BY expires_at LIMIT 1000\n"
+}

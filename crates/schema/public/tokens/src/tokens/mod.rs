@@ -40,6 +40,7 @@ pub mod user_bookmarks;
 pub mod user_impersonation_requests;
 pub mod user_referral_codes;
 pub mod user_sessions;
+pub mod user_login_challenges;
 pub mod user_spend_events;
 pub mod user_subscriptions;
 pub mod users;

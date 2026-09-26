@@ -8775,6 +8775,7 @@ dependencies = [
  "serde_json",
  "server_environment",
  "sha1_hash",
+ "sha2 0.11.0-rc.5",
  "shared_env_var_config",
  "speculoos",
  "sqlx",

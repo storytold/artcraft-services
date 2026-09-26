@@ -1,0 +1,454 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [
+      {
+        "name": "user_token",
+        "ordinal": 0,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "username",
+        "ordinal": 1,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 80,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "display_name",
+        "ordinal": 2,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 80,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "email_address",
+        "ordinal": 3,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 1020,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "email_gravatar_hash",
+        "ordinal": 4,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 128,
+          "type": "String"
+        }
+      },
+      {
+        "name": "email_confirmed",
+        "ordinal": 5,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "email_confirmed_by_google",
+        "ordinal": 6,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "email_is_synthetic",
+        "ordinal": 7,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "is_without_password",
+        "ordinal": 8,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "username_is_not_customized",
+        "ordinal": 9,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "maybe_stripe_customer_id",
+        "ordinal": 10,
+        "type_info": {
+          "char_set": 224,
+          "flags": "BINARY",
+          "max_size": 1020,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "maybe_loyalty_program_key",
+        "ordinal": 11,
+        "type_info": {
+          "char_set": 224,
+          "flags": "BINARY",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "disable_gravatar",
+        "ordinal": 12,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "auto_play_audio_preference",
+        "ordinal": 13,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "auto_play_video_preference",
+        "ordinal": 14,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "preferred_tts_result_visibility: enums::common::visibility::Visibility",
+        "ordinal": 15,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | BINARY | ENUM",
+          "max_size": 28,
+          "type": "String"
+        }
+      },
+      {
+        "name": "preferred_w2l_result_visibility: enums::common::visibility::Visibility",
+        "ordinal": 16,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | BINARY | ENUM",
+          "max_size": 28,
+          "type": "String"
+        }
+      },
+      {
+        "name": "user_role_slug",
+        "ordinal": 17,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 64,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "is_banned",
+        "ordinal": 18,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_access_studio",
+        "ordinal": 19,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL | MULTIPLE_KEY",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "maybe_feature_flags",
+        "ordinal": 20,
+        "type_info": {
+          "char_set": 224,
+          "flags": "BINARY",
+          "max_size": 1020,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "can_use_tts",
+        "ordinal": 21,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_use_w2l",
+        "ordinal": 22,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_own_tts_results",
+        "ordinal": 23,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_own_w2l_results",
+        "ordinal": 24,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_own_account",
+        "ordinal": 25,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_upload_tts_models",
+        "ordinal": 26,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_upload_w2l_templates",
+        "ordinal": 27,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_own_tts_models",
+        "ordinal": 28,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_own_w2l_templates",
+        "ordinal": 29,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_approve_w2l_templates",
+        "ordinal": 30,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_edit_other_users_profiles",
+        "ordinal": 31,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_edit_other_users_tts_models",
+        "ordinal": 32,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_edit_other_users_w2l_templates",
+        "ordinal": 33,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_other_users_tts_models",
+        "ordinal": 34,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_other_users_tts_results",
+        "ordinal": 35,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_other_users_w2l_templates",
+        "ordinal": 36,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_other_users_w2l_results",
+        "ordinal": 37,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_ban_users",
+        "ordinal": 38,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      },
+      {
+        "name": "can_delete_users",
+        "ordinal": 39,
+        "type_info": {
+          "char_set": 63,
+          "flags": "",
+          "max_size": 1,
+          "type": "Tiny"
+        }
+      }
+    ],
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "parameters": {
+      "Right": 1
+    }
+  },
+  "hash": "934aad794dcb0057e39c471e7b25e5e191a395a2bd16553cb58a483b91c68437",
+  "query": "\nSELECT\n    users.token as user_token,\n    users.username,\n    users.display_name,\n\n    users.email_address,\n    users.email_gravatar_hash,\n    \n    users.email_confirmed,\n    users.email_confirmed_by_google,\n    users.email_is_synthetic,\n    users.is_without_password,\n    users.username_is_not_customized,\n\n    users.maybe_stripe_customer_id,\n    users.maybe_loyalty_program_key,\n\n    users.disable_gravatar,\n    users.auto_play_audio_preference,\n    users.auto_play_video_preference,\n    users.preferred_tts_result_visibility as `preferred_tts_result_visibility: enums::common::visibility::Visibility`,\n    users.preferred_w2l_result_visibility as `preferred_w2l_result_visibility: enums::common::visibility::Visibility`,\n\n    users.user_role_slug,\n    users.is_banned,\n\n    users.can_access_studio,\n    users.maybe_feature_flags,\n\n    user_roles.can_use_tts,\n    user_roles.can_use_w2l,\n    user_roles.can_delete_own_tts_results,\n    user_roles.can_delete_own_w2l_results,\n    user_roles.can_delete_own_account,\n\n    user_roles.can_upload_tts_models,\n    user_roles.can_upload_w2l_templates,\n    user_roles.can_delete_own_tts_models,\n    user_roles.can_delete_own_w2l_templates,\n\n    user_roles.can_approve_w2l_templates,\n    user_roles.can_edit_other_users_profiles,\n    user_roles.can_edit_other_users_tts_models,\n    user_roles.can_edit_other_users_w2l_templates,\n    user_roles.can_delete_other_users_tts_models,\n    user_roles.can_delete_other_users_tts_results,\n    user_roles.can_delete_other_users_w2l_templates,\n    user_roles.can_delete_other_users_w2l_results,\n    user_roles.can_ban_users,\n    user_roles.can_delete_users\n\nFROM users\nLEFT OUTER JOIN user_sessions\n    ON users.token = user_sessions.user_token\nLEFT OUTER JOIN user_roles\n    ON users.user_role_slug = user_roles.slug\nWHERE user_sessions.token = ?\n    AND user_sessions.deleted_at IS NULL\n    AND user_sessions.expires_at > NOW()\n    AND users.user_deleted_at IS NULL\n    AND users.mod_deleted_at IS NULL\n        "
+}

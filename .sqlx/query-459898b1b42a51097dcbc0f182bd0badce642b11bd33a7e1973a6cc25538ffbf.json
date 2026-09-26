@@ -1,0 +1,36 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [
+      {
+        "name": "session_token",
+        "ordinal": 0,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "user_token",
+        "ordinal": 1,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      }
+    ],
+    "nullable": [
+      false,
+      false
+    ],
+    "parameters": {
+      "Right": 1
+    }
+  },
+  "hash": "459898b1b42a51097dcbc0f182bd0badce642b11bd33a7e1973a6cc25538ffbf",
+  "query": "\nSELECT\n    token as session_token,\n    user_token\nFROM user_sessions\nWHERE token = ?\nAND deleted_at IS NULL\nAND expires_at > NOW()\n        "
+}

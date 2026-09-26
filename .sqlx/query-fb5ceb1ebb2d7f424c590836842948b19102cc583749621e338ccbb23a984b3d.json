@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 7
+    }
+  },
+  "hash": "fb5ceb1ebb2d7f424c590836842948b19102cc583749621e338ccbb23a984b3d",
+  "query": "\nUPDATE user_login_challenges SET status = ?, maybe_deciding_user_token = ?,\n  maybe_ip_address_decision = ?, maybe_decided_at = NOW(), maybe_failure_type = ?,\n  maybe_ip_address_failure = ?, maybe_failed_at = IF(?, NULL, NOW())\nWHERE id = ? AND status = 'pending' AND expires_at > NOW()\n"
+}
