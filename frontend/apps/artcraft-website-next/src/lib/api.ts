@@ -16,7 +16,7 @@ const SESSION_STORAGE_KEY = "artcraft_signed_session";
 
 export type ApiResult<T> =
   | { success: true; data: T }
-  | { success: false; errorMessage: string };
+  | { success: false; errorMessage: string; status?: number };
 
 export type SessionUser = {
   user_token: string;
@@ -270,9 +270,9 @@ function portalRequest(
 
 type Envelope = { success: boolean; error_message?: string; message?: string };
 
-async function request<T extends object>(
+export async function request<T extends object>(
   path: string,
-  init: { method?: "GET" | "POST"; body?: unknown } = {},
+  init: { method?: "GET" | "POST"; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<ApiResult<T>> {
   try {
     const headers: Record<string, string> = {
@@ -286,6 +286,7 @@ async function request<T extends object>(
       method: init.method ?? "GET",
       headers,
       credentials: "include",
+      signal: init.signal,
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
 
@@ -295,6 +296,7 @@ async function request<T extends object>(
     if (!response.ok) {
       return {
         success: false,
+        status: response.status,
         errorMessage:
           payload?.message ?? payload?.error_message ?? `Request failed (${response.status})`,
       };
