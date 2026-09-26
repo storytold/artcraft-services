@@ -1,6 +1,10 @@
 //! Mutators/inspection for disposable bridge integration databases only.
 use sqlx::{MySqlPool, Row};
+use chrono::{DateTime, Utc};
+use enums::by_table::users::user_feature_flag::UserFeatureFlag;
 use tokens::tokens::users::UserToken;
+
+use super::users::{create_test_user, TestUser};
 
 pub struct ChallengeAudit {
   pub status: String,
@@ -9,11 +13,32 @@ pub struct ChallengeAudit {
   pub failure_ip: Option<String>,
   pub session_id: Option<i64>,
   pub lifetime_seconds: i64,
+  pub deciding_user: Option<String>,
+  pub decision_ip: Option<String>,
+  pub redemption_ip: Option<String>,
+  pub decided_at: Option<DateTime<Utc>>,
+  pub redeemed_at: Option<DateTime<Utc>>,
+  pub failed_at: Option<DateTime<Utc>>,
+}
+
+pub async fn create_passwordless_user(pool: &MySqlPool, flags: &[UserFeatureFlag]) -> TestUser {
+  let user = create_test_user(pool).await.expect("create passwordless fixture");
+  set_passwordless(pool, &user.user_token).await;
+  let flags = flags.iter().map(UserFeatureFlag::to_str).collect::<Vec<_>>().join(",");
+  sqlx::query("UPDATE users SET maybe_feature_flags = ? WHERE token = ?")
+    .bind(flags).bind(user.user_token.as_str()).execute(pool).await.expect("set fixture feature flags");
+  user
 }
 
 pub async fn audit(pool: &MySqlPool, device_hash: &[u8]) -> ChallengeAudit {
-  let row = sqlx::query("SELECT status, maybe_failure_type, ip_address_creation, maybe_ip_address_failure, maybe_redeemed_user_session_id, TIMESTAMPDIFF(SECOND, created_at, expires_at) AS lifetime FROM user_login_challenges WHERE device_token_sha256 = ?").bind(device_hash).fetch_one(pool).await.expect("challenge audit");
-  ChallengeAudit { status: row.get("status"), failure: row.get("maybe_failure_type"), creation_ip: row.get("ip_address_creation"), failure_ip: row.get("maybe_ip_address_failure"), session_id: row.get("maybe_redeemed_user_session_id"), lifetime_seconds: row.get("lifetime") }
+  let row = sqlx::query("SELECT status, maybe_failure_type, ip_address_creation, maybe_ip_address_failure, maybe_redeemed_user_session_id, TIMESTAMPDIFF(SECOND, created_at, expires_at) AS lifetime, maybe_deciding_user_token, maybe_ip_address_decision, maybe_ip_address_redemption, maybe_decided_at, maybe_redeemed_at, maybe_failed_at FROM user_login_challenges WHERE device_token_sha256 = ?").bind(device_hash).fetch_one(pool).await.expect("challenge audit");
+  ChallengeAudit {
+    status: row.get("status"), failure: row.get("maybe_failure_type"), creation_ip: row.get("ip_address_creation"),
+    failure_ip: row.get("maybe_ip_address_failure"), session_id: row.get("maybe_redeemed_user_session_id"), lifetime_seconds: row.get("lifetime"),
+    deciding_user: row.get("maybe_deciding_user_token"), decision_ip: row.get("maybe_ip_address_decision"),
+    redemption_ip: row.get("maybe_ip_address_redemption"), decided_at: row.get("maybe_decided_at"),
+    redeemed_at: row.get("maybe_redeemed_at"), failed_at: row.get("maybe_failed_at"),
+  }
 }
 
 pub async fn bridge_session_count(pool: &MySqlPool) -> i64 {

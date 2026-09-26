@@ -238,6 +238,16 @@ only its own database on success. Existing `storyteller` and `artcraft_test` dat
 are not used. A failed test leaves its isolated database for diagnosis. The local
 MySQL instance must be running; there is no fallback to a remote database.
 
+The HTTP endpoint suite is
+`crates/service/web/storyteller_web/src/http_server/endpoints/login_challenges/endpoint_integration_tests.rs`.
+It starts the real challenge handlers and `/v1/session` handler on an ephemeral
+`127.0.0.1` port. Separate browser and desktop HTTP clients maintain their own
+cookie jars; requests cannot follow redirects or use system proxies. Fixtures in
+`mysql_testing::fixtures::login_challenges` create passwordless users, Google email
+confirmation, feature flags (including `use_qt`), and signed browser sessions.
+The desktop cookie comes only from the real redemption response and is then sent
+to the real session endpoint. HTTP responses and SQL queries are not mocked.
+
 From the services repository:
 
 ```sh
@@ -250,6 +260,12 @@ npm exec vitest -- run --config apps/artcraft-website/vite.config.ts src/pages/l
 `SQLX_OFFLINE` controls compile-time query metadata only. These tests still execute
 real SQL against local MySQL. Do not enable `skip_database_tests` for this run.
 
+To run only the four HTTP endpoint tests with database fixtures:
+
+```sh
+SQLX_OFFLINE=true cargo test --offline -p storyteller-web --bin storyteller-web login_challenges::endpoint_integration_tests
+```
+
 From the desktop repository:
 
 ```sh
@@ -260,7 +276,13 @@ npm exec vitest -- run --config libs/components/login-modal/vite.config.ts src/l
 
 Coverage:
 
-- Seven backend integration tests: both production browser origins, passwordless account approval, zero sessions
+- Four HTTP endpoint integration tests with database fixtures: the complete
+  create/review/approve/redeem/session flow, independent browser/desktop cookies,
+  passwordless onboarding and `use_qt` serialization, concurrent redemption,
+  lost-response recovery with a fresh client, no sessions before redemption,
+  audit ownership/IPs/timestamps, decline, pending/approved expiry, downstream
+  session revocation/expiry/bans, and immutable approval ownership across accounts.
+- Seven additional backend handler integration tests: both production browser origins, passwordless account approval, zero sessions
   before redemption, rejection/audit IPs, token separation, CSRF, MCP rejection,
   invalid approving sessions, concurrent decisions/redemptions, response-loss
   retries, abandoned expiry, expiry during lock contention, revocation, bans,
@@ -283,7 +305,9 @@ Coverage:
 
 Frontend tests replace external Google/native boundaries; they do not
 perform a live Google OAuth exchange or drive a packaged Tauri GUI. Backend tests
-use real MySQL and the production cookie signer/session guard with Redis disabled.
+use real MySQL and the production cookie signer/session guard with Redis disabled;
+the HTTP suite also exercises the real session endpoint and its serialized body.
+These endpoint tests do not drive a live Google OAuth exchange or the Tauri GUI.
 Existing session-cache TTL behavior is unchanged. SQL lookups now reject expired
 sessions; bridge consent/redemption always checks MySQL directly.
 
