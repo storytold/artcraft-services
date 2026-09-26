@@ -2,17 +2,24 @@
 <html lang="en">
   <head>
     <!-- Google tag (gtag.js) -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-VKW89949V0"
-    ></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag() {
         dataLayer.push(arguments);
       }
-      gtag("js", new Date());
-      gtag("config", "G-VKW89949V0");
+      if (window.location.pathname === "/login/desktop") {
+        const policy = document.createElement("meta");
+        policy.name = "referrer";
+        policy.content = "no-referrer";
+        document.head.appendChild(policy);
+      } else {
+        const analytics = document.createElement("script");
+        analytics.async = true;
+        analytics.src = "https://www.googletagmanager.com/gtag/js?id=G-VKW89949V0";
+        document.head.appendChild(analytics);
+        gtag("js", new Date());
+        gtag("config", "G-VKW89949V0");
+      }
     </script>
 
     <meta charset="utf-8" />

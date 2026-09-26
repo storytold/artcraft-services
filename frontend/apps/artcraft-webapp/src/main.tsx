@@ -8,6 +8,10 @@ import { captureLandingContext, getReferrer } from "@storyteller/common";
 import { setOmniGenErrorNotifier } from "@storyteller/omni-gen";
 import { setToastDelegate } from "@storyteller/ui-toaster";
 import { toast } from "./components/toast/toast";
+import { captureLoginBridgeContext, LOGIN_BRIDGE_PATH } from "./lib/login-bridge-context";
+
+captureLoginBridgeContext();
+const isLoginBridge = window.location.pathname === LOGIN_BRIDGE_PATH;
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -50,10 +54,10 @@ setToastDelegate({
 // Persist landing context (referral username, landing URL, referrer) to apex-
 // domain cookies so attribution survives the getartcraft.com →
 // app.getartcraft.com hop. First visit wins.
-captureLandingContext();
+if (!isLoginBridge) captureLandingContext();
 
 // Fire-and-forget: log the referral once per browser session
-if (!sessionStorage.getItem("referral_logged")) {
+if (!isLoginBridge && !sessionStorage.getItem("referral_logged")) {
   sessionStorage.setItem("referral_logged", "1");
   const referrer = getReferrer();
   new UsersApi()

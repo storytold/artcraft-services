@@ -4,7 +4,9 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
     "jsx": "react-jsx",
-    "lib": ["dom"],
+    "lib": [
+      "dom"
+    ],
     "types": [
       "node",
       "@nx/react/typings/cssmodule.d.ts",
@@ -105,6 +107,9 @@
     },
     {
       "path": "../../libs/icons/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/login/tsconfig.lib.json"
     }
   ]
 }

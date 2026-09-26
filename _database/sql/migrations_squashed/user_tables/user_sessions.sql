@@ -41,6 +41,12 @@ CREATE TABLE user_sessions (
   -- designed to be recoverable.
   deleted_at TIMESTAMP NULL,
 
+  -- UserWebSessionCreationType: direct_login, device_approval, impersonation.
+  -- NULL means unknown / legacy writer, not direct_login. Do not backfill guesses.
+  -- Additive metadata only: does not change validation, expiry, or impersonation rules.
+  -- MCP sessions and API keys are separate tables and do not use this field.
+  maybe_creation_type VARCHAR(32) DEFAULT NULL,
+
   -- INDICES --
   PRIMARY KEY (id),
   UNIQUE KEY (token),

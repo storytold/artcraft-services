@@ -32,6 +32,7 @@ import Pricing from "../pages/pricing";
 import Beta from "../pages/beta";
 import Support from "../pages/support/support";
 import Login from "../pages/login";
+import { DesktopLogin } from "../pages/login/desktop-login";
 import Signup from "../pages/signup";
 import ForgotPassword, { VerifyReset } from "../pages/forgot-password";
 import Welcome from "../pages/welcome";
@@ -65,7 +66,7 @@ function appOrWebapp(localElement: ReactNode, webappPath: string): ReactNode {
 export function App() {
   // Prototype landing brings its own navbar (sticky, full-width, sharp).
   const { pathname } = useLocation();
-  const hideGlobalNavbar = pathname === "/landingp0";
+  const hideGlobalNavbar = pathname === "/landingp0" || pathname === "/login/desktop";
 
   return (
     <div className="relative">
@@ -96,6 +97,8 @@ export function App() {
         <Route path="/news/:slug" element={<NewsPost basePath="/news" />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/beta" element={<Beta />} />
+        {/* Consent must stay on this origin even when app features redirect. */}
+        <Route path="/login/desktop" element={<DesktopLogin />} />
 
         {/* App routes — flip USE_WEBAPP_FOR_APP_FEATURES in config/links.ts
             to render these locally instead of redirecting to the webapp. */}

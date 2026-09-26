@@ -3,14 +3,17 @@ import { ArrowLeftIcon, LoaderCircleIcon, MailIcon } from "lucide-react";
 import { Button } from "@storyteller/ui-button";
 import { Input } from "@storyteller/ui-input";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PasswordResetApi } from "@storyteller/api";
 
 import { AuthHeader } from "../../components/auth/auth-layout";
 import { AuthPageFrame } from "../../components/auth/auth-page-frame";
 import Seo from "../../components/seo";
+import { authContinuationUrl } from "../../lib/login-bridge-context";
 
 const ForgotPassword = () => {
+  const [searchParams] = useSearchParams();
+  const from = searchParams.get("from");
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +112,7 @@ const ForgotPassword = () => {
                 We've sent a password reset code to <br />
                 <span className="text-white font-medium">{email}</span>
               </p>
-              <Link to="/forgot-password/verify">
+              <Link to={authContinuationUrl("/forgot-password/verify", from)}>
                 <Button className="w-full justify-center h-10 mb-3">
                   Enter Verification Code
                 </Button>
@@ -125,7 +128,7 @@ const ForgotPassword = () => {
 
           <div className="mt-8 text-center text-sm">
             <Link
-              to="/login"
+              to={authContinuationUrl("/login", from)}
               className="text-white/60 hover:text-white transition-colors flex items-center justify-center gap-2"
             >
               <ArrowLeftIcon /> Back to Log in

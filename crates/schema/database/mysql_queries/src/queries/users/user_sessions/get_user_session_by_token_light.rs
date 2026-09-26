@@ -26,6 +26,7 @@ SELECT
 FROM user_sessions
 WHERE token = ?
 AND deleted_at IS NULL
+AND expires_at > NOW()
         "#,
         session_token,
     )

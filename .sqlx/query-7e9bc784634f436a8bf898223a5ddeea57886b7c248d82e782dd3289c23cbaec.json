@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 5
+    }
+  },
+  "hash": "7e9bc784634f436a8bf898223a5ddeea57886b7c248d82e782dd3289c23cbaec",
+  "query": "\nUPDATE user_login_challenges SET status = ?, maybe_redeemed_user_session_id = ?,\n  maybe_ip_address_redemption = ?, maybe_redeemed_at = NOW()\nWHERE id = ? AND status = ? AND expires_at > NOW() AND maybe_redeemed_user_session_id IS NULL\n"
+}

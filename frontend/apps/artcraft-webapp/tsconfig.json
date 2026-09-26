@@ -18,10 +18,16 @@
       "path": "../../libs/components/moodboard"
     },
     {
+      "path": "../../libs/components/vfx"
+    },
+    {
       "path": "../../libs/components/slider-v2"
     },
     {
       "path": "../../libs/components/toaster"
+    },
+    {
+      "path": "../../libs/login"
     },
     {
       "path": "../../libs/omni-gen"
@@ -94,9 +100,6 @@
     },
     {
       "path": "../../libs/icons"
-    },
-    {
-      "path": "../../libs/components/vfx"
     },
     {
       "path": "../../libs/common"

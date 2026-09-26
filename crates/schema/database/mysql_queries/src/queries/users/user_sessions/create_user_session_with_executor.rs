@@ -1,3 +1,4 @@
+use enums::by_table::user_sessions::user_web_session_creation_type::UserWebSessionCreationType;
 use log::info;
 use sqlx::{Executor, MySql};
 use tokens::tokens::user_sessions::UserSessionToken;
@@ -19,13 +20,15 @@ INSERT INTO user_sessions (
   token,
   user_token,
   ip_address_creation,
+  maybe_creation_type,
   expires_at
 )
-VALUES ( ?, ?, ?, NOW() + interval 1 year )
+VALUES ( ?, ?, ?, ?, NOW() + interval 1 year )
     "#,
     session_token.as_str(),
     user_token.as_str(),
     ip_address,
+    UserWebSessionCreationType::DirectLogin.to_str(),
   )
     .execute(mysql_executor)
     .await?;

@@ -16,6 +16,8 @@ import { PasswordResetApi, BillingApi } from "@storyteller/api";
 import { AuthHeader } from "../../components/auth/auth-layout";
 import { AuthPageFrame } from "../../components/auth/auth-page-frame";
 import Seo from "../../components/seo";
+import { authContinuationUrl, LOGIN_BRIDGE_PATH, safeAuthReturnPath } from "../../lib/login-bridge-context";
+import { refreshSession } from "../../lib/session";
 
 const VerifyReset = () => {
   const navigate = useNavigate();
@@ -75,6 +77,13 @@ const VerifyReset = () => {
     if (response.success) {
       setSuccess(true);
       window.dispatchEvent(new Event("auth-change"));
+
+      if (safeAuthReturnPath(searchParams.get("from")) === LOGIN_BRIDGE_PATH) {
+        await refreshSession(true);
+        setRedirectTo(LOGIN_BRIDGE_PATH);
+        setRedirectLabel("Review desktop login");
+        return;
+      }
 
       // Check if user has an active subscription to decide redirect
       try {
@@ -235,7 +244,7 @@ const VerifyReset = () => {
 
               <div className="mt-8 text-center text-sm">
                 <Link
-                  to="/forgot-password"
+                  to={authContinuationUrl("/forgot-password", searchParams.get("from"))}
                   className="text-white/60 hover:text-white transition-colors flex items-center justify-center gap-2"
                 >
                   <ArrowLeftIcon /> Request a new code

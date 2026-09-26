@@ -1,9 +1,14 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthHeader, AuthFooter, SignupForm } from "../../components/auth";
 import Seo from "../../components/seo";
+import { authContinuationUrl, LOGIN_BRIDGE_PATH, safeAuthReturnPath } from "../../lib/login-bridge-context";
+import { refreshSession } from "../../lib/session";
 
 const Signup = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const from = searchParams.get("from");
+  const isDesktopLogin = safeAuthReturnPath(from) === LOGIN_BRIDGE_PATH;
 
   return (
     <>
@@ -13,7 +18,11 @@ const Signup = () => {
       />
       <AuthHeader title={<>Make it <span className="font-serif-italic">yours.</span></>} subtitle="Create your account and start crafting." />
       <SignupForm
-        onSuccess={() => navigate("/welcome")}
+        onSuccess={async () => {
+          if (isDesktopLogin) await refreshSession(true);
+          navigate(isDesktopLogin ? LOGIN_BRIDGE_PATH : "/welcome");
+        }}
+        continueAfterGoogleLogin={isDesktopLogin}
         signupSource="artcraft"
       />
 
@@ -21,7 +30,7 @@ const Signup = () => {
         <AuthFooter>
           Already have an account?{" "}
           <Link
-            to="/login"
+            to={authContinuationUrl("/login", from)}
             className="font-semibold text-primary transition-colors hover:text-primary-400"
           >
             Log in

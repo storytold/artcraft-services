@@ -15,6 +15,9 @@
       "path": "../../libs/components/gallery-modal"
     },
     {
+      "path": "../../libs/login"
+    },
+    {
       "path": "../../libs/components/toaster"
     },
     {
@@ -63,13 +66,13 @@
       "path": "../../libs/components/modal"
     },
     {
+      "path": "../../libs/icons"
+    },
+    {
       "path": "../../libs/common"
     },
     {
       "path": "../../libs/api"
-    },
-    {
-      "path": "../../libs/icons"
     },
     {
       "path": "./tsconfig.app.json"

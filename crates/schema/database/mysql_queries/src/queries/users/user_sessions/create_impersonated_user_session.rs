@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use chrono::{DateTime, Utc};
+use enums::by_table::user_sessions::user_web_session_creation_type::UserWebSessionCreationType;
 use sqlx::{Executor, MySql};
 
 use tokens::tokens::user_sessions::UserSessionToken;
@@ -36,14 +37,16 @@ INSERT INTO user_sessions (
   user_token,
   maybe_impersonation_user_token,
   ip_address_creation,
+  maybe_creation_type,
   expires_at
 )
-VALUES (?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?)
     "#,
     session_token.as_str(),
     args.user_token.as_str(),
     args.impersonator_user_token.as_str(),
     args.ip_address,
+    UserWebSessionCreationType::Impersonation.to_str(),
     args.expires_at,
   )
     .execute(args.mysql_executor)

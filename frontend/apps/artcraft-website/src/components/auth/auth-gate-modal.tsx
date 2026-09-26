@@ -18,6 +18,7 @@ interface AuthGateModalProps {
   headline: string;
   subtitle: string;
   perks?: string[];
+  initialMode?: "signup" | "login";
 }
 
 /**
@@ -33,8 +34,9 @@ export function AuthGateModal({
   headline,
   subtitle,
   perks,
+  initialMode = "signup",
 }: AuthGateModalProps) {
-  const [mode, setMode] = useState<"signup" | "login">("signup");
+  const [mode, setMode] = useState<"signup" | "login">(initialMode);
   const [googleError, setGoogleError] = useState<string | null>(null);
 
   return (

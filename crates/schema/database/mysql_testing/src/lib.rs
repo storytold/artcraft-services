@@ -22,6 +22,7 @@
 
 pub mod fixtures;
 pub mod guard;
+pub mod isolated;
 pub mod pool;
 pub mod schema;
 pub mod serial;

@@ -14,12 +14,13 @@ import {
 import Seo from "../../components/seo";
 import { refreshSession } from "../../lib/session";
 import { hasActiveSubscription } from "../../lib/billing";
+import { authContinuationUrl, LOGIN_BRIDGE_PATH, safeAuthReturnPath } from "../../lib/login-bridge-context";
 
 const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromParam = searchParams.get("from");
-  const redirectTo = fromParam && fromParam.startsWith("/") ? fromParam : "/";
+  const redirectTo = safeAuthReturnPath(fromParam);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,6 +52,11 @@ const Login = () => {
   };
 
   const handleGoogleSuccess = async () => {
+    if (redirectTo === LOGIN_BRIDGE_PATH) {
+      await refreshSession(true);
+      navigate(redirectTo);
+      return;
+    }
     // Refresh the session (so the app sees the new cookie) and check the
     // subscription in parallel; users without one are pushed to pricing.
     const [, subscribed] = await Promise.all([
@@ -105,7 +111,7 @@ const Login = () => {
                 Password
               </label>
               <Link
-                to="/forgot-password"
+                to={authContinuationUrl("/forgot-password", fromParam)}
                 className="text-xs text-primary hover:text-primary-400 transition-colors"
               >
                 Forgot password?
@@ -164,7 +170,7 @@ const Login = () => {
           <AuthFooter>
             Don't have an account?{" "}
             <Link
-              to="/signup"
+              to={authContinuationUrl("/signup", fromParam)}
               className="font-semibold text-primary transition-colors hover:text-primary-400"
             >
               Sign up

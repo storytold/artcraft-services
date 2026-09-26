@@ -1,0 +1,102 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL | PRIMARY_KEY | UNSIGNED | AUTO_INCREMENT",
+          "max_size": 20,
+          "type": "LongLong"
+        }
+      },
+      {
+        "name": "confirmation_code",
+        "ordinal": 1,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 32,
+          "type": "String"
+        }
+      },
+      {
+        "name": "status: UserLoginChallengeStatus",
+        "ordinal": 2,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 64,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "maybe_deciding_user_token",
+        "ordinal": 3,
+        "type_info": {
+          "char_set": 224,
+          "flags": "MULTIPLE_KEY | BINARY",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "maybe_redeemed_user_session_id",
+        "ordinal": 4,
+        "type_info": {
+          "char_set": 63,
+          "flags": "UNIQUE_KEY",
+          "max_size": 20,
+          "type": "LongLong"
+        }
+      },
+      {
+        "name": "maybe_failure_type: UserLoginChallengeFailureType",
+        "ordinal": 5,
+        "type_info": {
+          "char_set": 224,
+          "flags": "BINARY",
+          "max_size": 128,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "ip_address_creation",
+        "ordinal": 6,
+        "type_info": {
+          "char_set": 224,
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "max_size": 160,
+          "type": "VarString"
+        }
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 7,
+        "type_info": {
+          "char_set": 63,
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | TIMESTAMP",
+          "max_size": 19,
+          "type": "Timestamp"
+        }
+      }
+    ],
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ],
+    "parameters": {
+      "Right": 1
+    }
+  },
+  "hash": "06dc6f19f013fe24ffd32a313b66dd10a87498bf17c9a63b1ece87e338b0dc74",
+  "query": "\nSELECT id, confirmation_code, status AS `status: UserLoginChallengeStatus`, maybe_deciding_user_token, maybe_redeemed_user_session_id,\n  maybe_failure_type AS `maybe_failure_type: UserLoginChallengeFailureType`, ip_address_creation, expires_at\nFROM user_login_challenges WHERE device_token_sha256 = ? FOR UPDATE\n"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 4
+    }
+  },
+  "hash": "4d3666433b8100c9b5f351c2be0faa982127c5bb4431ef14e84ff11c5a2fd9ff",
+  "query": "\nINSERT INTO user_sessions (\n  token,\n  user_token,\n  ip_address_creation,\n  maybe_creation_type,\n  expires_at\n)\nVALUES ( ?, ?, ?, ?, NOW() + interval 1 year )\n        "
+}

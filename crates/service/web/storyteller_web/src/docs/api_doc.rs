@@ -274,6 +274,7 @@ use crate::http_server::endpoints::users::edit_username_handler::*;
 use crate::http_server::endpoints::users::get_profile_handler::*;
 use crate::http_server::endpoints::users::google_sso::google_sso_handler::*;
 use artcraft_api_defs::users::login::{LoginRequest, LoginSuccessResponse, LoginErrorType};
+use artcraft_api_defs::users::login_challenges::{CreateLoginChallengeRequest, CreateLoginChallengeResponse, DecideLoginChallengeRequest, LoginChallengeFailure, LoginChallengeResponse, LoginChallengeState, PollLoginChallengeRequest, ReviewLoginChallengeRequest, ReviewLoginChallengeResponse};
 use crate::http_server::endpoints::users::login_handler::LoginErrorResponse;
 use crate::http_server::endpoints::users::logout_handler::*;
 use crate::http_server::endpoints::users::session_info_handler::*;
@@ -570,6 +571,10 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     crate::http_server::endpoints::users::get_profile_handler::get_profile_handler,
     crate::http_server::endpoints::users::google_sso::google_sso_handler::google_sso_handler,
     crate::http_server::endpoints::users::login_handler::login_handler,
+    crate::http_server::endpoints::login_challenges::handlers::create,
+    crate::http_server::endpoints::login_challenges::handlers::review,
+    crate::http_server::endpoints::login_challenges::handlers::decide,
+    crate::http_server::endpoints::login_challenges::handlers::poll,
     crate::http_server::endpoints::users::logout_handler::logout_handler,
     crate::http_server::endpoints::users::session_info_handler::session_info_handler,
     crate::http_server::endpoints::users::session_token_info_handler::session_token_info_handler,
@@ -917,9 +922,12 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     CreateCommentSuccessResponse,
     CreateFeaturedItemRequest,
     CreateFeaturedItemSuccessResponse,
+    CreateLoginChallengeRequest,
+    CreateLoginChallengeResponse,
     CreateUserBookmarkError,
     CreateUserBookmarkRequest,
     CreateUserBookmarkSuccessResponse,
+    DecideLoginChallengeRequest,
     DeleteCommentError,
     DeleteCommentPathInfo,
     DeleteCommentRequest,
@@ -1200,6 +1208,9 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     LogBrowserSessionError,
     LogBrowserSessionRequest,
     LogBrowserSessionSuccessResponse,
+    LoginChallengeFailure,
+    LoginChallengeResponse,
+    LoginChallengeState,
     LoginErrorResponse,
     LoginErrorType,
     LoginRequest,
@@ -1226,6 +1237,7 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     NewProjectMultipartForm,
     PinnedMediaFile,
     PinnedModelWeightForList,
+    PollLoginChallengeRequest,
     ProjectMediaFileInfo,
     SessionMediaFileInfo,
     PromptInfo,
@@ -1237,6 +1249,8 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     RenameMediaFileRequest,
     RequestDetailsResponse,
     ResultDetailsResponse,
+    ReviewLoginChallengeRequest,
+    ReviewLoginChallengeResponse,
     StaffAuditLogResponse,
     SearchFeaturedMediaFileListItem,
     SearchFeaturedMediaFilesQueryParams,
