@@ -16,7 +16,7 @@ const SESSION_STORAGE_KEY = "artcraft_signed_session";
 
 export type ApiResult<T> =
   | { success: true; data: T }
-  | { success: false; errorMessage: string };
+  | { success: false; errorMessage: string; status?: number };
 
 export type SessionUser = {
   user_token: string;
@@ -238,80 +238,6 @@ export function logWebReferral(maybeReferralUrl?: string): Promise<void> {
   }).then(() => undefined);
 }
 
-// ── Shared media (the /media/[token] share page) ─────────────────────────
-// Mirrors MediaFilesApi.GetMediaFileByToken / PromptsApi.GetPromptsByToken
-// from the shared lib, trimmed to the fields the share page renders.
-
-export type MediaUser = {
-  user_token: string;
-  username: string;
-  display_name: string;
-  email_gravatar_hash: string;
-};
-
-export type MediaFile = {
-  token: string;
-  media_class: string | null;
-  maybe_creator_user: MediaUser | null;
-  maybe_prompt_token: string | null;
-  media_links: {
-    cdn_url: string;
-    /** Contains a `{WIDTH}` placeholder. */
-    thumbnail_template: string | null;
-  };
-  created_at: string;
-};
-
-export type PromptContextImage = {
-  media_token: string;
-  semantic: string;
-  media_links: {
-    cdn_url: string;
-    maybe_thumbnail_template: string | null;
-    /** Set for video references: a still frame and its thumbnail template. */
-    maybe_video_previews: {
-      still: string;
-      still_thumbnail_template: string | null;
-    } | null;
-  };
-};
-
-export type Prompt = {
-  token: string;
-  maybe_positive_prompt: string | null;
-  maybe_generation_provider: string | null;
-  maybe_model_type: string | null;
-  maybe_context_images: PromptContextImage[] | null;
-  maybe_aspect_ratio: string | null;
-  maybe_resolution: string | null;
-  maybe_duration_seconds: number | null;
-  maybe_generate_audio: boolean | null;
-};
-
-export function mediaFilePath(token: string): string {
-  return `/v1/media_files/file/${encodeURIComponent(token)}`;
-}
-
-export function getMediaFile(token: string): Promise<ApiResult<MediaFile>> {
-  return request<{ media_file?: MediaFile }>(mediaFilePath(token)).then((r) => {
-    if (!r.success) return r;
-    return r.data.media_file
-      ? { success: true, data: r.data.media_file }
-      : { success: false, errorMessage: "Media not found" };
-  });
-}
-
-export function getPrompt(token: string): Promise<ApiResult<Prompt>> {
-  return request<{ prompt?: Prompt }>(
-    `/v1/prompts/${encodeURIComponent(token)}`,
-  ).then((r) => {
-    if (!r.success) return r;
-    return r.data.prompt
-      ? { success: true, data: r.data.prompt }
-      : { success: false, errorMessage: "Prompt not found" };
-  });
-}
-
 function checkoutRequest(
   path: string,
   body: unknown,
@@ -344,9 +270,9 @@ function portalRequest(
 
 type Envelope = { success: boolean; error_message?: string; message?: string };
 
-async function request<T extends object>(
+export async function request<T extends object>(
   path: string,
-  init: { method?: "GET" | "POST"; body?: unknown } = {},
+  init: { method?: "GET" | "POST"; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<ApiResult<T>> {
   try {
     const headers: Record<string, string> = {
@@ -360,6 +286,7 @@ async function request<T extends object>(
       method: init.method ?? "GET",
       headers,
       credentials: "include",
+      signal: init.signal,
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
 
@@ -369,6 +296,7 @@ async function request<T extends object>(
     if (!response.ok) {
       return {
         success: false,
+        status: response.status,
         errorMessage:
           payload?.message ?? payload?.error_message ?? `Request failed (${response.status})`,
       };

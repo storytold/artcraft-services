@@ -1,0 +1,46 @@
+.range {
+  appearance: none;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 3px;
+  background: linear-gradient(to right, var(--accent-ink) var(--progress), var(--line-strong) var(--progress));
+}
+
+.range::-moz-range-track {
+  height: 3px;
+  background: linear-gradient(to right, var(--accent-ink) var(--progress), var(--line-strong) var(--progress));
+}
+
+.range::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  border: 2px solid var(--bg-raised);
+  border-radius: 0;
+  background: var(--accent-ink);
+  box-shadow: 0 0 0 1px var(--accent-ink);
+}
+
+.range::-moz-range-thumb {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--bg-raised);
+  border-radius: 0;
+  background: var(--accent-ink);
+  box-shadow: 0 0 0 1px var(--accent-ink);
+}
+
+.range:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 4px;
+}
+
+.range:disabled {
+  cursor: default;
+  opacity: 0.4;
+}

@@ -1,158 +1,127 @@
-// Helpers for the shared-media page, ported from the Vite site's
-// components/lightbox/shared.ts, lib/download-media.ts, and the
-// @storyteller/common media-format / thumbnail utilities.
+export type MediaKind = "image" | "video" | "audio" | "mesh" | "splat" | "unsupported";
+export type MediaDimensions = { width: number; height: number };
 
-import type { PromptContextImage } from "./api";
-
-export const SHARE_URL_BASE = "https://getartcraft.com/media/";
-
-const VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v"];
-const MODEL_3D_EXTENSIONS = [".glb", ".gltf", ".fbx", ".spz"];
-
-const ASPECT_RATIO_LABELS: Record<string, string> = {
-  auto: "Auto",
-  square: "Square",
-  square_hd: "Square (HD)",
-  wide: "Wide",
-  tall: "Tall",
-  wide_three_by_two: "3:2",
-  wide_four_by_three: "4:3",
-  wide_five_by_four: "5:4",
-  wide_sixteen_by_nine: "16:9",
-  wide_twenty_one_by_nine: "21:9",
-  tall_two_by_three: "2:3",
-  tall_three_by_four: "3:4",
-  tall_four_by_five: "4:5",
-  tall_nine_by_sixteen: "9:16",
-  tall_nine_by_twenty_one: "9:21",
-  auto_2k: "Auto (2K)",
-  auto_3k: "Auto (3K)",
-  auto_4k: "Auto (4K)",
-};
-
-const RESOLUTION_LABELS: Record<string, string> = {
-  half_k: "0.5K",
-  one_k: "1K",
-  two_k: "2K",
-  three_k: "3K",
-  four_k: "4K",
-  four_eighty_p: "480p",
-  seven_twenty_p: "720p",
-  ten_eighty_p: "1080p",
-};
-
-// Fallback extensions when the CDN URL carries none.
-const EXT_BY_MEDIA_CLASS: Record<string, string> = {
-  image: "png",
-  video: "mp4",
-  dimensional: "glb",
-  mesh: "glb",
-  splat: "spz",
-};
-
-export type MediaKind = "image" | "video" | "3d";
-
-export function mediaKindForUrl(url: string): MediaKind {
-  const lower = url.toLowerCase();
-  if (VIDEO_EXTENSIONS.some((ext) => lower.includes(ext))) return "video";
-  if (MODEL_3D_EXTENSIONS.some((ext) => lower.includes(ext))) return "3d";
-  return "image";
-}
-
-// The media CDN only sends CORS headers when asked.
-export function addCorsParam(url: string): string {
-  return `${url}?cors=1`;
-}
-
-export function thumbnailUrl(
-  template: string | null | undefined,
-  width: number,
-): string | null {
-  return template ? template.replace("{WIDTH}", String(width)) : null;
-}
-
-// Thumbnail for a prompt reference. Video references carry no image
-// thumbnail template, so their still-frame preview is used instead of the
-// raw video URL (which an <img> cannot render).
-export function contextImageThumbnail(
-  contextImage: PromptContextImage,
-  width: number,
-): string {
-  const links = contextImage.media_links;
-  if (!links.maybe_thumbnail_template && links.maybe_video_previews) {
-    const previews = links.maybe_video_previews;
-    return (
-      thumbnailUrl(previews.still_thumbnail_template, width) ?? previews.still
-    );
-  }
-  return thumbnailUrl(links.maybe_thumbnail_template, width) ?? links.cdn_url;
-}
-
-export const formatAspectRatio = (value: string): string =>
-  ASPECT_RATIO_LABELS[value] ?? value;
-
-export const formatResolution = (value: string): string =>
-  RESOLUTION_LABELS[value] ?? value;
-
-export const formatDuration = (seconds: number): string => `${seconds}s`;
-
-// The webapp lightbox shows the date and time on separate lines
-// ("Sep 17, 2026" / "9:12:05 PM").
-const CREATED_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-});
-const CREATED_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
-  timeStyle: "medium",
-});
-
-export function formatCreatedAt(
-  iso: string,
-): { date: string; time: string } | null {
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return {
-    date: CREATED_DATE_FORMAT.format(parsed),
-    time: CREATED_TIME_FORMAT.format(parsed),
+// Fields from storyteller-web's GET /v1/media_files/file/{token} response.
+export type SharedMedia = {
+  token: string;
+  media_class?: string | null;
+  media_type?: string | null;
+  maybe_engine_category?: string | null;
+  maybe_title?: string | null;
+  maybe_original_filename?: string | null;
+  maybe_prompt_token?: string | null;
+  maybe_text_transcript?: string | null;
+  maybe_duration_millis?: number | null;
+  maybe_creator_user?: {
+    username: string;
+    display_name?: string;
+  } | null;
+  maybe_model_weight_info?: { title: string } | null;
+  created_at?: string;
+  media_links: {
+    cdn_url: string;
+    maybe_thumbnail_template?: string | null;
+    maybe_video_previews?: { still: string; still_thumbnail_template?: string | null } | null;
   };
-}
+};
 
-// Fetches the file as a blob so the browser saves it instead of navigating
-// to the CDN. Throws on failure so the caller can surface an error.
-export async function downloadMediaFile({
-  url,
-  filename,
-  mediaClass,
-}: {
-  url: string;
-  filename: string;
-  mediaClass?: string | null;
-}): Promise<void> {
-  const response = await fetch(`${addCorsParam(url)}&dl=1`, {
-    credentials: "omit",
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const blobUrl = URL.createObjectURL(await response.blob());
-  try {
-    const anchor = document.createElement("a");
-    anchor.style.display = "none";
-    anchor.href = blobUrl;
-    anchor.download = `${filename}.${extensionForUrl(url, mediaClass)}`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-  } finally {
-    URL.revokeObjectURL(blobUrl);
+export type MediaPrompt = {
+  maybe_positive_prompt?: string | null;
+  maybe_negative_prompt?: string | null;
+  maybe_model_type?: string | null;
+  maybe_generation_provider?: string | null;
+  maybe_aspect_ratio?: string | null;
+  maybe_resolution?: string | null;
+  maybe_duration_seconds?: number | null;
+  maybe_generate_audio?: boolean | null;
+  maybe_context_images?: {
+    media_token: string;
+    semantic?: string;
+    media_links: SharedMedia["media_links"];
+  }[] | null;
+};
+
+export const MEDIA_LABELS: Record<MediaKind, string> = {
+  image: "Image", video: "Video", audio: "Audio", mesh: "3D mesh",
+  splat: "3D splat", unsupported: "Media file",
+};
+
+export function mediaKind(media: SharedMedia): MediaKind {
+  // Class is authoritative: PLY can be either a mesh or a Gaussian splat.
+  switch (media.media_class) {
+    case "image": case "video": case "audio": case "mesh": case "splat":
+      return media.media_class;
+    case "project": return "unsupported";
   }
+  if (media.maybe_engine_category === "splat") return "splat";
+  const format = mediaFormat(media);
+  if (["spz", "splat", "ksplat", "ply"].includes(format)) return "splat";
+  if (["glb", "gltf", "fbx", "obj", "stl", "pmx", "pmd"].includes(format)) return "mesh";
+  if (["image", "png", "jpg", "jpeg", "webp", "gif", "avif"].includes(format)) return "image";
+  if (["video", "mp4", "webm", "mov", "m4v"].includes(format)) return "video";
+  if (["audio", "wav", "mp3", "m4a", "aac", "ogg", "opus", "flac"].includes(format)) return "audio";
+  return "unsupported";
 }
 
-function extensionForUrl(url: string, mediaClass?: string | null): string {
+export function mediaFormat(media: SharedMedia): string {
+  const type = media.media_type?.toLowerCase();
+  if (type && !["unknown", "image", "video", "audio", "dimensional"].includes(type)) return type;
   try {
-    const match = new URL(url, window.location.href).pathname.match(
-      /\.([a-z0-9]{2,5})$/i,
-    );
-    if (match) return match[1].toLowerCase();
+    return new URL(media.media_links.cdn_url).pathname.match(/\.([a-z0-9]+)$/i)?.[1].toLowerCase() ?? type ?? "";
   } catch {
-    // Unparseable URL; fall through to the class default.
+    return type ?? "";
   }
-  return (mediaClass && EXT_BY_MEDIA_CLASS[mediaClass]) || "bin";
+}
+
+export function safeMediaUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function corsMediaUrl(value: string): string {
+  const url = new URL(value);
+  // Match the old CDN CORS opt-in without corrupting existing query parameters.
+  url.searchParams.set("cors", "1");
+  return url.href;
+}
+
+export function mediaPoster(media: SharedMedia): string | undefined {
+  return mediaThumbnail(media.media_links, 1280);
+}
+
+// Video references need a still frame, not the raw video URL in an <img>.
+// The same thumbnail selection is used for social previews and the player.
+export function mediaThumbnail(links: SharedMedia["media_links"], width: number): string | undefined {
+  const previews = links.maybe_video_previews;
+  const template = links.maybe_thumbnail_template ?? previews?.still_thumbnail_template;
+  return safeMediaUrl(template?.replace("{WIDTH}", String(width))) ?? safeMediaUrl(previews?.still);
+}
+
+export function mediaFilePath(token: string): string {
+  return `/v1/media_files/file/${encodeURIComponent(token)}`;
+}
+
+export function mediaTitle(media: SharedMedia): string {
+  const kind = mediaKind(media);
+  const label = kind === "mesh" || kind === "splat" ? MEDIA_LABELS[kind] : MEDIA_LABELS[kind].toLowerCase();
+  return media.maybe_title?.trim() || media.maybe_original_filename?.trim() || `Untitled ${label}`;
+}
+
+export function mediaDetailLabel(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const labels: Record<string, string> = {
+    artcraft: "ArtCraft", square: "1:1", square_hd: "1:1 (HD)",
+    wide_three_by_two: "3:2", wide_four_by_three: "4:3", wide_five_by_four: "5:4",
+    wide_sixteen_by_nine: "16:9", wide_twenty_one_by_nine: "21:9",
+    tall_two_by_three: "2:3", tall_three_by_four: "3:4", tall_four_by_five: "4:5",
+    tall_nine_by_sixteen: "9:16", tall_nine_by_twenty_one: "9:21",
+    half_k: "0.5K", one_k: "1K", two_k: "2K", three_k: "3K", four_k: "4K",
+    four_eighty_p: "480p", seven_twenty_p: "720p", ten_eighty_p: "1080p",
+  };
+  return labels[value] ?? value.replace(/(\d)p(\d)/g, "$1.$2").replaceAll("_", " ").replace(/\b[a-z]/g, (letter) => letter.toUpperCase()).replace(/\b3d\b/gi, "3D");
 }
