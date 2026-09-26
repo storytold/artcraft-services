@@ -27,6 +27,7 @@ import {
 import { webappUrl } from "@/lib/links";
 import {
   addCorsParam,
+  contextImageThumbnail,
   downloadMediaFile,
   formatAspectRatio,
   formatCreatedAt,
@@ -34,8 +35,13 @@ import {
   formatResolution,
   mediaKindForUrl,
   SHARE_URL_BASE,
-  thumbnailUrl,
 } from "@/lib/media";
+import {
+  getModelDisplayName,
+  getModelIcon,
+  getProviderDisplayName,
+  getProviderIcon,
+} from "@/lib/model-names";
 
 const COPY_FEEDBACK_MS = 1500;
 const REFERENCE_THUMB_WIDTH = 128;
@@ -231,9 +237,23 @@ function DetailsBody({
   const creator = media.maybe_creator_user;
   const references = prompt?.maybe_context_images ?? [];
   const infoRows: [string, ReactNode][] = [];
-  if (prompt?.maybe_model_type) infoRows.push(["Model", prompt.maybe_model_type]);
+  if (prompt?.maybe_model_type) {
+    infoRows.push([
+      "Model",
+      <BrandValue
+        icon={getModelIcon(prompt.maybe_model_type)}
+        label={getModelDisplayName(prompt.maybe_model_type)}
+      />,
+    ]);
+  }
   if (prompt?.maybe_generation_provider) {
-    infoRows.push(["Provider", prompt.maybe_generation_provider]);
+    infoRows.push([
+      "Provider",
+      <BrandValue
+        icon={getProviderIcon(prompt.maybe_generation_provider)}
+        label={getProviderDisplayName(prompt.maybe_generation_provider)}
+      />,
+    ]);
   }
   if (prompt?.maybe_aspect_ratio) {
     infoRows.push(["Aspect ratio", formatAspectRatio(prompt.maybe_aspect_ratio)]);
@@ -250,7 +270,19 @@ function DetailsBody({
   if (dimensions) {
     infoRows.push(["Size", `${dimensions.width} × ${dimensions.height}`]);
   }
-  infoRows.push(["Created", formatCreatedAt(media.created_at)]);
+  const created = formatCreatedAt(media.created_at);
+  if (created) {
+    infoRows.push([
+      "Created",
+      <time
+        dateTime={media.created_at}
+        className="flex flex-col items-end gap-0.5 tabular-nums"
+      >
+        <span>{created.date}</span>
+        <span className="text-xs text-muted">{created.time}</span>
+      </time>,
+    ]);
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -285,12 +317,7 @@ function DetailsBody({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={
-                    thumbnailUrl(
-                      reference.media_links.maybe_thumbnail_template,
-                      REFERENCE_THUMB_WIDTH,
-                    ) ?? reference.media_links.cdn_url
-                  }
+                  src={contextImageThumbnail(reference, REFERENCE_THUMB_WIDTH)}
                   alt={`Reference ${index + 1}`}
                   className="h-full w-full object-cover"
                 />
@@ -307,8 +334,8 @@ function DetailsBody({
               key={label}
               className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 last:border-b-0"
             >
-              <dt className="text-sm text-muted">{label}</dt>
-              <dd className="truncate text-right text-sm font-medium text-ink">
+              <dt className="shrink-0 text-sm text-muted">{label}</dt>
+              <dd className="text-right text-sm font-medium text-ink">
                 {value}
               </dd>
             </div>
@@ -429,6 +456,20 @@ function Actions({ token, media }: { token: string; media: MediaFile | null }) {
 }
 
 // ── Small pieces ─────────────────────────────────────────────────────────
+
+// Brand mark + name for the model / provider info rows. `themed-logo`
+// inverts the mono services SVGs to match the current theme.
+function BrandValue({ icon, label }: { icon: string | null; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      {icon && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={icon} alt="" className="themed-logo h-4 w-4" />
+      )}
+      {label}
+    </span>
+  );
+}
 
 function Section({
   icon,

@@ -2,6 +2,8 @@
 // components/lightbox/shared.ts, lib/download-media.ts, and the
 // @storyteller/common media-format / thumbnail utilities.
 
+import type { PromptContextImage } from "./api";
+
 export const SHARE_URL_BASE = "https://getartcraft.com/media/";
 
 const VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v"];
@@ -69,6 +71,23 @@ export function thumbnailUrl(
   return template ? template.replace("{WIDTH}", String(width)) : null;
 }
 
+// Thumbnail for a prompt reference. Video references carry no image
+// thumbnail template, so their still-frame preview is used instead of the
+// raw video URL (which an <img> cannot render).
+export function contextImageThumbnail(
+  contextImage: PromptContextImage,
+  width: number,
+): string {
+  const links = contextImage.media_links;
+  if (!links.maybe_thumbnail_template && links.maybe_video_previews) {
+    const previews = links.maybe_video_previews;
+    return (
+      thumbnailUrl(previews.still_thumbnail_template, width) ?? previews.still
+    );
+  }
+  return thumbnailUrl(links.maybe_thumbnail_template, width) ?? links.cdn_url;
+}
+
 export const formatAspectRatio = (value: string): string =>
   ASPECT_RATIO_LABELS[value] ?? value;
 
@@ -77,14 +96,24 @@ export const formatResolution = (value: string): string =>
 
 export const formatDuration = (seconds: number): string => `${seconds}s`;
 
-const CREATED_AT_FORMAT = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "long",
-  timeStyle: "short",
+// The webapp lightbox shows the date and time on separate lines
+// ("Sep 17, 2026" / "9:12:05 PM").
+const CREATED_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+});
+const CREATED_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
+  timeStyle: "medium",
 });
 
-export function formatCreatedAt(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : CREATED_AT_FORMAT.format(date);
+export function formatCreatedAt(
+  iso: string,
+): { date: string; time: string } | null {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return {
+    date: CREATED_DATE_FORMAT.format(parsed),
+    time: CREATED_TIME_FORMAT.format(parsed),
+  };
 }
 
 // Fetches the file as a blob so the browser saves it instead of navigating
