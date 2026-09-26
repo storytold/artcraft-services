@@ -11,3 +11,13 @@ publish = ".next"
 
 [[plugins]]
 package = "@netlify/plugin-nextjs"
+
+# Share links. The Next runtime serves /media/:token itself (src/app/media);
+# this only maps the legacy query form the Vite site accepted onto the
+# canonical route at the edge. Also declared in next.config.ts for local dev.
+[[redirects]]
+  from = "/media"
+  query = { media = ":token" }
+  to = "/media/:token"
+  status = 301
+  force = true
