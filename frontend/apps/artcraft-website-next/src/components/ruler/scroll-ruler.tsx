@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import gsap from "gsap";
 import { HERO_SECTION_ID, RULER_SECTIONS } from "@/lib/landing-data";
 import {
@@ -47,7 +48,21 @@ import {
 // Progressive enhancement: fine pointers on md+ get the full instrument
 // (native scrollbar hidden); reduced-motion visitors get a static rail and
 // keep their scrollbar; coarse pointers and small screens get nothing.
+
+// Routes that render without the instrument: utility pages that are a
+// single viewport-tall surface rather than a scrolling story.
+const RULERLESS_ROUTES = ["/media"];
+
 export default function ScrollRuler() {
+  const pathname = usePathname();
+  const rulerless = RULERLESS_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+  // Unmounting (not hiding) so the effects release the native scrollbar.
+  return rulerless ? null : <ScrollRulerInstrument />;
+}
+
+function ScrollRulerInstrument() {
   const [mode, setMode] = useState<RulerMode | null>(null);
   const [geom, setGeom] = useState({ docH: 0, vh: 0, vw: 0 });
   const [layoutVersion, setLayoutVersion] = useState(0);
