@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { FileIcon, LoaderCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui";
-import { corsMediaUrl, mediaFormat, mediaKind, mediaPoster, mediaTitle, type SharedMedia } from "@/lib/media";
+import { corsMediaUrl, mediaFormat, mediaKind, mediaPoster, mediaTitle, type MediaDimensions, type SharedMedia } from "@/lib/media";
 import AudioPlayer from "./audio-player";
 
 // WebGL and Spark are only loaded when someone opens a 3D creation.
@@ -13,7 +13,9 @@ const MediaViewer3D = dynamic(() => import("./media-viewer-3d"), {
   loading: () => <PreviewLoading label="Loading 3D viewer" />,
 });
 
-export default function MediaPreview({ media }: { media: SharedMedia }) {
+export default function MediaPreview({ media, onDimensions }: {
+  media: SharedMedia; onDimensions: (dimensions: MediaDimensions) => void;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const kind = mediaKind(media);
@@ -33,12 +35,16 @@ export default function MediaPreview({ media }: { media: SharedMedia }) {
         <>
           {/* User media comes from the API; preserve the original resolution. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt={title} onLoad={() => setLoaded(true)} onError={() => setFailed(true)}
+          <img src={url} alt={title} onLoad={(event) => {
+            setLoaded(true);
+            onDimensions({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight });
+          }} onError={() => setFailed(true)}
             className="max-h-[80svh] w-full object-contain" />
           {!loaded && <PreviewLoading label="Loading image" />}
         </>
       ) : kind === "video" ? (
         <video src={url} aria-label={title} controls playsInline preload="metadata" poster={mediaPoster(media)}
+          onLoadedMetadata={(event) => onDimensions({ width: event.currentTarget.videoWidth, height: event.currentTarget.videoHeight })}
           onError={() => setFailed(true)} className="max-h-[80svh] w-full" />
       ) : kind === "audio" ? (
         <AudioPlayer src={url} title={title} onError={() => setFailed(true)} />

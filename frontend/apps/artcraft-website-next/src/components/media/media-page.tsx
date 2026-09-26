@@ -6,7 +6,7 @@ import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell
 import { Accent } from "@/components/page/page-header";
 import { Button } from "@/components/ui";
 import { getMediaPrompt, getSharedMedia } from "@/lib/media-api";
-import { MEDIA_LABELS, mediaKind, mediaTitle, type MediaPrompt, type SharedMedia } from "@/lib/media";
+import { MEDIA_LABELS, mediaKind, mediaTitle, type MediaDimensions, type MediaPrompt, type SharedMedia } from "@/lib/media";
 import { webappUrl } from "@/lib/links";
 import MediaPreview from "./media-preview";
 import MediaDetails from "./media-details";
@@ -21,12 +21,14 @@ export default function MediaPage({ token }: { token: string }) {
   const [prompt, setPrompt] = useState<MediaPrompt | null>(null);
   const [promptLoading, setPromptLoading] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [dimensions, setDimensions] = useState<MediaDimensions | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: "loading" });
     setPrompt(null);
     setPromptLoading(false);
+    setDimensions(null);
     async function load() {
       const result = await getSharedMedia(token, controller.signal);
       if (controller.signal.aborted) return;
@@ -93,8 +95,8 @@ export default function MediaPage({ token }: { token: string }) {
       )}
       {media && (
         <div className="grid border-t border-line lg:grid-cols-[minmax(0,1fr)_340px]">
-          <MediaPreview key={media.token} media={media} />
-          <MediaDetails media={media} prompt={prompt} promptLoading={promptLoading} />
+          <MediaPreview key={media.token} media={media} onDimensions={setDimensions} />
+          <MediaDetails media={media} prompt={prompt} promptLoading={promptLoading} dimensions={dimensions} />
         </div>
       )}
       <noscript>

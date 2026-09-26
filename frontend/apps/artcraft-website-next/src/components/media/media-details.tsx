@@ -1,19 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDownToLineIcon, CheckIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
 import { Button } from "@/components/ui";
-import { MEDIA_LABELS, corsMediaUrl, mediaDetailLabel, mediaFormat, mediaKind, safeMediaUrl, type MediaPrompt, type SharedMedia } from "@/lib/media";
+import { MEDIA_LABELS, corsMediaUrl, mediaDetailLabel, mediaFormat, mediaKind, mediaThumbnail, safeMediaUrl, type MediaDimensions, type MediaPrompt, type SharedMedia } from "@/lib/media";
+import { getModelDisplayName, getModelIcon, getProviderDisplayName, getProviderIcon } from "@/lib/model-names";
 
-export default function MediaDetails({ media, prompt, promptLoading }: {
-  media: SharedMedia; prompt: MediaPrompt | null; promptLoading: boolean;
+const COPY_FEEDBACK_MS = 1500;
+const SHARE_URL_BASE = "https://getartcraft.com/media/";
+
+export default function MediaDetails({ media, prompt, promptLoading, dimensions }: {
+  media: SharedMedia; prompt: MediaPrompt | null; promptLoading: boolean; dimensions: MediaDimensions | null;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [message, setMessage] = useState("");
   const downloadController = useRef<AbortController | null>(null);
   useEffect(() => () => downloadController.current?.abort(), []);
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(null), COPY_FEEDBACK_MS);
+    return () => clearTimeout(timeout);
+  }, [copied]);
 
   async function copy(value: string, label: string) {
     try {
@@ -55,24 +64,30 @@ export default function MediaDetails({ media, prompt, promptLoading }: {
 
   const kind = mediaKind(media);
   const created = media.created_at ? new Date(media.created_at) : null;
-  const details = [
+  const details: [string, ReactNode][] = [
     ["Type", MEDIA_LABELS[kind]],
     ["Format", mediaFormat(media).toUpperCase()],
-    ["Model", media.maybe_model_weight_info?.title || mediaDetailLabel(prompt?.maybe_model_type)],
-    ["Provider", mediaDetailLabel(prompt?.maybe_generation_provider)],
+    ["Model", media.maybe_model_weight_info?.title || (prompt?.maybe_model_type && <BrandValue
+      icon={getModelIcon(prompt.maybe_model_type)} label={getModelDisplayName(prompt.maybe_model_type)} />)],
+    ["Provider", prompt?.maybe_generation_provider && <BrandValue
+      icon={getProviderIcon(prompt.maybe_generation_provider)} label={getProviderDisplayName(prompt.maybe_generation_provider)} />],
     ["Aspect ratio", mediaDetailLabel(prompt?.maybe_aspect_ratio)],
     ["Resolution", mediaDetailLabel(prompt?.maybe_resolution)],
     ["Duration", media.maybe_duration_millis != null ? `${(media.maybe_duration_millis / 1000).toFixed(1)} sec` : prompt?.maybe_duration_seconds != null ? `${prompt.maybe_duration_seconds} sec` : null],
     ["Audio", prompt?.maybe_generate_audio == null ? null : prompt.maybe_generate_audio ? "On" : "Off"],
-    ["Created", created && !Number.isNaN(created.valueOf()) ? created.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : null],
-  ].filter((entry) => entry[1]);
+    ["Size", dimensions ? `${dimensions.width} × ${dimensions.height}` : null],
+    ["Created", created && !Number.isNaN(created.valueOf()) ? <time dateTime={media.created_at} className="flex flex-col items-end gap-0.5 tabular-nums">
+      <span>{created.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+      <span className="text-xs text-muted">{created.toLocaleTimeString()}</span>
+    </time> : null],
+  ];
 
   return (
     <aside aria-label="Media details" className="min-w-0 border-t border-line bg-bg lg:border-l lg:border-t-0">
       <div className="border-b border-line p-6">
         <p className="hud-label mb-5 text-faint">Creation details</p>
         <dl className="space-y-3 text-sm">
-          {details.map(([label, value]) => (
+          {details.filter((entry) => entry[1]).map(([label, value]) => (
             <div key={label} className="flex justify-between gap-4">
               <dt className="shrink-0 text-muted">{label}</dt>
               <dd className="break-words text-right text-ink">{value}</dd>
@@ -104,7 +119,7 @@ export default function MediaDetails({ media, prompt, promptLoading }: {
           {!!prompt?.maybe_context_images?.length && (
             <div className="mt-5 grid grid-cols-3 gap-2" aria-label="Reference images">
               {prompt.maybe_context_images.map((image, index) => {
-                const src = safeMediaUrl(image.media_links.maybe_thumbnail_template?.replace("{WIDTH}", "256")) ?? safeMediaUrl(image.media_links.cdn_url);
+                const src = mediaThumbnail(image.media_links, 256) ?? safeMediaUrl(image.media_links.cdn_url);
                 return src ? (
                   <Link key={`${image.media_token}-${index}`} href={`/media/${encodeURIComponent(image.media_token)}`} className="border border-line">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -128,7 +143,7 @@ export default function MediaDetails({ media, prompt, promptLoading }: {
         <Button onClick={download} loading={downloading} className="w-full">
           <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />{downloading ? "Downloading" : "Download file"}
         </Button>
-        <Button variant="secondary" className="w-full" onClick={() => copy(`${window.location.origin}/media/${encodeURIComponent(media.token)}`, "link")}>
+        <Button variant="secondary" className="w-full" onClick={() => copy(`${SHARE_URL_BASE}${encodeURIComponent(media.token)}`, "link")}>
           {copied === "link" ? <CheckIcon aria-hidden className="h-4 w-4" /> : <CopyIcon aria-hidden className="h-4 w-4" />}
           {copied === "link" ? "Link copied" : "Copy share link"}
         </Button>
@@ -142,5 +157,15 @@ export default function MediaDetails({ media, prompt, promptLoading }: {
         </div>
       </div>
     </aside>
+  );
+}
+
+function BrandValue({ icon, label }: { icon: string | null; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {icon && <img src={icon} alt="" className="themed-logo h-4 w-4" />}
+      {label}
+    </span>
   );
 }

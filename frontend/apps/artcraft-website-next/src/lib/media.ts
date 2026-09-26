@@ -1,4 +1,5 @@
 export type MediaKind = "image" | "video" | "audio" | "mesh" | "splat" | "unsupported";
+export type MediaDimensions = { width: number; height: number };
 
 // Fields from storyteller-web's GET /v1/media_files/file/{token} response.
 export type SharedMedia = {
@@ -20,7 +21,7 @@ export type SharedMedia = {
   media_links: {
     cdn_url: string;
     maybe_thumbnail_template?: string | null;
-    maybe_video_previews?: { still: string } | null;
+    maybe_video_previews?: { still: string; still_thumbnail_template?: string | null } | null;
   };
 };
 
@@ -36,7 +37,7 @@ export type MediaPrompt = {
   maybe_context_images?: {
     media_token: string;
     semantic?: string;
-    media_links: { cdn_url: string; maybe_thumbnail_template?: string | null };
+    media_links: SharedMedia["media_links"];
   }[] | null;
 };
 
@@ -90,8 +91,19 @@ export function corsMediaUrl(value: string): string {
 }
 
 export function mediaPoster(media: SharedMedia): string | undefined {
-  return safeMediaUrl(media.media_links.maybe_video_previews?.still)
-    ?? safeMediaUrl(media.media_links.maybe_thumbnail_template?.replace("{WIDTH}", "1280"));
+  return mediaThumbnail(media.media_links, 1280);
+}
+
+// Video references need a still frame, not the raw video URL in an <img>.
+// The same thumbnail selection is used for social previews and the player.
+export function mediaThumbnail(links: SharedMedia["media_links"], width: number): string | undefined {
+  const previews = links.maybe_video_previews;
+  const template = links.maybe_thumbnail_template ?? previews?.still_thumbnail_template;
+  return safeMediaUrl(template?.replace("{WIDTH}", String(width))) ?? safeMediaUrl(previews?.still);
+}
+
+export function mediaFilePath(token: string): string {
+  return `/v1/media_files/file/${encodeURIComponent(token)}`;
 }
 
 export function mediaTitle(media: SharedMedia): string {

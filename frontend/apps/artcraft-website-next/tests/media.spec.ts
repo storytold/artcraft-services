@@ -4,13 +4,14 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { corsMediaUrl, mediaKind, safeMediaUrl, type SharedMedia } from "../src/lib/media";
 
-const API = "https://api.storyteller.ai";
+const API = "http://127.0.0.1:4203";
 const CDN = "https://media-fixture.invalid";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=", "base64");
 
 test.beforeEach(async ({ page }) => {
   // All API calls are fulfilled locally, including navbar/session/referral
-  // requests. These tests never reach production or a database.
+  // requests. Next's server-side metadata lookup uses the local fixture API.
+  // These tests never reach production or a database.
   await page.route("**/v1/**", (route) => route.fulfill({ json: { success: true, logged_in: false } }));
   await page.route(`${CDN}/**`, (route) => route.fulfill({ body: PNG, contentType: "image/png" }));
 });
@@ -21,9 +22,32 @@ test("direct shared image URL loads without login and survives refresh", async (
   await expect(page.getByRole("heading", { name: "Fixture image", exact: true })).toBeVisible();
   await expect.poll(() => page.getByAltText("Fixture image").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
   await expect(page.getByText("@fixture_artist")).toBeVisible();
+  await expect(page.getByText("1 × 1", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open in ArtCraft" })).toHaveAttribute("href", "https://app.getartcraft.com/media/m_fixture_image");
   await page.reload();
   await expect(page.getByAltText("Fixture image")).toBeVisible();
+});
+
+test("legacy query share links redirect to the canonical media page", async ({ page }) => {
+  await mockMedia(page, fixture("image", "png"));
+  await page.goto("/media?media=m_fixture_image");
+  await expect(page).toHaveURL((url) => url.pathname === "/media/m_fixture_image");
+  await expect(page.getByAltText("Fixture image")).toBeVisible();
+});
+
+test("social cards use public images and video stills without forwarding visitor credentials", async ({ request }) => {
+  const headers = { "User-Agent": "Twitterbot", Cookie: "session=private-fixture", session: "private-fixture" };
+  const image = await request.get("/media/m_fixture_image", { headers });
+  const imageHtml = await image.text();
+  expect(imageHtml).toContain('property="og:image" content="https://media-fixture.invalid/asset.png?fixture=1"');
+  expect(imageHtml).toContain("Made with ArtCraft by Fixture Artist.");
+  expect(imageHtml).toContain('name="robots" content="noindex, follow"');
+  const video = await request.get("/media/m_fixture_video", { headers });
+  expect(await video.text()).toContain('property="og:image" content="https://media-fixture.invalid/still-1200.jpg"');
+  for (const token of ["m_fixture_audio", "m_private"]) {
+    const response = await request.get(`/media/${token}`, { headers });
+    expect(await response.text()).not.toContain('property="og:image" content="https://media-fixture.invalid/');
+  }
 });
 
 test("prompt and reference media are restored without blocking the preview", async ({ page }) => {
@@ -43,6 +67,23 @@ test("prompt failure leaves the image usable", async ({ page }) => {
   await page.goto("/media/m_fixture_image");
   await expect(page.getByText("Prompt details aren’t available for this creation.")).toBeVisible();
   await expect(page.getByAltText("Fixture image")).toBeVisible();
+});
+
+test("model/provider brands and video reference stills appear in creation details", async ({ page }) => {
+  await mockMedia(page, { ...fixture("image", "png"), maybe_prompt_token: "p_fixture" });
+  await page.route(`${API}/v1/prompts/p_fixture`, (route) => route.fulfill({ json: {
+    success: true, prompt: { maybe_positive_prompt: "A forest", maybe_model_type: "worldlabs_gaussian", maybe_generation_provider: "worldlabs",
+      maybe_context_images: [{ media_token: "m_reference_video", semantic: "Reference video", media_links: {
+        cdn_url: `${CDN}/reference.mp4`, maybe_video_previews: { still: `${CDN}/still.jpg`, still_thumbnail_template: `${CDN}/still-{WIDTH}.jpg` },
+      } }] },
+  } }));
+  await page.goto("/media/m_fixture_image");
+  await expect(page.getByText("World Labs Marble", { exact: true })).toBeVisible();
+  await expect(page.getByText("World Labs", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Media details").locator("img.themed-logo")).toHaveCount(2);
+  await expect(page.getByAltText("Reference video")).toHaveAttribute("src", `${CDN}/still-256.jpg?cors=1`);
+  await expect.poll(() => page.getByAltText("Reference video").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
+  await expect(page.getByRole("link").filter({ has: page.getByAltText("Reference video") })).toHaveAttribute("href", "/media/m_reference_video");
 });
 
 test("video loads playable metadata and exposes native controls", async ({ page }) => {

@@ -1,9 +1,9 @@
 import { request, type ApiResult } from "./api";
-import { safeMediaUrl, type MediaPrompt, type SharedMedia } from "./media";
+import { mediaFilePath, safeMediaUrl, type MediaPrompt, type SharedMedia } from "./media";
 
 export async function getSharedMedia(token: string, signal?: AbortSignal): Promise<ApiResult<SharedMedia>> {
   const result = await request<{ media_file?: SharedMedia }>(
-    `/v1/media_files/file/${encodeURIComponent(token)}`, { signal },
+    mediaFilePath(token), { signal },
   );
   if (!result.success) return result;
   const media = result.data.media_file;

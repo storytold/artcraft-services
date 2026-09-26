@@ -14,10 +14,20 @@ export default defineConfig({
     trace: "retain-on-failure",
     launchOptions: { args: ["--enable-unsafe-swiftshader"] },
   },
-  webServer: {
-    command: "npm run dev -- --hostname localhost --port 4202",
-    url: "http://localhost:4202/media/m_fixture_image",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: "node tests/fixtures/api-server.mjs",
+      url: "http://127.0.0.1:4203/health",
+      reuseExistingServer: false,
+    },
+    {
+      command: "npm run dev -- --hostname localhost --port 4202",
+      url: "http://localhost:4202/media/m_fixture_image",
+      // Server-rendered social metadata also needs fixtures. Never reuse a
+      // developer's server, which could still be configured for production.
+      env: { NEXT_PUBLIC_API_HOST: "http://127.0.0.1:4203" },
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
 });
