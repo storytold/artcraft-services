@@ -2,6 +2,7 @@
 // config/github_download_links.ts. Keep previous releases in the history
 // when adding new downloads, newest first.
 const DOWNLOAD_HISTORY = {
+  "0.41.0": githubDownloadLinks("0.41.0"),
   "0.37.0": githubDownloadLinks("0.37.0"),
   "0.32.0": githubDownloadLinks("0.32.0"),
   "0.28.0": githubDownloadLinks("0.28.0"),
@@ -13,8 +14,8 @@ const DOWNLOAD_HISTORY = {
 } as const;
 
 // To roll back either platform, select a version from DOWNLOAD_HISTORY.
-const WINDOWS_VERSION: keyof typeof DOWNLOAD_HISTORY = "0.37.0";
-const MAC_VERSION: keyof typeof DOWNLOAD_HISTORY = "0.37.0";
+const WINDOWS_VERSION: keyof typeof DOWNLOAD_HISTORY = "0.41.0";
+const MAC_VERSION: keyof typeof DOWNLOAD_HISTORY = "0.41.0";
 
 // Set false to temporarily hide desktop downloads throughout the website.
 export const DOWNLOADS_ENABLED = true;
