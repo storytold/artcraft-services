@@ -50,9 +50,9 @@
       false
     ],
     "parameters": {
-      "Right": 2
+      "Right": 3
     }
   },
-  "hash": "b22b2a775ddce30c04a7d89f34a606782a695b00e3c78d3891b6c0642d2c6c4c",
-  "query": "\nSELECT s.id, s.token, s.user_token, u.username FROM user_sessions s JOIN users u ON u.token = s.user_token\nWHERE s.id = ? AND s.user_token = ? AND s.maybe_creation_type = 'device_approval'\n  AND s.deleted_at IS NULL AND s.expires_at > NOW() AND s.maybe_impersonation_user_token IS NULL\n  AND u.is_banned = FALSE AND u.user_deleted_at IS NULL AND u.mod_deleted_at IS NULL\n"
+  "hash": "705c952102e32df11ba98ec39a3c7943bdf633947c32d4e8f7d77a861560b1bd",
+  "query": "\nSELECT s.id, s.token, s.user_token, u.username FROM user_sessions s JOIN users u ON u.token = s.user_token\nWHERE s.id = ? AND s.user_token = ? AND s.maybe_creation_type = ?\n  AND s.deleted_at IS NULL AND s.expires_at > NOW() AND s.maybe_impersonation_user_token IS NULL\n  AND u.is_banned = FALSE AND u.user_deleted_at IS NULL AND u.mod_deleted_at IS NULL\n"
 }

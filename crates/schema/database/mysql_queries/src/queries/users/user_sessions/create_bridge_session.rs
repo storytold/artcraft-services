@@ -1,3 +1,4 @@
+use enums::by_table::user_sessions::user_web_session_creation_type::UserWebSessionCreationType;
 use sqlx::{Executor, MySql};
 use tokens::tokens::user_sessions::UserSessionToken;
 
@@ -18,11 +19,12 @@ where
   let inserted = sqlx::query!(
     r#"
 INSERT INTO user_sessions (token, user_token, ip_address_creation, maybe_creation_type, expires_at)
-SELECT ?, token, ?, 'device_approval', NOW() + INTERVAL 1 YEAR FROM users
+SELECT ?, token, ?, ?, NOW() + INTERVAL 1 YEAR FROM users
 WHERE token = ? AND is_banned = FALSE AND user_deleted_at IS NULL AND mod_deleted_at IS NULL
 "#,
     token.as_str(),
     args.ip_address,
+    UserWebSessionCreationType::DeviceApproval.to_str(),
     args.user_token
   )
     .execute(args.mysql_executor)

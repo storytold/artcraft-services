@@ -1,3 +1,5 @@
+use enums::by_table::user_login_challenges::user_login_challenge_failure_type::UserLoginChallengeFailureType;
+use enums::by_table::user_login_challenges::user_login_challenge_status::UserLoginChallengeStatus;
 use sqlx::{Executor, MySql};
 
 use super::login_challenge::LoginChallenge;
@@ -15,8 +17,8 @@ where
   sqlx::query_as!(
     LoginChallenge,
     r#"
-SELECT id, confirmation_code, status, maybe_deciding_user_token, maybe_redeemed_user_session_id,
-  maybe_failure_type, ip_address_creation, expires_at
+SELECT id, confirmation_code, status AS `status: UserLoginChallengeStatus`, maybe_deciding_user_token, maybe_redeemed_user_session_id,
+  maybe_failure_type AS `maybe_failure_type: UserLoginChallengeFailureType`, ip_address_creation, expires_at
 FROM user_login_challenges WHERE device_token_sha256 = ? FOR UPDATE
 "#,
     args.device_hash

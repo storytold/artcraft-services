@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use enums::by_table::user_sessions::user_web_session_creation_type::UserWebSessionCreationType;
 use log::info;
 use sqlx::MySqlPool;
 
@@ -25,11 +26,12 @@ INSERT INTO user_sessions (
   maybe_creation_type,
   expires_at
 )
-VALUES ( ?, ?, ?, 'direct_login', NOW() + interval 1 year )
+VALUES ( ?, ?, ?, ?, NOW() + interval 1 year )
         "#,
         session_token.as_str(),
         user_token.as_str(),
         ip_address,
+        UserWebSessionCreationType::DirectLogin.to_str(),
     );
 
   let query_result = transactor.execute(query).await;

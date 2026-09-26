@@ -23,11 +23,11 @@
         }
       },
       {
-        "name": "status",
+        "name": "status: UserLoginChallengeStatus",
         "ordinal": 2,
         "type_info": {
           "char_set": 224,
-          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY",
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
           "max_size": 64,
           "type": "VarString"
         }
@@ -53,7 +53,7 @@
         }
       },
       {
-        "name": "maybe_failure_type",
+        "name": "maybe_failure_type: UserLoginChallengeFailureType",
         "ordinal": 5,
         "type_info": {
           "char_set": 224,
@@ -97,6 +97,6 @@
       "Right": 1
     }
   },
-  "hash": "860645e70bdf20ba6ee272cb506095bb5439c5b4b98e4ee8bc0e4695a057819c",
-  "query": "\nSELECT id, confirmation_code, status, maybe_deciding_user_token, maybe_redeemed_user_session_id,\n  maybe_failure_type, ip_address_creation, expires_at\nFROM user_login_challenges WHERE approval_token_sha256 = ? FOR UPDATE\n"
+  "hash": "06dc6f19f013fe24ffd32a313b66dd10a87498bf17c9a63b1ece87e338b0dc74",
+  "query": "\nSELECT id, confirmation_code, status AS `status: UserLoginChallengeStatus`, maybe_deciding_user_token, maybe_redeemed_user_session_id,\n  maybe_failure_type AS `maybe_failure_type: UserLoginChallengeFailureType`, ip_address_creation, expires_at\nFROM user_login_challenges WHERE device_token_sha256 = ? FOR UPDATE\n"
 }

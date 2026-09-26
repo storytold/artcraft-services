@@ -1,3 +1,4 @@
+use enums::by_table::user_login_challenges::user_login_challenge_status::UserLoginChallengeStatus;
 use sqlx::{Executor, MySql};
 
 pub struct MarkRedeemedArgs<'a, T> {
@@ -13,13 +14,15 @@ where
 {
   let affected = sqlx::query!(
     r#"
-UPDATE user_login_challenges SET status = 'redeemed', maybe_redeemed_user_session_id = ?,
+UPDATE user_login_challenges SET status = ?, maybe_redeemed_user_session_id = ?,
   maybe_ip_address_redemption = ?, maybe_redeemed_at = NOW()
-WHERE id = ? AND status = 'approved' AND expires_at > NOW() AND maybe_redeemed_user_session_id IS NULL
+WHERE id = ? AND status = ? AND expires_at > NOW() AND maybe_redeemed_user_session_id IS NULL
 "#,
+    UserLoginChallengeStatus::Redeemed.to_str(),
     args.session_id,
     args.ip_address,
-    args.challenge_id
+    args.challenge_id,
+    UserLoginChallengeStatus::Approved.to_str()
   )
     .execute(args.mysql_executor)
     .await?

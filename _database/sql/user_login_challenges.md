@@ -17,7 +17,8 @@ It is an ArtCraft session bridge, not an OAuth token endpoint implementation.
 
 1. `2026-09-25-120000-0000_create_user_login_challenges` creates the challenge and
    its terminal outcome audit record together. A separate failure table is not
-   needed for one immutable outcome per attempt.
+   needed for one immutable outcome per attempt. Status is `NOT NULL` without a
+   default; inserts explicitly bind `UserLoginChallengeStatus::Pending`.
 2. `2026-09-25-120000-0001_alter_user_sessions_add_maybe_creation_type` adds nullable
    provenance to cookie sessions. Existing rows and older writers retain NULL.
 

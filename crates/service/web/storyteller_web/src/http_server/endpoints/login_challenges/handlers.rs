@@ -2,6 +2,8 @@ use actix_artcraft::sessions::user_sessions::http_user_session_manager::HttpUser
 use actix_web::middleware::DefaultHeaders;
 use actix_web::{web, HttpRequest, HttpResponse};
 use artcraft_api_defs::users::login_challenges::*;
+use enums::by_table::user_login_challenges::user_login_challenge_failure_type::UserLoginChallengeFailureType;
+use enums::by_table::user_login_challenges::user_login_challenge_status::UserLoginChallengeStatus;
 use mysql_queries::queries::user_login_challenges::create_challenge::{create_challenge, CreateChallengeArgs};
 use mysql_queries::queries::user_login_challenges::decide_challenge::{decide_challenge, DecideChallengeArgs};
 use mysql_queries::queries::user_login_challenges::expire_challenge::{expire_challenge, ExpireChallengeArgs};
@@ -46,6 +48,7 @@ pub async fn create(request: HttpRequest, _body: web::Json<CreateLoginChallengeR
     approval_hash: &approval_hash,
     device_hash: &device_hash,
     confirmation_code: &code,
+    status: UserLoginChallengeStatus::Pending,
     ip_address: &ip,
     mysql_executor: &mut *conn,
   }).await?;
@@ -77,7 +80,7 @@ pub async fn review(request: HttpRequest, body: web::Json<ReviewLoginChallengeRe
     mysql_executor: &mut *tx,
   }).await?.ok_or(CommonWebError::NotAuthorized)?;
   let expired = expire_locked_challenge(&mut challenge, &mut tx).await?;
-  let result = outcome(&challenge, expired)?;
+  let result = outcome(&challenge, expired);
   tx.commit().await?;
   Ok(web::Json(ReviewLoginChallengeResponse { success: true, status: result.status, maybe_failure_type: result.maybe_failure_type, confirmation_code: challenge.confirmation_code, requesting_ip: challenge.ip_address_creation, expires_at: challenge.expires_at, username: approver.username }))
 }
@@ -96,7 +99,7 @@ pub async fn decide(request: HttpRequest, body: web::Json<DecideLoginChallengeRe
     mysql_executor: &mut *tx,
   }).await?.ok_or(CommonWebError::NotAuthorized)?;
   let mut expired = expire_locked_challenge(&mut challenge, &mut tx).await?;
-  if !expired && challenge.status == "pending" {
+  if !expired && challenge.status == UserLoginChallengeStatus::Pending {
     if decide_challenge(DecideChallengeArgs {
       challenge_id: challenge.id,
       user_token: &approver.user_token,
@@ -104,14 +107,14 @@ pub async fn decide(request: HttpRequest, body: web::Json<DecideLoginChallengeRe
       approve: body.approve,
       mysql_executor: &mut *tx,
     }).await? {
-      challenge.status = if body.approve { "approved" } else { "failed" }.into();
-      challenge.maybe_failure_type = if body.approve { None } else { Some("user_declined".into()) };
+      challenge.status = if body.approve { UserLoginChallengeStatus::Approved } else { UserLoginChallengeStatus::Failed };
+      challenge.maybe_failure_type = if body.approve { None } else { Some(UserLoginChallengeFailureType::UserDeclined) };
     } else {
       expired = expire_locked_challenge(&mut challenge, &mut tx).await?;
     }
   }
   // No session INSERT occurs here, including on approval. Terminal decisions are immutable.
-  let result = outcome(&challenge, expired)?;
+  let result = outcome(&challenge, expired);
   tx.commit().await?;
   Ok(web::Json(result))
 }
@@ -128,13 +131,13 @@ pub async fn poll(request: HttpRequest, body: web::Json<PollLoginChallengeReques
     mysql_executor: &mut *tx,
   }).await?.ok_or(CommonWebError::NotAuthorized)?;
   let expired = expire_locked_challenge(&mut challenge, &mut tx).await?;
-  let mut result = outcome(&challenge, expired)?;
-  if expired || challenge.status == "pending" || challenge.status == "failed" {
+  let mut result = outcome(&challenge, expired);
+  if expired || challenge.status == UserLoginChallengeStatus::Pending || challenge.status == UserLoginChallengeStatus::Failed {
     tx.commit().await?;
     return Ok(HttpResponse::Ok().json(result));
   }
   let user = challenge.maybe_deciding_user_token.as_deref().ok_or(CommonWebError::NotAuthorized)?;
-  let session = if challenge.status == "approved" {
+  let session = if challenge.status == UserLoginChallengeStatus::Approved {
     let session_id = create_bridge_session(CreateBridgeSessionArgs {
       user_token: user,
       ip_address: &ip,
@@ -153,10 +156,10 @@ pub async fn poll(request: HttpRequest, body: web::Json<PollLoginChallengeReques
     }).await? {
       // Includes expiry during redemption. Roll back the INSERT as well.
       tx.rollback().await?;
-      return Ok(HttpResponse::Ok().json(outcome(&challenge, true)?));
+      return Ok(HttpResponse::Ok().json(outcome(&challenge, true)));
     }
     session
-  } else if challenge.status == "redeemed" {
+  } else if challenge.status == UserLoginChallengeStatus::Redeemed {
     let id = challenge.maybe_redeemed_user_session_id.ok_or(CommonWebError::NotAuthorized)?;
     find_redeemed_session(FindRedeemedSessionArgs {
       session_id: id,
@@ -180,13 +183,13 @@ async fn expire_locked_challenge(challenge: &mut LoginChallenge, tx: &mut Transa
     challenge_id: challenge.id,
     mysql_executor: &mut **tx,
   }).await?;
-  if expired && (challenge.status == "pending" || challenge.status == "approved") {
+  if expired && (challenge.status == UserLoginChallengeStatus::Pending || challenge.status == UserLoginChallengeStatus::Approved) {
     expire_challenge(ExpireChallengeArgs {
       challenge_id: challenge.id,
       mysql_executor: &mut **tx,
     }).await?;
-    challenge.status = "failed".into();
-    challenge.maybe_failure_type = Some("expired".into());
+    challenge.status = UserLoginChallengeStatus::Failed;
+    challenge.maybe_failure_type = Some(UserLoginChallengeFailureType::Expired);
   }
   Ok(expired)
 }
@@ -211,28 +214,26 @@ fn verification_page(request: &HttpRequest) -> &'static str {
   }
 }
 
-fn outcome(challenge: &LoginChallenge, expired: bool) -> Result<LoginChallengeResponse, CommonWebError> {
+fn outcome(challenge: &LoginChallenge, expired: bool) -> LoginChallengeResponse {
   // Keep an explicit decline even when its deadline has since elapsed.
-  let declined = challenge.maybe_failure_type.as_deref() == Some("user_declined");
+  let declined = challenge.maybe_failure_type == Some(UserLoginChallengeFailureType::UserDeclined);
   let (status, failure) = if expired && !declined {
     (LoginChallengeState::Failed, Some(LoginChallengeFailure::Expired))
   } else {
-    let status = match challenge.status.as_str() {
-      "pending" => LoginChallengeState::Pending,
-      "approved" => LoginChallengeState::Approved,
-      "redeemed" => LoginChallengeState::Redeemed,
-      "failed" => LoginChallengeState::Failed,
-      _ => return Err(CommonWebError::NotAuthorized),
+    let status = match challenge.status {
+      UserLoginChallengeStatus::Pending => LoginChallengeState::Pending,
+      UserLoginChallengeStatus::Approved => LoginChallengeState::Approved,
+      UserLoginChallengeStatus::Redeemed => LoginChallengeState::Redeemed,
+      UserLoginChallengeStatus::Failed => LoginChallengeState::Failed,
     };
-    let failure = match challenge.maybe_failure_type.as_deref() {
-      Some("user_declined") => Some(LoginChallengeFailure::UserDeclined),
-      Some("expired") => Some(LoginChallengeFailure::Expired),
+    let failure = match challenge.maybe_failure_type {
+      Some(UserLoginChallengeFailureType::UserDeclined) => Some(LoginChallengeFailure::UserDeclined),
+      Some(UserLoginChallengeFailureType::Expired) => Some(LoginChallengeFailure::Expired),
       None => None,
-      _ => return Err(CommonWebError::NotAuthorized),
     };
     (status, failure)
   };
-  Ok(LoginChallengeResponse { success: true, status, maybe_failure_type: failure, maybe_signed_session: None })
+  LoginChallengeResponse { success: true, status, maybe_failure_type: failure, maybe_signed_session: None }
 }
 
 #[cfg(test)]

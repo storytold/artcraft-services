@@ -56,6 +56,20 @@ schema metadata. For **new tables**, you may need to:
 
 - Primary key `id` columns must be `BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT`. Do not use signed IDs.
 - Always create tables with `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin`.
+- Do not give application-owned state/status/type columns schema defaults. Keep required
+  columns `NOT NULL` without a `DEFAULT`; application code must explicitly bind their
+  initial value on every insert. Keep migrations and materialized schema docs in sync.
+
+### Database enum values
+
+- Use the Rust enums in `enums::by_table` for database state, status, failure, and type
+  values. Do not hardcode their string representations in SQL or Rust business logic.
+- Bind enum values (or their `to_str()` representation) through SQL parameters, including
+  `SET`, `WHERE`, `IN`, and `INSERT` values. For example, bind
+  `UserLoginChallengeStatus::Approved.to_str()` to `status = ?`.
+- Query args and returned rows must use the enum type rather than `String`/`&str` for
+  enum columns. Use SQLx column type overrides and the enum's MySQL decoder on reads;
+  use exhaustive variant matches in application logic. Preserve existing stored values.
 
 ### Error Types
 

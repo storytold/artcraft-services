@@ -1,14 +1,18 @@
 //! Mutators/inspection for disposable bridge integration databases only.
 use sqlx::{MySqlPool, Row};
 use chrono::{DateTime, Utc};
+use enums::by_table::user_login_challenges::user_login_challenge_failure_type::UserLoginChallengeFailureType;
+use enums::by_table::user_login_challenges::user_login_challenge_status::UserLoginChallengeStatus;
+use enums::by_table::user_sessions::user_web_session_creation_type::UserWebSessionCreationType;
 use enums::by_table::users::user_feature_flag::UserFeatureFlag;
+use tokens::tokens::user_login_challenges::UserLoginChallengeToken;
 use tokens::tokens::users::UserToken;
 
 use super::users::{create_test_user, TestUser};
 
 pub struct ChallengeAudit {
-  pub status: String,
-  pub failure: Option<String>,
+  pub status: UserLoginChallengeStatus,
+  pub failure: Option<UserLoginChallengeFailureType>,
   pub creation_ip: String,
   pub failure_ip: Option<String>,
   pub session_id: Option<i64>,
@@ -42,7 +46,23 @@ pub async fn audit(pool: &MySqlPool, device_hash: &[u8]) -> ChallengeAudit {
 }
 
 pub async fn bridge_session_count(pool: &MySqlPool) -> i64 {
-  sqlx::query_scalar("SELECT COUNT(*) FROM user_sessions WHERE maybe_creation_type = 'device_approval'").fetch_one(pool).await.expect("bridge session count")
+  sqlx::query_scalar("SELECT COUNT(*) FROM user_sessions WHERE maybe_creation_type = ?")
+    .bind(UserWebSessionCreationType::DeviceApproval.to_str()).fetch_one(pool).await.expect("bridge session count")
+}
+
+pub async fn assert_challenge_status_is_explicit(pool: &MySqlPool) {
+  let column = sqlx::query("SELECT COLUMN_DEFAULT, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_login_challenges' AND COLUMN_NAME = 'status'")
+    .fetch_one(pool).await.expect("inspect migrated status column");
+  assert!(column.get::<Option<String>, _>("COLUMN_DEFAULT").is_none());
+  assert_eq!(column.get::<String, _>("IS_NULLABLE"), "NO");
+
+  // Every other required field is supplied; MySQL must reject the omitted status.
+  let token = UserLoginChallengeToken::generate();
+  let error = sqlx::query("INSERT INTO user_login_challenges (token, approval_token_sha256, device_token_sha256, confirmation_code, ip_address_creation, expires_at) VALUES (?, ?, ?, ?, ?, NOW() + INTERVAL 20 MINUTE)")
+    .bind(token.as_str()).bind(&[0u8; 32][..]).bind(&[1u8; 32][..])
+    .bind("BCDFGHJK").bind("192.0.2.1").execute(pool).await.expect_err("status must be explicit");
+  let error = error.as_database_error().expect("MySQL missing-column error");
+  assert_eq!(error.try_downcast_ref::<sqlx::mysql::MySqlDatabaseError>().unwrap().number(), 1364);
 }
 
 pub async fn set_challenge_deadline(pool: &MySqlPool, device_hash: &[u8], seconds_from_now: i32) {

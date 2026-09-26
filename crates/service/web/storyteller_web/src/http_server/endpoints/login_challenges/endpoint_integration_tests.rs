@@ -12,6 +12,7 @@ use actix_web::dev::ServerHandle;
 use actix_web::{web, App, HttpServer};
 use artcraft_api_defs::users::login_challenges::{CreateLoginChallengeResponse, LoginChallengeFailure, LoginChallengeResponse, LoginChallengeState, ReviewLoginChallengeResponse};
 use enums::by_table::users::user_feature_flag::UserFeatureFlag;
+use enums::by_table::user_login_challenges::user_login_challenge_status::UserLoginChallengeStatus;
 use mysql_testing::fixtures::login_challenges as fixtures;
 use mysql_testing::fixtures::users::{create_test_user, TestUser};
 use mysql_testing::isolated::IsolatedTestDatabase;
@@ -44,6 +45,7 @@ struct EndpointHarness {
 #[cfg_attr(feature = "skip_database_tests", ignore)]
 async fn approved_passwordless_login_redeems_once_and_authenticates_real_session_endpoint() {
   let h = EndpointHarness::start().await;
+  fixtures::assert_challenge_status_is_explicit(&h.db.pool).await;
   assert_anonymous(h.session(&h.desktop).await);
   let browser_session = h.session(&h.browser).await;
   assert_eq!(browser_session["user"]["user_token"], h.user.user_token.as_str());
@@ -51,6 +53,7 @@ async fn approved_passwordless_login_redeems_once_and_authenticates_real_session
   let created = h.create().await;
   let hash = security::secret_hash(&created.device_token).unwrap();
   let initial = fixtures::audit(&h.db.pool, &hash).await;
+  assert_eq!(initial.status, UserLoginChallengeStatus::Pending);
   assert_eq!(initial.lifetime_seconds, 1200);
   assert_eq!(initial.creation_ip, h.desktop_ip);
   assert!(initial.deciding_user.is_none());
@@ -114,7 +117,7 @@ async fn approved_passwordless_login_redeems_once_and_authenticates_real_session
   assert_eq!(session["user"]["can_ban_users"], false);
   assert!(session.get("signed_session").is_none());
   let audit = fixtures::audit(&h.db.pool, &hash).await;
-  assert_eq!(audit.status, "redeemed");
+  assert_eq!(audit.status, UserLoginChallengeStatus::Redeemed);
   assert_eq!(audit.redemption_ip.as_deref(), Some(h.desktop_ip.as_str()));
   assert!(audit.session_id.is_some());
   assert!(audit.redeemed_at.unwrap() >= audit.decided_at.unwrap());

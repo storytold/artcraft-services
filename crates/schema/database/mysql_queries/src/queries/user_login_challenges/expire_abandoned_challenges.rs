@@ -1,3 +1,5 @@
+use enums::by_table::user_login_challenges::user_login_challenge_failure_type::UserLoginChallengeFailureType;
+use enums::by_table::user_login_challenges::user_login_challenge_status::UserLoginChallengeStatus;
 use sqlx::{Executor, MySql};
 
 pub struct ExpireAbandonedChallengesArgs<T> {
@@ -11,9 +13,13 @@ where
 {
   let result = sqlx::query!(
     r#"
-UPDATE user_login_challenges SET status = 'failed', maybe_failure_type = 'expired', maybe_failed_at = expires_at
-WHERE status IN ('pending', 'approved') AND expires_at <= NOW() ORDER BY expires_at LIMIT 1000
-"#
+UPDATE user_login_challenges SET status = ?, maybe_failure_type = ?, maybe_failed_at = expires_at
+WHERE status IN (?, ?) AND expires_at <= NOW() ORDER BY expires_at LIMIT 1000
+"#,
+    UserLoginChallengeStatus::Failed.to_str(),
+    UserLoginChallengeFailureType::Expired.to_str(),
+    UserLoginChallengeStatus::Pending.to_str(),
+    UserLoginChallengeStatus::Approved.to_str()
   )
     .execute(args.mysql_executor)
     .await?;

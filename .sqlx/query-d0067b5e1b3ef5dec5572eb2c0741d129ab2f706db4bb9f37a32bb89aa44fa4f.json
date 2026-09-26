@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 4
+    }
+  },
+  "hash": "d0067b5e1b3ef5dec5572eb2c0741d129ab2f706db4bb9f37a32bb89aa44fa4f",
+  "query": "\nUPDATE user_login_challenges SET status = ?, maybe_failure_type = ?, maybe_failed_at = expires_at\nWHERE status IN (?, ?) AND expires_at <= NOW() ORDER BY expires_at LIMIT 1000\n"
+}

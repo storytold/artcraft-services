@@ -12,6 +12,8 @@ use actix_web::{test, web, App, HttpRequest};
 use artcraft_api_defs::users::login_challenges::*;
 use mysql_queries::queries::user_login_challenges::expire_abandoned_challenges::{expire_abandoned_challenges, ExpireAbandonedChallengesArgs};
 use mysql_queries::queries::user_login_challenges::lock_by_device::{lock_by_device, LockByDeviceArgs};
+use enums::by_table::user_login_challenges::user_login_challenge_failure_type::UserLoginChallengeFailureType;
+use enums::by_table::user_login_challenges::user_login_challenge_status::UserLoginChallengeStatus;
 use mysql_testing::fixtures::login_challenges as fixtures;
 use mysql_testing::fixtures::mcp_sessions::create_test_mcp_session;
 use mysql_testing::fixtures::users::{create_test_user, TestUser};
@@ -122,7 +124,7 @@ async fn approval_mints_once_and_cookie_authenticates_downstream() {
   let expired: LoginChallengeResponse = test::read_body_json(post(&app, &h, "poll", json!({"device_token": created.device_token}), false).await).await;
   assert_eq!(expired.maybe_failure_type, Some(LoginChallengeFailure::Expired));
   assert!(expired.maybe_signed_session.is_none());
-  assert_eq!(fixtures::audit(&h.db.pool, &hash).await.status, "redeemed");
+  assert_eq!(fixtures::audit(&h.db.pool, &hash).await.status, UserLoginChallengeStatus::Redeemed);
   assert_eq!(test::call_service(&app, test::TestRequest::get().uri("/protected").cookie(cookie).to_request()).await.status(), StatusCode::OK);
   h.db.destroy().await;
 }
@@ -156,7 +158,7 @@ async fn decline_expiry_and_invalid_consent_never_mint_sessions() {
   let audit = fixtures::audit(&h.db.pool, &hash).await;
   assert_eq!(audit.creation_ip, h.ip);
   assert_eq!(audit.failure_ip.as_deref(), Some(BROWSER_IP));
-  assert_eq!(audit.failure.as_deref(), Some("user_declined"));
+  assert_eq!(audit.failure, Some(UserLoginChallengeFailureType::UserDeclined));
   assert!(audit.session_id.is_none());
 
   for approve_first in [false, true] {
@@ -170,7 +172,7 @@ async fn decline_expiry_and_invalid_consent_never_mint_sessions() {
     assert_eq!(result.maybe_failure_type, Some(LoginChallengeFailure::Expired));
     assert!(result.maybe_signed_session.is_none());
     let audit = fixtures::audit(&h.db.pool, &hash).await;
-    assert_eq!(audit.status, "failed");
+    assert_eq!(audit.status, UserLoginChallengeStatus::Failed);
     assert!(audit.failure_ip.is_none());
   }
   assert_eq!(fixtures::bridge_session_count(&h.db.pool).await, 0);
@@ -260,7 +262,7 @@ async fn competing_decisions_are_immutable_and_abandoned_requests_expire() {
       mysql_executor: &h.db.pool,
     }).await.unwrap(), 1);
     let audit = fixtures::audit(&h.db.pool, &hash).await;
-    assert_eq!(audit.failure.as_deref(), Some("expired"));
+    assert_eq!(audit.failure, Some(UserLoginChallengeFailureType::Expired));
     assert!(audit.failure_ip.is_none());
     assert!(audit.session_id.is_none());
   }
@@ -289,7 +291,7 @@ async fn impersonated_expired_and_revoked_browser_sessions_cannot_approve() {
     assert_eq!(test::call_service(&app, request).await.status(), StatusCode::UNAUTHORIZED, "{mode}");
   }
   let hash = security::secret_hash(&created.device_token).unwrap();
-  assert_eq!(fixtures::audit(&h.db.pool, &hash).await.status, "pending");
+  assert_eq!(fixtures::audit(&h.db.pool, &hash).await.status, UserLoginChallengeStatus::Pending);
   assert_eq!(fixtures::bridge_session_count(&h.db.pool).await, 0);
   h.db.destroy().await;
 }

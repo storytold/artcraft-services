@@ -28,7 +28,8 @@ CREATE TABLE user_login_challenges (
   -- UserLoginChallengeStatus: pending, approved, redeemed, failed.
   -- Only pending may be approved/declined. Only approved may mint a session.
   -- Expiry is checked independently of status on EVERY approval/redemption request.
-  status VARCHAR(16) NOT NULL DEFAULT 'pending',
+  -- Application inserts explicitly bind UserLoginChallengeStatus::Pending.
+  status VARCHAR(16) NOT NULL,
 
   -- The authenticated web user who approved OR declined. NULL until a decision.
   -- On approval this becomes the immutable owner of the session to be minted.
