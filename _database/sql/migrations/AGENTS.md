@@ -33,6 +33,7 @@ These are created with the `diesel` tool, and in particular:
 
 ## Rules
 
+- Keep documentation in this directory as regular files, not symlinks. Diesel can treat a documentation symlink as a migration directory and reject the entire migration list.
 - Every `up.sql` must have a corresponding `down.sql` that cleanly reverses the migration.
 - For `CREATE TABLE` migrations, the `down.sql` is typically `DROP TABLE IF EXISTS table_name;`.
 - For `ALTER TABLE` migrations, the `down.sql` reverses the alteration (e.g. `DROP COLUMN`).

@@ -14,7 +14,7 @@ import {
 import Seo from "../../components/seo";
 import { refreshSession } from "../../lib/session";
 import { hasActiveSubscription } from "../../lib/billing";
-import { LOGIN_BRIDGE_PATH, safeAuthReturnPath } from "../../lib/login-bridge-context";
+import { authContinuationUrl, LOGIN_BRIDGE_PATH, safeAuthReturnPath } from "../../lib/login-bridge-context";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -111,7 +111,7 @@ const Login = () => {
                 Password
               </label>
               <Link
-                to="/forgot-password"
+                to={authContinuationUrl("/forgot-password", fromParam)}
                 className="text-xs text-primary hover:text-primary-400 transition-colors"
               >
                 Forgot password?
@@ -170,7 +170,7 @@ const Login = () => {
           <AuthFooter>
             Don't have an account?{" "}
             <Link
-              to="/signup"
+              to={authContinuationUrl("/signup", fromParam)}
               className="font-semibold text-primary transition-colors hover:text-primary-400"
             >
               Sign up

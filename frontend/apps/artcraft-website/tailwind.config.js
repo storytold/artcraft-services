@@ -10,6 +10,7 @@ module.exports = {
       "{src,pages,components,app}/**/*!(*.stories|*.spec).{ts,tsx,html}",
     ),
     ...createGlobPatternsForDependencies(__dirname),
+    join(__dirname, "../../libs/login/src/**/*.{ts,tsx}"),
     "./app/index.html",
     "./app/src/**/*.{js,jsx,ts,tsx}",
     "./app/src/*.{js,jsx,ts,tsx}",

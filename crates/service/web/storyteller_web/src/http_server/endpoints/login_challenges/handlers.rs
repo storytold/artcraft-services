@@ -14,6 +14,7 @@ use super::security::{new_confirmation_code, new_secret, rate_limit, request_ip,
 
 const VERIFICATION_PAGE: &str = "https://app.getartcraft.com/login/desktop";
 
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
   cfg.service(web::scope("/v1/login_challenges").wrap(DefaultHeaders::new().add(("Cache-Control", "no-store")).add(("Referrer-Policy", "no-referrer"))).app_data(web::JsonConfig::default().limit(1024)).route("/create", web::post().to(create)).route("/review", web::post().to(review)).route("/decide", web::post().to(decide)).route("/poll", web::post().to(poll)));
 }
@@ -36,7 +37,7 @@ pub async fn create(request: HttpRequest, _body: web::Json<CreateLoginChallengeR
     success: true,
     device_token,
     // A fragment avoids sending the approval credential to the website's HTTP logs.
-    verification_url: format!("{VERIFICATION_PAGE}#approval_token={approval_token}"),
+    verification_url: format!("{}#approval_token={approval_token}", verification_page(&request)),
     confirmation_code: code,
     expires_at: challenge.expires_at,
     poll_interval_seconds: 5,
@@ -125,6 +126,15 @@ async fn approving_session(request: &HttpRequest, signer: &HttpUserSessionManage
   find_approving_session(&payload.session_token, conn).await?.ok_or(CommonWebError::NotAuthorized)
 }
 
+fn verification_page(request: &HttpRequest) -> &'static str {
+  let host = request.connection_info().host().to_owned();
+  if host.starts_with("localhost:") || host.starts_with("127.0.0.1:") {
+    "http://localhost:4201/login/desktop"
+  } else {
+    VERIFICATION_PAGE
+  }
+}
+
 fn outcome(challenge: &LoginChallenge, expired: bool) -> Result<LoginChallengeResponse, CommonWebError> {
   // Keep an explicit decline even when its deadline has since elapsed.
   let declined = challenge.maybe_failure_type.as_deref() == Some("user_declined");
@@ -147,4 +157,22 @@ fn outcome(challenge: &LoginChallenge, expired: bool) -> Result<LoginChallengeRe
     (status, failure)
   };
   Ok(LoginChallengeResponse { success: true, status, maybe_failure_type: failure, maybe_signed_session: None })
+}
+
+#[cfg(test)]
+mod website_origin_tests {
+  use super::verification_page;
+  use actix_web::test::TestRequest;
+
+  #[test]
+  fn local_challenges_point_at_the_local_approval_site() {
+    let request = TestRequest::default().insert_header(("Host", "localhost:12345")).to_http_request();
+    assert_eq!(verification_page(&request), "http://localhost:4201/login/desktop");
+  }
+
+  #[test]
+  fn production_challenges_point_at_the_production_approval_site() {
+    let request = TestRequest::default().insert_header(("Host", "api.storyteller.ai")).to_http_request();
+    assert_eq!(verification_page(&request), "https://app.getartcraft.com/login/desktop");
+  }
 }

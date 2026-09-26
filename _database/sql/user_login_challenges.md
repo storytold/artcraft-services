@@ -197,18 +197,23 @@ Production gateways can additionally enforce aggregate limits across replicas.
 A worker expires up to 1,000 abandoned challenges every 30 seconds. Audit retention
 is intentionally not an automatic purge policy in this change.
 
-The website route is `https://app.getartcraft.com/login/desktop`. The token is kept
+The production website route is `https://app.getartcraft.com/login/desktop`. Local
+API requests use `http://localhost:4201/login/desktop`; run that webapp with
+`USE_LOCAL_API=1` so approval reaches the same database. The token is kept
 in tab-scoped session storage through login, including Google login for accounts
 without a subscription. Returning to the page still requires explicit consent.
 The desktop displays the QR code, code comparison, countdown, and status. Opening
 the website invokes the native system browser. Network errors back off up to 30
-seconds; closing the dialog stops polling and ignores late UI results. An already
-in-flight HTTP response may still update the native HTTP cookie jar.
+seconds; closing the dialog stops polling and cancels the native handle. A response
+arriving after cancellation cannot install credentials.
 
 Successful polling returns the signed value and the normal `Set-Cookie` header.
-The Tauri command synchronizes the HTTP cookie jar with native credentials, scoped
-to the configured API origin, and the UI verifies the ordinary session endpoint
-before reporting success. No browser session is copied into the desktop.
+Tauri commands use the Rust `artcraft_client` bindings for creation, polling, and
+ordinary session verification, all against `AppEnvConfigs.storyteller_host`. Rust
+keeps the private device token and signed session out of IPC/JavaScript; the UI
+holds only a local handle and public display data. After verifying the downstream
+session, Rust installs and persists the cookie in the native HTTP jar and updates
+the credential manager. No browser session is copied into the desktop.
 
 ## Integration tests
 
@@ -250,13 +255,15 @@ Coverage:
 - Eight browser tests: API/consent interaction, code/IP display, decline, expiry,
   invalid requests, safe return URLs, login continuation, and Google sign-in
   continuation without subscription gating or bridge credentials in SSO requests.
-- Seven desktop UI tests: native browser invocation, QR/code values, polling,
-  successful credential synchronization and downstream session verification,
-  decline, timeout, network backoff, unmount, and unknown-state handling.
-- Three native tests: HTTP response cookie to native credentials, retry safety,
-  exclusion of unrelated/expired cookies, and local/production origin isolation.
+- Eight desktop UI tests: IPC-only transport (JavaScript HTTP is forbidden),
+  native browser invocation, QR/code values, polling, verified user results,
+  decline, timeout, network backoff, cancellation, and host/status diagnostics.
+- Ten native tests: real API bindings against ephemeral loopback HTTP servers,
+  downstream verification before cookie installation, persistence, retries,
+  rejection, timeout, cancellation during HTTP, unknown states, no redirects,
+  redacted errors, local/production origin isolation, and visitor-only telemetry.
 
-Frontend tests replace external HTTP and Google/native boundaries; they do not
+Frontend tests replace external Google/native boundaries; they do not
 perform a live Google OAuth exchange or drive a packaged Tauri GUI. Backend tests
 use real MySQL and the production cookie signer/session guard with Redis disabled.
 Existing session-cache TTL behavior is unchanged. SQL lookups now reject expired

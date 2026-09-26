@@ -59,7 +59,7 @@ pub fn require_approval_origin(request: &HttpRequest) -> Result<(), CommonWebErr
   // Local web development is permitted only when the API is also local.
   let host = request.connection_info().host().to_owned();
   let local_api = host.starts_with("localhost:") || host.starts_with("127.0.0.1:");
-  if local_api && ["http://localhost:4201", "http://127.0.0.1:4201"].contains(&origin) {
+  if local_api && ["http://localhost:4200", "http://127.0.0.1:4200", "http://localhost:4201", "http://127.0.0.1:4201"].contains(&origin) {
     return Ok(());
   }
   Err(CommonWebError::Forbidden)

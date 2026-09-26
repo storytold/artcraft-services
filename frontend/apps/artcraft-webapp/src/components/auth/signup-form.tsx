@@ -21,6 +21,8 @@ interface SignupFormProps {
   signupSource: string;
   className?: string;
   autoFocus?: boolean;
+  /** Let the enclosing flow resume after Google, without a billing redirect. */
+  continueAfterGoogleLogin?: boolean;
 }
 
 export const SignupForm = ({
@@ -28,6 +30,7 @@ export const SignupForm = ({
   signupSource,
   className = "",
   autoFocus = false,
+  continueAfterGoogleLogin = false,
 }: SignupFormProps) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -84,6 +87,10 @@ export const SignupForm = ({
   };
 
   const handleGoogleSuccess = async () => {
+    if (continueAfterGoogleLogin) {
+      onSuccess();
+      return;
+    }
     // Refresh the session and check the subscription in parallel; users without
     // an active subscription are pushed to pricing, subscribers go home.
     const [, subscribed] = await Promise.all([
