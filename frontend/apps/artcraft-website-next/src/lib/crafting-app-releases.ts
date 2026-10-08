@@ -197,7 +197,7 @@ const LATEST = craftRelease(CRAFTING_APPS_LATEST_VERSION);
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   photocraft: craftRelease("0.3.0", WITH_WINDOWS_ARM64),
-  vectorcraft: craftRelease("0.4.0", WITH_WINDOWS_ARM64),
+  vectorcraft: craftRelease("0.5.0", WITH_WINDOWS_ARM64),
   filmcraft: LATEST,
   lightcraft: LATEST,
   // 0.2.1 shipped before the PrintCraft → PdfCraft rename.
