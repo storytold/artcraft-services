@@ -3,16 +3,13 @@ import type { CraftAppSlug } from "./crafting-apps";
 // GitHub releases for the Crafting Apps, which drive every download button on
 // the /apps pages.
 //
-// To bump every app: change CRAFTING_APPS_LATEST_VERSION.
-// To pin one app to another version: give it its own release in
-// CRAFT_APP_RELEASES, e.g. `craftRelease("0.1.1")`.
+// To bump an app: change its version in CRAFT_APP_RELEASES (each app has its
+// own, e.g. `craftRelease("0.4.0")`).
 // To hide an app's downloads (Discord waitlist instead): set it to null.
 // If a release renames, adds or drops files, edit CRAFT_RELEASE_ASSETS, or
 // pass a custom list as craftRelease's second argument for a single app.
 //
 // Release tags are `v<version>` and live at github.com/storytold/<slug>.
-
-export const CRAFTING_APPS_LATEST_VERSION = "0.2.1";
 
 export type CraftDesktopPlatform = "macOS" | "Windows" | "Linux";
 
@@ -22,7 +19,7 @@ export const CRAFT_DESKTOP_PLATFORMS: CraftDesktopPlatform[] = ["macOS", "Window
 export type CraftReleaseAsset = {
   /** Asset filename; `{slug}` and `{version}` are filled in per app. */
   file: string;
-  /** Group in the full file list. "Other" holds the CLI, web build and checksums. */
+  /** Group in the full file list. "Other" holds the FreeBSD build, web build and checksums. */
   group: CraftDesktopPlatform | "Other";
   /** Short name, e.g. "Installer (x64)". */
   label: string;
@@ -95,12 +92,33 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     arch: "x86",
   },
   {
+    file: "{slug}-{version}-windows-arm64.msi",
+    group: "Windows",
+    label: "Installer (ARM64)",
+    description: "Windows 11 on ARM laptops.",
+    arch: "aarch64",
+  },
+  {
+    file: "{slug}-{version}-windows-arm64-portable.zip",
+    group: "Windows",
+    label: "Portable (ARM64)",
+    description: "Unzip and run on Windows on ARM.",
+    arch: "aarch64",
+  },
+  {
     file: "{slug}-{version}-linux-x86_64.AppImage",
     group: "Linux",
     label: "AppImage (x86_64)",
     description: "Any distro. Mark it executable and run.",
     arch: "x86_64",
     recommended: true,
+  },
+  {
+    file: "{slug}-{version}-linux-x86_64.flatpak",
+    group: "Linux",
+    label: "Flatpak (x86_64)",
+    description: "Sandboxed. Install with flatpak install --user.",
+    arch: "x86_64",
   },
   {
     file: "{slug}-{version}-linux-x86_64.deb",
@@ -132,6 +150,13 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     recommended: true,
   },
   {
+    file: "{slug}-{version}-linux-aarch64.flatpak",
+    group: "Linux",
+    label: "Flatpak (ARM64)",
+    description: "Sandboxed, on 64-bit ARM.",
+    arch: "aarch64",
+  },
+  {
     file: "{slug}-{version}-linux-aarch64.deb",
     group: "Linux",
     label: "Debian package (ARM64)",
@@ -151,6 +176,12 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     label: "Tarball (ARM64)",
     description: "Plain binaries for 64-bit ARM.",
     arch: "aarch64",
+  },
+  {
+    file: "{slug}-{version}-freebsd-x86_64.tar.gz",
+    group: "Other",
+    label: "FreeBSD (x86_64)",
+    description: "Plain binaries for FreeBSD 14.",
   },
   {
     file: "{slug}-web-{version}.zip",
@@ -173,35 +204,13 @@ export function craftRelease(
   return { version, assets };
 }
 
-// Windows on ARM builds, which only some apps' releases include so far.
-const WITH_WINDOWS_ARM64: readonly CraftReleaseAsset[] = [
-  ...CRAFT_RELEASE_ASSETS,
-  {
-    file: "{slug}-{version}-windows-arm64.msi",
-    group: "Windows",
-    label: "Installer (ARM64)",
-    description: "Windows 11 on ARM laptops.",
-    arch: "aarch64",
-  },
-  {
-    file: "{slug}-{version}-windows-arm64-portable.zip",
-    group: "Windows",
-    label: "Portable (ARM64)",
-    description: "Unzip and run on Windows on ARM.",
-    arch: "aarch64",
-  },
-];
-
-const LATEST = craftRelease(CRAFTING_APPS_LATEST_VERSION);
-
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
-  photocraft: craftRelease("0.3.0", WITH_WINDOWS_ARM64),
-  vectorcraft: craftRelease("0.5.0", WITH_WINDOWS_ARM64),
-  filmcraft: LATEST,
-  lightcraft: LATEST,
-  // 0.2.1 shipped before the PrintCraft → PdfCraft rename.
-  pdfcraft: { ...LATEST, fileSlug: "printcraft" },
-  effectcraft: craftRelease("0.4.0", WITH_WINDOWS_ARM64),
-  designcraft: LATEST,
+  photocraft: craftRelease("0.5.0"),
+  vectorcraft: craftRelease("0.6.0"),
+  filmcraft: craftRelease("0.4.0"),
+  lightcraft: craftRelease("0.4.0"),
+  pdfcraft: craftRelease("0.4.0"),
+  effectcraft: craftRelease("0.6.0"),
+  designcraft: craftRelease("0.4.0"),
 };
