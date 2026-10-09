@@ -207,7 +207,7 @@ export function craftRelease(
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   photocraft: craftRelease("0.5.0"),
-  vectorcraft: craftRelease("0.6.0"),
+  vectorcraft: craftRelease("0.7.0"),
   filmcraft: craftRelease("0.4.0"),
   lightcraft: craftRelease("0.4.0"),
   pdfcraft: craftRelease("0.4.0"),
