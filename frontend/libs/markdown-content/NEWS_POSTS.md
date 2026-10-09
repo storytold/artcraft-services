@@ -49,47 +49,22 @@ Welcome to the official **ArtCraft Blog**. This is where we'll be posting about:
 We have a lot of exciting things in the pipeline!
 ```
 
-## Building the News Feed
-
-The news posts are compiled into a `news.json` file that is served to the app.
-
-### Automatic Build (Dev Server)
-
-When you run the dev server, news posts are automatically compiled:
-
-```bash
-npx nx dev artcraft-website
-```
-
-### Manual Build
-
-To manually regenerate `news.json`:
-
-```bash
-cd frontend
-node scripts/generate-news-json.mjs
-```
-
-This will output the compiled JSON to:
-
-```
-frontend/apps/artcraft-website/public/news.json
-```
-
 ## How It Works
 
-1. The `generate-news-json.mjs` script reads all `.md` files from the news content directory
-2. It parses the frontmatter and body content
-3. It generates a sorted JSON array (newest first by date)
-4. The JSON is saved to the website's `public/` folder
-5. The app fetches this JSON to display the news feed
+Posts are bundled at build time by the `markdown-content` library
+(`getNewsPosts()`), which parses the frontmatter and sorts posts newest first.
+The in-app help menu shows this bundled copy.
+
+The public website (`apps/artcraft-website-next`) is a standalone Next.js app
+with its own copy of the posts in `src/content/news/`; add a post there too for
+it to appear at `getartcraft.com/news`.
 
 ## Tips
 
 - **Filename = Slug**: The filename (without `.md`) becomes the URL slug for the post
 - **Sorting**: Posts are automatically sorted by date, newest first
 - **Markdown Support**: Full markdown is supported including headers, lists, bold, italic, images, and code blocks
-- **Hot Reload**: After adding/editing a post, restart the dev server to see changes (or run the build script manually)
+- **Hot Reload**: After adding/editing a post, restart the dev server to see changes
 
 ## Embedding Videos
 

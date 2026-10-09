@@ -255,7 +255,6 @@ From the services repository:
 SQLX_OFFLINE=true cargo test --offline -p storyteller-web --bin storyteller-web login_challenges
 cd frontend
 npm exec vitest -- run --config apps/artcraft-webapp/vite.config.ts src/pages/login/desktop-login.spec.tsx src/pages/login/login-bridge-continuation.spec.tsx
-npm exec vitest -- run --config apps/artcraft-website/vite.config.ts src/pages/login/desktop-login.spec.tsx
 ```
 
 `SQLX_OFFLINE` controls compile-time query metadata only. These tests still execute

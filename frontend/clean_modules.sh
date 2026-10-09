@@ -3,7 +3,6 @@
 set -euxo pipefail
 
 echo "Removing Build directories..."
-rm -rf ./apps/artcraft-website/dist/
 rm -rf ./apps/editor2d/dist/
 rm -rf ./libs/api/dist/
 rm -rf ./libs/build-env/dist/

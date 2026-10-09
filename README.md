@@ -104,7 +104,7 @@ and signals for state, Three.js for 3D scenes, and shared UI and generation tool
 | Path                             | Purpose                                       |
 |----------------------------------|-----------------------------------------------|
 | `frontend/apps/artcraft-webapp`  | Browser application at `app.getartcraft.com`  |
-| `frontend/apps/artcraft-website` | Product website at `getartcraft.com`          |
+| `frontend/apps/artcraft-website-next` | Product website at `getartcraft.com` (Next.js) |
 | `frontend/libs/api`              | HTTP clients, API host selection, and models  |
 | `frontend/libs/omni-gen`         | Shared generation logic                       |
 | `frontend/libs/components`       | Reusable UI, editors, and generation controls |
@@ -190,14 +190,11 @@ The browser app runs at `http://localhost:4201`. `VITE_USE_LOCAL_API=true` selec
 the hosted API. API host selection lives in
 [`StorytellerApiHostStore`](./frontend/libs/api/src/lib/config/StorytellerApiHostStore.ts).
 
-From `frontend`, build the web app or run the product website with:
+From `frontend`, build the web app with `npx nx build artcraft-webapp`. The
+product website is a standalone Next.js app (not part of the Nx workspace); run it
+from the repository root with `./script/website/unix_frontend_website_dev.sh`.
 
-```bash
-npx nx build artcraft-webapp
-npx nx dev artcraft-website
-```
-
-The website runs at `http://localhost:4200`. Repository-root launchers are in
+The website runs at `http://localhost:3000`. Repository-root launchers are in
 [`script/website`](./script/website). For desktop development, use the
 [ArtCraft desktop repository](https://github.com/storytold/artcraft).
 

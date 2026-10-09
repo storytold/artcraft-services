@@ -34,7 +34,6 @@ artcraft-services/
 ├── frontend/
 │   ├── apps/artcraft-webapp/       # Browser application at app.getartcraft.com
 │   ├── apps/artcraft-website-next/ # Current public website at getartcraft.com (Next.js)
-│   ├── apps/artcraft-website/      # Legacy product website (Vite)
 │   ├── apps/artcraft-desktop-website/ # Static landing page at desktop.getartcraft.com (Vite)
 │   └── libs/                      # Shared React components and TypeScript libraries
 └── Cargo.toml                    # Rust workspace
@@ -42,9 +41,9 @@ artcraft-services/
 
 ## Updating Desktop Download Links
 
-Desktop release links are configured independently in **three places**. When
+Desktop release links are configured independently in **two places**. When
 updating the advertised ArtCraft release, update both `WINDOWS_VERSION` and
-`MAC_VERSION` in all three unless the request explicitly targets one platform or
+`MAC_VERSION` in both unless the request explicitly targets one platform or
 app:
 
 1. **Current public website (Next.js):**
@@ -52,11 +51,7 @@ app:
    This controls the installer links and visible version at
    `https://getartcraft.com/download`. Add the release to `DOWNLOAD_HISTORY`
    (newest first), then update both version selectors.
-2. **Legacy website (Vite):**
-   [frontend/apps/artcraft-website/src/config/github_download_links.ts](frontend/apps/artcraft-website/src/config/github_download_links.ts).
-   Add the release to `DOWNLOAD_HISTORY` and update both version selectors.
-   Updating only this file does **not** update the current public website.
-3. **Browser webapp:**
+2. **Browser webapp:**
    [frontend/apps/artcraft-webapp/src/config/github_download_links.ts](frontend/apps/artcraft-webapp/src/config/github_download_links.ts).
    Update both version constants; these links are used by the welcome and
    checkout-success pages at `app.getartcraft.com`.
@@ -65,7 +60,7 @@ Keep previous releases for rollback. The Next.js download page reads its visible
 version from `DOWNLOAD_VERSIONS`, which uses the same selectors as the URLs; do
 not hardcode a separate version in the page component.
 
-Check that all three configs produce the requested release tag and installer
+Check that both configs produce the requested release tag and installer
 filenames for Windows (`ArtCraft_<version>_x64-setup.exe`) and macOS
 (`ArtCraft_<version>_universal.dmg`). Run `npm run typecheck` from
 `frontend/apps/artcraft-website-next` after changing its config. Repository edits

@@ -5,7 +5,7 @@
 // Usage (artcraft Tauri):
 //   <Stage3D adapter={tauriAdapter} sceneToken={params.sceneToken} />
 //
-// Usage (artcraft-website):
+// Usage (artcraft-webapp):
 //   <Stage3D adapter={webAdapter} sceneToken={params.sceneToken} />
 
 import { useEffect } from "react";

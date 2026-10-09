@@ -3,7 +3,7 @@
 // inside an EngineProvider; consumes the active editor via context
 // and host plumbing via the adapter on `editor.adapter`.
 //
-// Lib-resident so artcraft Tauri and artcraft-website share the
+// Lib-resident so artcraft Tauri and artcraft-webapp share the
 // exact same 3D editor UX. Only the platform-specific PageSceneAdapter
 // implementation differs between hosts.
 

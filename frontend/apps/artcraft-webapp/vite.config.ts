@@ -4,8 +4,6 @@ import react from '@vitejs/plugin-react';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
-import { execSync } from 'child_process';
-import path from 'path';
 
 // Dev-only CDN proxy. Media assets (splats, GLBs, images) are fetched with
 // fetch(), but the CDNs only send CORS headers for the production origin —
@@ -71,21 +69,6 @@ function cdnProxyPlugin() {
   };
 }
 
-// Custom plugin to generate news.json on dev server start
-function generateNewsPlugin() {
-  return {
-    name: 'generate-news',
-    buildStart() {
-      try {
-        const scriptPath = path.resolve(__dirname, '../../scripts/generate-news-json.mjs');
-        execSync(`node "${scriptPath}"`, { stdio: 'inherit' });
-      } catch (e) {
-        console.warn('Failed to generate news.json:', e);
-      }
-    },
-  };
-}
-
 export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/artcraft-webapp',
@@ -110,7 +93,7 @@ export default defineConfig(() => ({
     port: 4301,
     host: 'localhost',
   },
-  plugins: [cdnProxyPlugin(), generateNewsPlugin(), nxViteTsPaths(), react(), wasm(), topLevelAwait()],
+  plugins: [cdnProxyPlugin(), nxViteTsPaths(), react(), wasm(), topLevelAwait()],
   // Uncomment this if you are using workers.
   // worker: {
   //  plugins: [ nxViteTsPaths() ],

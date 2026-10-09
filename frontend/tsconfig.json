@@ -43,9 +43,6 @@
       "path": "./libs/components/demo-modal"
     },
     {
-      "path": "./apps/artcraft-website"
-    },
-    {
       "path": "./apps/video-info-website"
     },
     {

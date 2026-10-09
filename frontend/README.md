@@ -31,7 +31,7 @@ From the **repository root**, the launcher scripts (these preflight your
 environment, install dependencies, and free the dev port first):
 
 ```bash
-./script/website/unix_frontend_website_dev.sh  # artcraft-website (marketing site), port 4200
+./script/website/unix_frontend_website_dev.sh  # artcraft-website-next (marketing site), port 3000
 ./script/website/unix_frontend_webapp_dev.sh   # artcraft-webapp (user dashboard), port 4201
 ```
 
@@ -46,14 +46,12 @@ by its full or relative path:
 Or directly from this directory:
 
 ```bash
-nx dev artcraft-website
 npx nx dev @frontend/artcraft-webapp
 ```
 
 ## Building
 
 ```bash
-npx nx build artcraft-website
 npx nx build artcraft-webapp
 ```
 

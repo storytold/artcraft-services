@@ -35,6 +35,6 @@ VITE_USE_LOCAL_API=true npx nx dev artcraft-webapp
 The web app runs at `http://localhost:4201`, using the local backend. To develop
 against the hosted API, omit `VITE_USE_LOCAL_API=true`.
 
-For the product website, run `npx nx dev artcraft-website` from `frontend`; it uses
-`http://localhost:4200`. Repository-root launchers live under [`script/website`](../script/website).
+For the product website, run `./script/website/unix_frontend_website_dev.sh` from the
+repository root; it is a standalone Next.js app on `http://localhost:3000`. Repository-root launchers live under [`script/website`](../script/website).
 See the [frontend README](../frontend/README.md) for builds and troubleshooting.
