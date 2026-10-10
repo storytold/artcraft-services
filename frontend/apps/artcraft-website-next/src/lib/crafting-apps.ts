@@ -27,7 +27,12 @@ export type CraftAppSlug =
   | "lightcraft"
   | "pdfcraft"
   | "effectcraft"
-  | "designcraft";
+  | "designcraft"
+  | "wordcraft"
+  | "soundcraft"
+  | "deckcraft"
+  | "cadcraft"
+  | "gridcraft";
 
 export type CraftPlatform = "macOS" | "Windows" | "Linux" | "Web";
 
@@ -535,9 +540,365 @@ export const CRAFTING_APPS: CraftApp[] = [
       },
     ],
   },
+  {
+    slug: "wordcraft",
+    prefix: "Word",
+    category: "Word processing",
+    status: "In development",
+    headline: ["A fast, open-source ", "word processor", ", rebuilt in pure Rust."],
+    pitch: "Fast, open-source word processing, rebuilt in pure Rust.",
+    lede: "The ribbon, styles, tables, track changes, references and mail merge in a native word processor that reads and writes .docx. Open source, offline, and fast.",
+    schemaCategory: "BusinessApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "The ribbon you know",
+        body: "Tabs, groups, shortcuts and the live Styles gallery. Enter continues a list, Tab demotes it, and formatting works as your hands expect.",
+      },
+      {
+        title: "Real document formats",
+        body: "Opens and saves .docx natively, imports and exports .odt, .rtf, .html, .md and .txt, and exports clean PDF with selectable text.",
+      },
+      {
+        title: "Instant layout",
+        body: "Paragraph layout is cached: typing in a 188-page document re-lays it out in about 1.4 ms, with pages rendered on demand.",
+      },
+      {
+        title: "Track changes & review",
+        body: "Comment balloons in the margin, accept and reject changes, document comparison, plus offline spelling and grammar as you type.",
+      },
+      {
+        title: "Academic & business references",
+        body: "Generate tables of contents, footnotes, citations and bibliographies in APA, MLA, Chicago and IEEE styles, indexes, and captions.",
+      },
+      {
+        title: "Agent-ready commands",
+        body: "389 discrete commands drive the ribbon, keyboard shortcuts, a command-line tool, a JSON control channel and an MCP server.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "hero.png",
+        caption: "The Open Studio Handbook — ribbon, styles and navigation",
+        alt: "WordCraft with the Home tab of the ribbon open over a two-page document titled The Open Studio Handbook, the Navigation pane on the left, and the Styles gallery showing live previews",
+      },
+      {
+        file: "review.webp",
+        source: "review.png",
+        caption: "Review and track changes",
+        alt: "WordCraft's Review tab with Track Changes on, inline insertions and deletions, and margin comment balloons",
+      },
+      {
+        file: "references.webp",
+        source: "references.png",
+        caption: "Table of contents and citations",
+        alt: "WordCraft's References tab showing a table of contents with dot leaders on page one and citations on page two",
+      },
+      {
+        file: "layout.webp",
+        source: "layout.png",
+        caption: "Drop caps and text wrap",
+        alt: "WordCraft layout tab showing a three-line drop cap, text wrapping around an object, and margin line numbers",
+      },
+      {
+        file: "dark.webp",
+        source: "dark.png",
+        caption: "Dark mode with formatting marks",
+        alt: "WordCraft in dark mode with the Insert tab open and formatting marks visible",
+      },
+    ],
+  },
+  {
+    slug: "soundcraft",
+    prefix: "Sound",
+    category: "Digital audio workstation",
+    status: "In development",
+    headline: ["Professional audio recording and ", "mixing", ", rebuilt in pure Rust."],
+    pitch: "Professional audio recording, editing and mixing in pure Rust.",
+    lede: "Dedicated Edit and Mix windows, multitrack audio and MIDI, ten inserts and sends per track, surround panning, and offline AudioSuite in a native DAW built from scratch.",
+    schemaCategory: "MultimediaApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "The studio workflow",
+        body: "Dedicated Edit and Mix windows, Shuffle, Slip, Spot and Grid modes, comping playlists, memory locations, and single-key Commands Focus shortcuts.",
+      },
+      {
+        title: "Full mixing console",
+        body: "Ten inserts and ten sends per track, busses, aux inputs, VCAs, routing folders, solo-in-place, and automatic plugin delay compensation.",
+      },
+      {
+        title: "Live automation",
+        body: "Write, Touch, Latch and Trim automation passes recorded live for volume, pan, mutes, sends and every plugin parameter.",
+      },
+      {
+        title: "Original plugins & CLAP support",
+        body: "Built-in EQ, dynamic processors, reverbs, delays, modulation, synthesisers, plus support for loading external CLAP plugins.",
+      },
+      {
+        title: "MIDI & notation",
+        body: "Piano-roll MIDI editor with velocity lane, step input, quantize, transposition, score notation editor, and Audio-to-MIDI pitch detection.",
+      },
+      {
+        title: "Surround & video sync",
+        body: "Surround panning up to 9.1.6, live speaker rendering, and a dedicated picture track with video playback synchronized to the playhead.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "edit.png",
+        caption: "Edit window — arranging and editing the demo session",
+        alt: "SoundCraft Edit window showing audio waveforms, MIDI tracks, rulers, markers and transport controls for a multi-track session",
+      },
+      {
+        file: "mix.webp",
+        source: "mix.png",
+        caption: "Mix console with inserts and sends",
+        alt: "SoundCraft Mix window with ten inserts and sends per track, pan knobs, faders, meters and an EQ plugin window",
+      },
+      {
+        file: "midi.webp",
+        source: "midi.png",
+        caption: "Piano-roll MIDI editor",
+        alt: "SoundCraft MIDI editor showing note velocity lanes and piano roll editing",
+      },
+      {
+        file: "automation.webp",
+        source: "automation.png",
+        caption: "Breakpoint automation and memory locations",
+        alt: "SoundCraft displaying volume automation curves on a track alongside the Memory Locations window",
+      },
+      {
+        file: "surround.webp",
+        source: "surround.png",
+        caption: "Immersive surround renderer",
+        alt: "SoundCraft Renderer window displaying a 7.1.4 surround speaker layout and spatial panners",
+      },
+    ],
+  },
+  {
+    slug: "deckcraft",
+    prefix: "Deck",
+    category: "Presentations & slide shows",
+    status: "In development",
+    headline: ["Fast, dynamic slide ", "presentations", ", in pure Rust."],
+    pitch: "Build and deliver dynamic slide presentations, in pure Rust.",
+    lede: "Slide masters, themes, 150+ vector shapes, transitions, animations and presenter view in a native app that opens and saves presentation files. No subscription, no cloud.",
+    schemaCategory: "BusinessApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "Master slides & themes",
+        body: "Slide masters and eleven layouts with inheriting placeholders, eight original themes with font and colour schemes, sections, and presenter notes.",
+      },
+      {
+        title: "Vector shapes & drawing",
+        body: "Over 150 preset shapes with adjustment handles, sticky connectors, curve booleans, gradient fills, and outline styling.",
+      },
+      {
+        title: "Transitions & animation",
+        body: "Slide transitions including Morph, entrance, emphasis, exit and motion-path animations, with by-paragraph builds.",
+      },
+      {
+        title: "Presenter view",
+        body: "Full-screen slide show delivery with speaker notes, upcoming slide previews, elapsed timers, rehearsal timings, and pen drawing.",
+      },
+      {
+        title: "Format compatibility",
+        body: "Open and save presentation files (.pptx), export vector PDF slides and handouts, and render slide images.",
+      },
+      {
+        title: "Automated with MCP",
+        body: "Over 200 commands scriptable from the CLI, a JSON control channel, and an MCP server for autonomous agents.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "editor.png",
+        caption: "Slide editor with process diagram",
+        alt: "DeckCraft slide editor showing the ribbon, slide thumbnails, notes panel, and a vector process diagram on the canvas",
+      },
+      {
+        file: "shape-format.webp",
+        source: "shape-format.png",
+        caption: "Shape formatting and geometry",
+        alt: "DeckCraft Shape Format tab with selection handles and alignment tools on an active shape",
+      },
+      {
+        file: "format-pane.webp",
+        source: "format-pane.png",
+        caption: "Format Shape pane and gradient stops",
+        alt: "DeckCraft Format Shape pane configuring gradient fill angles, stops and transparency",
+      },
+      {
+        file: "slide-sorter.webp",
+        source: "slide-sorter.png",
+        caption: "Slide Sorter view with transitions",
+        alt: "DeckCraft Slide Sorter showing all slides in the deck with assigned transition badges",
+      },
+      {
+        file: "dark-mode.webp",
+        source: "dark-mode.png",
+        caption: "Dark mode with chart slide",
+        alt: "DeckCraft dark mode editing a presentation slide featuring a native chart",
+      },
+    ],
+  },
+  {
+    slug: "cadcraft",
+    prefix: "CAD",
+    category: "Computer-aided design & drafting",
+    status: "In development",
+    headline: ["Computer-aided design and drafting, ", "reimagined", " in pure Rust."],
+    pitch: "Fast, open-source computer-aided design and drafting in pure Rust.",
+    lede: "The command line, object snaps, layers, dimensions, hatches, blocks and drawings you already know. Fast, native, and built for both people and AI agents.",
+    schemaCategory: "DesignApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "The drafting workflow",
+        body: "Type commands, click points, direct distance entry, object snaps, polar tracking, ortho, grips, and right-click-to-repeat.",
+      },
+      {
+        title: "Open drawing formats",
+        body: "Reads and writes DXF (ASCII and binary, R12–2018), opens DWG (R13–2018), and exports to PDF, SVG, and PNG.",
+      },
+      {
+        title: "Paper space & viewports",
+        body: "Layout sheets with floating viewports, per-viewport layer overrides, page setups, and scale-exact plotting.",
+      },
+      {
+        title: "Associative annotations",
+        body: "Linear, aligned, angular and radial dimensions that follow geometry, multileaders, tables, and custom drafting fonts.",
+      },
+      {
+        title: "Hatching & block libraries",
+        body: "Pick-point boundary hatching with islands, pattern fills, block definitions with attributes, and nested blocks.",
+      },
+      {
+        title: "Parametric constraints",
+        body: "Geometric and dimensional constraints with expression parameters that automatically re-solve as you edit.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "ui-apartment.png",
+        caption: "Apartment floor plan with hatching and dimensions",
+        alt: "CADCraft displaying an architectural floor plan with pick-point wall hatching, room schedules, dimensions and the command line",
+      },
+      {
+        file: "layout.webp",
+        source: "ui-layout.png",
+        caption: "Paper space layout with scaled viewport",
+        alt: "CADCraft paper space layout showing a title block sheet with an active scaled model viewport",
+      },
+      {
+        file: "bracket.webp",
+        source: "ui-bracket.png",
+        caption: "Mechanical part drawing with section hatch",
+        alt: "CADCraft drafting a mechanical mounting bracket with section lines, dimensions and title block",
+      },
+    ],
+  },
+  {
+    slug: "gridcraft",
+    prefix: "Grid",
+    category: "Spreadsheets & data analysis",
+    status: "In development",
+    headline: ["Fast, native spreadsheets, ", "rebuilt", " in pure Rust."],
+    pitch: "Fast, open-source spreadsheets and data analysis, rebuilt in pure Rust.",
+    lede: "Ribbon tabs, formula bar, 500+ calculation functions, dynamic arrays, PivotTables and charts in a native spreadsheet app that reads and writes .xlsx files.",
+    schemaCategory: "BusinessApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "The spreadsheet workflow",
+        body: "Formula bar, Name Box, sheet tabs, fill handle, colored cell references, conditional formatting, and familiar shortcuts.",
+      },
+      {
+        title: "Native XLSX compatibility",
+        body: "Styles, themes, formulas, dynamic arrays, tables, validation, comments, sparklines and PivotTables round-trip cleanly.",
+      },
+      {
+        title: "500+ calculation functions",
+        body: "Full dependency-graph calculation engine with dynamic arrays, spilling, LET, LAMBDA, MAP, REDUCE, and table references.",
+      },
+      {
+        title: "Charts & PivotTables",
+        body: "Seventeen chart types with customizable formatting, plus PivotTables with filters, field lists, layouts, and date grouping.",
+      },
+      {
+        title: "High-performance engine",
+        body: "Copy-on-write workbooks with instant undo snapshots, incremental recalculation, and a virtualised grid.",
+      },
+      {
+        title: "Agent-native automation",
+        body: "Every ribbon button, menu item, and formula can be driven by AI agents over an MCP server, CLI, or JSON control channel.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "hero-sales.png",
+        caption: "Quarterly sales dashboard with charts and sparklines",
+        alt: "GridCraft sales dashboard featuring a styled table with conditional formatting, sparklines, and column and pie charts",
+      },
+      {
+        file: "budget.webp",
+        source: "budget.png",
+        caption: "Household budget with conditional formatting",
+        alt: "GridCraft budget sheet showing accounting currency formats, color scales, and comparison bar charts",
+      },
+      {
+        file: "grades-formulas.webp",
+        source: "grades-formulas.png",
+        caption: "Formulas and function library",
+        alt: "GridCraft formula bar and Formulas ribbon tab calculating averages and letter grades",
+      },
+      {
+        file: "pivot.webp",
+        source: "pivot.png",
+        caption: "PivotTable and field list",
+        alt: "GridCraft PivotTable report summarizing data with the PivotTable Fields pane open on the right",
+      },
+      {
+        file: "format-chart.webp",
+        source: "format-chart.png",
+        caption: "Chart Design and Format Chart Area pane",
+        alt: "GridCraft configuring a column chart with the Format Chart Area pane and highlighted source range",
+      },
+    ],
+  },
 ];
 
-const COUNT_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+const COUNT_WORDS = [
+  "Zero",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+  "Twelve",
+  "Thirteen",
+  "Fourteen",
+  "Fifteen",
+  "Sixteen",
+];
 
 /** "Seven" — the family size as a capitalized word, for headlines. */
 export const CRAFTING_APPS_COUNT_WORD =

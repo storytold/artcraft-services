@@ -214,11 +214,16 @@ export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
 
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
-  photocraft: craftRelease("0.5.0"),
-  vectorcraft: craftRelease("0.7.0"),
-  filmcraft: craftRelease("0.4.0"),
-  lightcraft: craftRelease("0.4.0"),
-  pdfcraft: craftRelease("0.4.0"),
-  effectcraft: craftRelease("0.6.0"),
-  designcraft: craftRelease("0.4.0"),
+  photocraft: craftRelease("0.6.0"),
+  vectorcraft: craftRelease("0.8.0"),
+  filmcraft: craftRelease("0.5.0"),
+  lightcraft: craftRelease("0.5.0"),
+  pdfcraft: craftRelease("0.5.0"),
+  effectcraft: craftRelease("0.7.0"),
+  designcraft: craftRelease("0.5.0"),
+  wordcraft: craftRelease("0.4.0"),
+  soundcraft: craftRelease("0.4.0"),
+  deckcraft: craftRelease("0.4.0"),
+  cadcraft: craftRelease("0.4.0"),
+  gridcraft: craftRelease("0.4.0"),
 };
