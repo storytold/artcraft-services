@@ -324,6 +324,11 @@ html[data-ruler="on"]::-webkit-scrollbar {
 .app-pdfcraft { --app: #12a58a; --app-ink: #0a7563; }
 .app-effectcraft { --app: #e0368f; --app-ink: #b0206c; }
 .app-designcraft { --app: #7bb51c; --app-ink: #457008; }
+.app-wordcraft { --app: #4c6ef5; --app-ink: #253e99; }
+.app-soundcraft { --app: #14a9c4; --app-ink: #0b6f82; }
+.app-deckcraft { --app: #f26b1d; --app-ink: #ad4306; }
+.app-cadcraft { --app: #14a3c7; --app-ink: #09596d; }
+.app-gridcraft { --app: #1f9d55; --app-ink: #136938; }
 :root[data-theme="dark"] .app-photocraft { --app-ink: #7fb0ff; }
 :root[data-theme="dark"] .app-vectorcraft { --app-ink: #ff8a70; }
 :root[data-theme="dark"] .app-filmcraft { --app-ink: #b69cff; }
@@ -331,6 +336,11 @@ html[data-ruler="on"]::-webkit-scrollbar {
 :root[data-theme="dark"] .app-pdfcraft { --app-ink: #3fd6b8; }
 :root[data-theme="dark"] .app-effectcraft { --app-ink: #ff7ab8; }
 :root[data-theme="dark"] .app-designcraft { --app-ink: #a6e04a; }
+:root[data-theme="dark"] .app-wordcraft { --app-ink: #8da2fb; }
+:root[data-theme="dark"] .app-soundcraft { --app-ink: #52d1ea; }
+:root[data-theme="dark"] .app-deckcraft { --app-ink: #ff9657; }
+:root[data-theme="dark"] .app-cadcraft { --app-ink: #4cc7e6; }
+:root[data-theme="dark"] .app-gridcraft { --app-ink: #5ee089; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .app-photocraft { --app-ink: #7fb0ff; }
   :root:not([data-theme="light"]) .app-vectorcraft { --app-ink: #ff8a70; }
@@ -339,6 +349,11 @@ html[data-ruler="on"]::-webkit-scrollbar {
   :root:not([data-theme="light"]) .app-pdfcraft { --app-ink: #3fd6b8; }
   :root:not([data-theme="light"]) .app-effectcraft { --app-ink: #ff7ab8; }
   :root:not([data-theme="light"]) .app-designcraft { --app-ink: #a6e04a; }
+  :root:not([data-theme="light"]) .app-wordcraft { --app-ink: #8da2fb; }
+  :root:not([data-theme="light"]) .app-soundcraft { --app-ink: #52d1ea; }
+  :root:not([data-theme="light"]) .app-deckcraft { --app-ink: #ff9657; }
+  :root:not([data-theme="light"]) .app-cadcraft { --app-ink: #4cc7e6; }
+  :root:not([data-theme="light"]) .app-gridcraft { --app-ink: #5ee089; }
 }
 
 /* Plan cell: a color wash pooling under the index tab and fading into the

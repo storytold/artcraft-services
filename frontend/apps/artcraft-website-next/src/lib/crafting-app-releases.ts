@@ -221,4 +221,9 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   pdfcraft: craftRelease("0.4.0"),
   effectcraft: craftRelease("0.6.0"),
   designcraft: craftRelease("0.4.0"),
+  wordcraft: craftRelease("0.4.0"),
+  soundcraft: craftRelease("0.4.0"),
+  deckcraft: craftRelease("0.4.0"),
+  cadcraft: craftRelease("0.4.0"),
+  gridcraft: craftRelease("0.4.0"),
 };
