@@ -190,8 +190,10 @@ export function LauncherDownloadButton({
         <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
         Download Launcher
       </Button>
-      {/* Reserved line, so the layout doesn't shift when detection lands. */}
-      <span aria-hidden={!mine} className="hud-label min-h-4 text-faint">
+      {/* Reserved line, so the layout doesn't shift when detection lands. It
+          takes the button's width rather than setting it (w-0 min-w-full), so
+          a long platform line can't push the buttons beside it away. */}
+      <span aria-hidden={!mine} className="hud-label min-h-4 w-0 min-w-full whitespace-nowrap text-faint">
         {mine ? `For ${mine.group} · ${mine.label}` : "\u00a0"}
       </span>
     </span>
