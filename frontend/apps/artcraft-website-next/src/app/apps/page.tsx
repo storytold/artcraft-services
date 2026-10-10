@@ -10,10 +10,7 @@ import {
 } from "lucide-react";
 import AppCard from "@/components/apps/app-card";
 import { LauncherDownloadButton } from "@/components/apps/app-downloads";
-import {
-  LauncherShowcase,
-  craftLauncherRecommended,
-} from "@/components/apps/launcher-sections";
+import { craftLauncherRecommended } from "@/components/apps/launcher-callout";
 import ShareBar from "@/components/apps/share-bar";
 import {
   CampaignSection,
@@ -29,8 +26,9 @@ import RevealManager from "@/components/reveal-manager";
 import { Button } from "@/components/ui";
 import { trackAttrs } from "@/lib/analytics";
 import {
-  CRAFT_LAUNCHER_DOWNLOADS_ID,
   CRAFT_LAUNCHER_NAME,
+  CRAFT_LAUNCHER_REPO,
+  craftLauncherReleasePageUrl,
 } from "@/lib/craft-launcher";
 import {
   CRAFTING_APPS,
@@ -95,7 +93,7 @@ export default function CraftingAppsPage() {
           {launcherDownloads.length > 0 && (
             <LauncherDownloadButton
               recommended={launcherDownloads}
-              fallbackHref={`#${CRAFT_LAUNCHER_DOWNLOADS_ID}`}
+              fallbackHref={craftLauncherReleasePageUrl()}
             />
           )}
           <DiscordButton
@@ -118,12 +116,15 @@ export default function CraftingAppsPage() {
         {launcherDownloads.length > 0 && (
           <p data-reveal className="mt-4 max-w-xl leading-relaxed text-muted">
             <span className="text-ink">Recommended:</span> {CRAFT_LAUNCHER_NAME}{" "}
-            installs every app below and keeps them all up to date.{" "}
+            installs every app below and keeps them all up to date. Each app
+            also has its own installers on its page.{" "}
             <a
-              href="#launcher"
+              href={CRAFT_LAUNCHER_REPO}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-current"
             >
-              How it works
+              Learn more
             </a>
           </p>
         )}
@@ -157,11 +158,9 @@ export default function CraftingAppsPage() {
         </nav>
       </PageHeader>
 
-      <LauncherShowcase index="02" />
-
       <SectionShell id="lineup">
         <SectionEyebrow
-          index="03"
+          index="02"
           label="The lineup"
           annotation="Pick a craft to explore"
         />
@@ -190,7 +189,7 @@ export default function CraftingAppsPage() {
 
       <CampaignSection
         id="principles"
-        index="04"
+        index="03"
         label="Principles"
         annotation="Shared by every craft"
         title={

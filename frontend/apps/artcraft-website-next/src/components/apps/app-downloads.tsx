@@ -5,7 +5,6 @@ import {
   AppleIcon,
   ArrowDownIcon,
   ArrowDownToLineIcon,
-  ChevronDownIcon,
   SquareTerminalIcon,
 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
@@ -36,16 +35,9 @@ const PLATFORM_ICONS: Record<CraftDesktopPlatform, ReactNode> = {
 /**
  * One card per desktop platform: its recommended build as the main button,
  * then every other file for that platform. The visitor's platform is tagged
- * "Your system" and gets the solid button. `collapseOthers` folds the other
- * files into a disclosure, for pages where downloads aren't the main story.
+ * "Your system" and gets the solid button.
  */
-export function AppPlatformDownloads({
-  downloads,
-  collapseOthers = false,
-}: {
-  downloads: CraftDownload[];
-  collapseOthers?: boolean;
-}) {
+export function AppPlatformDownloads({ downloads }: { downloads: CraftDownload[] }) {
   const detected = useDetectedDesktop();
 
   return (
@@ -88,41 +80,23 @@ export function AppPlatformDownloads({
                 <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
                 Download for {platform}
               </Button>
-              {others.length > 0 &&
-                (collapseOthers ? (
-                  <details className="group/others mt-6">
-                    <summary className="hud-label flex cursor-pointer list-none items-center gap-1.5 text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
-                      Other {platform} downloads ({others.length})
-                      <ChevronDownIcon
-                        aria-hidden
-                        className="h-3.5 w-3.5 transition-transform group-open/others:rotate-180"
-                      />
-                    </summary>
-                    <OtherDownloads downloads={others} />
-                  </details>
-                ) : (
-                  <>
-                    <p className="hud-label mt-8 text-faint">Other {platform} downloads</p>
-                    <OtherDownloads downloads={others} />
-                  </>
-                ))}
+              {others.length > 0 && (
+                <>
+                  <p className="hud-label mt-8 text-faint">Other {platform} downloads</p>
+                  <ul className="mt-2 border-t border-line">
+                    {others.map((download) => (
+                      <li key={download.href} className="border-b border-line">
+                        <DownloadRow download={download} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           </article>
         );
       })}
     </div>
-  );
-}
-
-function OtherDownloads({ downloads }: { downloads: CraftDownload[] }) {
-  return (
-    <ul className="mt-2 border-t border-line">
-      {downloads.map((download) => (
-        <li key={download.href} className="border-b border-line">
-          <DownloadRow download={download} />
-        </li>
-      ))}
-    </ul>
   );
 }
 

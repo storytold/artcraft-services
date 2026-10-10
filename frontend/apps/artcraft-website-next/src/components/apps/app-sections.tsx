@@ -26,7 +26,7 @@ import {
 import AppCard from "./app-card";
 import { AppPlatformDownloads, DownloadRow } from "./app-downloads";
 import { ColorAccent } from "./app-wordmark";
-import { LauncherCallout } from "./launcher-sections";
+import { LauncherCallout } from "./launcher-callout";
 
 // Body sections of an /apps/<slug> page, in page order. Server components;
 // the client islands are the CopyButton and the OS-aware platform cards.
