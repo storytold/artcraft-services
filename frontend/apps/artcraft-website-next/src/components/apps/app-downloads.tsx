@@ -188,7 +188,7 @@ export function LauncherDownloadButton({
         className={fullWidth ? "w-full" : undefined}
       >
         <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
-        Download ArtCraft Launcher
+        Download Launcher
       </Button>
       {/* Reserved line, so the layout doesn't shift when detection lands. */}
       <span aria-hidden={!mine} className="hud-label min-h-4 text-faint">
