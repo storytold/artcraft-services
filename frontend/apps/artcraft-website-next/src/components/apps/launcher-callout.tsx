@@ -23,7 +23,7 @@ export function craftLauncherRecommended(): CraftDownload[] {
 }
 
 // Leads an app's Get-it section, above that app's own installers: the pitch
-// beside a sunken download panel, matching the release and build-from-source
+// beside its download panel, matching the release and build-from-source
 // cells below it. Renders nothing while the launcher has no release.
 export function LauncherCallout({ app }: { app: CraftApp }) {
   const recommended = craftLauncherRecommended();
@@ -57,7 +57,7 @@ export function LauncherCallout({ app }: { app: CraftApp }) {
           ))}
         </ul>
       </div>
-      <div className="flex flex-col justify-center bg-bg-sunken p-6 md:p-10">
+      <div className="flex flex-col justify-center bg-bg p-6 md:p-10">
         <p className="hud-label text-faint">
           {CRAFT_LAUNCHER_NAME} · v{CRAFT_LAUNCHER_RELEASE.version}
         </p>
