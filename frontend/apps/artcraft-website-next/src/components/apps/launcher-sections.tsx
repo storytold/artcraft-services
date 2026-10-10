@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AppWindowIcon,
+  ArrowDownIcon,
   ArrowUpRightIcon,
   CheckIcon,
   PackageCheckIcon,
@@ -22,19 +23,12 @@ import {
   craftLauncherReleasePageUrl,
 } from "@/lib/craft-launcher";
 import { CRAFT_LAUNCHER_RELEASE } from "@/lib/crafting-app-releases";
-import {
-  CRAFTING_APPS,
-  craftAppName,
-  craftAppRelease,
-  type CraftApp,
-  type CraftDownload,
-} from "@/lib/crafting-apps";
+import { craftAppName, type CraftApp, type CraftDownload } from "@/lib/crafting-apps";
 import { AppPlatformDownloads, LauncherDownloadButton } from "./app-downloads";
-import { AppIcon, ColorAccent, appThemeClass } from "./app-wordmark";
+import { ColorAccent } from "./app-wordmark";
 
 // ArtCraft Launcher on the Crafting Apps pages: the hub's launcher section
-// (pitch, a launcher window drawn from the real lineup, features and
-// per-platform downloads) and the "Recommended" callout that leads every
+// (pitch beside a download panel, features and per-platform downloads) and the "Recommended" callout that leads every
 // app's Get-it section. Server components; the download buttons are the
 // client islands.
 
@@ -45,6 +39,12 @@ const FEATURE_ICONS = [
   <AppWindowIcon key="open" aria-hidden className="h-5 w-5" />,
 ];
 
+const LAUNCHER_PLATFORMS = [
+  "macOS 11 or later · Apple silicon and Intel",
+  "Windows 10 and 11 · x64, ARM64 and 32-bit",
+  "Linux · x86_64 and ARM64",
+];
+
 const CALLOUT_POINTS = ["Every Crafting App", "One-click updates", "Verified downloads"];
 
 /** The launcher's main download per platform, for the OS-aware buttons. */
@@ -52,10 +52,11 @@ export function craftLauncherRecommended(): CraftDownload[] {
   return craftLauncherDownloads().filter((download) => download.recommended);
 }
 
-// /apps hub, directly under the header: why the launcher, what it looks
-// like, then every platform's installer.
+// /apps hub, directly under the header: why the launcher beside its
+// download, then every platform's installer.
 export function LauncherShowcase({ index }: { index: string }) {
   const downloads = craftLauncherDownloads();
+  const recommended = downloads.filter((download) => download.recommended);
   return (
     <SectionShell id="launcher">
       <SectionEyebrow
@@ -63,7 +64,7 @@ export function LauncherShowcase({ index }: { index: string }) {
         label={CRAFT_LAUNCHER_NAME}
         annotation="Recommended · One install for every app"
       />
-      <div className="grid gap-px bg-line lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div className="grid gap-px bg-line lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div data-reveal className="flex flex-col bg-bg p-6 md:p-10">
           <div className="flex items-center gap-4">
             <LauncherIcon className="h-14 w-14" />
@@ -91,14 +92,6 @@ export function LauncherShowcase({ index }: { index: string }) {
             installers on its page, and you can update each one on its own.
           </p>
           <div className="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-10">
-            {downloads.length > 0 && (
-              <a
-                href={`#${CRAFT_LAUNCHER_DOWNLOADS_ID}`}
-                className="hud-label flex w-fit items-center gap-1.5 text-muted hover:text-ink"
-              >
-                All platforms
-              </a>
-            )}
             <ExternalLink href={craftLauncherReleasePageUrl()}>Release notes</ExternalLink>
             <ExternalLink href={CRAFT_LAUNCHER_REPO}>
               <GitHubIcon className="h-3.5 w-3.5" />
@@ -106,11 +99,45 @@ export function LauncherShowcase({ index }: { index: string }) {
             </ExternalLink>
           </div>
         </div>
-        <div
-          data-reveal
-          className="flex items-center justify-center bg-bg-sunken px-4 py-10 sm:px-8 md:px-10 md:py-14"
-        >
-          <LauncherPreview />
+        <div data-reveal className="flex flex-col justify-center bg-bg-sunken p-6 md:p-10">
+          {recommended.length > 0 ? (
+            <>
+              <p className="hud-label text-(--app-ink,var(--accent-ink))">
+                Start here · Free
+              </p>
+              <LauncherDownloadButton
+                recommended={recommended}
+                fallbackHref={`#${CRAFT_LAUNCHER_DOWNLOADS_ID}`}
+                fullWidth
+                className="mt-5"
+              />
+              <ul className="mt-6 border-t border-line">
+                {LAUNCHER_PLATFORMS.map((platform) => (
+                  <li
+                    key={platform}
+                    className="flex items-center justify-between gap-4 border-b border-line py-3"
+                  >
+                    <span className="text-sm text-ink">{platform}</span>
+                    <CheckIcon aria-hidden className="h-4 w-4 text-(--app-ink,var(--accent-ink))" />
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={`#${CRAFT_LAUNCHER_DOWNLOADS_ID}`}
+                className="hud-label mt-6 flex w-fit items-center gap-1.5 text-muted hover:text-ink"
+              >
+                Every platform and file
+                <ArrowDownIcon aria-hidden className="h-3.5 w-3.5" />
+              </a>
+            </>
+          ) : (
+            <>
+              <p className="hud-label text-faint">Installers</p>
+              <p className="mt-4 font-display text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-ink-strong">
+                Coming <ColorAccent>soon</ColorAccent>.
+              </p>
+            </>
+          )}
         </div>
       </div>
       <TipGrid items={CRAFT_LAUNCHER_FEATURES} columns={3} icons={FEATURE_ICONS} />
@@ -187,110 +214,6 @@ export function LauncherIcon({ className }: { className?: string }) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/artcraft-icon.svg" alt="" className="h-[52%] w-[52%]" />
-    </span>
-  );
-}
-
-type PreviewState = "open" | "update" | "install";
-
-// Sample states for the illustration: a couple installed, one update ready.
-const PREVIEW_STATES: Partial<Record<CraftApp["slug"], PreviewState>> = {
-  photocraft: "open",
-  vectorcraft: "update",
-  lightcraft: "open",
-};
-
-// A launcher window drawn in markup from the real lineup and release
-// versions, so it stays current without a screenshot to re-capture.
-function LauncherPreview() {
-  const updates = Object.values(PREVIEW_STATES).filter((state) => state === "update").length;
-  return (
-    <div
-      role="img"
-      aria-label={`${CRAFT_LAUNCHER_NAME} listing every Crafting App with its version and an Open, Update or Install button`}
-      className="w-full max-w-xl border border-line-strong bg-bg shadow-[0_24px_60px_-24px_rgba(0,0,0,0.4)]"
-    >
-      <div className="flex items-center gap-3 border-b border-line px-4 py-2.5">
-        <span className="flex w-12 gap-1.5">
-          {[0, 1, 2].map((dot) => (
-            <span key={dot} className="h-2.5 w-2.5 rounded-full border border-line-strong" />
-          ))}
-        </span>
-        <span className="hud-label flex-1 text-center text-faint">{CRAFT_LAUNCHER_NAME}</span>
-        <span className="w-12" />
-      </div>
-      <div className="flex items-center justify-between gap-4 border-b border-line px-4 py-3">
-        <span className="flex items-center gap-2.5">
-          <LauncherIcon className="h-7 w-7 shadow-none" />
-          <span className="text-sm font-medium text-ink-strong">Crafting Apps</span>
-        </span>
-        <span className="hud-label text-faint">
-          {CRAFTING_APPS.length} apps · {updates} update{updates === 1 ? "" : "s"}
-        </span>
-      </div>
-      <ul>
-        {CRAFTING_APPS.map((app) => (
-          <PreviewRow key={app.slug} app={app} state={PREVIEW_STATES[app.slug] ?? "install"} />
-        ))}
-      </ul>
-      <div className="flex items-center justify-between gap-4 border-t border-line px-4 py-2.5">
-        <span className="hud-label text-faint">Checked just now</span>
-        <span className="hud-label text-faint">SHA-256 verified</span>
-      </div>
-    </div>
-  );
-}
-
-function PreviewRow({ app, state }: { app: CraftApp; state: PreviewState }) {
-  const release = craftAppRelease(app);
-  const detail = {
-    open: "Installed · Up to date",
-    update: "Update available",
-    install: app.category,
-  }[state];
-  return (
-    <li
-      className={twMerge(
-        "flex items-center gap-3 border-b border-line px-4 py-2 last:border-b-0",
-        appThemeClass(app),
-      )}
-    >
-      <AppIcon app={app} className="h-8 w-8 drop-shadow-none sm:h-9 sm:w-9" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-ink-strong">
-          {craftAppName(app)}
-        </span>
-        <span
-          className={twMerge(
-            "block truncate text-xs",
-            state === "update" ? "text-(--app-ink)" : "text-muted",
-          )}
-        >
-          {detail}
-        </span>
-      </span>
-      {release && (
-        <span className="hud-label hidden text-faint sm:block">v{release.version}</span>
-      )}
-      <PreviewAction state={state} />
-    </li>
-  );
-}
-
-function PreviewAction({ state }: { state: PreviewState }) {
-  const classes = {
-    open: "border border-line-strong text-ink",
-    update: "bg-(--app) text-black",
-    install: "bg-invert-bg text-invert-fg",
-  }[state];
-  return (
-    <span
-      className={twMerge(
-        "w-18 shrink-0 py-1 text-center font-mono text-[10px] font-bold uppercase tracking-[0.12em]",
-        classes,
-      )}
-    >
-      {state}
     </span>
   );
 }

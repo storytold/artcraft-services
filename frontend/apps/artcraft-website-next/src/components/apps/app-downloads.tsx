@@ -180,19 +180,26 @@ export function LauncherDownloadButton({
   fallbackHref,
   size = "lg",
   variant = "primary",
+  fullWidth = false,
   className,
 }: {
   recommended: CraftDownload[];
   fallbackHref: string;
   size?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
+  fullWidth?: boolean;
   className?: string;
 }) {
   const detected = useDetectedDesktop();
   const mine = detected && pickDownload(recommended, detected);
   return (
     <span className={twMerge("flex flex-col gap-2", className)}>
-      <Button href={mine ? mine.href : fallbackHref} size={size} variant={variant}>
+      <Button
+        href={mine ? mine.href : fallbackHref}
+        size={size}
+        variant={variant}
+        className={fullWidth ? "w-full" : undefined}
+      >
         <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
         Download ArtCraft Launcher
       </Button>
