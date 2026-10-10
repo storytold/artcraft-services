@@ -73,7 +73,7 @@ struct RoundResult {
   rate_limited: Option<Option<DateTime<Utc>>>,
 }
 
-async fn poll_round(client: &reqwest::Client, cache: &CraftAppsReleaseCache, config: &CraftAppsPollConfig) -> RoundResult {
+async fn poll_round(client: &wreq::Client, cache: &CraftAppsReleaseCache, config: &CraftAppsPollConfig) -> RoundResult {
   let mut round = RoundResult::default();
   for (i, (key, _, repo)) in config.apps.iter().enumerate() {
     if i > 0 {

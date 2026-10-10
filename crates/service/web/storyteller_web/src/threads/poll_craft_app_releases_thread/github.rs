@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use reqwest::header::{ACCEPT, AUTHORIZATION, ETAG, IF_NONE_MATCH, RETRY_AFTER, USER_AGENT};
-use reqwest::StatusCode;
+use wreq::header::{ACCEPT, AUTHORIZATION, ETAG, IF_NONE_MATCH, RETRY_AFTER, USER_AGENT};
+use wreq::StatusCode;
 use serde_derive::Deserialize;
 
 use artcraft_api_defs::craft_apps::release_info::{
@@ -29,15 +29,15 @@ pub enum FetchOutcome {
   Failed(String),
 }
 
-pub fn build_client() -> reqwest::Result<reqwest::Client> {
-  reqwest::Client::builder()
+pub fn build_client() -> wreq::Result<wreq::Client> {
+  wreq::Client::builder()
       .connect_timeout(Duration::from_secs(10))
       .timeout(Duration::from_secs(30))
       .build()
 }
 
 /// `GET /repos/{repo}/releases/latest`, revalidated with `etag`.
-pub async fn fetch_latest_release(client: &reqwest::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> FetchOutcome {
+pub async fn fetch_latest_release(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> FetchOutcome {
   let url = format!("{API_BASE}/repos/{repo}/releases/latest");
   let mut request = client
       .get(&url)
