@@ -36,20 +36,10 @@ pub fn build_client() -> wreq::Result<wreq::Client> {
       .build()
 }
 
-/// `GET /repos/{repo}/releases/latest`, revalidated with `etag`.
+/// `GET /repos/{repo}/releases/latest`, revalidated with `etag`. `token` is optional: without
+/// one the request is unauthenticated.
 pub async fn fetch_latest_release(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> FetchOutcome {
-  let url = format!("{API_BASE}/repos/{repo}/releases/latest");
-  let mut request = client
-      .get(&url)
-      .header(USER_AGENT, "storyteller-web (craft apps release poller)")
-      .header(ACCEPT, "application/vnd.github+json")
-      .header("X-GitHub-Api-Version", "2022-11-28");
-  if let Some(etag) = etag {
-    request = request.header(IF_NONE_MATCH, etag);
-  }
-  if let Some(token) = token {
-    request = request.header(AUTHORIZATION, format!("Bearer {token}"));
-  }
+  let request = build_request(client, repo, etag, token);
   let response = match request.send().await {
     Ok(r) => r,
     Err(err) => return FetchOutcome::Failed(format!("request failed: {err}")),
@@ -85,6 +75,24 @@ pub async fn fetch_latest_release(client: &wreq::Client, repo: &str, etag: Optio
     }
     other => FetchOutcome::Failed(format!("HTTP {other}")),
   }
+}
+
+/// The request for `repo`'s latest release. Sends `Authorization: Bearer` only for a non-blank
+/// token (an authenticated `304` doesn't count against the rate limit); never an empty header.
+fn build_request(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> wreq::RequestBuilder {
+  let url = format!("{API_BASE}/repos/{repo}/releases/latest");
+  let mut request = client
+      .get(&url)
+      .header(USER_AGENT, "storyteller-web (craft apps release poller)")
+      .header(ACCEPT, "application/vnd.github+json")
+      .header("X-GitHub-Api-Version", "2022-11-28");
+  if let Some(etag) = etag {
+    request = request.header(IF_NONE_MATCH, etag);
+  }
+  if let Some(token) = token.map(str::trim).filter(|t| !t.is_empty()) {
+    request = request.header(AUTHORIZATION, format!("Bearer {token}"));
+  }
+  request
 }
 
 /// The parts of GitHub's release object we use. Everything optional: GitHub's answer is input.
@@ -229,6 +237,25 @@ mod tests {
           "published_at":"2026-10-08T14:52:50Z","body":"Notes","unknown_field":[1,2,3],
           "assets":[{{"name":"photocraft-0.5.0-windows-x64.msi","size":7,"browser_download_url":"{download_url}","digest":"sha256:{HASH}"}}]}}"#
     )
+  }
+
+  #[test]
+  fn sends_the_token_as_a_bearer_header() {
+    let client = build_client().unwrap();
+    let request = build_request(&client, REPO, Some("\"etag\""), Some("ghp_x")).build().unwrap();
+    assert_eq!(request.headers().get(AUTHORIZATION).unwrap(), "Bearer ghp_x");
+    assert_eq!(request.headers().get(IF_NONE_MATCH).unwrap(), "\"etag\"");
+  }
+
+  #[test]
+  fn without_a_token_the_request_is_unauthenticated() {
+    let client = build_client().unwrap();
+    for token in [None, Some(""), Some("  ")] {
+      let request = build_request(&client, REPO, None, token).build().unwrap();
+      assert!(request.headers().get(AUTHORIZATION).is_none(), "{:?}", token);
+      assert!(request.headers().get(IF_NONE_MATCH).is_none());
+      assert_eq!(request.uri().to_string(), "https://api.github.com/repos/storytold/photocraft/releases/latest");
+    }
   }
 
   #[test]
