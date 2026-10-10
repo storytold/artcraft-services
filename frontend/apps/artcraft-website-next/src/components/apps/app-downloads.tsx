@@ -36,8 +36,8 @@ const PLATFORM_ICONS: Record<CraftDesktopPlatform, ReactNode> = {
  * One card per desktop platform: its recommended build as the main button,
  * then every other file for that platform. The visitor's platform is tagged
  * "Your system" and gets the solid button. These are the app's standalone
- * installers, so every card and button names the app (the launcher above
- * them installs the whole family).
+ * installers (the launcher above them installs the whole family), so each
+ * button says "Standalone for <platform>" and each file list names the app.
  */
 export function AppPlatformDownloads({
   name,
@@ -86,7 +86,7 @@ export function AppPlatformDownloads({
                 className="mt-6 w-full whitespace-normal text-center"
               >
                 <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
-                Download {name} for {platform}
+                Standalone for {platform}
               </Button>
               {others.length > 0 && (
                 <>
