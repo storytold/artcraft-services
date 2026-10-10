@@ -136,7 +136,10 @@ export function DownloadRow({ download, className }: { download: CraftDownload; 
   );
 }
 
-/** Hero CTA: a direct download once the OS is known, else a jump to #get-it. */
+/**
+ * The app's own hero CTA, used only while ArtCraft Launcher has no release: a
+ * direct download once the OS is known, else a jump to #get-it.
+ */
 export function AppHeroDownloadButton({
   recommended,
   name,

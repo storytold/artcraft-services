@@ -11,8 +11,8 @@ import { LauncherDownloadButton } from "./app-downloads";
 import { ColorAccent } from "./app-wordmark";
 
 // ArtCraft Launcher on the Crafting Apps pages: the "Recommended" callout
-// that leads every app's Get-it section. The /apps hub header uses
-// craftLauncherRecommended for its main download button. Server component;
+// that leads every app's Get-it section. The /apps hub header and every app
+// page's hero use craftLauncherRecommended for their main download button. Server component;
 // the download button is the client island.
 
 const CALLOUT_POINTS = ["Every Crafting App", "One-click updates", "Verified downloads"];

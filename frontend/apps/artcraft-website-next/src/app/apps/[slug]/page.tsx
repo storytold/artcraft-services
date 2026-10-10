@@ -8,7 +8,9 @@ import {
 import {
   AppHeroDownloadButton,
   AppHeroOtherDownloadsLink,
+  LauncherDownloadButton,
 } from "@/components/apps/app-downloads";
+import { craftLauncherRecommended } from "@/components/apps/launcher-callout";
 import {
   AppIcon,
   AppTab,
@@ -79,6 +81,10 @@ export default async function CraftAppPage({ params }: { params: Params }) {
 
   const name = craftAppName(app);
   const release = craftAppRelease(app);
+  // The hero's download is ArtCraft Launcher, which installs this app and keeps
+  // it updated; the app's own installers are in #get-it, under the launcher.
+  const launcherDownloads = craftLauncherRecommended();
+  const hasDownload = launcherDownloads.length > 0 || release !== null;
   const [hero] = app.shots;
   const [before, accent, after] = app.headline;
   const shareUrl = siteUrl(craftAppPath(app));
@@ -145,18 +151,22 @@ export default async function CraftAppPage({ params }: { params: Params }) {
         mediaTag="Screenshot"
       >
         <div className="flex flex-col items-center gap-6">
-          <div className="flex flex-wrap justify-center gap-3">
-            {release && (
-              <AppHeroDownloadButton
-                name={name}
-                recommended={craftReleaseDownloads(app, release).filter(
-                  (download) => download.recommended,
-                )}
-              />
+          <div className="flex flex-wrap items-start justify-center gap-3">
+            {launcherDownloads.length > 0 ? (
+              <LauncherDownloadButton recommended={launcherDownloads} fallbackHref="#get-it" />
+            ) : (
+              release && (
+                <AppHeroDownloadButton
+                  name={name}
+                  recommended={craftReleaseDownloads(app, release).filter(
+                    (download) => download.recommended,
+                  )}
+                />
+              )
             )}
             <DiscordButton
               size="lg"
-              variant={release ? "secondary" : "primary"}
+              variant={hasDownload ? "secondary" : "primary"}
             >
               Join the Discord
             </DiscordButton>
@@ -171,7 +181,7 @@ export default async function CraftAppPage({ params }: { params: Params }) {
               View on GitHub
             </Button>
           </div>
-          {release && <AppHeroOtherDownloadsLink />}
+          {hasDownload && <AppHeroOtherDownloadsLink />}
           <p className="hud-label text-faint">
             {app.platforms.join(" · ")} · Free and open source
           </p>
