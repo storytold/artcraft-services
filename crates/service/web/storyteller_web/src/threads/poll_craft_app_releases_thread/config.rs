@@ -15,8 +15,11 @@ use std::time::Duration;
 
 const MIN_INTERVAL_SECS: u64 = 300;
 
-/// The Craft Apps the launcher knows: (lowercase key, display name, GitHub repo). ArtCraft
-/// Launcher is included so it can check for its own updates.
+/// The Craft Apps the launcher knows: `(app key, display name, GitHub repo)`. The app key is
+/// the app's lowercase machine name; it keys `CraftAppsReleaseCache` and the endpoint's
+/// `release_info.apps`, and must match the app id ArtCraft Launcher uses. ArtCraft Launcher is
+/// included (key `artcraft-launcher`, repo `storytold/craft-launcher`) so it can check for its
+/// own updates.
 const DEFAULT_APPS: &[(&str, &str, &str)] = &[
   ("photocraft", "PhotoCraft", "storytold/photocraft"),
   ("vectorcraft", "VectorCraft", "storytold/vectorcraft"),
@@ -39,7 +42,7 @@ pub struct CraftAppsPollConfig {
   pub interval: Duration,
   pub max_backoff: Duration,
   pub github_token: Option<String>,
-  /// (lowercase key, display name, repo).
+  /// `(app key, display name, repo)`; see [`DEFAULT_APPS`].
   pub apps: Vec<(String, String, String)>,
 }
 
@@ -68,7 +71,8 @@ pub fn default_apps() -> Vec<(String, String, String)> {
   DEFAULT_APPS.iter().map(|(k, n, r)| (k.to_string(), n.to_string(), r.to_string())).collect()
 }
 
-/// Reads `key=Name=org/repo,…`. Malformed entries are skipped.
+/// Reads `key=Name=org/repo,…` (app key, display name, repo). Keys are lowercased. Malformed
+/// entries are skipped.
 fn parse_app_list(value: &str) -> Vec<(String, String, String)> {
   value
       .split(',')

@@ -31,7 +31,9 @@ pub struct GetCraftAppsReleaseInfoResponse {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
 pub struct CraftAppsReleaseInfo {
-  /// Keyed by the app's lowercase name (`photocraft`, `artcraft-launcher`).
+  /// Keyed by app key: the app's lowercase machine name, as used in its binaries, asset file
+  /// names and `ai.storyteller.<key>` bundle id (`photocraft`, `cadcraft`, `artcraft-launcher`).
+  /// Not the display name and not the repo name. Clients should ignore keys they don't know.
   pub apps: BTreeMap<String, CraftAppReleaseInfo>,
 
   /// When the least recently fetched app was fetched: every app's data is at least this fresh.
