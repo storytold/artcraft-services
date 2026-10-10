@@ -7,6 +7,7 @@ import { GitHubIcon } from "@/components/icons";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
 import { Badge, Button, CopyButton } from "@/components/ui";
 import { trackAttrs } from "@/lib/analytics";
+import { CRAFT_LAUNCHER_RELEASE } from "@/lib/crafting-app-releases";
 import {
   CRAFTING_APPS,
   craftAppBuildCommand,
@@ -25,6 +26,7 @@ import {
 import AppCard from "./app-card";
 import { AppPlatformDownloads, DownloadRow } from "./app-downloads";
 import { ColorAccent } from "./app-wordmark";
+import { LauncherCallout } from "./launcher-sections";
 
 // Body sections of an /apps/<slug> page, in page order. Server components;
 // the client islands are the CopyButton and the OS-aware platform cards.
@@ -98,7 +100,8 @@ export function AppGallery({ app, index }: { app: CraftApp; index: string }) {
   );
 }
 
-// Platform cards (your system first-class, every other build one click
+// ArtCraft Launcher first (installs and updates every app), then this app's
+// own platform cards (your system first-class, every other build one click
 // away) above release details and build-from-source. Versions and files come
 // from crafting-app-releases.ts; a null release there drops the cards and
 // shows the Discord waitlist instead.
@@ -118,9 +121,22 @@ export function AppGetIt({ app, index }: { app: CraftApp; index: string }) {
         annotation="Free · Open source"
       />
       {release && (
-        <div className="border-b border-line">
-          <AppPlatformDownloads downloads={downloads} />
-        </div>
+        <>
+          {CRAFT_LAUNCHER_RELEASE && (
+            <>
+              <LauncherCallout app={app} />
+              <div className="flex items-center justify-between gap-4 border-y border-line px-6 py-3 md:px-10">
+                <p className="hud-label text-muted">Or download {name} on its own</p>
+                <p className="hud-label hidden text-faint sm:block">
+                  Standalone installers · Update it on its own
+                </p>
+              </div>
+            </>
+          )}
+          <div className="border-b border-line">
+            <AppPlatformDownloads downloads={downloads} />
+          </div>
+        </>
       )}
       <div className="grid gap-px bg-line md:grid-cols-2">
         <div data-reveal className="flex flex-col bg-bg p-6 md:p-10">

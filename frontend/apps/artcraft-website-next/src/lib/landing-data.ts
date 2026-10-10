@@ -130,6 +130,7 @@ export const RULER_SECTIONS: RulerSection[] = [
   { id: "creator", label: "SPOTLIGHT" },
   { id: "overview", label: "OVERVIEW" },
   { id: "highlights", label: "HIGHLIGHTS" },
+  { id: "launcher", label: "LAUNCHER" },
   { id: "lineup", label: "LINEUP" },
   { id: "principles", label: "PRINCIPLES" },
   { id: "gallery", label: "SCREENSHOTS" },

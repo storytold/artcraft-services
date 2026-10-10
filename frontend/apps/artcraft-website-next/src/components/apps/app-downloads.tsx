@@ -5,11 +5,12 @@ import {
   AppleIcon,
   ArrowDownIcon,
   ArrowDownToLineIcon,
+  ChevronDownIcon,
   SquareTerminalIcon,
 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { WindowsIcon } from "@/components/icons";
-import { Button } from "@/components/ui";
+import { Button, type ButtonProps } from "@/components/ui";
 import {
   CRAFT_DESKTOP_PLATFORMS,
   type CraftDesktopPlatform,
@@ -35,9 +36,16 @@ const PLATFORM_ICONS: Record<CraftDesktopPlatform, ReactNode> = {
 /**
  * One card per desktop platform: its recommended build as the main button,
  * then every other file for that platform. The visitor's platform is tagged
- * "Your system" and gets the solid button.
+ * "Your system" and gets the solid button. `collapseOthers` folds the other
+ * files into a disclosure, for pages where downloads aren't the main story.
  */
-export function AppPlatformDownloads({ downloads }: { downloads: CraftDownload[] }) {
+export function AppPlatformDownloads({
+  downloads,
+  collapseOthers = false,
+}: {
+  downloads: CraftDownload[];
+  collapseOthers?: boolean;
+}) {
   const detected = useDetectedDesktop();
 
   return (
@@ -50,7 +58,7 @@ export function AppPlatformDownloads({ downloads }: { downloads: CraftDownload[]
         const others = files.filter((download) => download !== main);
 
         return (
-          <article key={platform} data-reveal className="flex flex-col bg-bg">
+          <article key={platform} data-reveal className="flex min-w-0 flex-col bg-bg">
             <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2.5 md:px-8">
               <p className="hud-label text-muted">
                 {isDetected ? (
@@ -80,23 +88,41 @@ export function AppPlatformDownloads({ downloads }: { downloads: CraftDownload[]
                 <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
                 Download for {platform}
               </Button>
-              {others.length > 0 && (
-                <>
-                  <p className="hud-label mt-8 text-faint">Other {platform} downloads</p>
-                  <ul className="mt-2 border-t border-line">
-                    {others.map((download) => (
-                      <li key={download.href} className="border-b border-line">
-                        <DownloadRow download={download} />
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
+              {others.length > 0 &&
+                (collapseOthers ? (
+                  <details className="group/others mt-6">
+                    <summary className="hud-label flex cursor-pointer list-none items-center gap-1.5 text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+                      Other {platform} downloads ({others.length})
+                      <ChevronDownIcon
+                        aria-hidden
+                        className="h-3.5 w-3.5 transition-transform group-open/others:rotate-180"
+                      />
+                    </summary>
+                    <OtherDownloads downloads={others} />
+                  </details>
+                ) : (
+                  <>
+                    <p className="hud-label mt-8 text-faint">Other {platform} downloads</p>
+                    <OtherDownloads downloads={others} />
+                  </>
+                ))}
             </div>
           </article>
         );
       })}
     </div>
+  );
+}
+
+function OtherDownloads({ downloads }: { downloads: CraftDownload[] }) {
+  return (
+    <ul className="mt-2 border-t border-line">
+      {downloads.map((download) => (
+        <li key={download.href} className="border-b border-line">
+          <DownloadRow download={download} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -141,6 +167,40 @@ export function AppHeroDownloadButton({
       <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
       {mine ? `Download for ${mine.group}` : `Download ${name}`}
     </Button>
+  );
+}
+
+/**
+ * ArtCraft Launcher's CTA: a direct download for the visitor's system once
+ * it is known (with the file's platform and build underneath), else a jump
+ * to `fallbackHref`, where every platform is listed.
+ */
+export function LauncherDownloadButton({
+  recommended,
+  fallbackHref,
+  size = "lg",
+  variant = "primary",
+  className,
+}: {
+  recommended: CraftDownload[];
+  fallbackHref: string;
+  size?: ButtonProps["size"];
+  variant?: ButtonProps["variant"];
+  className?: string;
+}) {
+  const detected = useDetectedDesktop();
+  const mine = detected && pickDownload(recommended, detected);
+  return (
+    <span className={twMerge("flex flex-col gap-2", className)}>
+      <Button href={mine ? mine.href : fallbackHref} size={size} variant={variant}>
+        <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
+        Download ArtCraft Launcher
+      </Button>
+      {/* Reserved line, so the layout doesn't shift when detection lands. */}
+      <span aria-hidden={!mine} className="hud-label min-h-4 text-faint">
+        {mine ? `For ${mine.group} · ${mine.label}` : "\u00a0"}
+      </span>
+    </span>
   );
 }
 

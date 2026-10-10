@@ -652,10 +652,19 @@ export function craftReleaseDownloads(
   app: CraftApp,
   release: CraftRelease,
 ): CraftDownload[] {
-  const base = `${craftAppRepo(app)}/releases/download/${craftReleaseTag(release)}`;
+  return releaseDownloads(craftAppRepo(app), app.slug, release);
+}
+
+/** Every file in a release of `repo`, in catalog order; `{slug}` defaults to `fileSlug`. */
+export function releaseDownloads(
+  repo: string,
+  fileSlug: string,
+  release: CraftRelease,
+): CraftDownload[] {
+  const base = `${repo}/releases/download/${craftReleaseTag(release)}`;
   return release.assets.map(({ file, ...asset }) => {
     const fileName = file
-      .replaceAll("{slug}", release.fileSlug ?? app.slug)
+      .replaceAll("{slug}", release.fileSlug ?? fileSlug)
       .replaceAll("{version}", release.version);
     return { ...asset, fileName, href: `${base}/${fileName}` };
   });
