@@ -1,0 +1,1 @@
+pub mod get_craft_apps_release_info_handler;

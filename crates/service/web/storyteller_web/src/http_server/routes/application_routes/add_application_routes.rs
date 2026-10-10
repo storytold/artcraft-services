@@ -3,6 +3,7 @@ use crate::http_server::routes::application_routes::api_keys_routes::add_api_key
 use crate::http_server::routes::application_routes::billing_fakeyou_routes::add_billing_fakeyou_routes;
 use crate::http_server::routes::application_routes::character_routes::add_character_routes;
 use crate::http_server::routes::application_routes::comments_routes::add_comments_routes;
+use crate::http_server::routes::application_routes::craft_apps_routes::add_craft_apps_routes;
 use crate::http_server::routes::application_routes::credits_routes::add_credits_routes;
 use crate::http_server::routes::application_routes::dev_routes::add_dev_routes;
 use crate::http_server::routes::application_routes::featured_item_routes::add_featured_item_routes;
@@ -76,6 +77,7 @@ where
   app = add_video_info_routes(app); // /v1/video_info/... (video provenance detection)
   app = add_analytics_routes(app); // /v1/analytics/...
   app = add_web_referrals_routes(app); // /v1/web_referrals/...
+  app = add_craft_apps_routes(app); // /v1/craft_apps/... (ArtCraft Launcher release info)
   app = add_dev_routes(app); // /v1/dev/... — dev-only error/response shape probes
 
   // User and user-adjacent routes

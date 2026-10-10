@@ -63,6 +63,7 @@ use crate::startup::setup_inference_providers::{
 use crate::startup::setup_pager::build_pager;
 use crate::startup::setup_static_feature_flags::setup_static_feature_flags;
 use crate::state::certs::google_sign_in_cert::GoogleSignInCert;
+use crate::state::craft_apps_release_cache::CraftAppsReleaseCache;
 use crate::state::memory_cache::model_token_to_info_cache::ModelTokenToInfoCache;
 use crate::state::server_state::{
   Dashboards, DataboxDashboards, DurableInMemoryCaches, EnvConfig, EphemeralInMemoryCaches,
@@ -702,6 +703,7 @@ pub(crate) fn build_test_server_state(pool: MySqlPool, media_cdn_override_url: S
     sort_key_crypto: WebSortKeyCrypto::new("test-sort-key"),
     opaque_cursors: WebOpaqueCursorEncoderV2::new("test-sort-key"),
     ip_ban_list: IpBanList::new(),
+    craft_apps_release_cache: CraftAppsReleaseCache::new(),
     cidr_ban_set: BannedCidrSet::new(),
     troll_bans: TrollBans {
       user_tokens: TrollUserBanList::new(),

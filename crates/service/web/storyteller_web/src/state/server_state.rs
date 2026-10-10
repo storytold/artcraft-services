@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::configs::app_startup::username_set::UsernameSet;
+use crate::state::craft_apps_release_cache::CraftAppsReleaseCache;
 use crate::configs::static_api_tokens::StaticApiTokenSet;
 use crate::http_server::deprecated_endpoints::categories::tts::list_fully_computed_assigned_tts_categories::list_fully_computed_assigned_tts_categories::ModelTokensByCategoryToken;
 use crate::http_server::endpoints::media_files::list::list_featured_media_files_handler::ListFeaturedMediaFilesQueryParams;
@@ -123,6 +124,9 @@ pub struct ServerState {
   pub internal_api_keys: HashSet<InternalApiKey>,
 
   pub caches: InMemoryCaches,
+
+  /// The latest Craft App releases, kept fresh by `poll_craft_app_releases_thread`.
+  pub craft_apps_release_cache: CraftAppsReleaseCache,
 
   pub google_sign_in_cert: GoogleSignInCert,
 

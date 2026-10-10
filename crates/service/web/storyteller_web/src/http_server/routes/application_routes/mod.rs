@@ -3,6 +3,7 @@ mod api_keys_routes;
 mod billing_fakeyou_routes;
 mod character_routes;
 mod comments_routes;
+mod craft_apps_routes;
 mod credits_routes;
 mod dev_routes;
 mod featured_item_routes;

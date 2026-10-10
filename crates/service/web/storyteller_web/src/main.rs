@@ -56,6 +56,8 @@ use crate::startup::setup_metrics::build_metrics;
 use crate::state::server_state::ServerState;
 use crate::threads::db_health_checker_thread::db_health_checker_thread::db_health_checker_thread;
 use crate::threads::expire_login_challenges::expire_login_challenges;
+use crate::threads::poll_craft_app_releases_thread::config::CraftAppsPollConfig;
+use crate::threads::poll_craft_app_releases_thread::poll_craft_app_releases;
 use crate::threads::poll_ip_banlist_thread::poll_ip_bans;
 use crate::threads::poll_model_token_info_thread::poll_model_token_info_thread;
 
@@ -148,6 +150,15 @@ async fn main() -> AnyhowResult<()> {
 
   tokio_runtime.spawn(async {
     poll_model_token_info_thread(model_token_info_cache_clone, mysql_pool_clone).await;
+  });
+
+  info!("Spawning craft app release polling thread.");
+
+  let craft_apps_release_cache_clone = server_state.craft_apps_release_cache.clone();
+  let craft_apps_poll_config = CraftAppsPollConfig::from_env();
+
+  tokio_runtime.spawn(async move {
+    poll_craft_app_releases(craft_apps_release_cache_clone, craft_apps_poll_config).await;
   });
 
   // ==================== Metrics worker ==================== //

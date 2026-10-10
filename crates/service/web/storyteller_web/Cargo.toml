@@ -132,6 +132,8 @@ language-tags = "0.3.2" # Parsing single tags richly
 # TODO/NB: This is just for Twitch, but we might need it later.
 # reqwest.workspace = true
 wreq.workspace = true
+# GitHub API polling for craft app releases (threads/poll_craft_app_releases_thread).
+reqwest.workspace = true
 
 # Email
 resend-rs = { version = "0.21.0", default-features = false, features = ["rustls-tls"] }

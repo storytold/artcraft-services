@@ -2,6 +2,7 @@ pub mod analytics;
 pub mod api_keys;
 pub mod characters;
 pub mod common;
+pub mod craft_apps;
 pub mod credits;
 pub mod folders;
 pub mod generate;

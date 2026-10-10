@@ -41,6 +41,7 @@ use crate::startup::setup_static_feature_flags::setup_static_feature_flags;
 use crate::startup::setup_stripe_artcraft::setup_stripe_artcraft;
 use crate::startup::setup_stripe_fakeyou::setup_stripe_fakeyou;
 use crate::state::certs::google_sign_in_cert::GoogleSignInCert;
+use crate::state::craft_apps_release_cache::CraftAppsReleaseCache;
 use crate::state::memory_cache::model_token_to_info_cache::ModelTokenToInfoCache;
 use crate::state::server_state::{
   DurableInMemoryCaches, EnvConfig, EphemeralInMemoryCaches,
@@ -259,6 +260,7 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
       }
     },
     ip_ban_list,
+    craft_apps_release_cache: CraftAppsReleaseCache::new(),
     cidr_ban_set,
     troll_bans: TrollBans {
       user_tokens: user_token_troll_bans,
