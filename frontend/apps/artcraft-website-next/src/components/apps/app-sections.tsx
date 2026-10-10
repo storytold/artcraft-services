@@ -125,12 +125,15 @@ export function AppGetIt({ app, index }: { app: CraftApp; index: string }) {
           {CRAFT_LAUNCHER_RELEASE && (
             <>
               <LauncherCallout app={app} />
-              <div className="flex items-center justify-between gap-4 border-y border-line px-6 py-3 md:px-10">
-                <p className="hud-label text-muted">
-                  Or get the standalone {name} download
-                </p>
-                <p className="hud-label hidden text-faint sm:block">
-                  Installs {name} only · Updates separately
+              <div data-reveal className="border-y border-line bg-bg p-6 md:p-10">
+                <p className="hud-label text-faint">Option 2 · Standalone</p>
+                <h3 className={CELL_HEADING_CLASSES}>
+                  Just {name}? Download it <ColorAccent>standalone</ColorAccent>.
+                </h3>
+                <p className="mt-4 max-w-xl leading-relaxed text-muted">
+                  These installers add {name} on its own, without the
+                  launcher. Come back here for new versions, or install the
+                  launcher later and it will find {name} and keep it updated.
                 </p>
               </div>
             </>

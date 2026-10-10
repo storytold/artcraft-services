@@ -37,7 +37,9 @@ export function LauncherCallout({ app }: { app: CraftApp }) {
       <div className="flex flex-col bg-bg p-6 md:p-10">
         <div className="flex items-center gap-3">
           <LauncherMark />
-          <p className="hud-label text-(--app-ink,var(--accent-ink))">Recommended</p>
+          <p className="hud-label text-(--app-ink,var(--accent-ink))">
+            Option 1 · Recommended
+          </p>
         </div>
         <h3 className="mt-6 font-display text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-ink-strong sm:text-4xl">
           Get {name} with the <ColorAccent>Launcher</ColorAccent>.

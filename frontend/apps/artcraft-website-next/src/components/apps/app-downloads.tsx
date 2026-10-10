@@ -62,11 +62,9 @@ export function AppPlatformDownloads({
             <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2.5 md:px-8">
               <p className="hud-label text-muted">
                 {isDetected ? (
-                  <span className="text-(--app-ink,var(--accent-ink))">
-                    Standalone · Your system
-                  </span>
+                  <span className="text-(--app-ink,var(--accent-ink))">Your system</span>
                 ) : (
-                  "Standalone"
+                  "Platform"
                 )}
               </p>
               <p className="hud-label text-faint">{String(i + 1).padStart(2, "0")}</p>
