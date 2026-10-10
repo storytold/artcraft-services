@@ -35,9 +35,17 @@ const PLATFORM_ICONS: Record<CraftDesktopPlatform, ReactNode> = {
 /**
  * One card per desktop platform: its recommended build as the main button,
  * then every other file for that platform. The visitor's platform is tagged
- * "Your system" and gets the solid button.
+ * "Your system" and gets the solid button. These are the app's standalone
+ * installers, so every card and button names the app (the launcher above
+ * them installs the whole family).
  */
-export function AppPlatformDownloads({ downloads }: { downloads: CraftDownload[] }) {
+export function AppPlatformDownloads({
+  name,
+  downloads,
+}: {
+  name: string;
+  downloads: CraftDownload[];
+}) {
   const detected = useDetectedDesktop();
 
   return (
@@ -54,9 +62,11 @@ export function AppPlatformDownloads({ downloads }: { downloads: CraftDownload[]
             <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2.5 md:px-8">
               <p className="hud-label text-muted">
                 {isDetected ? (
-                  <span className="text-(--app-ink,var(--accent-ink))">Your system</span>
+                  <span className="text-(--app-ink,var(--accent-ink))">
+                    Standalone · Your system
+                  </span>
                 ) : (
-                  "Platform"
+                  "Standalone"
                 )}
               </p>
               <p className="hud-label text-faint">{String(i + 1).padStart(2, "0")}</p>
@@ -75,14 +85,16 @@ export function AppPlatformDownloads({ downloads }: { downloads: CraftDownload[]
               <Button
                 href={main.href}
                 variant={isDetected ? "primary" : "secondary"}
-                className="mt-6 w-full"
+                className="mt-6 w-full whitespace-normal text-center"
               >
                 <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
-                Download for {platform}
+                Download {name} for {platform}
               </Button>
               {others.length > 0 && (
                 <>
-                  <p className="hud-label mt-8 text-faint">Other {platform} downloads</p>
+                  <p className="hud-label mt-8 text-faint">
+                    Other {name} files for {platform}
+                  </p>
                   <ul className="mt-2 border-t border-line">
                     {others.map((download) => (
                       <li key={download.href} className="border-b border-line">

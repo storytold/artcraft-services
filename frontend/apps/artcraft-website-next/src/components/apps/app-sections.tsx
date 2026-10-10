@@ -126,15 +126,17 @@ export function AppGetIt({ app, index }: { app: CraftApp; index: string }) {
             <>
               <LauncherCallout app={app} />
               <div className="flex items-center justify-between gap-4 border-y border-line px-6 py-3 md:px-10">
-                <p className="hud-label text-muted">Or download {name} on its own</p>
+                <p className="hud-label text-muted">
+                  Or get the standalone {name} download
+                </p>
                 <p className="hud-label hidden text-faint sm:block">
-                  Standalone installers · Update it on its own
+                  Installs {name} only · Updates separately
                 </p>
               </div>
             </>
           )}
           <div className="border-b border-line">
-            <AppPlatformDownloads downloads={downloads} />
+            <AppPlatformDownloads name={name} downloads={downloads} />
           </div>
         </>
       )}
