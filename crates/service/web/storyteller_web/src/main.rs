@@ -156,9 +156,11 @@ async fn main() -> AnyhowResult<()> {
 
   let craft_apps_release_cache_clone = server_state.craft_apps_release_cache.clone();
   let craft_apps_poll_config = CraftAppsPollConfig::from_env();
+  let redis_pool_clone = server_state.redis_pool.clone();
+  let hostname_clone = server_state.hostname.clone();
 
   tokio_runtime.spawn(async move {
-    poll_craft_app_releases(craft_apps_release_cache_clone, craft_apps_poll_config).await;
+    poll_craft_app_releases(craft_apps_release_cache_clone, craft_apps_poll_config, redis_pool_clone, hostname_clone).await;
   });
 
   // ==================== Metrics worker ==================== //
