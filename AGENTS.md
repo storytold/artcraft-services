@@ -84,6 +84,11 @@ report a local update as a deployed update.
 
 Organize for top-to-bottom reading. Important things first, details later.
 
+- **`mod.rs` holds module declarations only** (`pub mod foo;`, plus re-exports if needed). Never
+  put functions, structs, enums, constants, impls or tests in a `mod.rs`: give each its own file
+  in that directory (for example `threads/poll_foo_thread/poll_foo.rs`, declared from
+  `threads/poll_foo_thread/mod.rs`).
+
 - **Constants** at the top (after imports)
 - **Structs/enums** next; outer structs above inner sub-structs
 - **API types** in order: Request, Response, Error
