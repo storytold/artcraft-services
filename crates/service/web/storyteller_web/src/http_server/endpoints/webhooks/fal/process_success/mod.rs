@@ -9,3 +9,4 @@ mod process_model_mesh_payload;
 mod process_result_files_payload;
 mod process_video_payload;
 pub(in crate::http_server::endpoints::webhooks) mod resolve_file_metadata;
+mod resolve_mesh_file_metadata;

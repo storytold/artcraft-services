@@ -1,7 +1,7 @@
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::webhooks::fal::process_success::attach_cover_image::{attach_cover_image, AttachCoverImageArgs};
 use crate::http_server::endpoints::webhooks::fal::process_success::attach_prompt_imageref_cover::try_to_attach_prompt_imageref_cover;
-use crate::http_server::endpoints::webhooks::fal::process_success::resolve_file_metadata::resolve_file_metadata_with_file_name;
+use crate::http_server::endpoints::webhooks::fal::process_success::resolve_mesh_file_metadata::resolve_mesh_file_metadata;
 use crate::state::server_state::ServerState;
 use crate::util::http_download_url_to_bytes::http_download_url_to_bytes;
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
@@ -147,9 +147,9 @@ pub(crate) async fn upload_mesh_file(
         })?;
   }
 
-  // Resolve mime type: magic bytes first, fal content_type next, then the
-  // file name's extension as a last resort.
-  let metadata = resolve_file_metadata_with_file_name(&file_bytes, maybe_content_type, maybe_file_name)
+  // Resolve mesh metadata, including validated OBJ ZIP packages. Other files
+  // retain the magic bytes / fal content_type / file name fallback order.
+  let metadata = resolve_mesh_file_metadata(&file_bytes, maybe_content_type, maybe_file_name)
       .ok_or_else(|| {
         warn!(
           "Could not determine file type for mesh (bytes: {}, fal content_type: {:?}, file_name: {:?})",
@@ -166,14 +166,8 @@ pub(crate) async fn upload_mesh_file(
 
   info!("Mime type of mesh: {}, source: {:?}", mime_type, metadata.source);
 
-  let media_file_type = MediaFileType::try_from_mime_type(mime_type)
-      .ok_or_else(|| {
-        warn!("Unsupported media file type: {}", mime_type);
-        CommonWebError::server_error_with_message(
-          &format!("Unsupported media file type: {}", mime_type))
-      })?;
-
-  let extension_with_period = metadata.file_extension.extension_with_period();
+  let media_file_type = metadata.media_file_type;
+  let extension_with_period = metadata.extension_with_period;
 
   let file_size_bytes = file_bytes.len();
   let file_hash = sha256_hash_bytes(&file_bytes)
