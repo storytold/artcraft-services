@@ -181,19 +181,6 @@ export default function CraftingAppsPage() {
           {CRAFTING_APPS.map((app) => (
             <AppCard key={app.slug} app={app} index={craftAppIndex(app)} />
           ))}
-          <div data-reveal className="flex flex-col bg-bg p-6 md:p-8">
-            <p className="hud-label text-faint">Next up</p>
-            <h3 className="mt-4 font-display text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-ink-strong">
-              More crafts <ColorAccent>on the way</ColorAccent>.
-            </h3>
-            <p className="mt-3 leading-relaxed text-muted">
-              Tell us what to rebuild next, test early builds and follow
-              development with the team in the ArtCraft Discord.
-            </p>
-            <div className="mt-auto pt-8">
-              <DiscordButton />
-            </div>
-          </div>
         </div>
       </SectionShell>
 
