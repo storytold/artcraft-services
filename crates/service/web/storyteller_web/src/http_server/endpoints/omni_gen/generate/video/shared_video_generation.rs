@@ -379,6 +379,8 @@ server_state.maybe_media_cdn_override_url.as_deref(),
       info!("Inserting fal job with token: {:?}", pipeline_result.billing.apriori_job_token);
       let token = insert_fal_job(InsertFalJobArgs {
         external_job_id: external_id,
+        maybe_status_url: payload.maybe_status_url.as_deref(),
+        maybe_response_url: payload.maybe_response_url.as_deref(),
         shared: SharedJobArgs {
           apriori_job_token: &pipeline_result.billing.apriori_job_token,
           idempotency_token: &idempotency_token,

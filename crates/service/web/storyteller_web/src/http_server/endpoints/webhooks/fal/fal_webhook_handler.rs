@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
-use crate::http_server::endpoints::webhooks::fal::process_failure::handle_failed_fal_webhook::handle_failed_fal_webhook;
-use crate::http_server::endpoints::webhooks::fal::process_success::handle_successful_fal_webhook::handle_successful_fal_webhook;
+use crate::http_server::endpoints::webhooks::fal::process_fal_webhook_payload::process_fal_webhook_payload;
+use crate::http_server::endpoints::webhooks::fal::signature::check_fal_webhook_signature::check_fal_webhook_signature;
 use crate::state::server_state::ServerState;
 use actix_web::web::Bytes;
 use actix_web::web::Json;
 use actix_web::{web, HttpRequest};
-use fal_client::webhook_payload::hydrate_webhook_contents::hydrate_webhook_contents;
-use fal_client::webhook_payload::hydrated::hydrated_webhook_contents::HydratedWebhookContents;
 use fal_client::webhook_payload::parse_raw_webhook_payload::parse_raw_webhook_payload;
 use http_server_common::response::response_success_helpers::SimpleGenericJsonSuccess;
 use log::{error, info, warn};
@@ -17,12 +15,16 @@ use pager::notification::notification_urgency::NotificationUrgency;
 
 // =============== Handler ===============
 
-// TODO(bt, 2025-06-03): Handle webhook crypto authentication
 pub async fn fal_webhook_handler(
   http_request: HttpRequest,
   request_body_bytes: Bytes,
   server_state: web::Data<Arc<ServerState>>,
 ) -> Result<Json<SimpleGenericJsonSuccess>, CommonWebError> {
+
+  // Step 0: Check that FAL sent it (signed with one of FAL's published keys). What happens to
+  // a request that doesn't verify depends on FAL_WEBHOOK_SIGNATURE_MODE; see
+  // `check_fal_webhook_signature`.
+  check_fal_webhook_signature(&http_request, &request_body_bytes, &server_state.inference_providers.fal.webhook_signature).await?;
 
   // Step 1: Parse bytes into a UTF-8 string and log it.
   let raw_body = String::from_utf8(request_body_bytes.to_vec())
@@ -50,37 +52,8 @@ pub async fn fal_webhook_handler(
 
   info!("FAL webhook request_id: {} (status: {:?})", request_id, webhook_payload.status);
 
-  // Step 3: Hydrate the webhook contents.
-  let hydrated_contents = hydrate_webhook_contents(&webhook_payload);
-
-  // Step 3.5: Acquire a MySQL connection for the handlers.
-  let mut mysql_connection = server_state.mysql_pool.acquire().await?;
-
-  // Step 4 & 5: Branch on the inner payload type.
-  let result = match hydrated_contents {
-    HydratedWebhookContents::Success(success_data) => {
-      handle_successful_fal_webhook(&server_state, &mut mysql_connection, request_id, &success_data, &raw_body, &server_state.pager).await
-    }
-    HydratedWebhookContents::Error(error_data) => {
-      handle_failed_fal_webhook(
-        &server_state,
-        &mut mysql_connection,
-        request_id,
-        &error_data,
-        webhook_payload.error.as_deref(),
-        &raw_body,
-      ).await
-    }
-    HydratedWebhookContents::PayloadError(payload_error_data) => {
-      warn!(
-        "FAL webhook payload_error for request_id {}: {}",
-        request_id, payload_error_data.payload_error,
-      );
-      Err(CommonWebError::from_anyhow_error(
-        anyhow::anyhow!("FAL payload_error: {}", payload_error_data.payload_error)
-      ))
-    }
-  };
+  // Steps 3 to 5: Apply the result to its job (shared with the lost-webhook recovery thread).
+  let result = process_fal_webhook_payload(&server_state, &webhook_payload, &raw_body).await;
 
   if let Err(ref err) = result {
     if err.is_server_error() {
