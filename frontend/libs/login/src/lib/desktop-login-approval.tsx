@@ -85,7 +85,7 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
   if (!token) return <Status>Open a new login link or scan the QR code from ArtCraft.</Status>;
   if (!loggedIn) return <>{signIn}</>;
 
-  return <main className="flex min-h-svh items-center justify-center bg-[#101014] p-6 text-white">
+  return <main className="flex min-h-svh items-center justify-center bg-ui-panel p-6 text-white">
     <section className="w-full max-w-md border border-white/15 bg-white/5 p-6 sm:p-8">
       <Link to="/" className="text-sm text-white/60">ArtCraft</Link>
       <h1 className="mb-4 mt-6 text-3xl font-semibold">Log in to ArtCraft Desktop?</h1>
@@ -108,7 +108,7 @@ export function DesktopLoginApproval({ loggedIn, authChecked, signIn }: DesktopL
 }
 
 function Status({ children }: { children: ReactNode }) {
-  return <main className="flex min-h-svh items-center justify-center bg-[#101014] p-8 text-white" role="status">{children}</main>;
+  return <main className="flex min-h-svh items-center justify-center bg-ui-panel p-8 text-white" role="status">{children}</main>;
 }
 
 function completionMessage(result: LoginChallengeResult): string | null {

@@ -58,7 +58,7 @@ const Support = () => {
           </p>
         </header>
 
-        <ul className="divide-y divide-white/15 border border-white/15 overflow-hidden bg-[#101014]">
+        <ul className="divide-y divide-white/15 border border-white/15 overflow-hidden bg-ui-panel">
           {ROWS.map((row) => (
             <li key={row.title}>
               <SupportLink row={row} />

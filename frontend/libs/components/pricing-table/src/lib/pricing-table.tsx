@@ -141,8 +141,8 @@ const PricingTable = ({
     colorScheme: SubscriptionPlanDetails["colorScheme"],
   ) => {
     const baseClasses = unifiedTheme
-      ? "relative p-5 md:p-6 border flex flex-col transition-all duration-300"
-      : "relative p-6 md:p-8 border flex flex-col transition-all duration-300 backdrop-blur-md";
+      ? "st-keep-dark relative p-5 md:p-6 border flex flex-col transition-all duration-300"
+      : "st-keep-dark relative p-6 md:p-8 border flex flex-col transition-all duration-300 backdrop-blur-md";
 
     switch (colorScheme) {
       case "dark":
@@ -397,7 +397,7 @@ const PricingTable = ({
               className={twMerge(
                 getColorSchemeClasses(plan.colorScheme),
                 frame
-                  ? `relative z-10 border-2 h-full w-full shadow-2xl bg-[#101014] ${frame.border}`
+                  ? `relative z-10 border-2 h-full w-full shadow-2xl bg-ui-panel ${frame.border}`
                   : "",
                 isCurrent ? "ring-2 ring-white/50" : "",
               )}
@@ -528,8 +528,8 @@ const PricingTable = ({
           <div
             className={
               unifiedTheme
-                ? "relative p-5 md:p-6 border flex flex-col transition-all duration-300 bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
-                : "relative p-6 md:p-8 border flex flex-col transition-all duration-300 backdrop-blur-md bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
+                ? "st-keep-dark relative p-5 md:p-6 border flex flex-col transition-all duration-300 bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
+                : "st-keep-dark relative p-6 md:p-8 border flex flex-col transition-all duration-300 backdrop-blur-md bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
             }
           >
             <h3 className="text-xl md:text-2xl font-semibold mb-2 text-white">
@@ -564,8 +564,8 @@ const PricingTable = ({
         <div
           className={
             unifiedTheme
-              ? "mt-4 relative p-6 border flex flex-col md:flex-row md:items-center gap-4 md:gap-8 transition-all duration-300 bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
-              : "mt-4 relative p-6 border flex flex-col md:flex-row md:items-center gap-4 md:gap-8 transition-all duration-300 backdrop-blur-md bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
+              ? "st-keep-dark mt-4 relative p-6 border flex flex-col md:flex-row md:items-center gap-4 md:gap-8 transition-all duration-300 bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
+              : "st-keep-dark mt-4 relative p-6 border flex flex-col md:flex-row md:items-center gap-4 md:gap-8 transition-all duration-300 backdrop-blur-md bg-gradient-to-b from-[#0d1f4a]/90 via-[#183878]/60 to-[#2456b8]/15 border-[#3568c9]/40 hover:border-[#3568c9] hover:shadow-[0_0_30px_rgba(53,104,201,0.25)]"
           }
         >
           <div className="flex-shrink-0">
@@ -718,7 +718,7 @@ const ContactUsButton = ({
       {open && (
         <div
           className={twMerge(
-            "absolute top-full z-20 mt-2 overflow-hidden border border-white/15 bg-[#1b1b20] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]",
+            "st-keep-dark absolute top-full z-20 mt-2 overflow-hidden border border-white/15 bg-[#1b1b20] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]",
             menuClassName,
           )}
         >

@@ -163,7 +163,7 @@ export default function Referrals() {
             <div className="h-px w-10 bg-white/20" />
           </div>
 
-          <section className="bg-[#101014] border border-white/15 p-6 sm:p-8">
+          <section className="bg-ui-panel border border-white/15 p-6 sm:p-8">
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
                 <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 mb-2">
@@ -266,7 +266,7 @@ export default function Referrals() {
 
 function ProfileLinkPanel({ profileLink }: { profileLink: string }) {
   return (
-    <section className="bg-[#101014] border border-white/15 p-6 sm:p-8">
+    <section className="bg-ui-panel border border-white/15 p-6 sm:p-8">
       <div className="mb-4">
         <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60 mb-2">
           Option 1
