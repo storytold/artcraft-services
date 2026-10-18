@@ -28,6 +28,8 @@ const NAV_ITEMS: NavEntry[] = [
       { name: "News", href: "/news" },
       { name: "FAQ", href: "/faq" },
       { name: "Press Kit", href: "/press-kit" },
+      { name: "Mission", href: "/mission" },
+      { name: "Beta", href: "/beta" },
     ],
   },
   { name: "Download", href: "/download" },

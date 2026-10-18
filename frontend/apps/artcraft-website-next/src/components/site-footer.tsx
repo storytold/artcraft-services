@@ -31,6 +31,8 @@ const LINK_COLUMNS: {
       { name: "News", href: "/news" },
       { name: "FAQ", href: "/faq" },
       { name: "Press Kit", href: "/press-kit" },
+      { name: "Mission", href: "/mission" },
+      { name: "Beta", href: "/beta" },
       { name: "Support", href: "/support" },
     ],
   },
