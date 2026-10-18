@@ -36,6 +36,7 @@ use mysql_queries::queries::generic_inference::web::get_pending_inference_job_co
 use mysql_queries::queries::media_files::list::list_featured_media_files::FeaturedMediaFileListPage;
 use mysql_queries::queries::model_categories::list_categories_query_builder::CategoryList;
 use crate::http_server::web_utils::web_opaque_cursor_encoder_v2::WebOpaqueCursorEncoderV2;
+use metrics::collector::MetricsCollector;
 use pager::client::pager::Pager;
 use redis::Client;
 use redis_caching::redis_ttl_cache::RedisTtlCache;
@@ -135,6 +136,9 @@ pub struct ServerState {
   /// Embedded metrics dashboards for the admin dashboard, configured from
   /// optional env vars at startup.
   pub dashboards: Dashboards,
+
+  /// Datadog metrics collector (noop when metrics are disabled).
+  pub metrics: MetricsCollector,
 }
 
 #[derive(Clone)]
