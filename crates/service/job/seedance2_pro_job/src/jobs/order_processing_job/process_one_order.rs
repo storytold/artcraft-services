@@ -4,6 +4,7 @@ use errors::AnyhowResult;
 use kinovi_web_client::requests::poll_orders::poll_orders::{OrderMediaType, TaskStatus};
 
 use crate::job_dependencies::JobDependencies;
+use crate::jobs::order_processing_job::process_successful_audio_job::process_successful_audio_job;
 use crate::jobs::order_processing_job::process_failed_job::process_failed_job;
 use crate::jobs::order_processing_job::process_successful_image_job::process_successful_image_job;
 use crate::jobs::order_processing_job::process_successful_video_job::process_successful_video_job;
@@ -25,6 +26,7 @@ pub async fn process_one_order(
       // response shapes that pre-date the `mediaType` field) and `Some(Video)`
       // both fall to the video handler for back-compat.
       match &order.media_type {
+        Some(OrderMediaType::Audio) => process_successful_audio_job(deps, job, order).await,
         Some(OrderMediaType::Image) => process_successful_image_job(deps, job, order).await,
         Some(OrderMediaType::Video) | None => process_successful_video_job(deps, job, order).await,
         Some(OrderMediaType::Unknown(other)) => {
