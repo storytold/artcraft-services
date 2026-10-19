@@ -16,7 +16,7 @@ import { AppIcon, AppTab, AppWordmark, appThemeClass } from "./app-wordmark";
 // straddling the screenshot's bottom edge, wordmark, pitch, and (unless
 // compact) status/platform chips. The whole cell is the link; a hairline in
 // the app's color draws across the top on hover.
-export default function AppCard({
+export default async function AppCard({
   app,
   index,
   compact = false,
@@ -26,7 +26,7 @@ export default function AppCard({
   compact?: boolean;
 }) {
   const [hero] = app.shots;
-  const release = craftAppRelease(app);
+  const release = await craftAppRelease(app);
   return (
     <Link
       href={craftAppPath(app)}

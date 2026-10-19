@@ -47,6 +47,10 @@ type Params = Promise<{ slug: string }>;
 
 export const dynamicParams = false;
 
+// Downloads follow each app's latest GitHub release; regenerate hourly to pick
+// up new ones (CRAFT_RELEASE_REVALIDATE_SECONDS; route config must be a literal).
+export const revalidate = 3600;
+
 export function generateStaticParams() {
   return CRAFTING_APPS.map((app) => ({ slug: app.slug }));
 }
@@ -82,12 +86,12 @@ export default async function CraftAppPage({ params }: { params: Params }) {
   if (!app) notFound();
 
   const name = craftAppName(app);
-  const release = craftAppRelease(app);
+  const release = await craftAppRelease(app);
   // The hero's download is ArtCraft Launcher, which installs this app and keeps
   // it updated; the app's own installers are in #get-it, under the launcher.
   // An app with no release yet has nothing for the launcher to install.
-  const launcherDownloads = release ? craftLauncherRecommended() : [];
-  const allLauncherDownloads = craftLauncherDownloads();
+  const launcherDownloads = release ? await craftLauncherRecommended() : [];
+  const allLauncherDownloads = await craftLauncherDownloads();
   const hasDownload = release !== null;
   const [hero] = app.shots;
   const [before, accent, after] = app.headline;

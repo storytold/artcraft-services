@@ -72,9 +72,13 @@ const PRINCIPLE_ICONS = [
   <GlobeIcon key="web" aria-hidden className="h-5 w-5" />,
 ];
 
-export default function CraftingAppsPage() {
-  const launcherDownloads = craftLauncherRecommended();
-  const allLauncherDownloads = craftLauncherDownloads();
+// Downloads follow each app's latest GitHub release; regenerate hourly to pick
+// up new ones (CRAFT_RELEASE_REVALIDATE_SECONDS; route config must be a literal).
+export const revalidate = 3600;
+
+export default async function CraftingAppsPage() {
+  const launcherDownloads = await craftLauncherRecommended();
+  const allLauncherDownloads = await craftLauncherDownloads();
   return (
     <>
       <RevealManager />
@@ -126,7 +130,7 @@ export default function CraftingAppsPage() {
             <LauncherDownloadButton
               recommended={launcherDownloads}
               allDownloads={allLauncherDownloads}
-              fallbackHref={craftLauncherReleasePageUrl()}
+              fallbackHref={await craftLauncherReleasePageUrl()}
             />
           )}
           <DiscordButton

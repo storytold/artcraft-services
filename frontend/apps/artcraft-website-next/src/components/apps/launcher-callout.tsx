@@ -3,9 +3,9 @@ import {
   CRAFT_LAUNCHER_NAME,
   CRAFT_LAUNCHER_REPO,
   craftLauncherDownloads,
+  craftLauncherRelease,
   craftLauncherReleasePageUrl,
 } from "@/lib/craft-launcher";
-import { CRAFT_LAUNCHER_RELEASE } from "@/lib/crafting-app-releases";
 import { craftAppName, type CraftApp, type CraftDownload } from "@/lib/crafting-apps";
 import { LauncherDownloadButton } from "./app-downloads";
 import { ColorAccent } from "./app-wordmark";
@@ -18,16 +18,17 @@ import { ColorAccent } from "./app-wordmark";
 const CALLOUT_POINTS = ["Every Crafting App", "One-click updates", "Verified downloads"];
 
 /** The launcher's main download per platform, for the OS-aware buttons. */
-export function craftLauncherRecommended(): CraftDownload[] {
-  return craftLauncherDownloads().filter((download) => download.recommended);
+export async function craftLauncherRecommended(): Promise<CraftDownload[]> {
+  return (await craftLauncherDownloads()).filter((download) => download.recommended);
 }
 
 // Leads an app's Get-it section, above that app's own installers: the pitch
 // beside its download panel, matching the release and build-from-source
 // cells below it. Renders nothing while the launcher has no release.
-export function LauncherCallout({ app }: { app: CraftApp }) {
-  const recommended = craftLauncherRecommended();
-  if (!CRAFT_LAUNCHER_RELEASE || recommended.length === 0) return null;
+export async function LauncherCallout({ app }: { app: CraftApp }) {
+  const release = await craftLauncherRelease();
+  const recommended = await craftLauncherRecommended();
+  if (!release || recommended.length === 0) return null;
   const name = craftAppName(app);
   return (
     <div
@@ -61,12 +62,12 @@ export function LauncherCallout({ app }: { app: CraftApp }) {
       </div>
       <div className="flex flex-col justify-center bg-bg p-6 md:p-10">
         <p className="hud-label text-faint">
-          {CRAFT_LAUNCHER_NAME} · v{CRAFT_LAUNCHER_RELEASE.version}
+          {CRAFT_LAUNCHER_NAME} · v{release.version}
         </p>
         <LauncherDownloadButton
           recommended={recommended}
-          allDownloads={craftLauncherDownloads()}
-          fallbackHref={craftLauncherReleasePageUrl()}
+          allDownloads={await craftLauncherDownloads()}
+          fallbackHref={await craftLauncherReleasePageUrl()}
           fullWidth
           className="mt-4"
         />
