@@ -149,8 +149,8 @@ export default function CraftingAppsPage() {
         {launcherDownloads.length > 0 && (
           <p data-reveal className="mt-4 max-w-xl leading-relaxed text-muted">
             <span className="text-ink">Recommended:</span> {CRAFT_LAUNCHER_NAME}{" "}
-            installs every app below and keeps them all up to date. Each app
-            also has its own installers on its page.{" "}
+            installs the apps you choose from the list below and keeps them up
+            to date. Each app also has its own installers on its page.{" "}
             <a
               href={CRAFT_LAUNCHER_REPO}
               target="_blank"
