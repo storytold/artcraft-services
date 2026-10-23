@@ -66,7 +66,9 @@ frontend_preflight() {
 # layout causing ENOTEMPTY rename errors), wipe node_modules and the nx cache
 # and retry once before giving up.
 frontend_npm_install() {
-  if npm install; then
+  # nx, esbuild and @swc/core need their lifecycle scripts, so --ignore-scripts would leave
+  # an unusable tree.
+  if npm install; then # NOSONAR
     return 0
   fi
 
@@ -77,7 +79,7 @@ frontend_npm_install() {
 
   rm -rf node_modules .nx
 
-  if ! npm install; then
+  if ! npm install; then # NOSONAR
     echo ""
     echo "ERROR: npm install failed again. See the npm output above and the"
     echo "troubleshooting section in frontend/README.md."
