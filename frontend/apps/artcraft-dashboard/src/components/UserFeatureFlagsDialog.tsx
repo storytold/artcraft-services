@@ -80,7 +80,7 @@ export function UserFeatureFlagsDialog({
     setSelectedFlags(new Set());
 
     const api = new ModerationApi();
-    Promise.all([
+    void Promise.all([
       api.ListAvailableFeatureFlags(),
       api.ListUserFeatureFlags(usernameOrToken),
     ])
@@ -360,7 +360,7 @@ export function UserFeatureFlagsDialog({
               disabled={isSubmitting}
               onClick={(e) => {
                 e.preventDefault();
-                handleClearAll();
+                void handleClearAll();
               }}
             >
               {isSubmitting ? (

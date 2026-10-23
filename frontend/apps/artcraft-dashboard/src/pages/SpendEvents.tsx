@@ -123,12 +123,12 @@ export function SpendEvents() {
   const handleRefresh = () => {
     setEvents([]);
     setNextOffset(null);
-    loadData();
+    void loadData();
   };
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData();
+    void loadData();
     return () => {
       cancelledRef.current = true;
     };
@@ -136,7 +136,7 @@ export function SpendEvents() {
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && nextOffset != null) {
-      loadData(nextOffset, true);
+      void loadData(nextOffset, true);
     }
   }, [nextOffset, isLoadingMore]);
 

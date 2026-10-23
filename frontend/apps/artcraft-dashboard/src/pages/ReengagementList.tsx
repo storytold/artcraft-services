@@ -90,12 +90,12 @@ export function ReengagementList() {
   const handleRefresh = () => {
     setCandidates([]);
     setNextOffset(null);
-    loadData();
+    void loadData();
   };
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData();
+    void loadData();
     return () => {
       cancelledRef.current = true;
     };
@@ -103,7 +103,7 @@ export function ReengagementList() {
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && nextOffset != null) {
-      loadData(nextOffset, true);
+      void loadData(nextOffset, true);
     }
   }, [nextOffset, isLoadingMore]);
 

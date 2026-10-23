@@ -35,7 +35,7 @@ const Pricing = () => {
         // not logged in
       }
     };
-    check();
+    void check();
   }, []);
 
   return (

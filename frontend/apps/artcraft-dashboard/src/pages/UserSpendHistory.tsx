@@ -94,7 +94,7 @@ export function UserSpendHistory() {
     if (!username) return;
     cancelledRef.current = false;
 
-    (async () => {
+    void (async () => {
       setIsLoading(true);
       setError(null);
       setRows([]);

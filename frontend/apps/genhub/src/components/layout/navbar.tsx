@@ -126,7 +126,7 @@ export function Navbar() {
                 variant="ghost"
                 className="justify-start"
                 onClick={() => {
-                  logout();
+                  void logout();
                   setMobileOpen(false);
                 }}
               >

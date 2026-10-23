@@ -123,7 +123,7 @@ export function UserEmailChanges() {
 
   const loadMore = useCallback(() => {
     if (user && !isLoadingMore && nextCursor != null) {
-      loadHistory(user.username, nextCursor, true);
+      void loadHistory(user.username, nextCursor, true);
     }
   }, [user, nextCursor, isLoadingMore]);
 
@@ -149,14 +149,14 @@ export function UserEmailChanges() {
     setCurrentEmail(next?.email_address ?? null);
     setChanges([]);
     setNextCursor(null);
-    if (next) loadHistory(next.username);
+    if (next) void loadHistory(next.username);
   };
 
   const handleChangeSuccess = (newEmail: string) => {
     setCurrentEmail(newEmail);
     setUser((prev) => (prev ? { ...prev, email_address: newEmail } : prev));
     toast.success("Email address changed");
-    if (user) loadHistory(user.username);
+    if (user) void loadHistory(user.username);
   };
 
   const { ref: tableRef, height: tableHeight } = useTableHeight();

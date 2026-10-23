@@ -150,7 +150,7 @@ export function UserProfile() {
   );
 
   const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       setCopiedStates((prev) => ({ ...prev, [id]: true }));
       setTimeout(() => {
         setCopiedStates((prev) => ({ ...prev, [id]: false }));
@@ -185,7 +185,7 @@ export function UserProfile() {
           setUser(fetchedUser);
 
           setIsWalletsLoading(true);
-          modApi.ListUserWallets(fetchedUser.token).then((resp) => {
+          void modApi.ListUserWallets(fetchedUser.token).then((resp) => {
             if (cancelled) return;
             if (resp.success && resp.data) {
               setWallets(resp.data.wallets);
@@ -194,7 +194,7 @@ export function UserProfile() {
           });
 
           setIsJobsLoading(true);
-          modApi.ListUserJobs(fetchedUser.token).then((resp) => {
+          void modApi.ListUserJobs(fetchedUser.token).then((resp) => {
             if (cancelled) return;
             if (resp.success && resp.data) {
               setJobs(resp.data.jobs);
@@ -220,7 +220,7 @@ export function UserProfile() {
       }
     }
 
-    loadData();
+    void loadData();
     return () => {
       cancelled = true;
     };

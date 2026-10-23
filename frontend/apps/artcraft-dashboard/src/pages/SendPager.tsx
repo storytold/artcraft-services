@@ -232,7 +232,7 @@ export function SendPager() {
               disabled={isSubmitting}
               onClick={(e) => {
                 e.preventDefault();
-                handleConfirm();
+                void handleConfirm();
               }}
             >
               {isSubmitting ? (

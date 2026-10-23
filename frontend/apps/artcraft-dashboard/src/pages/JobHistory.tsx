@@ -64,7 +64,7 @@ export function JobHistory() {
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData();
+    void loadData();
     return () => {
       cancelledRef.current = true;
     };

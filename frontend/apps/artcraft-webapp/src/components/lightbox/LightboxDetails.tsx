@@ -120,7 +120,7 @@ export function LightboxDetails({
           audioPlayerRef.current = null;
         };
         audioPlayerRef.current = audio;
-        audio.play();
+        void audio.play();
         setPlayingAudioToken(token);
       }
     },

@@ -130,7 +130,7 @@ const PricingTable = ({
       }
     };
 
-    fetchUserData();
+    void fetchUserData();
   }, []);
 
   const plans = includeFree
