@@ -325,6 +325,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
 .app-effectcraft { --app: #e0368f; --app-ink: #b0206c; }
 .app-designcraft { --app: #7bb51c; --app-ink: #457008; }
 .app-figcraft { --app: #02da96; --app-ink: #017a54; }
+.app-texturecraft { --app: #c2672b; --app-ink: #9c4a15; }
 .app-wordcraft { --app: #4c6ef5; --app-ink: #253e99; }
 .app-soundcraft { --app: #14a9c4; --app-ink: #0b6f82; }
 .app-deckcraft { --app: #f26b1d; --app-ink: #ad4306; }
@@ -338,6 +339,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
 :root[data-theme="dark"] .app-effectcraft { --app-ink: #ff7ab8; }
 :root[data-theme="dark"] .app-designcraft { --app-ink: #a6e04a; }
 :root[data-theme="dark"] .app-figcraft { --app-ink: #3fe6ae; }
+:root[data-theme="dark"] .app-texturecraft { --app-ink: #e58a4e; }
 :root[data-theme="dark"] .app-wordcraft { --app-ink: #8da2fb; }
 :root[data-theme="dark"] .app-soundcraft { --app-ink: #52d1ea; }
 :root[data-theme="dark"] .app-deckcraft { --app-ink: #ff9657; }
@@ -352,6 +354,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
   :root:not([data-theme="light"]) .app-effectcraft { --app-ink: #ff7ab8; }
   :root:not([data-theme="light"]) .app-designcraft { --app-ink: #a6e04a; }
   :root:not([data-theme="light"]) .app-figcraft { --app-ink: #3fe6ae; }
+  :root:not([data-theme="light"]) .app-texturecraft { --app-ink: #e58a4e; }
   :root:not([data-theme="light"]) .app-wordcraft { --app-ink: #8da2fb; }
   :root:not([data-theme="light"]) .app-soundcraft { --app-ink: #52d1ea; }
   :root:not([data-theme="light"]) .app-deckcraft { --app-ink: #ff9657; }
