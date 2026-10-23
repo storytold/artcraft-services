@@ -927,7 +927,7 @@ export const Modal = ({
   }, [allowBackgroundInteraction]);
 
   // Register this modal in the global registry for ESC handling
-  const idRef = useRef<number>(Math.floor(Math.random() * 1e9));
+  const idRef = useRef<number>(Math.floor(Math.random() * 1e9)); // NOSONAR: UI-only id or cosmetic value, never a secret.
 
   useEffect(() => {
     if (!isOpen) return;

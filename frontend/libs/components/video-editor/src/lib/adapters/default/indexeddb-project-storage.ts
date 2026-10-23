@@ -50,7 +50,7 @@ function tx<T>(
 function newId(): string {
   // Sufficient for local-only storage; the lib does not expose this
   // id outside the host process.
-  return `proj_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+  return `proj_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
 }
 
 export function createIndexedDBProjectStorage(): ProjectStorageAdapter {

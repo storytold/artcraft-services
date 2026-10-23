@@ -114,12 +114,12 @@ export const MediaReferenceRow = ({
     setUploadingVideo(true);
     try {
       await uploadVideo({
-        title: `reference-video-${Math.random().toString(36).substring(2, 15)}`,
+        title: `reference-video-${Math.random().toString(36).substring(2, 15)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
         assetFile: file,
         progressCallback: (newState) => {
           if (newState.status === UploaderStates.success && newState.data) {
             const refVideo: RefVideo = {
-              id: Math.random().toString(36).substring(7),
+              id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
               url: URL.createObjectURL(file),
               file,
               mediaToken: newState.data,
@@ -172,12 +172,12 @@ export const MediaReferenceRow = ({
     setUploadingAudio(true);
     try {
       await uploadAudio({
-        title: `reference-audio-${Math.random().toString(36).substring(2, 15)}`,
+        title: `reference-audio-${Math.random().toString(36).substring(2, 15)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
         assetFile: file,
         progressCallback: (newState) => {
           if (newState.status === UploaderStates.success && newState.data) {
             const refAudio: RefAudio = {
-              id: Math.random().toString(36).substring(7),
+              id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
               url: URL.createObjectURL(file),
               file,
               mediaToken: newState.data,

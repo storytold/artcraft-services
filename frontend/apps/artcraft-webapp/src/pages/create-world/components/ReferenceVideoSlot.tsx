@@ -35,7 +35,7 @@ export function ReferenceVideoSlot({
       progressCallback: (state) => {
         if (state.status === UploaderStates.success && state.data) {
           onChange({
-            id: Math.random().toString(36).substring(7),
+            id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
             url: previewUrl,
             file,
             mediaToken: state.data,

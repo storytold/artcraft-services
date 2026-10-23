@@ -340,9 +340,9 @@ export const Stage3DBody = ({
     }
     const newIndex = cameras.length + 1;
     const newId = `cam${newIndex}`;
-    const radius = Math.random() * 5 + 7;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.PI / 3 + (Math.random() * Math.PI) / 6;
+    const radius = Math.random() * 5 + 7; // NOSONAR: UI-only id or cosmetic value, never a secret.
+    const theta = Math.random() * Math.PI * 2; // NOSONAR: UI-only id or cosmetic value, never a secret.
+    const phi = Math.PI / 3 + (Math.random() * Math.PI) / 6; // NOSONAR: UI-only id or cosmetic value, never a secret.
     const randomX = radius * Math.sin(phi) * Math.cos(theta);
     const randomY = Math.abs(radius * Math.cos(phi)) + 2;
     const randomZ = radius * Math.sin(phi) * Math.sin(theta);
