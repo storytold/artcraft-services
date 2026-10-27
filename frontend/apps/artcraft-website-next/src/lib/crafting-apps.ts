@@ -30,6 +30,7 @@ export type CraftAppSlug =
   | "effectcraft"
   | "designcraft"
   | "figcraft"
+  | "texturecraft"
   | "wordcraft"
   | "soundcraft"
   | "deckcraft"
@@ -671,6 +672,76 @@ export const CRAFTING_APPS: CraftApp[] = [
       caption: "A host and a guest editing one file",
       alt: "Two people editing one FigCraft file live: each sees the other's cursor, selection and edits land instantly, ending on the FigCraft end card.",
     },
+  },
+  {
+    slug: "texturecraft",
+    prefix: "Texture",
+    category: "3D texture painting",
+    status: "In development",
+    headline: ["3D texture painting, ", "rebuilt", " in pure Rust."],
+    pitch: "Open-source 3D texture painting, rebuilt in pure Rust.",
+    lede: "Paint PBR materials straight onto your models in layers with masks, bake mesh maps, drive smart materials from them and export textures for any engine. Open source, offline, and yours.",
+    schemaCategory: "DesignApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.95",
+    features: [
+      {
+        title: "Familiar by design",
+        body: "Texture sets, a layer stack with per-channel blending, masks and generators, smart materials, the tool shelf and the 3D and 2D views, where texture artists expect them.",
+      },
+      {
+        title: "Paint across seams",
+        body: "Brush stamps live on the 3D surface, so strokes flow across UV seams, and the camera's visibility keeps paint off the back of your model.",
+      },
+      {
+        title: "Bake on the GPU",
+        body: "Ambient occlusion, curvature, thickness and more, ray traced about 12× faster than on the CPU, from the model itself or a high-poly mesh.",
+      },
+      {
+        title: "Fast at 8K",
+        body: "A tiled, copy-on-write texel engine on every CPU core and a native viewport on Metal, Vulkan, DirectX 12 and WebGPU keep 8K texture sets responsive.",
+      },
+      {
+        title: "Open formats",
+        body: "glTF, FBX, COLLADA, USD, Alembic, OBJ, PLY and STL in. PNG, JPEG, TGA, TIFF, EXR and more out at 8, 16 or 32 bits, with UDIM tiles and engine presets.",
+      },
+      {
+        title: "Agent-ready",
+        body: "Every menu item and tool is a command, so the CLI, a JSON control channel and an MCP server can paint, bake and export the way a person does.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "texturecraft-workspace.png",
+        caption: "The workspace — chipped paint, grime and a gold stripe",
+        alt: "The TextureCraft workspace: the material library on the left, the 3D viewport and the 2D UV view of a material ball in chipped red paint with grime and a hand-painted gold stripe, and the texture set list, layer stack and brush properties on the right",
+      },
+      {
+        file: "bake.webp",
+        source: "texturecraft-bake.png",
+        caption: "Mesh map baking on the GPU",
+        alt: "TextureCraft's Bake mode: the texture sets and mesh map bakers on the left, the common bake parameters below them, and the Bake selected textures button under the viewport",
+      },
+      {
+        file: "export.webp",
+        source: "texturecraft-export.png",
+        caption: "Export presets and output templates",
+        alt: "TextureCraft's Export textures dialog: texture sets to export, the output directory, an output template, file type, size, padding and normal map format",
+      },
+      {
+        file: "rendering.webp",
+        source: "texturecraft-rendering.png",
+        caption: "Rendering mode, path traced on the GPU",
+        alt: "TextureCraft's Rendering mode: the material ball path traced on the GPU at 256 samples with denoising, the gold stripe catching the studio light, and the render settings in a card over the viewport",
+      },
+      {
+        file: "light.webp",
+        source: "texturecraft-light.png",
+        caption: "Light theme with the blue accent",
+        alt: "TextureCraft in its light theme with the blue accent: the panels as rounded cards on a light background around the dark 3D viewport",
+      },
+    ],
   },
   {
     slug: "wordcraft",

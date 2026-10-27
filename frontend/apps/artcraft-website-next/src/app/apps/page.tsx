@@ -45,7 +45,7 @@ import { siteUrl } from "@/lib/links";
 
 const TITLE = "Crafting Apps: open-source creative tools";
 const COVERAGE =
-  "Image editing, vector illustration, video, photography, PDFs, motion graphics, page layout, interface design, word processing, audio, presentations, CAD and spreadsheets";
+  "Image editing, vector illustration, video, photography, PDFs, motion graphics, page layout, interface design, 3D texture painting, word processing, audio, presentations, CAD and spreadsheets";
 const DESCRIPTION = `${COVERAGE}: ${CRAFTING_APPS_COUNT_WORD.toLowerCase()} native, open-source apps from the ArtCraft team, built in Rust and free to use.`;
 
 export const metadata: Metadata = {
@@ -97,7 +97,7 @@ export default function CraftingAppsPage() {
             <nav
               aria-label="Crafting Apps"
               data-reveal
-              // Under the text: two even rows from sm up (7 + 6). Beside it from
+              // Under the text: two even rows from sm up (7 + 7). Beside it from
               // xl up: centered rows of five.
               className="mt-12 grid w-fit grid-cols-4 gap-x-3 gap-y-6 sm:grid-cols-7 sm:gap-x-5 xl:mt-0 xl:flex xl:w-120 xl:shrink-0 xl:flex-wrap xl:justify-center"
             >
