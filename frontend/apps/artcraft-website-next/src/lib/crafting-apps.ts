@@ -1,6 +1,7 @@
 import type { Tip } from "./campaign-data";
 import {
-  CRAFT_APP_RELEASES,
+  CRAFT_APP_ASSETS,
+  fetchCraftRelease,
   type CraftRelease,
   type CraftReleaseAsset,
 } from "./crafting-app-releases";
@@ -1128,8 +1129,10 @@ export function craftAppIconSourceUrl(app: CraftApp): string {
   return `https://raw.githubusercontent.com/storytold/${app.slug}/main/assets/app-icon/${app.slug}-1024.png`;
 }
 
-export function craftAppRelease(app: CraftApp): CraftRelease | null {
-  return CRAFT_APP_RELEASES[app.slug];
+/** The app's latest GitHub release, or null while its downloads are hidden. */
+export async function craftAppRelease(app: CraftApp): Promise<CraftRelease | null> {
+  const assets = CRAFT_APP_ASSETS[app.slug];
+  return assets ? fetchCraftRelease(app.slug, assets) : null;
 }
 
 export function craftReleaseTag(release: CraftRelease): string {
@@ -1159,11 +1162,12 @@ export function releaseDownloads(
   release: CraftRelease,
 ): CraftDownload[] {
   const base = `${repo}/releases/download/${craftReleaseTag(release)}`;
-  return release.assets.map(({ file, ...asset }) => {
+  return release.assets.flatMap(({ file, ...asset }) => {
     const fileName = file
       .replaceAll("{slug}", release.fileSlug ?? fileSlug)
       .replaceAll("{version}", release.version);
-    return { ...asset, fileName, href: `${base}/${fileName}` };
+    if (release.files && !release.files.includes(fileName)) return [];
+    return [{ ...asset, fileName, href: `${base}/${fileName}` }];
   });
 }
 

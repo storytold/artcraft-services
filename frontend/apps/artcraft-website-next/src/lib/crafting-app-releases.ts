@@ -3,13 +3,18 @@ import type { CraftAppSlug } from "./crafting-apps";
 // GitHub releases for the Crafting Apps, which drive every download button on
 // the /apps pages.
 //
-// To bump an app: change its version in CRAFT_APP_RELEASES (each app has its
-// own, e.g. `craftRelease("0.4.0")`).
-// To hide an app's downloads (Discord waitlist instead): set it to null.
-// If a release renames, adds or drops files, edit CRAFT_RELEASE_ASSETS, or
-// pass a custom list as craftRelease's second argument for a single app.
+// Versions are never edited here: each page asks GitHub for the repo's latest
+// published release when it renders (fetchCraftRelease) and caches the answer
+// for CRAFT_RELEASE_REVALIDATE_SECONDS, so a new release shows up on the live
+// deploy within the hour, without a commit or a redeploy.
 //
-// Release tags are `v<version>` and live at github.com/storytold/<slug>.
+// To hide an app's downloads (Discord waitlist instead): set it to null in
+// CRAFT_APP_ASSETS.
+// If a release renames or adds files, edit CRAFT_RELEASE_ASSETS, or give a
+// single app its own list in CRAFT_APP_ASSETS. Catalog files missing from a
+// release are left out, so a dropped file never becomes a dead link.
+//
+// Releases live at github.com/storytold/<slug>.
 
 export type CraftDesktopPlatform = "macOS" | "Windows" | "Linux";
 
@@ -43,6 +48,8 @@ export type CraftRelease = {
   /** Fills `{slug}` in filenames. Defaults to the app's slug; a release from before a rename keeps the old one. */
   fileSlug?: string;
   assets: readonly CraftReleaseAsset[];
+  /** The release's actual file names; catalog assets not in it are left out. */
+  files?: readonly string[];
 };
 
 // The file set every Crafting App publishes, in display order within each group.
@@ -197,34 +204,64 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
   },
 ];
 
-export function craftRelease(
-  version: string,
-  assets: readonly CraftReleaseAsset[] = CRAFT_RELEASE_ASSETS,
-): CraftRelease {
-  return { version, assets };
+/** How long a fetched release is cached before the next request rechecks GitHub. */
+export const CRAFT_RELEASE_REVALIDATE_SECONDS = 3600;
+
+/**
+ * The latest published release of github.com/storytold/<repo> (never a draft
+ * or pre-release). Throws when GitHub can't answer: a build then fails and the
+ * previous deploy stays live, and a background revalidation keeps serving the
+ * last good page. Set GITHUB_TOKEN in Netlify to lift the anonymous rate limit.
+ */
+export async function fetchCraftRelease(
+  repo: string,
+  assets: readonly CraftReleaseAsset[],
+): Promise<CraftRelease> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "getartcraft.com",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  const res = await fetch(`https://api.github.com/repos/storytold/${repo}/releases/latest`, {
+    headers,
+    next: { revalidate: CRAFT_RELEASE_REVALIDATE_SECONDS },
+  });
+  if (!res.ok) throw new Error(`GitHub latest release of storytold/${repo}: HTTP ${res.status}`);
+  const body = (await res.json()) as { tag_name?: unknown; assets?: { name?: unknown }[] };
+  const tag = typeof body.tag_name === "string" ? body.tag_name : "";
+  if (!/^v\d+\.\d+\.\d+/.test(tag)) {
+    throw new Error(`GitHub latest release of storytold/${repo}: unexpected tag "${tag}"`);
+  }
+  return {
+    version: tag.slice(1),
+    tag,
+    assets,
+    files: (body.assets ?? []).flatMap((asset) =>
+      typeof asset.name === "string" ? [asset.name] : [],
+    ),
+  };
 }
 
 // ArtCraft Launcher (github.com/storytold/craft-launcher) installs and updates
 // every app above, and the /apps pages recommend it first. Its releases ship
 // the same file set minus the macOS CLI, named artcraft-launcher-*.
-export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
-  "0.5.1",
-  CRAFT_RELEASE_ASSETS.filter((asset) => !asset.file.startsWith("{slug}-cli-")),
-);
+export const CRAFT_LAUNCHER_ASSETS: readonly CraftReleaseAsset[] | null =
+  CRAFT_RELEASE_ASSETS.filter((asset) => !asset.file.startsWith("{slug}-cli-"));
 
 // Every app must be listed, so a new slug fails the type check until it is.
-export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
-  photocraft: craftRelease("0.7.0"),
-  vectorcraft: craftRelease("0.9.0"),
-  filmcraft: craftRelease("0.6.0"),
-  lightcraft: craftRelease("0.6.0"),
-  pdfcraft: craftRelease("0.6.0"),
-  effectcraft: craftRelease("0.8.0"),
-  designcraft: craftRelease("0.6.0"),
-  figcraft: craftRelease("0.5.1"),
-  wordcraft: craftRelease("0.5.0"),
-  soundcraft: craftRelease("0.5.0"),
-  deckcraft: craftRelease("0.5.0"),
-  cadcraft: craftRelease("0.5.0"),
-  gridcraft: craftRelease("0.5.0"),
+export const CRAFT_APP_ASSETS: Record<CraftAppSlug, readonly CraftReleaseAsset[] | null> = {
+  photocraft: CRAFT_RELEASE_ASSETS,
+  vectorcraft: CRAFT_RELEASE_ASSETS,
+  filmcraft: CRAFT_RELEASE_ASSETS,
+  lightcraft: CRAFT_RELEASE_ASSETS,
+  pdfcraft: CRAFT_RELEASE_ASSETS,
+  effectcraft: CRAFT_RELEASE_ASSETS,
+  designcraft: CRAFT_RELEASE_ASSETS,
+  figcraft: CRAFT_RELEASE_ASSETS,
+  wordcraft: CRAFT_RELEASE_ASSETS,
+  soundcraft: CRAFT_RELEASE_ASSETS,
+  deckcraft: CRAFT_RELEASE_ASSETS,
+  cadcraft: CRAFT_RELEASE_ASSETS,
+  gridcraft: CRAFT_RELEASE_ASSETS,
 };

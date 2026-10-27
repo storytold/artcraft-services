@@ -9,7 +9,7 @@ import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell
 import LazyVideo from "@/components/lazy-video";
 import { Badge, Button, CopyButton } from "@/components/ui";
 import { trackAttrs } from "@/lib/analytics";
-import { CRAFT_LAUNCHER_RELEASE } from "@/lib/crafting-app-releases";
+import { craftLauncherRelease } from "@/lib/craft-launcher";
 import {
   CRAFTING_APPS,
   craftAppBuildCommand,
@@ -157,11 +157,12 @@ export function AppGallery({ app, index }: { app: CraftApp; index: string }) {
 // away) above release details and build-from-source. Versions and files come
 // from crafting-app-releases.ts; a null release there drops the cards and
 // shows the Discord waitlist instead.
-export function AppGetIt({ app, index }: { app: CraftApp; index: string }) {
+export async function AppGetIt({ app, index }: { app: CraftApp; index: string }) {
   const name = craftAppName(app);
   const command = craftAppBuildCommand(app);
   const desktop = app.platforms.filter((platform) => platform !== "Web");
-  const release = craftAppRelease(app);
+  const release = await craftAppRelease(app);
+  const launcherRelease = await craftLauncherRelease();
   const downloads = release ? craftReleaseDownloads(app, release) : [];
   const extras = downloads.filter((download) => download.group === "Other");
 
@@ -174,7 +175,7 @@ export function AppGetIt({ app, index }: { app: CraftApp; index: string }) {
       />
       {release && (
         <>
-          {CRAFT_LAUNCHER_RELEASE && (
+          {launcherRelease && (
             <>
               <LauncherCallout app={app} />
               <div data-reveal className="border-y border-line bg-bg p-6 md:p-10">

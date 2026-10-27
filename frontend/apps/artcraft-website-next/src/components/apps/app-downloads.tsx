@@ -11,7 +11,6 @@ import {
 import { twMerge } from "tailwind-merge";
 import { WindowsIcon } from "@/components/icons";
 import { Button, type ButtonProps } from "@/components/ui";
-import { craftLauncherDownloads } from "@/lib/craft-launcher";
 import {
   CRAFT_DESKTOP_PLATFORMS,
   type CraftDesktopPlatform,
@@ -178,7 +177,7 @@ export function LauncherDownloadButton({
   className,
 }: {
   recommended: CraftDownload[];
-  allDownloads?: CraftDownload[];
+  allDownloads: CraftDownload[];
   fallbackHref: string;
   size?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
@@ -213,7 +212,7 @@ export function LauncherDownloadButton({
   }, [menuOpen]);
 
   const isLinux = detected?.platform === "Linux";
-  const downloads = allDownloads ?? (isLinux ? craftLauncherDownloads() : []);
+  const downloads = isLinux ? allDownloads : [];
   const linuxDownloads = isLinux
     ? downloads.filter(
         (download) =>

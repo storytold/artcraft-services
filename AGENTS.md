@@ -67,6 +67,12 @@ filenames for Windows (`ArtCraft_<version>_x64-setup.exe`) and macOS
 require deployment of the affected apps before the public pages change; do not
 report a local update as a deployed update.
 
+The Crafting App pages (`/apps`, `/apps/<slug>`) are different: they read each
+app's and the ArtCraft Launcher's latest GitHub release when they render and
+regenerate hourly, so their versions are never edited by hand. To hide an app's
+downloads or change its file list, see the header of
+`frontend/apps/artcraft-website-next/src/lib/crafting-app-releases.ts`.
+
 ## Code Style
 
 - Rust with no minimum supported version
