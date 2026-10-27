@@ -20,6 +20,22 @@ const SEEDANCE_REF = "sd2fakeyou";
 const SEEDANCE_VIMEO_URL =
   "https://player.vimeo.com/video/1169289718?autoplay=1&muted=1&loop=1&background=0&byline=0&portrait=0&title=0";
 
+// The three ways to power ArtCraft. Paid plans are one option, not a
+// requirement (storytold/artcraft-services#110).
+const COMPUTE_OPTIONS = [
+  { label: "Local", price: "$0", description: "Run models on your own GPU." },
+  {
+    label: "Bring your own",
+    price: "$0",
+    description: "Use your own API keys and third-party subscriptions.",
+  },
+  {
+    label: "ArtCraft Cloud",
+    price: "Plans below",
+    description: "We handle the compute. Pick Basic, Pro, or Max.",
+  },
+];
+
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function PricingPage({
@@ -89,12 +105,33 @@ function DefaultHeader() {
         annotation="Free & open source · Subscriptions optional†"
         title={
           <>
-            Create without <Accent>limits</Accent>.
+            ArtCraft is free. Compute is <Accent>optional</Accent>.
           </>
         }
-        lede="Get a ton of generations and invest in a tool you'll always own. Your subscription helps keep ArtCraft free and open for everyone."
+        lede="Own the software, then choose the compute. Run models on your own GPU or bring your own API keys for $0, or let ArtCraft Cloud handle compute with a plan. Your subscription helps keep ArtCraft free and open for everyone."
       />
+      <ComputeOptions />
     </div>
+  );
+}
+
+function ComputeOptions() {
+  return (
+    <SectionShell>
+      <div className="grid gap-px bg-line md:grid-cols-3">
+        {COMPUTE_OPTIONS.map((option) => (
+          <div key={option.label} className="bg-bg p-6 md:p-8">
+            <p className="hud-label text-muted">{option.label}</p>
+            <p className="mt-3 font-display text-3xl font-medium text-ink-strong">
+              {option.price}
+            </p>
+            <p className="mt-3 leading-relaxed text-muted">
+              {option.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </SectionShell>
   );
 }
 
