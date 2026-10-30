@@ -4,3 +4,4 @@ pub mod process_one_order;
 pub mod process_failed_job;
 pub mod process_successful_image_job;
 pub mod process_successful_video_job;
+pub mod process_successful_audio_job;

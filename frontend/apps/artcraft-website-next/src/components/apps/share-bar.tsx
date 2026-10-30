@@ -3,8 +3,9 @@ import { Button, CopyButton } from "@/components/ui";
 import { trackAttrs } from "@/lib/analytics";
 
 // Share strip: copy-link plus intent links for the networks our audience
-// posts to. Hairline cells (gap-px over the line color) so it wraps cleanly
-// on narrow screens. Intent URLs need no SDKs or tracking scripts.
+// posts to. Hairline cells (gap-px over the line color): one row from sm up,
+// a two-column grid below so every row is full and no line color shows
+// through. Intent URLs need no SDKs or tracking scripts.
 const TARGETS: { name: string; href: (url: string, text: string) => string }[] = [
   {
     name: "X",
@@ -29,7 +30,7 @@ const TARGETS: { name: string; href: (url: string, text: string) => string }[] =
 ];
 
 // Copy and network cells share one ghost-button treatment.
-const CELL_CLASSES = "h-9 bg-bg px-3";
+const CELL_CLASSES = "h-9 w-full bg-bg px-3 sm:w-fit";
 
 export default function ShareBar({
   url,
@@ -45,11 +46,11 @@ export default function ShareBar({
   return (
     <div
       className={twMerge(
-        "flex w-fit flex-wrap gap-px border border-line bg-line",
+        "grid grid-cols-2 gap-px border border-line bg-line sm:flex sm:w-fit",
         className,
       )}
     >
-      <span className="hud-label flex h-9 items-center bg-bg px-3 text-faint">
+      <span className="hud-label flex h-9 items-center justify-center bg-bg px-3 text-faint">
         Share
       </span>
       <CopyButton

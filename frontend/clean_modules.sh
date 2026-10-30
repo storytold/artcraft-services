@@ -52,7 +52,9 @@ rm -rf ./libs/analytics/google-analytics/dist/
 rm -rf ./libs/state/subscription/dist/
 
 echo "Resetting NX..."
-npx nx reset
+# --no-install keeps npx from fetching a package, but this cleanup must still finish when the
+# local Nx is already gone (the case it exists for).
+npx --no-install nx reset || echo "Skipping Nx reset: local Nx is not installed"
 
 echo "Removing NX cache directory..."
 rm -rf ./.nx/
