@@ -167,7 +167,7 @@ export default function HeadingFlow({
       setMetrics(measureLabels(sections.map((s) => s.label)));
     };
     const ready = document.fonts?.ready;
-    if (ready) ready.then(run).catch(run);
+    if (ready !== undefined) ready.then(run).catch(run);
     else run();
     return () => {
       cancelled = true;
