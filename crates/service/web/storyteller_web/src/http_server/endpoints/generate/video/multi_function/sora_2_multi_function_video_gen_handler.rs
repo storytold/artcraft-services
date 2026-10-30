@@ -382,6 +382,29 @@ pub async fn sora_2_multi_function_video_gen_handler(
       return Err(CommonWebError::from_error(err));
     }
   };
+
+  // Issue #1069 investigation: legacy multi-function Sora enqueue (no behavior change).
+  {
+    use crate::http_server::endpoints::omni_gen::shared_utils::sora_latency_metrics::{
+      duration_tag, record_sora_enqueue, resolution_tag, resolve_plan_tag_for_user_in_transaction,
+    };
+    use enums::common::generation::common_resolution::CommonResolution;
+
+    let plan = resolve_plan_tag_for_user_in_transaction(user_token, &mut transaction).await;
+    let duration_seconds = request.duration.as_ref().map(|d| match d {
+      Sora2MultiFunctionVideoGenDuration::FourSeconds => 4u16,
+      Sora2MultiFunctionVideoGenDuration::EightSeconds => 8,
+      Sora2MultiFunctionVideoGenDuration::TwelveSeconds => 12,
+    });
+    let resolution = Some(CommonResolution::SevenTwentyP);
+    record_sora_enqueue(
+      &server_state.metrics,
+      "sora_2",
+      plan,
+      resolution_tag(resolution),
+      duration_tag(duration_seconds),
+    );
+  }
   
   let _r = transaction
       .commit()
