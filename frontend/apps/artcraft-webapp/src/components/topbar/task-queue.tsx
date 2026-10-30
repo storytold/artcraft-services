@@ -1137,7 +1137,7 @@ export const TaskQueue = () => {
           <PopoverMenu
             mode="default"
             buttonClassName="h-8 w-8 !p-0 relative bg-transparent hover:bg-white/10 border border-white/15 hover:border-white/30 text-white/80 rounded-[3px] shadow-none"
-            panelClassName="w-[calc(100vw-5rem)] sm:w-[400px] p-2 bg-[#101014] border border-white/15 mt-2 rounded-[3px]"
+            panelClassName="w-[calc(100vw-5rem)] sm:w-[400px] p-2 bg-ui-panel border border-white/15 mt-2 rounded-[3px]"
             position="bottom"
             align="end"
             triggerIcon={

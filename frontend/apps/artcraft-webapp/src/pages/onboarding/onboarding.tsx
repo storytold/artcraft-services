@@ -338,7 +338,7 @@ const Onboarding = () => {
             </div>
           )}
 
-          <div className="bg-[#101014] border border-white/15 p-6 py-8">
+          <div className="bg-ui-panel border border-white/15 p-6 py-8">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-semibold mb-2">
                 {currentStep === "password" &&
