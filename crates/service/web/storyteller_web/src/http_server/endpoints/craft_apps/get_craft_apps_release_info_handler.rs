@@ -25,7 +25,24 @@ const CACHE_MAX_AGE_SECS: u32 = 60;
 pub async fn get_craft_apps_release_info_handler(
   server_state: web::Data<Arc<ServerState>>,
 ) -> HttpResponse {
-  let release_info = server_state.craft_apps_release_cache.snapshot();
+  let flatpak_config = server_state.craft_apps_release_cache.load_flatpak_config_from_env();
+
+  let suite_flatpak_repo = if flatpak_config.enabled {
+    Some(artcraft_api_defs::craft_apps::flatpak::CraftAppFlatpakRepoInfo {
+      app_id: "ai.storyteller.artcraft".to_string(),
+      repo_url: format!("{}/", flatpak_config.repo_base_url.trim_end_matches('/')),
+      flatpakrepo_url: format!("{}/v1/craft_apps/flatpak/artcraft.flatpakrepo", flatpak_config.api_base_url.trim_end_matches('/')),
+      branch: "stable".to_string(),
+      version: None,
+      min_version: None,
+      is_synced: None,
+      gpg_key_url: flatpak_config.gpg_key_url.clone(),
+    })
+  } else {
+    None
+  };
+
+  let release_info = server_state.craft_apps_release_cache.snapshot_with_flatpak_config(&flatpak_config);
   let cache_control = cache_control_for(&release_info);
   let response = GetCraftAppsReleaseInfoResponse {
     success: true,
@@ -34,6 +51,7 @@ pub async fn get_craft_apps_release_info_handler(
     app_renames: Vec::new(),
     repo_renames: Vec::new(),
     important_notices: CraftAppsImportantNotices::default(),
+    suite_flatpak_repo,
   };
   HttpResponse::Ok()
       .insert_header(cache_control)
