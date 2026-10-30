@@ -20,7 +20,11 @@ export function SectionShell({
   ticks?: boolean;
 }) {
   return (
-    <section id={id} data-choreo className={`relative ${className}`}>
+    <section
+      id={id}
+      data-choreo
+      className={`relative overflow-x-clip ${className}`}
+    >
       <span
         aria-hidden
         data-draw-rule
