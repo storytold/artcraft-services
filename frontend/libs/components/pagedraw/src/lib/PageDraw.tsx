@@ -857,7 +857,7 @@ const PageDraw = ({
 
         const subscriberId: string =
           crypto?.randomUUID?.() ??
-          `inpaint-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          `inpaint-${Date.now()}-${Math.random().toString(36).slice(2)}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
 
         adapter.onEnqueueMeta?.({
           prompt,

@@ -136,7 +136,7 @@ export const ImagePromptRow = ({
     const filesToProcess = files.slice(0, availableSlots);
 
     filesToProcess.forEach(async (file) => {
-      const uploadId = Math.random().toString(36).substring(7);
+      const uploadId = Math.random().toString(36).substring(7); // NOSONAR: UI-only id or cosmetic value, never a secret.
       setUploadingImages((prev) => [...prev, { id: uploadId, previewUrl: "" }]);
 
       // Downscaled preview; the committed thumbnail reuses it while the
@@ -150,7 +150,7 @@ export const ImagePromptRow = ({
         setUploadingImages((prev) => prev.filter((img) => img.id !== uploadId));
 
       await uploadImage({
-        title: `reference-image-${Math.random().toString(36).substring(2, 15)}`,
+        title: `reference-image-${Math.random().toString(36).substring(2, 15)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
         assetFile: file,
         progressCallback: (newState) => {
           if (newState.status === UploaderStates.success && newState.data) {
@@ -196,12 +196,12 @@ export const ImagePromptRow = ({
     setUploadingEndFrame(true);
     const previewUrl = await createImagePreviewUrl(file);
     await uploadImage({
-      title: `end-frame-${Math.random().toString(36).substring(2, 15)}`,
+      title: `end-frame-${Math.random().toString(36).substring(2, 15)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
       assetFile: file,
       progressCallback: (newState) => {
         if (newState.status === UploaderStates.success && newState.data) {
           setEndFrameImage({
-            id: Math.random().toString(36).substring(7),
+            id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
             url: previewUrl,
             fullUrl: URL.createObjectURL(file),
             file,

@@ -17,7 +17,7 @@ interface Entry {
 }
 
 function newId(): string {
-  return `media_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+  return `media_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
 }
 
 export function createLocalFileMediaSource(): MediaSourceAdapter {

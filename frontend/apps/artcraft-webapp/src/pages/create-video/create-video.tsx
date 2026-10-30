@@ -1093,7 +1093,7 @@ export default function CreateVideo() {
       const newImages: RefImage[] = items
         .slice(0, availableSlots)
         .map((item) => ({
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: item.thumbnail || item.fullImage || "",
           fullUrl: item.fullImage || undefined,
           file: new File([], "library-image"),
@@ -1126,7 +1126,7 @@ export default function CreateVideo() {
       const candidates: RefVideo[] = items
         .filter((item) => !!item.fullImage)
         .map((item) => ({
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: item.fullImage!,
           file: new File([], "library-video"),
           mediaToken: item.id,
@@ -1190,7 +1190,7 @@ export default function CreateVideo() {
         }
         total += duration;
         added.push({
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url,
           file: new File([], "library-audio"),
           mediaToken: item.id,
@@ -1213,7 +1213,7 @@ export default function CreateVideo() {
     const item = items[0];
     if (!item) return;
     setEndFrameImage({
-      id: Math.random().toString(36).substring(7),
+      id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
       url: item.thumbnail || item.fullImage || "",
       fullUrl: item.fullImage || undefined,
       file: new File([], "library-image"),
