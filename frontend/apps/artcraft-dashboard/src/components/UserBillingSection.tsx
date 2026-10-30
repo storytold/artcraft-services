@@ -47,7 +47,7 @@ export function UserBillingSection({ userToken }: { userToken: string }) {
   }, [userToken]);
 
   const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       setCopiedStates((prev) => ({ ...prev, [id]: true }));
       setTimeout(() => {
         setCopiedStates((prev) => ({ ...prev, [id]: false }));

@@ -27,6 +27,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 export function UserSignups() {
   usePageTitle("User Signups");
@@ -41,9 +42,7 @@ export function UserSignups() {
   const [banDialogOpen, setBanDialogOpen] = useState(false);
 
   const cancelledRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
-
+  
   const loadData = async (cursor?: number | null, append = false) => {
     if (!append) {
       setIsLoading(true);
@@ -81,7 +80,7 @@ export function UserSignups() {
     setUsers([]);
     setNextCursor(null);
     setSelectedUsernames(new Set());
-    loadData();
+    void loadData();
   };
 
   const toggleUser = (username: string, checked: boolean) => {
@@ -112,7 +111,7 @@ export function UserSignups() {
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData();
+    void loadData();
     return () => {
       cancelledRef.current = true;
     };
@@ -120,26 +119,11 @@ export function UserSignups() {
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && nextCursor != null) {
-      loadData(nextCursor, true);
+      void loadData(nextCursor, true);
     }
   }, [nextCursor, isLoadingMore]);
 
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { threshold: 0.1 },
-    );
-
-    if (sentinelRef.current) {
-      observerRef.current.observe(sentinelRef.current);
-    }
-
-    return () => observerRef.current?.disconnect();
-  }, [loadMore]);
+  const sentinelRef = useInfiniteScroll<HTMLTableRowElement>(loadMore);
 
   const { ref: tableRef, height: tableHeight } = useTableHeight();
 

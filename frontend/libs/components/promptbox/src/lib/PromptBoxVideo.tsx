@@ -1211,7 +1211,7 @@ export const PromptBoxVideo = ({
       console.error("PromptBoxVideo - enqueue failed", failure.reason);
       toast.error(commandErrorMessage(failure.reason, "Failed to start video generation. Please try again."));
     }
-    if (acceptedIds.length) onEnqueuePressed?.(prompt, acceptedIds);
+    if (acceptedIds.length) void onEnqueuePressed?.(prompt, acceptedIds);
 
     setIsEnqueueing(false);
   };
@@ -1262,7 +1262,7 @@ export const PromptBoxVideo = ({
         return;
       }
 
-      handleEnqueue();
+      void handleEnqueue();
     }
   };
 
@@ -1374,7 +1374,7 @@ export const PromptBoxVideo = ({
                       )
                         return;
                       if (!prompt.trim()) return;
-                      handleEnqueue();
+                      void handleEnqueue();
                     }
                   }}
                   onFocus={() => setIsFocused(true)}

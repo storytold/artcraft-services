@@ -72,7 +72,7 @@ export function DemoOutputOverlay({
     setVideo(null);
     setView(videoToken ? "video" : "image");
 
-    (async () => {
+    void (async () => {
       const [imageResult, videoResult] = await Promise.all([
         imageToken ? resolveAsset(imageToken) : Promise.resolve(null),
         videoToken ? resolveAsset(videoToken) : Promise.resolve(null),

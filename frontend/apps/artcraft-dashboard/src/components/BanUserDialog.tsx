@@ -194,7 +194,7 @@ export function BanUserDialog({
               disabled={isSubmitting}
               onClick={(e) => {
                 e.preventDefault();
-                handleConfirm();
+                void handleConfirm();
               }}
             >
               {isSubmitting ? (

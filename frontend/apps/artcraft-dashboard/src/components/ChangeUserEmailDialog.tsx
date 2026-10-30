@@ -189,7 +189,7 @@ export function ChangeUserEmailDialog({
               disabled={isSubmitting}
               onClick={(e) => {
                 e.preventDefault();
-                handleConfirm();
+                void handleConfirm();
               }}
             >
               {isSubmitting ? (

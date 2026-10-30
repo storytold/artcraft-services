@@ -73,7 +73,7 @@ export function ApiKeySection(_props: ApiKeySectionProps) {
   };
 
   useEffect(() => {
-    load(true);
+    void load(true);
     // Load once on mount; pagination drives subsequent loads explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -82,7 +82,7 @@ export function ApiKeySection(_props: ApiKeySectionProps) {
     setCreating(false);
     // Reveal the full secret once; the truncated key then appears in the list.
     setCreatedKey(created);
-    load(true);
+    void load(true);
   };
 
   const handleDeleteConfirmed = async () => {

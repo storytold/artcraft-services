@@ -23,6 +23,7 @@ import {
   IconTrophy,
 } from "@tabler/icons-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 const COLUMN_COUNT = 7;
 
@@ -58,9 +59,7 @@ export function TopSpenders() {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
 
   const cancelledRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
-
+  
   const loadData = async (
     timeWindow: string,
     offset?: number | null,
@@ -102,18 +101,18 @@ export function TopSpenders() {
     setWindow(value);
     setSpenders([]);
     setNextOffset(null);
-    loadData(value);
+    void loadData(value);
   };
 
   const handleRefresh = () => {
     setSpenders([]);
     setNextOffset(null);
-    loadData(window);
+    void loadData(window);
   };
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData(DEFAULT_WINDOW);
+    void loadData(DEFAULT_WINDOW);
     return () => {
       cancelledRef.current = true;
     };
@@ -121,26 +120,11 @@ export function TopSpenders() {
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && nextOffset != null) {
-      loadData(window, nextOffset, true);
+      void loadData(window, nextOffset, true);
     }
   }, [window, nextOffset, isLoadingMore]);
 
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { threshold: 0.1 },
-    );
-
-    if (sentinelRef.current) {
-      observerRef.current.observe(sentinelRef.current);
-    }
-
-    return () => observerRef.current?.disconnect();
-  }, [loadMore]);
+  const sentinelRef = useInfiniteScroll<HTMLTableRowElement>(loadMore);
 
   const { ref: tableRef, height: tableHeight } = useTableHeight();
 
