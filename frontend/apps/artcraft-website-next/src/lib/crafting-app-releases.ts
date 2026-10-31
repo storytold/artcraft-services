@@ -178,14 +178,6 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     arch: "aarch64",
   },
   {
-    file: "{slug}-{version}-freebsd-x86_64.tar.gz",
-    group: "FreeBSD",
-    label: "FreeBSD (x86_64)",
-    description: "Plain binaries for FreeBSD 14.",
-    arch: "x86_64",
-    recommended: true,
-  },
-  {
     file: "{slug}-web-{version}.zip",
     group: "Other",
     label: "Web build",
@@ -196,6 +188,14 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     group: "Other",
     label: "SHA-256 checksums",
     description: "Verify any download above.",
+  },
+  {
+    file: "{slug}-{version}-freebsd-x86_64.tar.gz",
+    group: "FreeBSD",
+    label: "FreeBSD (x86_64)",
+    description: "Plain binaries for FreeBSD 14.",
+    arch: "x86_64",
+    recommended: true,
   },
 ];
 
