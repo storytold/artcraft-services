@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
+  ChevronDownIcon,
   CpuIcon,
   ExternalLinkIcon,
   FolderDownIcon,
@@ -34,12 +35,18 @@ type DistroConfig = {
   rawFiles: { name: string; href: string; description: string }[];
 };
 
+const STANDARD_ARCHITECTURES = [
+  "x86_64 (amd64)",
+  "aarch64 (arm64)",
+  "riscv64 (64-bit RISC-V)",
+];
+
 const DISTRO_CONFIGS: Record<string, DistroConfig> = {
   flatpak: {
     id: "flatpak",
     name: "Flatpak (OCI Registry Remote)",
     distros: "Any Linux distribution with flatpak installed",
-    architectures: ["x86_64 (amd64)", "aarch64 (arm64)"],
+    architectures: STANDARD_ARCHITECTURES.slice(0, 2),
     setupDescription: "Add the ArtCraft OCI Flatpak remote:",
     setupCommand: `# Add ArtCraft OCI Flatpak repository
 flatpak remote-add --user --if-not-exists artcraft-oci https://getartcraft.com/artcraft-oci.flatpakrepo
@@ -59,7 +66,7 @@ flatpak install --user https://getartcraft.com/apps/pdfcraft/pdfcraft-oci.flatpa
     id: "apt",
     name: "APT (Debian, Ubuntu & Derivatives)",
     distros: "Ubuntu 22.04+, Debian 12+, Linux Mint, Pop!_OS, Elementary OS",
-    architectures: ["amd64 (x86_64)", "arm64 (aarch64)", "riscv64 (64-bit RISC-V)"],
+    architectures: STANDARD_ARCHITECTURES,
     setupDescription: "Add the ArtCraft APT repository source and install:",
     setupCommand: `# Add the ArtCraft repository source
 sudo curl -fsSL https://getartcraft.com/apt/artcraft.sources -o /etc/apt/sources.list.d/artcraft.sources
@@ -76,7 +83,7 @@ sudo apt install artcraft-launcher pdfcraft`,
     id: "dnf",
     name: "DNF & RPM (Fedora, RHEL & Derivatives)",
     distros: "Fedora 40+, RHEL 9+, CentOS Stream, Rocky Linux, AlmaLinux",
-    architectures: ["x86_64 (amd64)", "aarch64 (arm64)", "riscv64 (64-bit RISC-V)"],
+    architectures: STANDARD_ARCHITECTURES,
     setupDescription: "Add the ArtCraft RPM repository and install:",
     setupCommand: `# Add the ArtCraft RPM repository
 sudo curl -fsSL https://getartcraft.com/rpm/artcraft.repo -o /etc/yum.repos.d/artcraft.repo
@@ -98,7 +105,7 @@ sudo dnf config-manager --add-repo https://getartcraft.com/rpm/artcraft.repo`,
     id: "zypper",
     name: "Zypper & RPM (openSUSE)",
     distros: "openSUSE Tumbleweed, openSUSE Leap 15.6+",
-    architectures: ["x86_64 (amd64)", "aarch64 (arm64)", "riscv64 (64-bit RISC-V)"],
+    architectures: STANDARD_ARCHITECTURES,
     setupDescription: "Add repository using zypper:",
     setupCommand: `# Add the ArtCraft RPM repository
 sudo zypper addrepo https://getartcraft.com/rpm/artcraft.repo
@@ -186,9 +193,17 @@ export function LinuxRepoGuide() {
             </div>
           )}
 
-          {/* Raw repository descriptors & inspection links */}
-          <div className="border-t border-line pt-6">
-            <p className="hud-label text-muted">Repository descriptors & endpoints</p>
+          {/* Raw repository descriptors & inspection links accordion */}
+          <details className="group border-t border-line pt-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between py-1 text-xs font-medium text-muted transition-colors hover:text-ink [&::-webkit-details-marker]:hidden">
+              <span className="hud-label text-muted group-hover:text-ink">
+                Repository descriptors & direct endpoints
+              </span>
+              <ChevronDownIcon
+                aria-hidden
+                className="h-4 w-4 text-faint transition-transform group-open:rotate-180"
+              />
+            </summary>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
               {config.rawFiles.map((file) => (
                 <Link
@@ -207,7 +222,7 @@ export function LinuxRepoGuide() {
                 </Link>
               ))}
             </div>
-          </div>
+          </details>
         </div>
       </article>
 
@@ -277,22 +292,29 @@ export function LinuxRepoGuide() {
         </div>
       </section>
 
-      {/* Available Packages Table */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display text-2xl font-medium tracking-[-0.02em] text-ink-strong">
-              Available Packages
-            </h3>
-            <p className="mt-1 text-sm text-muted">
-              Packages currently served through our native APT and RPM repositories.
-            </p>
-          </div>
-          <PackageIcon aria-hidden className="hidden h-6 w-6 text-faint sm:block" />
-        </div>
-
-        <div className="border border-line bg-bg">
-          <div className="overflow-x-auto">
+      {/* Available Packages Table (Hidden in Accordion) */}
+      <section className="border border-line bg-bg">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between p-6 transition-colors hover:bg-bg-raised/30 md:px-8 md:py-6 [&::-webkit-details-marker]:hidden">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center border border-line text-ink">
+                <PackageIcon aria-hidden className="h-4 w-4 text-accent-ink" />
+              </span>
+              <div>
+                <h3 className="font-display text-xl font-medium tracking-[-0.02em] text-ink-strong">
+                  Available Packages & Checksums
+                </h3>
+                <p className="mt-0.5 text-xs text-muted">
+                  Package catalog, architectures, and install commands.
+                </p>
+              </div>
+            </div>
+            <ChevronDownIcon
+              aria-hidden
+              className="h-5 w-5 text-faint transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="border-t border-line overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-line bg-bg-sunken text-xs font-medium text-faint">
@@ -314,15 +336,14 @@ export function LinuxRepoGuide() {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex gap-1.5">
-                        <span className="border border-line bg-bg-raised px-1.5 py-0.5 font-mono text-[10px] text-ink">
-                          x86_64
-                        </span>
-                        <span className="border border-line bg-bg-raised px-1.5 py-0.5 font-mono text-[10px] text-ink">
-                          aarch64
-                        </span>
-                        <span className="border border-line bg-bg-raised px-1.5 py-0.5 font-mono text-[10px] text-ink">
-                          riscv64
-                        </span>
+                        {STANDARD_ARCHITECTURES.map((arch) => (
+                          <span
+                            key={arch}
+                            className="border border-line bg-bg-raised px-1.5 py-0.5 font-mono text-[10px] text-ink"
+                          >
+                            {arch.split(" ")[0]}
+                          </span>
+                        ))}
                       </div>
                     </td>
                     <td className="max-w-md px-6 py-4 text-xs text-muted">
@@ -345,7 +366,7 @@ export function LinuxRepoGuide() {
               </tbody>
             </table>
           </div>
-        </div>
+        </details>
       </section>
     </div>
   );
