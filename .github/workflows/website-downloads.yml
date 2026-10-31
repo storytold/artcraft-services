@@ -23,8 +23,8 @@ jobs:
         working-directory: frontend/apps/artcraft-website-next
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: npm ci
-      - run: npx next typegen
+      - run: npm ci --ignore-scripts
+      - run: ./node_modules/.bin/next typegen
       - run: npm run typecheck
-      - run: npx playwright install --with-deps chromium
+      - run: ./node_modules/.bin/playwright install --with-deps chromium
       - run: npm run test:downloads
