@@ -25,6 +25,7 @@ export type FlatpakOciImage = {
 };
 
 export type FlatpakOciRepository = {
+  Name: string;
   Repository: string;
   Images: FlatpakOciImage[];
 };
@@ -94,7 +95,7 @@ function createRepoEntry(
 ): FlatpakOciRepository | null {
   const images = filterImages(buildImagesForTarget(appId, appName, release), criteria);
   if (images.length === 0) return null;
-  return { Repository: repoName, Images: images };
+  return { Name: repoName, Repository: repoName, Images: images };
 }
 
 /**
@@ -108,7 +109,7 @@ export function getFlatpakOciIndex(searchParams?: URLSearchParams): FlatpakOciIn
     refMustExist: searchParams?.get("label:org.flatpak.ref:exists") === "1",
     tag: searchParams?.get("tag") ?? null,
   };
-  const reqRepo = searchParams?.get("repo");
+  const reqRepo = searchParams?.get("repository") ?? searchParams?.get("repo");
 
   const results: FlatpakOciRepository[] = [];
 

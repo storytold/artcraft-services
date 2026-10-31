@@ -13,8 +13,9 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     expect(launcher?.Images).toHaveLength(2); // x86_64 and aarch64
 
     // Verifies PdfCraft is present
-    const pdfcraft = index.Results.find((r) => r.Repository === "storytold/pdfcraft");
+    const pdfcraft = index.Results.find((r) => r.Name === "storytold/pdfcraft");
     expect(pdfcraft).toBeDefined();
+    expect(pdfcraft?.Repository).toBe("storytold/pdfcraft");
 
     const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "x86_64");
     expect(pdfcraftX86).toBeDefined();
@@ -45,10 +46,11 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
   });
 
   test("filters by repository", () => {
-    const params = new URLSearchParams({ repo: "storytold/pdfcraft" });
+    const params = new URLSearchParams({ repository: "storytold/pdfcraft" });
     const index = getFlatpakOciIndex(params);
 
     expect(index.Results).toHaveLength(1);
+    expect(index.Results[0].Name).toBe("storytold/pdfcraft");
     expect(index.Results[0].Repository).toBe("storytold/pdfcraft");
   });
 });
