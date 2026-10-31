@@ -389,7 +389,7 @@ export function LauncherDownloadButton({
                 <>
                   {" · "}
                   <Link href="/linux" className="underline hover:text-ink">
-                    Repository Setup
+                    Repository Setup (Preview)
                   </Link>
                 </>
               )}
