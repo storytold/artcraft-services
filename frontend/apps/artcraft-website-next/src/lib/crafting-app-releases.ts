@@ -177,28 +177,19 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     description: "Plain binaries for 64-bit ARM.",
     arch: "aarch64",
   },
-  {
-    file: "{slug}-{version}-linux-riscv64.tar.gz",
+  // Keep literal filenames here: the release updater extracts them from this array.
+  ...[
+    { file: "{slug}-{version}-linux-riscv64.tar.gz", label: "Tarball", description: "Plain binaries for 64-bit RISC-V.", recommended: true },
+    { file: "{slug}-{version}-linux-riscv64.deb", label: "Debian package", description: "Debian and derivatives on 64-bit RISC-V." },
+    { file: "{slug}-{version}-linux-riscv64.rpm", label: "RPM package", description: "RPM-based distributions on 64-bit RISC-V." },
+  ].map(({ file, label, description, recommended }): CraftReleaseAsset => ({
+    file,
     group: "Linux",
-    label: "Tarball (RISC-V 64)",
-    description: "Plain binaries for 64-bit RISC-V.",
+    label: `${label} (RISC-V 64)`,
+    description,
     arch: "riscv64",
-    recommended: true,
-  },
-  {
-    file: "{slug}-{version}-linux-riscv64.deb",
-    group: "Linux",
-    label: "Debian package (RISC-V 64)",
-    description: "Debian and derivatives on 64-bit RISC-V.",
-    arch: "riscv64",
-  },
-  {
-    file: "{slug}-{version}-linux-riscv64.rpm",
-    group: "Linux",
-    label: "RPM package (RISC-V 64)",
-    description: "RPM-based distributions on 64-bit RISC-V.",
-    arch: "riscv64",
-  },
+    recommended,
+  })),
   {
     file: "{slug}-web-{version}.zip",
     group: "Other",

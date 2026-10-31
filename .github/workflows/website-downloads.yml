@@ -1,0 +1,30 @@
+name: Website download selection
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/apps/artcraft-website-next/**'
+      - '.github/workflows/website-downloads.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/apps/artcraft-website-next/**'
+      - '.github/workflows/website-downloads.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  downloads:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend/apps/artcraft-website-next
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: npm ci
+      - run: npx next typegen
+      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:downloads

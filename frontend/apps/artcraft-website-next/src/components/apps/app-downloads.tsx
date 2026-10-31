@@ -11,7 +11,7 @@ import {
 import { twMerge } from "tailwind-merge";
 import { WindowsIcon } from "@/components/icons";
 import { Button, type ButtonProps } from "@/components/ui";
-import { craftLauncherDownloads } from "@/lib/craft-launcher";
+import { craftLauncherDownloads, craftLauncherReleasePageUrl } from "@/lib/craft-launcher";
 import {
   CRAFT_DESKTOP_PLATFORMS,
   type CraftDesktopPlatform,
@@ -285,7 +285,7 @@ export function LauncherDownloadButton({
               </div>
               <ul className="flex flex-col">
                 {linuxOptions.map((opt) => {
-                    const isDefault = opt.fileName === defaultLinuxDownload?.fileName;
+                  const isDefault = opt.fileName === defaultLinuxDownload?.fileName;
                   const isSelected = activeDownload.fileName === opt.fileName;
                   return (
                     <li key={opt.href}>
@@ -335,6 +335,7 @@ export function LauncherDownloadButton({
         <span aria-hidden={!activeDownload} className="hud-label min-h-4 w-0 min-w-full whitespace-nowrap text-faint">
           {activeDownload ? `For Linux · ${activeDownload.label}` : "\u00a0"}
         </span>
+        <AllLauncherDownloadsLink />
       </span>
     );
   }
@@ -356,7 +357,16 @@ export function LauncherDownloadButton({
       <span aria-hidden={!mine} className="hud-label min-h-4 w-0 min-w-full whitespace-nowrap text-faint">
         {mine ? `For ${mine.group} · ${mine.label}` : "\u00a0"}
       </span>
+      <AllLauncherDownloadsLink />
     </span>
+  );
+}
+
+function AllLauncherDownloadsLink() {
+  return (
+    <a href={craftLauncherReleasePageUrl()} className="text-sm text-muted underline hover:text-ink">
+      All launcher downloads (other architectures)
+    </a>
   );
 }
 
@@ -394,7 +404,9 @@ function useDetectedDesktop(): DetectedDesktop | null {
     void detectDesktop().then((desktop) => {
       if (active) setDetected(desktop);
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
   return detected;
 }
@@ -420,32 +432,39 @@ async function detectDesktop(): Promise<DetectedDesktop | null> {
     return navigator.maxTouchPoints > 1 ? null : { platform: "macOS" };
   }
   if (/Linux/i.test(ua)) {
-    // Chromium can reduce Linux user agents to x86_64 on other CPUs.
-    // Prefer explicit architecture in the user agent, then client hints.
-    let architecture = ua;
-    if (!/riscv64|aarch64|arm64|armv8/i.test(ua)) {
-      const clientHints = (navigator as Navigator & {
-        userAgentData?: {
-          getHighEntropyValues: (hints: string[]) => Promise<{ architecture?: string; bitness?: string }>;
-        };
-      }).userAgentData;
-      try {
-        const hints = await clientHints?.getHighEntropyValues(["architecture", "bitness"]);
-        if (hints?.bitness === "64" && /^(arm|riscv)$/i.test(hints.architecture ?? "")) {
-          architecture = `${hints.architecture}64`;
-        } else if (/^(arm64|aarch64|riscv64)$/i.test(hints?.architecture ?? "")) {
-          architecture = hints!.architecture!;
-        }
-      } catch {
-        // Client hints may be unavailable or blocked; use the user agent.
-      }
-    }
-    return {
-      platform: "Linux",
-      arch: /riscv64/i.test(architecture)
-        ? "riscv64"
-        : /aarch64|arm64|armv8/i.test(architecture) ? "aarch64" : "x86_64",
-    };
+    return { platform: "Linux", arch: await detectLinuxArchitecture(ua) };
   }
   return null;
+}
+
+type LinuxArchitecture = "x86_64" | "aarch64" | "riscv64";
+
+async function detectLinuxArchitecture(ua: string): Promise<LinuxArchitecture> {
+  // Explicit non-x86 UAs remain useful even when hints are blocked.
+  const explicit = nonX86Architecture(ua);
+  if (explicit) return explicit;
+  const hints = await linuxClientHints();
+  const hinted = hints?.architecture ?? "";
+  const architecture = hints?.bitness === "64" ? `${hinted}64` : hinted;
+  return nonX86Architecture(architecture) ?? "x86_64";
+}
+
+function nonX86Architecture(value: string): LinuxArchitecture | undefined {
+  if (/riscv64/i.test(value)) return "riscv64";
+  if (/aarch64|arm64|armv8/i.test(value)) return "aarch64";
+  return undefined;
+}
+
+async function linuxClientHints(): Promise<{ architecture?: string; bitness?: string } | undefined> {
+  const clientHints = (navigator as Navigator & {
+    userAgentData?: {
+      getHighEntropyValues: (hints: string[]) => Promise<{ architecture?: string; bitness?: string }>;
+    };
+  }).userAgentData;
+  try {
+    return await clientHints?.getHighEntropyValues(["architecture", "bitness"]);
+  } catch {
+    // Browsers may reject hints. The all-downloads link remains available.
+    return undefined;
+  }
 }
