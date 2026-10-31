@@ -32,6 +32,7 @@ const PLATFORM_ICONS: Record<CraftDesktopPlatform, ReactNode> = {
   macOS: <AppleIcon aria-hidden className="h-5 w-5" />,
   Windows: <WindowsIcon className="h-5 w-5" />,
   Linux: <SquareTerminalIcon aria-hidden className="h-5 w-5" />,
+  FreeBSD: <SquareTerminalIcon aria-hidden className="h-5 w-5" />,
 };
 
 /**
@@ -51,7 +52,7 @@ export function AppPlatformDownloads({
   const detected = useDetectedDesktop();
 
   return (
-    <div className="grid gap-px bg-line md:grid-cols-3">
+    <div className="grid gap-px bg-line md:grid-cols-2 xl:grid-cols-4">
       {CRAFT_DESKTOP_PLATFORMS.map((platform, i) => {
         const files = downloads.filter((download) => download.group === platform);
         const isDetected = detected?.platform === platform;
@@ -409,6 +410,7 @@ function pickDownload(
 function detectDesktop(): DetectedDesktop | null {
   const ua = navigator.userAgent;
   if (/Android|iPhone|iPad|iPod|Mobile|CrOS/i.test(ua)) return null;
+  if (/FreeBSD|GhostBSD/i.test(ua)) return { platform: "FreeBSD", arch: "x86_64" };
   if (/Windows/i.test(ua)) return { platform: "Windows" };
   if (/Macintosh|Mac OS X/i.test(ua)) {
     // iPadOS Safari reports itself as a Mac; touch support gives it away.
