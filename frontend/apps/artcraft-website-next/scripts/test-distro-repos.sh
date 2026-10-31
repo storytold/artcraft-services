@@ -298,9 +298,11 @@ EOF
     sha256sum -c /tmp/expected.sha256
 
     echo "--- Testing real installation of native packages ---"
+    rm -f /etc/zypp/zypp.conf
+    zypper --non-interactive modifyrepo --enable repo-oss 2>/dev/null || true
     zypper --non-interactive addrepo --no-check --no-gpgcheck "'"$zypper_url"'/rpm" artcraft
-    zypper --non-interactive refresh artcraft
-    zypper --non-interactive install --no-recommends '"$zypper_install_pkgs"'
+    zypper --non-interactive refresh
+    zypper --non-interactive install --no-recommends --allow-unsigned-rpm '"$zypper_install_pkgs"'
     for pkg in $(echo "'"$zypper_install_pkgs"'" | tr " " "\n" | sed "s/^artcraft://"); do
       if [[ ! -x "/usr/bin/$pkg" ]]; then
         echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2
