@@ -20,6 +20,9 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "x86_64");
     expect(pdfcraftX86).toBeDefined();
     expect(pdfcraftX86?.Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.pdfcraft/x86_64/stable");
+    expect(pdfcraftX86?.Digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("[Application]");
+    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("ai.storyteller.pdfcraft");
   });
 
   test("filters by architecture", () => {

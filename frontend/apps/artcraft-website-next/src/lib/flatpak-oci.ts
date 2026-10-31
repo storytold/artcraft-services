@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   CRAFTING_APPS,
   craftAppName,
@@ -15,7 +16,7 @@ import {
  */
 export type FlatpakOciImage = {
   Tags: string[];
-  Digest?: string;
+  Digest: string;
   MediaType: string;
   Size?: number;
   Architecture: "x86_64" | "aarch64";
@@ -48,25 +49,36 @@ function normalizeArch(arch: string | null): string | null {
 }
 
 function buildImagesForTarget(
+  repoName: string,
   appId: string,
   appName: string,
   release: CraftRelease,
 ): FlatpakOciImage[] {
   const version = release.version;
   const tags = ["stable", "latest", version];
+  const binaryName = appId.replace("ai.storyteller.", "");
 
-  return ARCHITECTURES.map((arch) => ({
-    Tags: tags,
-    MediaType: "application/vnd.oci.image.manifest.v1+json",
-    Architecture: arch,
-    OS: "linux",
-    Labels: {
-      "org.flatpak.ref": `app/${appId}/${arch}/stable`,
-      "org.opencontainers.image.version": version,
-      "org.opencontainers.image.title": appName,
-      "org.opencontainers.image.vendor": "Storytold",
-    },
-  }));
+  return ARCHITECTURES.map((arch) => {
+    const ref = `app/${appId}/${arch}/stable`;
+    const digestHash = createHash("sha256")
+      .update(`${repoName}:${ref}:${version}`)
+      .digest("hex");
+
+    return {
+      Tags: tags,
+      Digest: `sha256:${digestHash}`,
+      MediaType: "application/vnd.oci.image.manifest.v1+json",
+      Architecture: arch,
+      OS: "linux",
+      Labels: {
+        "org.flatpak.ref": ref,
+        "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/23.08\nsdk=org.freedesktop.Sdk/${arch}/23.08\ncommand=${binaryName}\n`,
+        "org.opencontainers.image.version": version,
+        "org.opencontainers.image.title": appName,
+        "org.opencontainers.image.vendor": "Storytold",
+      },
+    };
+  });
 }
 
 type OciFilterCriteria = {
@@ -93,7 +105,7 @@ function createRepoEntry(
   release: CraftRelease,
   criteria: OciFilterCriteria,
 ): FlatpakOciRepository | null {
-  const images = filterImages(buildImagesForTarget(appId, appName, release), criteria);
+  const images = filterImages(buildImagesForTarget(repoName, appId, appName, release), criteria);
   if (images.length === 0) return null;
   return { Name: repoName, Repository: repoName, Images: images };
 }
