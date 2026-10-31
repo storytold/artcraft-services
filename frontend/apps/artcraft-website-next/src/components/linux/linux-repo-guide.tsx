@@ -122,24 +122,23 @@ export function LinuxRepoGuide() {
   const config = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.flatpak;
 
   return (
-    <div className="flex flex-col gap-12">
-      {/* Distro selector */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <p className="hud-label text-muted">Select distribution / package manager</p>
-          <span className="hud-label hidden text-faint sm:inline-block">Continuous updates via native packages</span>
-        </div>
+    <div className="flex flex-col">
+      {/* Distro selector toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-6 py-4 md:px-10">
         <TabSelector
           tabs={REPO_TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           className="w-full sm:w-auto"
         />
+        <p className="hud-label hidden text-faint sm:block">
+          Continuous updates via native packages
+        </p>
       </div>
 
       {/* Main setup card */}
-      <article className="border border-line bg-bg">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-6 py-4 md:px-8">
+      <article className="border-b border-line bg-bg">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-6 py-4 md:px-10">
           <div>
             <h2 className="font-display text-2xl font-medium tracking-[-0.02em] text-ink-strong">
               {config.name}
@@ -162,7 +161,7 @@ export function LinuxRepoGuide() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-8 p-6 md:p-8">
+        <div className="flex flex-col gap-8 p-6 md:p-10">
           {/* Primary setup instructions */}
           <div>
             <p className="text-sm font-medium text-ink">{config.setupDescription}</p>
@@ -212,7 +211,7 @@ export function LinuxRepoGuide() {
 
       {/* Security & Zero-Bandwidth Architecture */}
       <section className="grid gap-px bg-line md:grid-cols-2">
-        <div className="flex flex-col bg-bg p-6 md:p-8">
+        <div className="flex flex-col bg-bg p-6 md:p-10">
           <div className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center border border-line text-ink">
               <ShieldCheckIcon aria-hidden className="h-4 w-4 text-accent-ink" />
@@ -238,7 +237,7 @@ export function LinuxRepoGuide() {
           </div>
         </div>
 
-        <div className="flex flex-col bg-bg p-6 md:p-8">
+        <div className="flex flex-col bg-bg p-6 md:p-10">
           <div className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center border border-line text-ink">
               <FolderDownIcon aria-hidden className="h-4 w-4 text-accent-ink" />
