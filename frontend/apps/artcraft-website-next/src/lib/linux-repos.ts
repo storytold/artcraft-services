@@ -44,11 +44,11 @@ export type LinuxRepoApp = {
 
 export function escapeXml(unsafe: string): string {
   return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
 }
 
 /**
@@ -310,7 +310,7 @@ export function generateAptPackages(arch: string): string {
     const asset = app.debAssets.find((a) => a.arch === arch);
     if (!asset) continue;
 
-    lines.push(
+    const packageLines = [
       `Package: ${app.name}`,
       `Version: ${app.version}-1`,
       `Section: ${app.section}`,
@@ -319,18 +319,16 @@ export function generateAptPackages(arch: string): string {
       `Maintainer: ${app.name} maintainers <hello@storyteller.ai>`,
       `Installed-Size: ${asset.installedSize}`,
       `Depends: ${asset.depends}`,
-    );
-    if (asset.recommends) {
-      lines.push(`Recommends: ${asset.recommends}`);
-    }
-    lines.push(
+      ...(asset.recommends ? [`Recommends: ${asset.recommends}`] : []),
       `Homepage: https://getartcraft.com/apps/${app.slug}`,
       `Filename: pool/main/${app.slug}/${asset.filename}`,
       `Size: ${asset.size}`,
       `SHA256: ${asset.sha256}`,
       `Description: ${app.description}`,
       "",
-    );
+    ];
+
+    lines.push(...packageLines);
   }
 
   return lines.join("\n");
@@ -389,29 +387,27 @@ function formatRpmRequire(req: RpmRequire): string {
   return `<rpm:entry name="${escapeXml(req.name)}"/>`;
 }
 
-export function generateRpmPrimaryXml(
-  timestamp: number = RPM_REPO_TIMESTAMP,
-  archFilter?: string,
+function toRpmArchTag(arch: string): string {
+  switch (arch) {
+    case "x86_64":
+      return "x86-64";
+    case "aarch64":
+      return "aarch-64";
+    case "riscv64":
+      return "riscv-64";
+    default:
+      return arch;
+  }
+}
+
+function generateRpmPackageXml(
+  app: LinuxRepoApp,
+  asset: LinuxRepoApp["rpmAssets"][number],
+  timestamp: number,
 ): string {
-  let packageCount = 0;
-  const packageXmls: string[] = [];
+  const rpmArchTag = toRpmArchTag(asset.arch);
 
-  for (const app of LINUX_REPO_APPS) {
-    for (const asset of app.rpmAssets) {
-      if (archFilter && asset.arch !== archFilter) {
-        continue;
-      }
-      packageCount++;
-      const rpmArchTag =
-        asset.arch === "x86_64"
-          ? "x86-64"
-          : asset.arch === "aarch64"
-            ? "aarch-64"
-            : asset.arch === "riscv64"
-              ? "riscv-64"
-              : asset.arch;
-
-      packageXmls.push(`  <package type="rpm">
+  return `  <package type="rpm">
     <name>${escapeXml(app.name)}</name>
     <arch>${escapeXml(asset.arch)}</arch>
     <version epoch="0" ver="${escapeXml(app.version)}" rel="1"/>
@@ -435,12 +431,26 @@ export function generateRpmPrimaryXml(
       </rpm:requires>
       <file>/usr/bin/${escapeXml(app.name)}</file>
     </format>
-  </package>`);
+  </package>`;
+}
+
+export function generateRpmPrimaryXml(
+  timestamp: number = RPM_REPO_TIMESTAMP,
+  archFilter?: string,
+): string {
+  const packageXmls: string[] = [];
+
+  for (const app of LINUX_REPO_APPS) {
+    for (const asset of app.rpmAssets) {
+      if (archFilter && asset.arch !== archFilter) {
+        continue;
+      }
+      packageXmls.push(generateRpmPackageXml(app, asset, timestamp));
     }
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<metadata xmlns="http://linux.duke.edu/metadata/common" xmlns:rpm="http://linux.duke.edu/metadata/rpm" packages="${packageCount}">
+<metadata xmlns="http://linux.duke.edu/metadata/common" xmlns:rpm="http://linux.duke.edu/metadata/rpm" packages="${packageXmls.length}">
 ${packageXmls.join("\n")}
 </metadata>
 `;

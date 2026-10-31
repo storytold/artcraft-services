@@ -120,6 +120,20 @@ sudo zypper install artcraft-launcher pdfcraft`,
   },
 };
 
+function getPackageInstallCommand(tab: string, appName: string, isCopy = false): string {
+  const flatpakId = appName === "pdfcraft" ? "com.artcraft.pdfcraft" : "com.artcraft.Launcher";
+  if (tab === "flatpak") {
+    return isCopy ? `flatpak install --user artcraft-oci ${flatpakId}` : `flatpak install artcraft-oci ${flatpakId}`;
+  }
+  if (tab === "zypper") {
+    return isCopy ? `sudo zypper install ${appName}` : `zypper install ${appName}`;
+  }
+  if (tab === "apt") {
+    return isCopy ? `sudo apt install ${appName}` : `apt install ${appName}`;
+  }
+  return isCopy ? `sudo dnf install ${appName}` : `dnf install ${appName}`;
+}
+
 export function LinuxRepoGuide() {
   const [activeTab, setActiveTab] = useState<string>("flatpak");
   const config = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.flatpak;
@@ -323,37 +337,16 @@ export function LinuxRepoGuide() {
                       {app.description}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
-                      {(() => {
-                        const flatpakId = app.name === "pdfcraft" ? "com.artcraft.pdfcraft" : "com.artcraft.Launcher";
-                        const displayCmd =
-                          activeTab === "flatpak"
-                            ? `flatpak install artcraft-oci ${flatpakId}`
-                            : activeTab === "zypper"
-                              ? `zypper install ${app.name}`
-                              : activeTab === "apt"
-                                ? `apt install ${app.name}`
-                                : `dnf install ${app.name}`;
-                        const copyCmd =
-                          activeTab === "flatpak"
-                            ? `flatpak install --user artcraft-oci ${flatpakId}`
-                            : activeTab === "zypper"
-                              ? `sudo zypper install ${app.name}`
-                              : activeTab === "apt"
-                                ? `sudo apt install ${app.name}`
-                                : `sudo dnf install ${app.name}`;
-                        return (
-                          <div className="inline-flex items-center gap-2">
-                            <code className="border border-line bg-bg-sunken px-2.5 py-1 font-mono text-xs text-ink">
-                              {displayCmd}
-                            </code>
-                            <CopyButton
-                              value={copyCmd}
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
-                            />
-                          </div>
-                        );
-                      })()}
+                      <div className="inline-flex items-center gap-2">
+                        <code className="border border-line bg-bg-sunken px-2.5 py-1 font-mono text-xs text-ink">
+                          {getPackageInstallCommand(activeTab, app.name, false)}
+                        </code>
+                        <CopyButton
+                          value={getPackageInstallCommand(activeTab, app.name, true)}
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
