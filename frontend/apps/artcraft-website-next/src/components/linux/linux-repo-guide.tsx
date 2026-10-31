@@ -8,13 +8,11 @@ import {
   ExternalLinkIcon,
   FolderDownIcon,
   InfoIcon,
-  PackageIcon,
   ShieldCheckIcon,
   TerminalIcon,
 } from "lucide-react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { TabSelector, type TabItem } from "@/components/ui/tab-selector";
-import { LINUX_REPO_APPS } from "@/lib/linux-repos";
 
 const REPO_TABS: TabItem[] = [
   { id: "flatpak", label: "Flatpak (OCI)" },
@@ -118,20 +116,6 @@ sudo zypper install artcraft-launcher pdfcraft`,
     ],
   },
 };
-
-function getPackageInstallCommand(tab: string, appName: string, isCopy = false): string {
-  const flatpakId = appName === "pdfcraft" ? "ai.storyteller.pdfcraft" : "ai.storyteller.artcraft-launcher";
-  if (tab === "flatpak") {
-    return isCopy ? `flatpak install --user artcraft-oci ${flatpakId}` : `flatpak install artcraft-oci ${flatpakId}`;
-  }
-  if (tab === "zypper") {
-    return isCopy ? `sudo zypper install ${appName}` : `zypper install ${appName}`;
-  }
-  if (tab === "apt") {
-    return isCopy ? `sudo apt install ${appName}` : `apt install ${appName}`;
-  }
-  return isCopy ? `sudo dnf install ${appName}` : `dnf install ${appName}`;
-}
 
 export function LinuxRepoGuide() {
   const [activeTab, setActiveTab] = useState<string>("flatpak");
@@ -290,83 +274,6 @@ export function LinuxRepoGuide() {
             </Link>
           </div>
         </div>
-      </section>
-
-      {/* Available Packages Table (Hidden in Accordion) */}
-      <section className="border border-line bg-bg">
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between p-6 transition-colors hover:bg-bg-raised/30 md:px-8 md:py-6 [&::-webkit-details-marker]:hidden">
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center border border-line text-ink">
-                <PackageIcon aria-hidden className="h-4 w-4 text-accent-ink" />
-              </span>
-              <div>
-                <h3 className="font-display text-xl font-medium tracking-[-0.02em] text-ink-strong">
-                  Available Packages & Checksums
-                </h3>
-                <p className="mt-0.5 text-xs text-muted">
-                  Package catalog, architectures, and install commands.
-                </p>
-              </div>
-            </div>
-            <ChevronDownIcon
-              aria-hidden
-              className="h-5 w-5 text-faint transition-transform group-open:rotate-180"
-            />
-          </summary>
-          <div className="border-t border-line overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-line bg-bg-sunken text-xs font-medium text-faint">
-                  <th className="px-6 py-3 font-mono uppercase tracking-wider">Package</th>
-                  <th className="px-6 py-3 font-mono uppercase tracking-wider">Version</th>
-                  <th className="px-6 py-3 font-mono uppercase tracking-wider">Architectures</th>
-                  <th className="px-6 py-3 font-mono uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-right font-mono uppercase tracking-wider">Install Command</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {LINUX_REPO_APPS.map((app) => (
-                  <tr key={app.slug} className="hover:bg-bg-raised/50">
-                    <td className="whitespace-nowrap px-6 py-4 font-mono font-semibold text-ink">
-                      {app.name}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-muted">
-                      v{app.version}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="flex gap-1.5">
-                        {STANDARD_ARCHITECTURES.map((arch) => (
-                          <span
-                            key={arch}
-                            className="border border-line bg-bg-raised px-1.5 py-0.5 font-mono text-[10px] text-ink"
-                          >
-                            {arch.split(" ")[0]}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="max-w-md px-6 py-4 text-xs text-muted">
-                      {app.description}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <code className="border border-line bg-bg-sunken px-2.5 py-1 font-mono text-xs text-ink">
-                          {getPackageInstallCommand(activeTab, app.name, false)}
-                        </code>
-                        <CopyButton
-                          value={getPackageInstallCommand(activeTab, app.name, true)}
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
       </section>
     </div>
   );
