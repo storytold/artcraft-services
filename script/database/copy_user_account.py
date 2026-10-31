@@ -130,7 +130,7 @@ def decode_hash(h) -> str:
 
 
 def gravatar_hash(email: str) -> str:
-    return hashlib.md5(email.strip().lower().encode()).hexdigest()
+    return hashlib.md5(email.strip().lower().encode(), usedforsecurity=False).hexdigest()
 
 
 def print_user(label: str, user: dict):

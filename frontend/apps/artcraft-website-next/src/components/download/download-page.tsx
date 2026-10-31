@@ -70,7 +70,9 @@ const STEPS = [
   { title: "Create", description: "Start generating artwork immediately." },
 ];
 
-export default function DownloadPage() {
+// `aside` sits beside the header (the Crafting Apps signpost), rendered on
+// the server and passed in.
+export default function DownloadPage({ aside }: { aside?: ReactNode }) {
   const detected = useDetectedPlatform();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -91,13 +93,14 @@ export default function DownloadPage() {
         id="download"
         index="01"
         label="Download"
-        annotation="macOS · Windows · Web"
+        annotation="ArtCraft Studio · macOS · Windows · Web"
         title={
           <>
-            Download <Accent>ArtCraft</Accent>.
+            Download ArtCraft <Accent>Studio</Accent>.
           </>
         }
-        lede="AI-powered artwork creation with canvas editing and 3D scene composition — right on your desktop."
+        lede="The generative AI studio for images and video. Edit on the canvas, compose 3D scenes and render them with the latest models, right on your desktop."
+        aside={aside}
       >
         <div data-reveal className="mt-8 flex flex-wrap items-center gap-3">
           <PrimaryDownloadButton

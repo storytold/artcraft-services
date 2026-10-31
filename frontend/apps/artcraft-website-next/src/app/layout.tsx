@@ -52,8 +52,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "ArtCraft — Controllable AI for Artists",
-    template: "%s — ArtCraft",
+    default: "ArtCraft - Capable tools for artists",
+    template: "%s - ArtCraft",
   },
   description:
     "ArtCraft is the open-source desktop app for generating AI video and images — built for artists who want real control.",

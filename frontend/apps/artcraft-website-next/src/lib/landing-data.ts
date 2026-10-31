@@ -140,6 +140,7 @@ export const RULER_SECTIONS: RulerSection[] = [
   { id: "manifesto", label: "MANIFESTO" },
   { id: "the-work", label: "THE WORK" },
   { id: "craft", label: "THE CRAFT" },
+  { id: "studio", label: "ARTCRAFT STUDIO" },
   { id: "features", label: "FEATURES" },
   { id: "ownership", label: "OWNERSHIP" },
   { id: "reasons", label: "WHY ARTCRAFT" },

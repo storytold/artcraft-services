@@ -75,6 +75,26 @@ const PRINCIPLE_ICONS = [
 export default function CraftingAppsPage() {
   const launcherDownloads = craftLauncherRecommended();
   const allLauncherDownloads = craftLauncherDownloads();
+  const communityButtons = (
+    <>
+      <DiscordButton
+        size="lg"
+        variant={launcherDownloads.length > 0 ? "secondary" : "primary"}
+      >
+        Join the Discord
+      </DiscordButton>
+      <Button
+        href={CRAFTING_APPS_GITHUB_ORG}
+        variant="secondary"
+        size="lg"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <GitHubIcon className="h-4 w-4" />
+        Browse on GitHub
+      </Button>
+    </>
+  );
   return (
     <>
       <RevealManager />
@@ -121,30 +141,18 @@ export default function CraftingAppsPage() {
             </nav>
         }
       >
-        <div data-reveal className="mt-8 flex flex-wrap items-start gap-3">
-          {launcherDownloads.length > 0 && (
+        <div data-reveal className="mt-8">
+          {launcherDownloads.length > 0 ? (
             <LauncherDownloadButton
               recommended={launcherDownloads}
               allDownloads={allLauncherDownloads}
               fallbackHref={craftLauncherReleasePageUrl()}
-            />
+            >
+              {communityButtons}
+            </LauncherDownloadButton>
+          ) : (
+            <div className="flex flex-wrap items-start gap-3">{communityButtons}</div>
           )}
-          <DiscordButton
-            size="lg"
-            variant={launcherDownloads.length > 0 ? "secondary" : "primary"}
-          >
-            Join the Discord
-          </DiscordButton>
-          <Button
-            href={CRAFTING_APPS_GITHUB_ORG}
-            variant="secondary"
-            size="lg"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <GitHubIcon className="h-4 w-4" />
-            Browse on GitHub
-          </Button>
         </div>
         {launcherDownloads.length > 0 && (
           <p data-reveal className="mt-4 max-w-xl leading-relaxed text-muted">

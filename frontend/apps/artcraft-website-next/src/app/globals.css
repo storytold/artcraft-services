@@ -104,6 +104,10 @@
 
 html {
   background: var(--bg);
+  /* Any value but visible here stops the body's overflow from moving to
+     the viewport (where it becomes hidden, which phones still let you
+     pan), so the body's clip below really trims wide decorations. */
+  overflow-x: clip;
 }
 
 body {
@@ -321,7 +325,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
 .app-vectorcraft { --app: #e8573f; --app-ink: #b83a24; }
 .app-filmcraft { --app: #8b5cf6; --app-ink: #6a3fd6; }
 .app-lightcraft { --app: #f2a516; --app-ink: #8a5800; }
-.app-pdfcraft { --app: #12a58a; --app-ink: #0a7563; }
+.app-pdfcraft { --app: #e8204f; --app-ink: #b70228; }
 .app-effectcraft { --app: #e0368f; --app-ink: #b0206c; }
 .app-designcraft { --app: #7bb51c; --app-ink: #457008; }
 .app-figcraft { --app: #02da96; --app-ink: #017a54; }
@@ -335,7 +339,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
 :root[data-theme="dark"] .app-vectorcraft { --app-ink: #ff8a70; }
 :root[data-theme="dark"] .app-filmcraft { --app-ink: #b69cff; }
 :root[data-theme="dark"] .app-lightcraft { --app-ink: #ffc14d; }
-:root[data-theme="dark"] .app-pdfcraft { --app-ink: #3fd6b8; }
+:root[data-theme="dark"] .app-pdfcraft { --app-ink: #f23a62; }
 :root[data-theme="dark"] .app-effectcraft { --app-ink: #ff7ab8; }
 :root[data-theme="dark"] .app-designcraft { --app-ink: #a6e04a; }
 :root[data-theme="dark"] .app-figcraft { --app-ink: #3fe6ae; }
@@ -350,7 +354,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
   :root:not([data-theme="light"]) .app-vectorcraft { --app-ink: #ff8a70; }
   :root:not([data-theme="light"]) .app-filmcraft { --app-ink: #b69cff; }
   :root:not([data-theme="light"]) .app-lightcraft { --app-ink: #ffc14d; }
-  :root:not([data-theme="light"]) .app-pdfcraft { --app-ink: #3fd6b8; }
+  :root:not([data-theme="light"]) .app-pdfcraft { --app-ink: #f23a62; }
   :root:not([data-theme="light"]) .app-effectcraft { --app-ink: #ff7ab8; }
   :root:not([data-theme="light"]) .app-designcraft { --app-ink: #a6e04a; }
   :root:not([data-theme="light"]) .app-figcraft { --app-ink: #3fe6ae; }

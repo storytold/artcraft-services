@@ -7,11 +7,11 @@ const LINK_COLUMNS: {
   links: { name: string; href: string; external?: boolean }[];
 }[] = [
   {
-    heading: "Product",
+    heading: "ArtCraft Studio",
     links: [
       { name: "Download", href: "/download" },
       { name: "Pricing", href: "/pricing" },
-      { name: "Launch App", href: WEBAPP_URL, external: true },
+      { name: "Use on web", href: WEBAPP_URL, external: true },
     ],
   },
   {
@@ -59,7 +59,8 @@ export default function SiteFooter() {
               className="themed-logo h-8 w-auto"
             />
             <p className="mt-4 max-w-xs leading-relaxed text-muted">
-              The open-source studio for controllable AI image and video.
+              Open-source tools for artists: the Craft Apps and ArtCraft
+              Studio, our AI image and video app.
             </p>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
