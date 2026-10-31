@@ -109,7 +109,7 @@ sudo dnf install artcraft-launcher pdfcraft`,
     architectures: ["x86_64", "aarch64", "riscv64"],
     setupDescription: "Add repository using zypper:",
     setupCommand: `# Add the ArtCraft RPM repository
-sudo zypper addrepo https://getartcraft.com/rpm artcraft
+sudo zypper addrepo https://getartcraft.com/rpm/artcraft.repo
 
 # Refresh repositories and install
 sudo zypper refresh
