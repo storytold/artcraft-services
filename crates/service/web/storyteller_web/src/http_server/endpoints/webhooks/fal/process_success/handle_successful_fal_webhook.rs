@@ -1,3 +1,4 @@
+use enums::common::job_status_plus::JobStatusPlus;
 use actix_web::web::Json;
 use enums::by_table::debug_logs::debug_log_level::DebugLogLevel;
 use enums::by_table::debug_logs::debug_log_type::DebugLogType;
@@ -48,6 +49,12 @@ pub async fn handle_successful_fal_webhook(
   };
 
   info!("Fal webhook job record for request_id {}: {:?}", request_id, job);
+
+  // FAL may deliver a webhook more than once. Store each job's outputs only once.
+  if job.status == JobStatusPlus::CompleteSuccess {
+    info!("Job {} for FAL request_id {} already succeeded; ignoring a repeated result", job.job_token.as_str(), request_id);
+    return Ok(SimpleGenericJsonSuccess::wrapped(true));
+  }
 
   // Insert debug log for the webhook payload.
   if let Some(debug_log_event_token) = &job.maybe_debug_log_event_token {
