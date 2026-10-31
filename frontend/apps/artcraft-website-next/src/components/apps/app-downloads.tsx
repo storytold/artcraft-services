@@ -332,6 +332,9 @@ export function LauncherDownloadButton({
             </div>
           )}
         </div>
+        {activeDownload.arch === "riscv64" && (
+          <span className="text-xs text-muted">{activeDownload.description}</span>
+        )}
         <span aria-hidden={!activeDownload} className="hud-label min-h-4 w-0 min-w-full whitespace-nowrap text-faint">
           {activeDownload ? `For Linux · ${activeDownload.label}` : "\u00a0"}
         </span>

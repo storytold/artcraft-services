@@ -23,6 +23,9 @@ for (const { arch, userAgentArch, extension } of cases) {
       await expect(card.getByRole("link", { name: "Standalone for Linux" }))
         .toHaveAttribute("href", new RegExp(`photocraft-.*-linux-${arch}\\.${extension.replace(".", "\\.")}$`));
       if (arch === "riscv64") {
+        await expect(page.getByRole("menu")).toHaveCount(0);
+        await expect(launcher.locator("..").locator("..").getByText(/Requires glibc 2\.39 or newer\./))
+          .toBeVisible();
         await page.getByRole("button", { name: "Other Linux download formats" }).first().click();
         const menu = page.getByRole("menu");
         await expect(menu.getByRole("menuitem")).toHaveCount(3);
