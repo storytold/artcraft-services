@@ -50,7 +50,18 @@ OpenAI, Stripe, Resend and others) to be present at startup. `.env.example`
 sets them to the placeholder `unset`, which lets the server start. Features
 that call a provider only work after you add a real key for it.
 
-Provider webhooks, such as `FAL_WEBHOOK_URL`, must be reachable from the
+`FAL_WEBHOOK_SIGNATURE_MODE` controls the check that FAL webhooks are signed
+by FAL (with the public keys FAL publishes at
+`https://rest.fal.ai/.well-known/jwks.json`): `enforce` rejects requests that
+don't verify, `report` (the default) logs them and accepts them, and `off`
+skips the check.
+
+FAL results also arrive without a reachable webhook: a recovery thread polls FAL
+for requests whose webhook hasn't arrived. `.env.example` sets
+`FAL_WEBHOOK_RECOVERY_AFTER_SECS=30`, so it starts looking 30 seconds after a
+request is submitted (see `_database/sql/fal_queue_requests.md`).
+
+Other provider webhooks, such as Beeble's, must be reachable from the
 internet for asynchronous generation results to arrive.
 
 ## Database migrations
