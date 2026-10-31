@@ -165,6 +165,7 @@ pub(crate) async fn upload_mesh_file(
 
   // For a ZIP package, store the extracted raw OBJ (size, hash, and upload
   // below all use these bytes) rather than the downloaded archive.
+  let extracted_from_zip = metadata.replacement_file_bytes.is_some();
   let file_bytes = match metadata.replacement_file_bytes.take() {
     Some(extracted) => Bytes::from(extracted),
     None => file_bytes,
@@ -172,7 +173,12 @@ pub(crate) async fn upload_mesh_file(
 
   let mime_type = metadata.mime_type.as_str();
 
-  info!("Mime type of mesh: {}, source: {:?}", mime_type, metadata.source);
+  if extracted_from_zip {
+    // The mime type came from the fixed OBJ hint after extraction, not from the webhook.
+    info!("Mime type of mesh: {}, extracted OBJ from ZIP package ({} bytes)", mime_type, file_bytes.len());
+  } else {
+    info!("Mime type of mesh: {}, source: {:?}", mime_type, metadata.source);
+  }
 
   let media_file_type = metadata.media_file_type;
   let extension_with_period = metadata.extension_with_period;

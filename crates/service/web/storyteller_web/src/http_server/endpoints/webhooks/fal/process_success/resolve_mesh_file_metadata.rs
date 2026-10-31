@@ -15,9 +15,11 @@ use super::resolve_file_metadata::{resolve_file_metadata_with_file_name, Metadat
 const MAX_OBJ_PACKAGE_ENTRIES: usize = 1024;
 // Limit on the sizes *declared* in the ZIP entry headers, i.e. what the package
 // claims. Declared sizes are untrusted, so extraction enforces its own limit.
-const MAX_OBJ_PACKAGE_UNCOMPRESSED_BYTES: u64 = 512 * 1024 * 1024;
-// Hard limit on the bytes actually read when extracting the OBJ.
-const MAX_EXTRACTED_OBJ_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_OBJ_PACKAGE_UNCOMPRESSED_BYTES: u64 = 256 * 1024 * 1024;
+// Hard limit on the bytes actually read when extracting the OBJ. The webhook
+// holds the downloaded ZIP, the extracted OBJ and the upload copy in memory at
+// once, so keep this well below the old 256 MiB.
+const MAX_EXTRACTED_OBJ_BYTES: u64 = 128 * 1024 * 1024;
 
 pub(super) struct ResolvedMeshFileMetadata {
   pub mime_type: String,
@@ -155,6 +157,21 @@ mod tests {
       let bytes = package(&[("model.obj", OBJ)]);
       assert!(extract_obj_from_package_with_limit(&bytes, OBJ.len() as u64).is_some());
       assert!(extract_obj_from_package_with_limit(&bytes, OBJ.len() as u64 - 1).is_none());
+    }
+
+    #[test]
+    fn valid_obj_variants_are_extracted_unchanged() {
+      let comment: &[u8] = b"# exported by a tool\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n";
+      let bom: &[u8] = b"\xEF\xBB\xBFv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n";
+      let crlf: &[u8] = b"v 0 0 0\r\nv 1 0 0\r\nv 0 1 0\r\nf 1 2 3\r\n";
+      let comment_crlf: &[u8] = b"# exported by a tool\r\nmtllib model.mtl\r\nv 0 0 0\r\nf 1 1 1\r\n";
+      let bom_comment_crlf: &[u8] = b"\xEF\xBB\xBF# exported by a tool\r\nv 0 0 0\r\nf 1 1 1\r\n";
+      for obj in [comment, bom, crlf, comment_crlf, bom_comment_crlf] {
+        let bytes = package(&[("model.obj", obj)]);
+        let metadata = resolve_mesh_file_metadata(&bytes, Some("application/zip"), Some("model.zip")).expect("valid OBJ variant rejected");
+        assert_eq!(metadata.media_file_type, MediaFileType::Obj);
+        assert_eq!(metadata.replacement_file_bytes.as_deref(), Some(obj));
+      }
     }
 
     #[test]
