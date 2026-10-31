@@ -16,6 +16,12 @@ const TEXT_LINK_CLASSES =
 export default function Hero() {
   const launcherDownloads = craftLauncherRecommended();
   const hasLauncher = launcherDownloads.length > 0;
+  const exploreButton = (
+    <Button href="/apps" variant={hasLauncher ? "secondary" : "primary"} size="lg">
+      <LayoutGridIcon aria-hidden className="h-4 w-4" />
+      Explore Crafting Apps
+    </Button>
+  );
   return (
     <section id="hero" className="relative">
       {/* Single-stage radial poster: the wordmark at the center is the
@@ -60,32 +66,24 @@ export default function Hero() {
               on freedom of control and expression.
             </p>
 
-            {/* Equal columns sized to the widest item (the launcher's
-                downloads link), so both buttons match and sit side by side
-                from sm up; stacked full width below that. */}
             <div
               data-reveal
-              className="pointer-events-auto relative mt-7 grid w-full max-w-sm items-start gap-x-3 gap-y-4 sm:w-fit sm:max-w-none sm:grid-cols-2"
+              className="pointer-events-auto relative mt-7 flex w-full justify-center"
             >
               {/* The Crafting Apps lead: ArtCraft Launcher installs and
                   updates every one of them. */}
-              {hasLauncher && (
+              {hasLauncher ? (
                 <LauncherDownloadButton
                   recommended={launcherDownloads}
                   allDownloads={craftLauncherDownloads()}
                   fallbackHref={craftLauncherReleasePageUrl()}
-                  fullWidth
-                />
+                  centered
+                >
+                  {exploreButton}
+                </LauncherDownloadButton>
+              ) : (
+                exploreButton
               )}
-              <Button
-                href="/apps"
-                variant={hasLauncher ? "secondary" : "primary"}
-                size="lg"
-                className="w-full"
-              >
-                <LayoutGridIcon aria-hidden className="h-4 w-4" />
-                Explore Crafting Apps
-              </Button>
             </div>
 
             {/* The AI studio stays one click away, below the apps. */}

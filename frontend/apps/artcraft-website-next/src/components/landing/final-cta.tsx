@@ -16,6 +16,12 @@ import { SectionShell } from "./section-shell";
 export default function FinalCta() {
   const launcherDownloads = craftLauncherRecommended();
   const hasLauncher = launcherDownloads.length > 0;
+  const exploreButton = (
+    <Button href="/apps" variant={hasLauncher ? "secondary" : "primary"} size="lg">
+      <LayoutGridIcon aria-hidden className="h-4 w-4" />
+      Explore the apps
+    </Button>
+  );
   return (
     <SectionShell id="start">
       <div className="flex flex-col items-center px-6 pt-20 pb-14 text-center md:pt-28 md:pb-16">
@@ -40,17 +46,17 @@ export default function FinalCta() {
           title="Desktop apps for every craft."
           body={`${CRAFTING_APPS_COUNT_WORD} native, open-source apps for image editing, vector illustration, video, page layout, audio and more. ${CRAFT_LAUNCHER_NAME} installs them all and keeps them up to date.`}
         >
-          {hasLauncher && (
+          {hasLauncher ? (
             <LauncherDownloadButton
               recommended={launcherDownloads}
               allDownloads={craftLauncherDownloads()}
               fallbackHref={craftLauncherReleasePageUrl()}
-            />
+            >
+              {exploreButton}
+            </LauncherDownloadButton>
+          ) : (
+            exploreButton
           )}
-          <Button href="/apps" variant={hasLauncher ? "secondary" : "primary"} size="lg">
-            <LayoutGridIcon aria-hidden className="h-4 w-4" />
-            Explore the apps
-          </Button>
         </Choice>
 
         <Choice
@@ -73,9 +79,9 @@ export default function FinalCta() {
           <Button href={WEBAPP_URL} variant="secondary" size="lg">
             Use on web
           </Button>
-          {/* Same height as the launcher button's platform line, so both
-              cells' buttons line up. */}
-          <p className="hud-label w-full text-faint">macOS · Windows · Web</p>
+          {/* Same height as the launcher's platform line and downloads link
+              (16 + 8 + 20px), so both cells' buttons line up side by side. */}
+          <p className="hud-label w-full text-faint md:min-h-11">macOS · Windows · Web</p>
         </Choice>
       </div>
     </SectionShell>
@@ -111,7 +117,9 @@ function Choice({
           {title}
         </h3>
         <p className="mt-3 max-w-md leading-relaxed text-muted">{body}</p>
-        <div className="mt-auto flex flex-wrap items-start gap-x-3 gap-y-2 pt-8">{children}</div>
+        <div className="mt-auto flex flex-col gap-3 pt-8 max-sm:*:w-full sm:flex-row sm:flex-wrap sm:items-start">
+          {children}
+        </div>
       </div>
     </article>
   );

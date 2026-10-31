@@ -167,6 +167,10 @@ export function AppHeroDownloadButton({
  *
  * On Linux, offers the recommended build and a dropdown for other formats.
  * Flatpak is the default where available; RISC-V defaults to the tarball.
+ *
+ * `children` (the page's other CTAs) share the button's row, and the platform
+ * line and all-downloads link sit under that whole row, so they never set a
+ * button's width. Below sm the row stacks full width.
  */
 export function LauncherDownloadButton({
   recommended,
@@ -175,7 +179,9 @@ export function LauncherDownloadButton({
   size = "lg",
   variant = "primary",
   fullWidth = false,
+  centered = false,
   className,
+  children,
 }: {
   recommended: CraftDownload[];
   allDownloads?: CraftDownload[];
@@ -183,7 +189,9 @@ export function LauncherDownloadButton({
   size?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
   fullWidth?: boolean;
+  centered?: boolean;
   className?: string;
+  children?: ReactNode;
 }) {
   const detected = useDetectedDesktop();
   const mine = detected && pickDownload(recommended, detected);
@@ -232,136 +240,144 @@ export function LauncherDownloadButton({
     linuxOptions.find((d) => d.fileName.endsWith(".flatpak")) ?? mine;
   const activeDownload = selectedDownload ?? defaultLinuxDownload ?? mine;
 
-  if (isLinux && linuxOptions.length > 0 && activeDownload) {
-    const isPrimary = variant === "primary";
-    return (
-      <span className={twMerge("flex flex-col gap-2", className)}>
-        <div
-          ref={menuRef}
-          className={twMerge("relative inline-flex items-stretch", fullWidth ? "w-full" : "w-fit")}
-        >
-          <Button
-            href={activeDownload.href}
-            size={size}
-            variant={variant}
-            className={twMerge(
-              fullWidth ? "flex-1 w-full" : undefined,
-              "pr-4",
-            )}
-          >
-            <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
-            Download Launcher
-          </Button>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-            aria-label="Other Linux download formats"
-            className={twMerge(
-              "flex items-center justify-center transition-colors duration-150 cursor-pointer",
-              size === "lg" ? "h-12 px-3.5" : size === "sm" ? "px-2 py-1.5" : "px-3 py-2",
-              isPrimary
-                ? "bg-invert-bg text-invert-fg border-l border-invert-fg/20 hover:opacity-80"
-                : "border border-line-strong border-l-0 bg-bg text-ink hover:bg-invert-bg hover:text-invert-fg",
-            )}
-          >
-            <ChevronDownIcon
-              aria-hidden
-              className={twMerge(
-                "h-4 w-4 transition-transform duration-150",
-                menuOpen && "rotate-180",
-              )}
-            />
-          </button>
+  const hasLinuxMenu = isLinux && linuxOptions.length > 0 && !!activeDownload;
+  const shown = hasLinuxMenu ? activeDownload : mine;
+  const isPrimary = variant === "primary";
 
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute top-full left-0 z-50 mt-1 w-full min-w-[280px] border border-line bg-bg-raised p-1 shadow-lg text-left"
-            >
-              <div className="border-b border-line px-3 py-2">
-                <p className="hud-label text-[11px] text-faint">Select Linux format</p>
-              </div>
-              <ul className="flex flex-col">
-                {linuxOptions.map((opt) => {
-                  const isDefault = opt.fileName === defaultLinuxDownload?.fileName;
-                  const isSelected = activeDownload.fileName === opt.fileName;
-                  return (
-                    <li key={opt.href}>
-                      <a
-                        href={opt.href}
-                        download={opt.fileName}
-                        role="menuitem"
-                        onClick={() => {
-                          setSelectedDownload(opt);
-                          setMenuOpen(false);
-                        }}
-                        className={twMerge(
-                          "group/opt flex items-center justify-between gap-3 p-2.5 text-left transition-colors duration-150 hover:bg-bg-sunken",
-                          isSelected && "bg-ink/5",
-                        )}
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-2">
-                            <span className="block text-sm font-medium text-ink">
-                              {opt.label}
-                            </span>
-                            {isDefault && (
-                              <span className="hud-label text-[10px] text-(--app-ink,var(--accent-ink))">
-                                Default
-                              </span>
-                            )}
-                          </span>
-                          <span className="block text-xs text-muted">
-                            {opt.description}
-                          </span>
-                          <span className="mt-0.5 block truncate font-mono text-[10px] text-faint">
-                            {opt.fileName}
-                          </span>
-                        </span>
-                        <ArrowDownToLineIcon
-                          aria-hidden
-                          className="h-4 w-4 shrink-0 text-muted group-hover/opt:text-ink"
-                        />
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-        </div>
-        {activeDownload.arch === "riscv64" && (
-          <span className="text-xs text-muted">{activeDownload.description}</span>
-        )}
-        <span aria-hidden={!activeDownload} className="hud-label min-h-4 w-0 min-w-full whitespace-nowrap text-faint">
-          {activeDownload ? `For Linux · ${activeDownload.label}` : "\u00a0"}
-        </span>
-        <AllLauncherDownloadsLink />
-      </span>
-    );
-  }
-
-  return (
-    <span className={twMerge("flex flex-col gap-2", className)}>
+  const button = hasLinuxMenu ? (
+    <div
+      ref={menuRef}
+      className={twMerge("relative inline-flex items-stretch", fullWidth ? "w-full" : "w-fit")}
+    >
       <Button
-        href={mine ? mine.href : fallbackHref}
+        href={activeDownload.href}
         size={size}
         variant={variant}
-        className={fullWidth ? "w-full" : undefined}
+        className="grow pr-4"
       >
         <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
         Download Launcher
       </Button>
-      {/* Reserved line, so the layout doesn't shift when detection lands. It
-          takes the button's width rather than setting it (w-0 min-w-full), so
-          a long platform line can't push the buttons beside it away. */}
-      <span aria-hidden={!mine} className="hud-label min-h-4 w-0 min-w-full whitespace-nowrap text-faint">
-        {mine ? `For ${mine.group} · ${mine.label}` : "\u00a0"}
-      </span>
-      <AllLauncherDownloadsLink />
-    </span>
+      <button
+        type="button"
+        onClick={() => setMenuOpen((prev) => !prev)}
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        aria-label="Other Linux download formats"
+        className={twMerge(
+          "flex items-center justify-center transition-colors duration-150 cursor-pointer",
+          size === "lg" ? "h-12 px-3.5" : size === "sm" ? "px-2 py-1.5" : "px-3 py-2",
+          isPrimary
+            ? "bg-invert-bg text-invert-fg border-l border-invert-fg/20 hover:opacity-80"
+            : "border border-line-strong border-l-0 bg-bg text-ink hover:bg-invert-bg hover:text-invert-fg",
+        )}
+      >
+        <ChevronDownIcon
+          aria-hidden
+          className={twMerge(
+            "h-4 w-4 transition-transform duration-150",
+            menuOpen && "rotate-180",
+          )}
+        />
+      </button>
+
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute top-full left-0 z-50 mt-1 w-full min-w-[280px] border border-line bg-bg-raised p-1 shadow-lg text-left"
+        >
+          <div className="border-b border-line px-3 py-2">
+            <p className="hud-label text-[11px] text-faint">Select Linux format</p>
+          </div>
+          <ul className="flex flex-col">
+            {linuxOptions.map((opt) => {
+              const isDefault = opt.fileName === defaultLinuxDownload?.fileName;
+              const isSelected = activeDownload.fileName === opt.fileName;
+              return (
+                <li key={opt.href}>
+                  <a
+                    href={opt.href}
+                    download={opt.fileName}
+                    role="menuitem"
+                    onClick={() => {
+                      setSelectedDownload(opt);
+                      setMenuOpen(false);
+                    }}
+                    className={twMerge(
+                      "group/opt flex items-center justify-between gap-3 p-2.5 text-left transition-colors duration-150 hover:bg-bg-sunken",
+                      isSelected && "bg-ink/5",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="block text-sm font-medium text-ink">
+                          {opt.label}
+                        </span>
+                        {isDefault && (
+                          <span className="hud-label text-[10px] text-(--app-ink,var(--accent-ink))">
+                            Default
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-xs text-muted">
+                        {opt.description}
+                      </span>
+                      <span className="mt-0.5 block truncate font-mono text-[10px] text-faint">
+                        {opt.fileName}
+                      </span>
+                    </span>
+                    <ArrowDownToLineIcon
+                      aria-hidden
+                      className="h-4 w-4 shrink-0 text-muted group-hover/opt:text-ink"
+                    />
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  ) : (
+    <Button
+      href={mine ? mine.href : fallbackHref}
+      size={size}
+      variant={variant}
+      className={fullWidth ? "w-full" : undefined}
+    >
+      <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />
+      Download Launcher
+    </Button>
+  );
+
+  return (
+    <div
+      className={twMerge(
+        "flex flex-col gap-3",
+        centered && "w-full max-w-sm items-center text-center sm:max-w-none",
+        className,
+      )}
+    >
+      <div
+        className={twMerge(
+          "flex w-full flex-col gap-3 max-sm:*:w-full sm:flex-row sm:flex-wrap sm:items-start",
+          centered && "sm:justify-center",
+        )}
+      >
+        {button}
+        {children}
+      </div>
+      <div className={twMerge("flex flex-col items-start gap-2", centered && "items-center")}>
+        {shown?.arch === "riscv64" && (
+          <span className="text-xs text-muted">{shown.description}</span>
+        )}
+        {/* Reserved line, so the layout doesn't shift when detection lands. */}
+        <span aria-hidden={!shown} className="hud-label min-h-4 text-faint">
+          {shown ? `For ${shown.group} · ${shown.label}` : " "}
+        </span>
+        <AllLauncherDownloadsLink />
+      </div>
+    </div>
   );
 }
 

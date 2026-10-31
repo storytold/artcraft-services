@@ -89,6 +89,26 @@ export default async function CraftAppPage({ params }: { params: Params }) {
   const launcherDownloads = release ? craftLauncherRecommended() : [];
   const allLauncherDownloads = craftLauncherDownloads();
   const hasDownload = release !== null;
+  const communityButtons = (
+    <>
+      <DiscordButton
+        size="lg"
+        variant={hasDownload ? "secondary" : "primary"}
+      >
+        Join the Discord
+      </DiscordButton>
+      <Button
+        href={craftAppRepo(app)}
+        variant="secondary"
+        size="lg"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <GitHubIcon className="h-4 w-4" />
+        View on GitHub
+      </Button>
+    </>
+  );
   const [hero] = app.shots;
   const [before, accent, after] = app.headline;
   const shareUrl = siteUrl(craftAppPath(app));
@@ -158,40 +178,28 @@ export default async function CraftAppPage({ params }: { params: Params }) {
         mediaTag="Screenshot"
       >
         <div className="flex flex-col items-center gap-6">
-          <div className="flex flex-wrap items-start justify-center gap-3">
-            {launcherDownloads.length > 0 ? (
-              <LauncherDownloadButton
-                recommended={launcherDownloads}
-                allDownloads={allLauncherDownloads}
-                fallbackHref="#get-it"
-              />
-            ) : (
-              release && (
+          {launcherDownloads.length > 0 ? (
+            <LauncherDownloadButton
+              recommended={launcherDownloads}
+              allDownloads={allLauncherDownloads}
+              fallbackHref="#get-it"
+              centered
+            >
+              {communityButtons}
+            </LauncherDownloadButton>
+          ) : (
+            <div className="flex flex-wrap items-start justify-center gap-3">
+              {release && (
                 <AppHeroDownloadButton
                   name={name}
                   recommended={craftReleaseDownloads(app, release).filter(
                     (download) => download.recommended,
                   )}
                 />
-              )
-            )}
-            <DiscordButton
-              size="lg"
-              variant={hasDownload ? "secondary" : "primary"}
-            >
-              Join the Discord
-            </DiscordButton>
-            <Button
-              href={craftAppRepo(app)}
-              variant="secondary"
-              size="lg"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <GitHubIcon className="h-4 w-4" />
-              View on GitHub
-            </Button>
-          </div>
+              )}
+              {communityButtons}
+            </div>
+          )}
           {hasDownload && <AppHeroOtherDownloadsLink />}
           <p className="hud-label text-faint">
             {app.platforms.join(" · ")} · Free and open source
