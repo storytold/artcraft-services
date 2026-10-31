@@ -156,6 +156,7 @@ export const RULER_SECTIONS: RulerSection[] = [
   { id: "support", label: "SUPPORT" },
   { id: "press-kit", label: "PRESS KIT" },
   { id: "beta", label: "BETA" },
+  { id: "mission", label: "MISSION" },
   { id: "plans", label: "PLANS" },
   { id: "enterprise", label: "ENTERPRISE" },
   { id: "credits", label: "CREDITS" },
