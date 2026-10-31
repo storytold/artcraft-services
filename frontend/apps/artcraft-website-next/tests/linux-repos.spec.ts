@@ -20,6 +20,9 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     const rpmUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.rpm");
     expect(rpmUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.rpm");
 
+    const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-riscv64.deb");
+    expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-riscv64.deb");
+
     const invalid = resolvePackageDownloadUrl("some-random-file.tar.gz");
     expect(invalid).toBeNull();
   });
@@ -34,6 +37,11 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     const arm64Packages = generateAptPackages("arm64");
     expect(arm64Packages).toContain("Architecture: arm64");
     expect(arm64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.16.1-linux-aarch64.deb");
+
+    const riscv64Packages = generateAptPackages("riscv64");
+    expect(riscv64Packages).toContain("Architecture: riscv64");
+    expect(riscv64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.16.1-linux-riscv64.deb");
+    expect(riscv64Packages).toContain("Package: artcraft-launcher");
   });
 
   test("generates valid APT Release index with hashes", () => {
@@ -52,6 +60,7 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     const sources = generateAptSourcesDeb822("https://getartcraft.com");
     expect(sources).toContain("Types: deb");
     expect(sources).toContain("URIs: https://getartcraft.com/apt");
+    expect(sources).toContain("Architectures: amd64 arm64 riscv64");
     expect(sources).toContain("Trusted: yes");
   });
 
@@ -62,6 +71,17 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(primaryXml).toContain("<arch>x86_64</arch>");
     expect(primaryXml).toContain('<location href="packages/pdfcraft-0.16.1-linux-x86_64.rpm"/>');
     expect(primaryXml).toContain("<arch>aarch64</arch>");
+    expect(primaryXml).toContain("<arch>riscv64</arch>");
+    expect(primaryXml).toContain("<name>artcraft-launcher</name>");
+
+    const x86Xml = generateRpmPrimaryXml(1730000000, "x86_64");
+    expect(x86Xml).toContain("<arch>x86_64</arch>");
+    expect(x86Xml).not.toContain("<arch>aarch64</arch>");
+    expect(x86Xml).not.toContain("<arch>riscv64</arch>");
+
+    const riscvXml = generateRpmPrimaryXml(1730000000, "riscv64");
+    expect(riscvXml).toContain("<arch>riscv64</arch>");
+    expect(riscvXml).not.toContain("<arch>x86_64</arch>");
   });
 
   test("generates valid repomd.xml pointing to primary.xml.gz", () => {

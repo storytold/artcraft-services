@@ -85,14 +85,71 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
       },
     ],
   },
+  {
+    slug: "artcraft-launcher",
+    name: "artcraft-launcher",
+    version: "0.11.1",
+    description: "ArtCraft Launcher: install, update and run native Crafting apps.",
+    section: "utils",
+    debAssets: [
+      {
+        arch: "amd64",
+        filename: "artcraft-launcher-0.11.1-linux-x86_64.deb",
+        size: 13710590,
+        sha256: "b1d4b4e93612e0a5d3f1f86452b784cfbdf14295eeb294ba9348a18d149034eb",
+        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        installedSize: 32000,
+      },
+      {
+        arch: "arm64",
+        filename: "artcraft-launcher-0.11.1-linux-aarch64.deb",
+        size: 13166808,
+        sha256: "89e3eadc69667dc117b5d7950c14311e28c4732f2691fec3b4ac9453eab6861b",
+        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        installedSize: 31000,
+      },
+      {
+        arch: "riscv64",
+        filename: "artcraft-launcher-0.11.1-linux-riscv64.deb",
+        size: 13616060,
+        sha256: "0636f01916d58e7014d3f9600c7c7a185197f1ac1828880f7f63689d0ea3113e",
+        depends: "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        installedSize: 31500,
+      },
+    ],
+    rpmAssets: [
+      {
+        arch: "x86_64",
+        filename: "artcraft-launcher-0.11.1-linux-x86_64.rpm",
+        size: 13629087,
+        sha256: "a86b7e9e709d7111f6b3a9d77a5cf3be8a7f0c8ee8b7486dfa42423787014b41",
+        installedSize: 32000000,
+      },
+      {
+        arch: "aarch64",
+        filename: "artcraft-launcher-0.11.1-linux-aarch64.rpm",
+        size: 13043298,
+        sha256: "912123716ece88e1b808c34873cfcc3871d086ec40d79bab258814d5e92a823f",
+        installedSize: 31000000,
+      },
+      {
+        arch: "riscv64",
+        filename: "artcraft-launcher-0.11.1-linux-riscv64.rpm",
+        size: 13592087,
+        sha256: "a172ea550f528200e2ec444353d049982a962f8347e6907122c580ed835fc53a",
+        installedSize: 31500000,
+      },
+    ],
+  },
 ];
 
 /** Resolve package file download request to GitHub Release binary asset */
 export function resolvePackageDownloadUrl(filename: string): string | null {
-  const match = filename.match(/^([a-z]+)-([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9]+)?)-linux-.*?\.(deb|rpm)$/);
+  const match = filename.match(/^([a-z0-9_-]+)-([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9]+)?)-linux-.*?\.(deb|rpm)$/);
   if (!match) return null;
   const [, slug, version] = match;
-  return `https://github.com/storytold/${slug}/releases/download/v${version}/${filename}`;
+  const repo = slug === "artcraft-launcher" ? "craft-launcher" : slug;
+  return `https://github.com/storytold/${repo}/releases/download/v${version}/${filename}`;
 }
 
 export function generateAptPackages(arch: string): string {
@@ -161,17 +218,24 @@ export function generateAptSourcesDeb822(baseUrl: string): string {
     `URIs: ${baseUrl}/apt`,
     "Suites: stable",
     "Components: main",
+    "Architectures: amd64 arm64 riscv64",
     "Trusted: yes",
     "",
   ].join("\n");
 }
 
-export function generateRpmPrimaryXml(timestamp: number = Math.floor(Date.now() / 1000)): string {
+export function generateRpmPrimaryXml(
+  timestamp: number = Math.floor(Date.now() / 1000),
+  archFilter?: string,
+): string {
   let packageCount = 0;
   const packageXmls: string[] = [];
 
   for (const app of LINUX_REPO_APPS) {
     for (const asset of app.rpmAssets) {
+      if (archFilter && asset.arch !== archFilter) {
+        continue;
+      }
       packageCount++;
       packageXmls.push(`  <package type="rpm">
     <name>${app.name}</name>
