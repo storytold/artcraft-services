@@ -60,9 +60,12 @@ export default function Hero() {
               on freedom of control and expression.
             </p>
 
+            {/* Equal columns sized to the widest item (the launcher's
+                downloads link), so both buttons match and sit side by side
+                from sm up; stacked full width below that. */}
             <div
               data-reveal
-              className="pointer-events-auto relative mt-7 flex flex-wrap items-start justify-center gap-3"
+              className="pointer-events-auto relative mt-7 grid w-full max-w-sm items-start gap-x-3 gap-y-4 sm:w-fit sm:max-w-none sm:grid-cols-2"
             >
               {/* The Crafting Apps lead: ArtCraft Launcher installs and
                   updates every one of them. */}
@@ -71,12 +74,14 @@ export default function Hero() {
                   recommended={launcherDownloads}
                   allDownloads={craftLauncherDownloads()}
                   fallbackHref={craftLauncherReleasePageUrl()}
+                  fullWidth
                 />
               )}
               <Button
                 href="/apps"
                 variant={hasLauncher ? "secondary" : "primary"}
                 size="lg"
+                className="w-full"
               >
                 <LayoutGridIcon aria-hidden className="h-4 w-4" />
                 Explore Crafting Apps
