@@ -60,23 +60,15 @@ flatpak install --user https://getartcraft.com/apps/pdfcraft/pdfcraft-oci.flatpa
     name: "APT (Debian, Ubuntu & Derivatives)",
     distros: "Ubuntu 22.04+, Debian 12+, Linux Mint, Pop!_OS, Elementary OS",
     architectures: ["amd64 (x86_64)", "arm64 (aarch64)", "riscv64 (64-bit RISC-V)"],
-    setupDescription: "Modern DEB822 format (recommended for Ubuntu 22.04+ and Debian 12+):",
+    setupDescription: "Add the ArtCraft APT repository source and install:",
     setupCommand: `# Add the ArtCraft repository source
 sudo curl -fsSL https://getartcraft.com/apt/artcraft.sources -o /etc/apt/sources.list.d/artcraft.sources
 
 # Update package cache and install
 sudo apt update
 sudo apt install artcraft-launcher pdfcraft`,
-    altSetupDescription: "Legacy one-line sources.list format:",
-    altSetupCommand: `# Add the ArtCraft repository list
-sudo curl -fsSL https://getartcraft.com/apt/artcraft.list -o /etc/apt/sources.list.d/artcraft.list
-
-# Update package cache and install
-sudo apt update
-sudo apt install artcraft-launcher pdfcraft`,
     rawFiles: [
       { name: "artcraft.sources", href: "/apt/artcraft.sources", description: "DEB822 multi-arch source declaration" },
-      { name: "artcraft.list", href: "/apt/artcraft.list", description: "Legacy single-line APT source configuration" },
       { name: "Release", href: "/apt/dists/stable/Release", description: "Repository index with SHA-256 integrity digests" },
     ],
   },
