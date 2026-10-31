@@ -39,7 +39,7 @@ const DISTRO_CONFIGS: Record<string, DistroConfig> = {
     id: "flatpak",
     name: "Flatpak (OCI Registry Remote)",
     distros: "Any Linux distribution with flatpak installed",
-    architectures: ["x86_64", "aarch64"],
+    architectures: ["x86_64 (amd64)", "aarch64 (arm64)"],
     setupDescription: "Add the ArtCraft OCI Flatpak remote:",
     setupCommand: `# Add ArtCraft OCI Flatpak repository
 flatpak remote-add --user --if-not-exists artcraft-oci https://getartcraft.com/artcraft-oci.flatpakrepo
@@ -84,7 +84,7 @@ sudo apt install artcraft-launcher pdfcraft`,
     id: "dnf",
     name: "DNF & RPM (Fedora, RHEL & Derivatives)",
     distros: "Fedora 40+, RHEL 9+, CentOS Stream, Rocky Linux, AlmaLinux",
-    architectures: ["x86_64", "aarch64", "riscv64"],
+    architectures: ["x86_64 (amd64)", "aarch64 (arm64)", "riscv64 (64-bit RISC-V)"],
     setupDescription: "Add repository using dnf config-manager:",
     setupCommand: `# Add the ArtCraft RPM repository
 sudo dnf config-manager addrepo --from-repofile=https://getartcraft.com/rpm/artcraft.repo
@@ -106,7 +106,7 @@ sudo dnf install artcraft-launcher pdfcraft`,
     id: "zypper",
     name: "Zypper & RPM (openSUSE)",
     distros: "openSUSE Tumbleweed, openSUSE Leap 15.6+",
-    architectures: ["x86_64", "aarch64", "riscv64"],
+    architectures: ["x86_64 (amd64)", "aarch64 (arm64)", "riscv64 (64-bit RISC-V)"],
     setupDescription: "Add repository using zypper:",
     setupCommand: `# Add the ArtCraft RPM repository
 sudo zypper addrepo https://getartcraft.com/rpm/artcraft.repo
