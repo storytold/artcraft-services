@@ -174,4 +174,27 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(launcher?.debAssets.length).toBe(3);
     expect(launcher?.rpmAssets.length).toBe(3);
   });
+
+  test("verifies download URLs and digests for all manifest package assets", () => {
+    for (const app of LINUX_REPO_APPS) {
+      for (const deb of app.debAssets) {
+        expect(deb.size).toBeGreaterThan(10_000_000);
+        expect(deb.sha256).toMatch(/^[0-9a-f]{64}$/);
+        expect(deb.filename).toMatch(/\.deb$/);
+        const url = resolvePackageDownloadUrl(deb.filename);
+        expect(url).not.toBeNull();
+        expect(url).toContain(app.version);
+        expect(url).toContain(deb.filename);
+      }
+      for (const rpm of app.rpmAssets) {
+        expect(rpm.size).toBeGreaterThan(10_000_000);
+        expect(rpm.sha256).toMatch(/^[0-9a-f]{64}$/);
+        expect(rpm.filename).toMatch(/\.rpm$/);
+        const url = resolvePackageDownloadUrl(rpm.filename);
+        expect(url).not.toBeNull();
+        expect(url).toContain(app.version);
+        expect(url).toContain(rpm.filename);
+      }
+    }
+  });
 });
