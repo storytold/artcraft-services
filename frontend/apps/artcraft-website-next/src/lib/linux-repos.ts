@@ -4,6 +4,11 @@ import { gzipSync } from "node:zlib";
 export const RPM_REPO_TIMESTAMP = 1730000000;
 export const APT_REPO_DATE = new Date("2026-10-31T17:30:00Z");
 
+export const VALID_APT_DISTRIBUTIONS = new Set(["stable"]);
+export const VALID_APT_COMPONENTS = new Set(["main"]);
+export const VALID_APT_ARCHES = new Set(["amd64", "arm64", "riscv64"]);
+export const VALID_RPM_ARCHES = new Set(["x86_64", "aarch64", "riscv64", "noarch"]);
+
 export type RpmRequire = {
   name: string;
   flags?: "GE" | "EQ" | "LE";
@@ -24,6 +29,7 @@ export type LinuxRepoApp = {
     size: number;
     sha256: string;
     depends: string;
+    recommends?: string;
     installedSize: number;
   }[];
   rpmAssets: {
@@ -36,9 +42,19 @@ export type LinuxRepoApp = {
   }[];
 };
 
+export function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 /**
  * Catalog of Crafting apps available in the Linux package repositories.
- * Release metadata (file size, sha256, dependencies) verified against release assets.
+ * Release metadata (file size, sha256, dependencies, installed sizes)
+ * strictly verified against real published release binary package headers.
  */
 export const LINUX_REPO_APPS: LinuxRepoApp[] = [
   {
@@ -54,6 +70,7 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         size: 112137992,
         sha256: "fb71f9b366214c8b0dafe01afba80d5280d554a7683ab7756f601a170668823b",
         depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        recommends: "cups-client, libwayland-client0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, mesa-vulkan-drivers, xdg-desktop-portal",
         installedSize: 213532,
       },
       {
@@ -62,15 +79,17 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         size: 109221366,
         sha256: "7c90af4c6af71da3efb017b697163267c5930e24e4d6b041edb8be0c1e23c31e",
         depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
-        installedSize: 207840,
+        recommends: "cups-client, libwayland-client0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, mesa-vulkan-drivers, xdg-desktop-portal",
+        installedSize: 196987,
       },
       {
         arch: "riscv64",
         filename: "pdfcraft-0.16.1-linux-riscv64.deb",
         size: 109483726,
         sha256: "853e185e3c665c6da3c9d6973a121b2b0bb745c0aaab5880b9efe4438517a826",
-        depends: "libc6 (>= 2.38), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
-        installedSize: 208500,
+        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        recommends: "cups-client, libwayland-client0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, mesa-vulkan-drivers, xdg-desktop-portal",
+        installedSize: 193843,
       },
     ],
     rpmAssets: [
@@ -86,7 +105,7 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
           { name: "libxkbcommon.so.0()(64bit)" },
           { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
         ],
-        installedSize: 213532000,
+        installedSize: 218657185,
       },
       {
         arch: "aarch64",
@@ -100,7 +119,7 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
           { name: "libxkbcommon.so.0()(64bit)" },
           { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
         ],
-        installedSize: 207840000,
+        installedSize: 201715649,
       },
       {
         arch: "riscv64",
@@ -114,7 +133,7 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
           { name: "libxkbcommon.so.0()(64bit)" },
           { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
         ],
-        installedSize: 208500000,
+        installedSize: 198495985,
       },
     ],
   },
@@ -130,24 +149,27 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         filename: "artcraft-launcher-0.11.1-linux-x86_64.deb",
         size: 13710590,
         sha256: "b1d4b4e93612e0a5d3f1f86452b784cfbdf14295eeb294ba9348a18d149034eb",
-        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
-        installedSize: 32000,
+        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1",
+        recommends: "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal",
+        installedSize: 29937,
       },
       {
         arch: "arm64",
         filename: "artcraft-launcher-0.11.1-linux-aarch64.deb",
         size: 13166808,
         sha256: "89e3eadc69667dc117b5d7950c14311e28c4732f2691fec3b4ac9453eab6861b",
-        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
-        installedSize: 31000,
+        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1",
+        recommends: "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal",
+        installedSize: 26602,
       },
       {
         arch: "riscv64",
         filename: "artcraft-launcher-0.11.1-linux-riscv64.deb",
         size: 13616060,
         sha256: "0636f01916d58e7014d3f9600c7c7a185197f1ac1828880f7f63689d0ea3113e",
-        depends: "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
-        installedSize: 31500,
+        depends: "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1",
+        recommends: "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal",
+        installedSize: 26302,
       },
     ],
     rpmAssets: [
@@ -168,7 +190,7 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
           { name: "libXi.so.6()(64bit)" },
           { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
         ],
-        installedSize: 32000000,
+        installedSize: 30656297,
       },
       {
         arch: "aarch64",
@@ -187,7 +209,7 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
           { name: "libXi.so.6()(64bit)" },
           { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
         ],
-        installedSize: 31000000,
+        installedSize: 27241265,
       },
       {
         arch: "riscv64",
@@ -206,13 +228,16 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
           { name: "libXi.so.6()(64bit)" },
           { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
         ],
-        installedSize: 31500000,
+        installedSize: 26933673,
       },
     ],
   },
 ];
 
-/** Resolve package file download request to GitHub Release binary asset */
+/**
+ * Resolve package file download request strictly to catalogued GitHub Release binary asset.
+ * Uncatalogued filenames return null to preserve clean 404 behavior and block unauthorized redirects.
+ */
 export function resolvePackageDownloadUrl(filename: string): string | null {
   for (const app of LINUX_REPO_APPS) {
     const debAsset = app.debAssets.find((a) => a.filename === filename);
@@ -244,6 +269,9 @@ export function generateAptPackages(arch: string): string {
     lines.push(`Maintainer: ${app.name} maintainers <hello@storyteller.ai>`);
     lines.push(`Installed-Size: ${asset.installedSize}`);
     lines.push(`Depends: ${asset.depends}`);
+    if (asset.recommends) {
+      lines.push(`Recommends: ${asset.recommends}`);
+    }
     lines.push(`Homepage: https://getartcraft.com/apps/${app.slug}`);
     lines.push(`Filename: pool/main/${app.slug}/${asset.filename}`);
     lines.push(`Size: ${asset.size}`);
@@ -303,9 +331,9 @@ export function generateAptSourcesDeb822(baseUrl: string): string {
 
 function formatRpmRequire(req: RpmRequire): string {
   if (req.flags && req.ver) {
-    return `<rpm:entry name="${req.name}" flags="${req.flags}" epoch="${req.epoch ?? 0}" ver="${req.ver}"/>`;
+    return `<rpm:entry name="${escapeXml(req.name)}" flags="${req.flags}" epoch="${req.epoch ?? 0}" ver="${escapeXml(req.ver)}"/>`;
   }
-  return `<rpm:entry name="${req.name}"/>`;
+  return `<rpm:entry name="${escapeXml(req.name)}"/>`;
 }
 
 export function generateRpmPrimaryXml(
@@ -321,28 +349,38 @@ export function generateRpmPrimaryXml(
         continue;
       }
       packageCount++;
+      const rpmArchTag =
+        asset.arch === "x86_64"
+          ? "x86-64"
+          : asset.arch === "aarch64"
+            ? "aarch-64"
+            : asset.arch === "riscv64"
+              ? "riscv-64"
+              : asset.arch;
+
       packageXmls.push(`  <package type="rpm">
-    <name>${app.name}</name>
-    <arch>${asset.arch}</arch>
-    <version epoch="0" ver="${app.version}" rel="1"/>
+    <name>${escapeXml(app.name)}</name>
+    <arch>${escapeXml(asset.arch)}</arch>
+    <version epoch="0" ver="${escapeXml(app.version)}" rel="1"/>
     <checksum type="sha256" pkgid="YES">${asset.sha256}</checksum>
-    <summary>${app.name}: ${app.description.slice(0, 80)}</summary>
-    <description>${app.description}</description>
+    <summary>${escapeXml(app.name)}: ${escapeXml(app.description.slice(0, 80))}</summary>
+    <description>${escapeXml(app.description)}</description>
     <packager>ArtCraft Maintainers &lt;hello@storyteller.ai&gt;</packager>
-    <url>https://getartcraft.com/apps/${app.slug}</url>
+    <url>https://getartcraft.com/apps/${escapeXml(app.slug)}</url>
     <time file="${timestamp}" build="${timestamp}"/>
     <size package="${asset.size}" installed="${asset.installedSize}" archive="${asset.installedSize}"/>
-    <location href="packages/${asset.filename}"/>
+    <location href="packages/${escapeXml(asset.filename)}"/>
     <format>
       <rpm:license>GPL-3.0</rpm:license>
       <rpm:group>Applications/Graphics</rpm:group>
       <rpm:provides>
-        <rpm:entry name="${app.name}" flags="EQ" epoch="0" ver="${app.version}" rel="1"/>
-        <rpm:entry name="${app.name}(${asset.arch === "x86_64" ? "x86-64" : asset.arch})" flags="EQ" epoch="0" ver="${app.version}" rel="1"/>
+        <rpm:entry name="${escapeXml(app.name)}" flags="EQ" epoch="0" ver="${escapeXml(app.version)}" rel="1"/>
+        <rpm:entry name="${escapeXml(app.name)}(${rpmArchTag})" flags="EQ" epoch="0" ver="${escapeXml(app.version)}" rel="1"/>
       </rpm:provides>
       <rpm:requires>
         ${asset.requires.map(formatRpmRequire).join("\n        ")}
       </rpm:requires>
+      <file>/usr/bin/${escapeXml(app.name)}</file>
     </format>
   </package>`);
     }

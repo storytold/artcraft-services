@@ -109,7 +109,7 @@ export function AppPlatformDownloads({
                       href="/linux"
                       className="hud-label mt-4 inline-flex items-center gap-1.5 text-muted hover:text-ink"
                     >
-                      Package repositories (APT & RPM) →
+                      Package repositories (Flatpak, APT & RPM) →
                     </Link>
                   )}
                 </>
@@ -382,7 +382,21 @@ export function LauncherDownloadButton({
         )}
         {/* Reserved line, so the layout doesn't shift when detection lands. */}
         <span aria-hidden={!shown} className="hud-label min-h-4 text-faint">
-          {shown ? `For ${shown.group} · ${shown.label}` : " "}
+          {shown ? (
+            <>
+              For {shown.group} · {shown.label}
+              {shown.group === "Linux" && (
+                <>
+                  {" · "}
+                  <Link href="/linux" className="underline hover:text-ink">
+                    Repository Setup
+                  </Link>
+                </>
+              )}
+            </>
+          ) : (
+            " "
+          )}
         </span>
         <AllLauncherDownloadsLink />
       </div>

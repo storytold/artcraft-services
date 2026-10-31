@@ -1,12 +1,10 @@
-import { getRpmPrimaryGz } from "@/lib/linux-repos";
+import { getRpmPrimaryGz, VALID_RPM_ARCHES } from "@/lib/linux-repos";
 
 type RouteProps = {
   params: Promise<{
     arch: string;
   }>;
 };
-
-const VALID_RPM_ARCHES = new Set(["x86_64", "aarch64", "riscv64", "noarch"]);
 
 export async function GET(_request: Request, props: RouteProps) {
   const { arch } = await props.params;
@@ -19,7 +17,7 @@ export async function GET(_request: Request, props: RouteProps) {
   return new Response(new Uint8Array(primaryGzBuffer), {
     headers: {
       "Content-Type": "application/gzip",
-      "Cache-Control": "public, max-age=300, s-maxage=300",
+      "Cache-Control": "public, max-age=60, s-maxage=60",
     },
   });
 }

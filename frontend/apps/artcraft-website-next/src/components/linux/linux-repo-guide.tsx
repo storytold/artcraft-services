@@ -16,10 +16,10 @@ import { TabSelector, type TabItem } from "@/components/ui/tab-selector";
 import { LINUX_REPO_APPS } from "@/lib/linux-repos";
 
 const REPO_TABS: TabItem[] = [
+  { id: "flatpak", label: "Flatpak (OCI)" },
   { id: "apt", label: "Ubuntu / Debian" },
   { id: "dnf", label: "Fedora / RHEL" },
   { id: "zypper", label: "openSUSE" },
-  { id: "flatpak", label: "Flatpak (OCI)" },
 ];
 
 type DistroConfig = {
@@ -35,6 +35,26 @@ type DistroConfig = {
 };
 
 const DISTRO_CONFIGS: Record<string, DistroConfig> = {
+  flatpak: {
+    id: "flatpak",
+    name: "Flatpak (OCI Registry Remote)",
+    distros: "Any Linux distribution with flatpak installed",
+    architectures: ["x86_64", "aarch64"],
+    setupDescription: "Add the ArtCraft OCI Flatpak remote:",
+    setupCommand: `# Add ArtCraft OCI Flatpak repository
+flatpak remote-add --user --if-not-exists artcraft-oci https://getartcraft.com/artcraft-oci.flatpakrepo
+
+# Search and install Craft apps
+flatpak remote-ls artcraft-oci
+flatpak install --user artcraft-oci com.artcraft.Launcher com.artcraft.pdfcraft`,
+    altSetupDescription: "Single-app installation via .flatpakref file:",
+    altSetupCommand: `# Install pdfcraft directly via its flatpakref descriptor
+flatpak install --user https://getartcraft.com/apps/pdfcraft/pdfcraft-oci.flatpakref`,
+    rawFiles: [
+      { name: "artcraft-oci.flatpakrepo", href: "/artcraft-oci.flatpakrepo", description: "Flatpak OCI remote descriptor" },
+      { name: "OCI Index", href: "/index/static", description: "Flatpak OCI registry summary index" },
+    ],
+  },
   apt: {
     id: "apt",
     name: "APT (Debian, Ubuntu & Derivatives)",
@@ -98,31 +118,11 @@ sudo zypper install artcraft-launcher pdfcraft`,
       { name: "artcraft.repo", href: "/rpm/artcraft.repo", description: "RPM repository configuration" },
     ],
   },
-  flatpak: {
-    id: "flatpak",
-    name: "Flatpak (OCI Registry Remote)",
-    distros: "Any Linux distribution with flatpak installed",
-    architectures: ["x86_64", "aarch64"],
-    setupDescription: "Add the ArtCraft OCI Flatpak remote:",
-    setupCommand: `# Add ArtCraft OCI Flatpak repository
-flatpak remote-add --user --if-not-exists artcraft-oci https://getartcraft.com/artcraft-oci.flatpakrepo
-
-# Search and install Craft apps
-flatpak remote-ls artcraft-oci
-flatpak install --user artcraft-oci com.artcraft.Launcher com.artcraft.pdfcraft`,
-    altSetupDescription: "Single-app installation via .flatpakref file:",
-    altSetupCommand: `# Install pdfcraft directly via its flatpakref descriptor
-flatpak install --user https://getartcraft.com/apps/pdfcraft/pdfcraft-oci.flatpakref`,
-    rawFiles: [
-      { name: "artcraft-oci.flatpakrepo", href: "/artcraft-oci.flatpakrepo", description: "Flatpak OCI remote descriptor" },
-      { name: "OCI Index", href: "/index/static", description: "Flatpak OCI registry summary index" },
-    ],
-  },
 };
 
 export function LinuxRepoGuide() {
-  const [activeTab, setActiveTab] = useState<string>("apt");
-  const config = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.apt;
+  const [activeTab, setActiveTab] = useState<string>("flatpak");
+  const config = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.flatpak;
 
   return (
     <div className="flex flex-col gap-12">
@@ -322,16 +322,37 @@ export function LinuxRepoGuide() {
                       {app.description}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <code className="border border-line bg-bg-sunken px-2.5 py-1 font-mono text-xs text-ink">
-                          {activeTab === "apt" ? `apt install ${app.name}` : `dnf install ${app.name}`}
-                        </code>
-                        <CopyButton
-                          value={activeTab === "apt" ? `sudo apt install ${app.name}` : `sudo dnf install ${app.name}`}
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                        />
-                      </div>
+                      {(() => {
+                        const flatpakId = app.name === "pdfcraft" ? "com.artcraft.pdfcraft" : "com.artcraft.Launcher";
+                        const displayCmd =
+                          activeTab === "flatpak"
+                            ? `flatpak install artcraft-oci ${flatpakId}`
+                            : activeTab === "zypper"
+                              ? `zypper install ${app.name}`
+                              : activeTab === "apt"
+                                ? `apt install ${app.name}`
+                                : `dnf install ${app.name}`;
+                        const copyCmd =
+                          activeTab === "flatpak"
+                            ? `flatpak install --user artcraft-oci ${flatpakId}`
+                            : activeTab === "zypper"
+                              ? `sudo zypper install ${app.name}`
+                              : activeTab === "apt"
+                                ? `sudo apt install ${app.name}`
+                                : `sudo dnf install ${app.name}`;
+                        return (
+                          <div className="inline-flex items-center gap-2">
+                            <code className="border border-line bg-bg-sunken px-2.5 py-1 font-mono text-xs text-ink">
+                              {displayCmd}
+                            </code>
+                            <CopyButton
+                              value={copyCmd}
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                            />
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

@@ -6,7 +6,7 @@ export function GET() {
   return new Response(new Uint8Array(gzBuffer), {
     headers: {
       "Content-Type": "application/gzip",
-      "Cache-Control": "public, max-age=300, s-maxage=300",
+      "Cache-Control": "public, max-age=60, s-maxage=60",
     },
   });
 }

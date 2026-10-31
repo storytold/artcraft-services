@@ -13,6 +13,11 @@ import {
   resolvePackageDownloadUrl,
   RPM_REPO_TIMESTAMP,
   LINUX_REPO_APPS,
+  VALID_APT_DISTRIBUTIONS,
+  VALID_APT_COMPONENTS,
+  VALID_APT_ARCHES,
+  VALID_RPM_ARCHES,
+  escapeXml,
 } from "../src/lib/linux-repos";
 import { createHash } from "node:crypto";
 
@@ -115,6 +120,25 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(repo).toContain("[artcraft]");
     expect(repo).toContain("baseurl=https://getartcraft.com/rpm");
     expect(repo).toContain("gpgcheck=0");
+  });
+
+  test("validates distribution and architecture guard sets", () => {
+    expect(VALID_APT_DISTRIBUTIONS.has("stable")).toBe(true);
+    expect(VALID_APT_DISTRIBUTIONS.has("unknown")).toBe(false);
+    expect(VALID_APT_COMPONENTS.has("main")).toBe(true);
+    expect(VALID_APT_COMPONENTS.has("contrib")).toBe(false);
+    expect(VALID_APT_ARCHES.has("amd64")).toBe(true);
+    expect(VALID_APT_ARCHES.has("arm64")).toBe(true);
+    expect(VALID_APT_ARCHES.has("riscv64")).toBe(true);
+    expect(VALID_APT_ARCHES.has("i386")).toBe(false);
+    expect(VALID_RPM_ARCHES.has("x86_64")).toBe(true);
+    expect(VALID_RPM_ARCHES.has("aarch64")).toBe(true);
+    expect(VALID_RPM_ARCHES.has("riscv64")).toBe(true);
+    expect(VALID_RPM_ARCHES.has("mips")).toBe(false);
+  });
+
+  test("escapes XML entities safely", () => {
+    expect(escapeXml('foo & "bar" <baz>')).toBe("foo &amp; &quot;bar&quot; &lt;baz&gt;");
   });
 
   test("provides metadata and catalog for /linux setup page", () => {
