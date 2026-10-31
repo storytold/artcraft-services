@@ -1,0 +1,237 @@
+import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
+
+export type LinuxRepoApp = {
+  slug: string;
+  name: string;
+  version: string;
+  description: string;
+  section: string;
+  debAssets: {
+    arch: "amd64" | "arm64" | "riscv64";
+    filename: string;
+    size: number;
+    sha256: string;
+    depends: string;
+    installedSize: number;
+  }[];
+  rpmAssets: {
+    arch: "x86_64" | "aarch64" | "riscv64";
+    filename: string;
+    size: number;
+    sha256: string;
+    installedSize: number;
+  }[];
+};
+
+/**
+ * Catalog of Crafting apps available in the Linux package repositories.
+ * Release metadata (file size, sha256, dependencies) verified against release assets.
+ */
+export const LINUX_REPO_APPS: LinuxRepoApp[] = [
+  {
+    slug: "pdfcraft",
+    name: "pdfcraft",
+    version: "0.16.1",
+    description: "Open-source, native PDF workbench: read, comment, fill and sign forms, organize, combine, split, edit, redact, protect and export PDFs.",
+    section: "graphics",
+    debAssets: [
+      {
+        arch: "amd64",
+        filename: "pdfcraft-0.16.1-linux-x86_64.deb",
+        size: 112137992,
+        sha256: "fb71f9b366214c8b0dafe01afba80d5280d554a7683ab7756f601a170668823b",
+        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        installedSize: 213532,
+      },
+      {
+        arch: "arm64",
+        filename: "pdfcraft-0.16.1-linux-aarch64.deb",
+        size: 109221366,
+        sha256: "7c90af4c6af71da3efb017b697163267c5930e24e4d6b041edb8be0c1e23c31e",
+        depends: "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        installedSize: 207840,
+      },
+      {
+        arch: "riscv64",
+        filename: "pdfcraft-0.16.1-linux-riscv64.deb",
+        size: 109483726,
+        sha256: "853e185e3c665c6da3c9d6973a121b2b0bb745c0aaab5880b9efe4438517a826",
+        depends: "libc6 (>= 2.38), libgcc-s1, libxkbcommon0, libvulkan1 | libegl1",
+        installedSize: 208500,
+      },
+    ],
+    rpmAssets: [
+      {
+        arch: "x86_64",
+        filename: "pdfcraft-0.16.1-linux-x86_64.rpm",
+        size: 111638587,
+        sha256: "b5d30dde0d5dea634af7a8f0a7bb1f81b75861ae7338c5b4c76a9b1da66ef2d3",
+        installedSize: 213532000,
+      },
+      {
+        arch: "aarch64",
+        filename: "pdfcraft-0.16.1-linux-aarch64.rpm",
+        size: 108543068,
+        sha256: "9034a6ff6e40443f700f869c357bc9a5dc4d859fe87fc4a5dcf3759d57750810",
+        installedSize: 207840000,
+      },
+      {
+        arch: "riscv64",
+        filename: "pdfcraft-0.16.1-linux-riscv64.rpm",
+        size: 109167000,
+        sha256: "8f1e9fa6b3da20df374d12db2bf895340530a48cd72c955e9bcfe9a458976c7e",
+        installedSize: 208500000,
+      },
+    ],
+  },
+];
+
+/** Resolve package file download request to GitHub Release binary asset */
+export function resolvePackageDownloadUrl(filename: string): string | null {
+  const match = filename.match(/^([a-z]+)-([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9]+)?)-linux-.*?\.(deb|rpm)$/);
+  if (!match) return null;
+  const [, slug, version] = match;
+  return `https://github.com/storytold/${slug}/releases/download/v${version}/${filename}`;
+}
+
+export function generateAptPackages(arch: string): string {
+  const lines: string[] = [];
+
+  for (const app of LINUX_REPO_APPS) {
+    const asset = app.debAssets.find((a) => a.arch === arch);
+    if (!asset) continue;
+
+    lines.push(`Package: ${app.name}`);
+    lines.push(`Version: ${app.version}-1`);
+    lines.push(`Section: ${app.section}`);
+    lines.push(`Priority: optional`);
+    lines.push(`Architecture: ${asset.arch}`);
+    lines.push(`Maintainer: ${app.name} maintainers <hello@storyteller.ai>`);
+    lines.push(`Installed-Size: ${asset.installedSize}`);
+    lines.push(`Depends: ${asset.depends}`);
+    lines.push(`Homepage: https://getartcraft.com/apps/${app.slug}`);
+    lines.push(`Filename: pool/main/${app.slug}/${asset.filename}`);
+    lines.push(`Size: ${asset.size}`);
+    lines.push(`SHA256: ${asset.sha256}`);
+    lines.push(`Description: ${app.description}`);
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+export function generateAptRelease(date: Date = new Date()): string {
+  const architectures = ["amd64", "arm64", "riscv64"];
+  const fileEntries: string[] = [];
+
+  for (const arch of architectures) {
+    const pkgContent = generateAptPackages(arch);
+    const pkgBuffer = Buffer.from(pkgContent, "utf-8");
+    const pkgGzBuffer = gzipSync(pkgBuffer);
+
+    const pkgSha = createHash("sha256").update(pkgBuffer).digest("hex");
+    const pkgGzSha = createHash("sha256").update(pkgGzBuffer).digest("hex");
+
+    fileEntries.push(` ${pkgSha} ${pkgBuffer.length} main/binary-${arch}/Packages`);
+    fileEntries.push(` ${pkgGzSha} ${pkgGzBuffer.length} main/binary-${arch}/Packages.gz`);
+  }
+
+  return [
+    "Origin: ArtCraft",
+    "Label: ArtCraft",
+    "Suite: stable",
+    "Codename: stable",
+    `Architectures: ${architectures.join(" ")}`,
+    "Components: main",
+    `Date: ${date.toUTCString()}`,
+    "SHA256:",
+    ...fileEntries,
+    "",
+  ].join("\n");
+}
+
+export function generateAptSourcesList(baseUrl: string): string {
+  return `deb [trusted=yes] ${baseUrl}/apt stable main\n`;
+}
+
+export function generateAptSourcesDeb822(baseUrl: string): string {
+  return [
+    "Types: deb",
+    `URIs: ${baseUrl}/apt`,
+    "Suites: stable",
+    "Components: main",
+    "Trusted: yes",
+    "",
+  ].join("\n");
+}
+
+export function generateRpmPrimaryXml(timestamp: number = Math.floor(Date.now() / 1000)): string {
+  let packageCount = 0;
+  const packageXmls: string[] = [];
+
+  for (const app of LINUX_REPO_APPS) {
+    for (const asset of app.rpmAssets) {
+      packageCount++;
+      packageXmls.push(`  <package type="rpm">
+    <name>${app.name}</name>
+    <arch>${asset.arch}</arch>
+    <version epoch="0" ver="${app.version}" rel="1"/>
+    <checksum type="sha256" pkgid="YES">${asset.sha256}</checksum>
+    <summary>${app.name}: ${app.description.slice(0, 80)}</summary>
+    <description>${app.description}</description>
+    <packager>ArtCraft Maintainers &lt;hello@storyteller.ai&gt;</packager>
+    <url>https://getartcraft.com/apps/${app.slug}</url>
+    <time file="${timestamp}" build="${timestamp}"/>
+    <size package="${asset.size}" installed="${asset.installedSize}" archive="${asset.installedSize}"/>
+    <location href="packages/${asset.filename}"/>
+    <format>
+      <rpm:license>GPL-3.0</rpm:license>
+      <rpm:group>Applications/Graphics</rpm:group>
+      <rpm:provides>
+        <rpm:entry name="${app.name}" flags="EQ" epoch="0" ver="${app.version}" rel="1"/>
+        <rpm:entry name="${app.name}(${asset.arch === "x86_64" ? "x86-64" : asset.arch})" flags="EQ" epoch="0" ver="${app.version}" rel="1"/>
+      </rpm:provides>
+    </format>
+  </package>`);
+    }
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<metadata xmlns="http://linux.duke.edu/metadata/common" xmlns:rpm="http://linux.duke.edu/metadata/rpm" packages="${packageCount}">
+${packageXmls.join("\n")}
+</metadata>
+`;
+}
+
+export function generateRpmRepomdXml(
+  primaryXmlBuffer: Buffer,
+  primaryGzBuffer: Buffer,
+  timestamp: number = Math.floor(Date.now() / 1000),
+): string {
+  const openSha = createHash("sha256").update(primaryXmlBuffer).digest("hex");
+  const gzSha = createHash("sha256").update(primaryGzBuffer).digest("hex");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<repomd xmlns="http://linux.duke.edu/metadata/repo">
+  <data type="primary">
+    <checksum type="sha256">${gzSha}</checksum>
+    <open-checksum type="sha256">${openSha}</open-checksum>
+    <location href="repodata/primary.xml.gz"/>
+    <timestamp>${timestamp}</timestamp>
+    <size>${primaryGzBuffer.length}</size>
+    <open-size>${primaryXmlBuffer.length}</open-size>
+  </data>
+</repomd>
+`;
+}
+
+export function generateRpmRepoConfig(baseUrl: string): string {
+  return `[artcraft]
+name=ArtCraft Linux Packages
+baseurl=${baseUrl}/rpm
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
+`;
+}
