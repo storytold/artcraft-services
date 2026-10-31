@@ -243,7 +243,11 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   effectcraft: craftRelease("0.18.0"),
   designcraft: craftRelease("0.14.0"),
   figcraft: craftRelease("0.12.1"),
-  texturecraft: null,
+  // v0.1.0 shipped without the RISC-V builds; drop this filter once a release has them.
+  texturecraft: craftRelease(
+    "0.1.0",
+    CRAFT_RELEASE_ASSETS.filter((asset) => asset.arch !== "riscv64"),
+  ),
   wordcraft: craftRelease("0.12.0"),
   soundcraft: craftRelease("0.14.0"),
   deckcraft: craftRelease("0.12.0"),
