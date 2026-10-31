@@ -22,7 +22,9 @@ fi
 
 cd "${frontend_path}"
 
-npm install
+# nx, esbuild and @swc/core need their lifecycle scripts, so --ignore-scripts would leave
+# an unusable tree.
+npm install # NOSONAR
 
 export VITE_ENVIRONMENT_TYPE="production"
 

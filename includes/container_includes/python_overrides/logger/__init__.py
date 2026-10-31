@@ -1464,7 +1464,9 @@ class Manager(object):
         """
         return getFakeYouLogger()
 
-        rv = None
+        # Retained from the CPython logging.Manager this override replaces; the early return
+        # above is the whole override.
+        rv = None  # NOSONAR
         if not isinstance(name, str):
             raise TypeError('A logger name must be a string')
         _acquireLock()
@@ -2217,7 +2219,8 @@ def getLogger(name=None):
     """
     return getFakeYouLogger()
 
-    if not name or isinstance(name, str) and name == root.name:
+    # Retained from the CPython logging module this override replaces; see getFakeYouLogger().
+    if not name or isinstance(name, str) and name == root.name:  # NOSONAR
         return root
     return Logger.manager.getLogger(name)
 
