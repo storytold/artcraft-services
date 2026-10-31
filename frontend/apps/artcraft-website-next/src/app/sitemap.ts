@@ -20,6 +20,7 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Entry["c
   { path: "/minimax-h3", priority: 0.8, changeFrequency: "weekly" },
   { path: "/creators/jboogxcreative", priority: 0.6, changeFrequency: "monthly" },
   { path: "/apps", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/linux", priority: 0.8, changeFrequency: "weekly" },
   ...CRAFTING_APPS.map((app) => ({
     path: craftAppPath(app),
     priority: 0.8,

@@ -12,6 +12,7 @@ import {
   getRpmRepomdXml,
   resolvePackageDownloadUrl,
   RPM_REPO_TIMESTAMP,
+  LINUX_REPO_APPS,
 } from "../src/lib/linux-repos";
 import { createHash } from "node:crypto";
 
@@ -114,5 +115,18 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(repo).toContain("[artcraft]");
     expect(repo).toContain("baseurl=https://getartcraft.com/rpm");
     expect(repo).toContain("gpgcheck=0");
+  });
+
+  test("provides metadata and catalog for /linux setup page", () => {
+    expect(LINUX_REPO_APPS.length).toBeGreaterThan(0);
+    const pdfcraft = LINUX_REPO_APPS.find((app) => app.slug === "pdfcraft");
+    expect(pdfcraft).toBeDefined();
+    expect(pdfcraft?.debAssets.length).toBe(3);
+    expect(pdfcraft?.rpmAssets.length).toBe(3);
+
+    const launcher = LINUX_REPO_APPS.find((app) => app.slug === "artcraft-launcher");
+    expect(launcher).toBeDefined();
+    expect(launcher?.debAssets.length).toBe(3);
+    expect(launcher?.rpmAssets.length).toBe(3);
   });
 });

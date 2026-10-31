@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   AppleIcon,
   ArrowDownIcon,
@@ -103,6 +104,14 @@ export function AppPlatformDownloads({
                       </li>
                     ))}
                   </ul>
+                  {platform === "Linux" && (
+                    <Link
+                      href="/linux"
+                      className="hud-label mt-4 inline-flex items-center gap-1.5 text-muted hover:text-ink"
+                    >
+                      Package repositories (APT & RPM) →
+                    </Link>
+                  )}
                 </>
               )}
             </div>
