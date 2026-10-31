@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Test ArtCraft Linux package repositories using real package manager tools
-# inside Ubuntu (APT), Fedora (DNF), openSUSE (Zypper), and Alpine (Flatpak) containers.
+# inside Ubuntu (APT), Fedora (DNF), openSUSE (Zypper), and Ubuntu (Flatpak glibc) containers.
 #
 # Usage:
 #   ./scripts/test-distro-repos.sh [ubuntu|fedora|opensuse|flatpak|all] [BASE_URL]
@@ -9,6 +9,7 @@
 # a local Next.js production server.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-all}"
 BASE_URL="${2:-${NETLIFY_PREVIEW_URL:-http://127.0.0.1:4210}}"
 
@@ -134,7 +135,15 @@ test_ubuntu() {
   echo "=================================================="
   echo ">>> Testing Ubuntu Latest (APT) against $BASE_URL"
   echo "=================================================="
-  $CONTAINER_TOOL run --rm --network host ubuntu:latest bash -c '
+
+  local apt_pkgs apt_install_pkgs
+  apt_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" apt-packages)"
+  apt_install_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" apt-install-packages)"
+  node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" apt-checksums > /tmp/expected-apt.sha256
+
+  $CONTAINER_TOOL run --rm --network host \
+    -v /tmp/expected-apt.sha256:/tmp/expected.sha256:ro \
+    ubuntu:latest bash -c '
     set -euo pipefail
 
     # Avoid 404s from standard Ubuntu mirrors when non-x86 architectures are added
@@ -148,13 +157,12 @@ test_ubuntu() {
     apt-get update
 
     echo "--- Querying APT policy ---"
-    apt-cache policy artcraft-launcher pdfcraft
+    apt-cache policy '"$apt_install_pkgs"'
 
     echo "--- Downloading all packages across all architectures in manifest ---"
-    mkdir -p /tmp/pkg && cd /tmp/pkg
-    apt-get download \
-      artcraft-launcher:amd64 artcraft-launcher:arm64 artcraft-launcher:riscv64 \
-      pdfcraft:amd64 pdfcraft:arm64 pdfcraft:riscv64
+    # Ensure directory is world-writable with sticky bit so unprivileged _apt user can write downloaded files
+    mkdir -p /tmp/pkg && chmod 1777 /tmp/pkg && cd /tmp/pkg
+    apt-get download '"$apt_pkgs"'
 
     echo "--- Verifying downloaded Debian packages ---"
     for deb in *.deb; do
@@ -163,17 +171,19 @@ test_ubuntu() {
     done
 
     echo "--- Verifying SHA-256 integrity digests against manifest ---"
-    cat <<EOF > /tmp/expected.sha256
-b1d4b4e93612e0a5d3f1f86452b784cfbdf14295eeb294ba9348a18d149034eb  artcraft-launcher_0.11.1-1_amd64.deb
-89e3eadc69667dc117b5d7950c14311e28c4732f2691fec3b4ac9453eab6861b  artcraft-launcher_0.11.1-1_arm64.deb
-0636f01916d58e7014d3f9600c7c7a185197f1ac1828880f7f63689d0ea3113e  artcraft-launcher_0.11.1-1_riscv64.deb
-fb71f9b366214c8b0dafe01afba80d5280d554a7683ab7756f601a170668823b  pdfcraft_0.16.1-1_amd64.deb
-7c90af4c6af71da3efb017b697163267c5930e24e4d6b041edb8be0c1e23c31e  pdfcraft_0.16.1-1_arm64.deb
-853e185e3c665c6da3c9d6973a121b2b0bb745c0aaab5880b9efe4438517a826  pdfcraft_0.16.1-1_riscv64.deb
-EOF
     sha256sum -c /tmp/expected.sha256
 
-    echo "=== Ubuntu Latest (APT) verification passed! All packages verified. ==="
+    echo "--- Testing real installation of native packages ---"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends '"$apt_install_pkgs"'
+    for pkg in '"$apt_install_pkgs"'; do
+      if [[ ! -x "/usr/bin/$pkg" ]]; then
+        echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2
+        exit 1
+      fi
+      echo "  ✓ /usr/bin/$pkg verified executable"
+    done
+
+    echo "=== Ubuntu Latest (APT) verification and installation passed! ==="
   '
 }
 
@@ -182,7 +192,15 @@ test_fedora() {
   echo "=================================================="
   echo ">>> Testing Fedora Latest (DNF) against $BASE_URL"
   echo "=================================================="
-  $CONTAINER_TOOL run --rm --network host fedora:latest bash -c '
+
+  local dnf_pkgs dnf_install_pkgs
+  dnf_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" dnf-packages)"
+  dnf_install_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" dnf-install-packages)"
+  node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" rpm-checksums > /tmp/expected-rpm.sha256
+
+  $CONTAINER_TOOL run --rm --network host \
+    -v /tmp/expected-rpm.sha256:/tmp/expected.sha256:ro \
+    fedora:latest bash -c '
     set -euo pipefail
     curl -fsSL "'"$BASE_URL"'/rpm/artcraft.repo" -o /etc/yum.repos.d/artcraft.repo
 
@@ -191,9 +209,7 @@ test_fedora() {
 
     echo "--- Downloading all RPM packages across all architectures in manifest ---"
     mkdir -p /tmp/pkg && cd /tmp/pkg
-    dnf download --disablerepo="*" --enablerepo="artcraft" \
-      artcraft-launcher.x86_64 artcraft-launcher.aarch64 artcraft-launcher.riscv64 \
-      pdfcraft.x86_64 pdfcraft.aarch64 pdfcraft.riscv64
+    dnf download --disablerepo="*" --enablerepo="artcraft" '"$dnf_pkgs"'
 
     echo "--- Verifying downloaded RPM headers ---"
     for rpm_file in *.rpm; do
@@ -202,17 +218,19 @@ test_fedora() {
     done
 
     echo "--- Verifying SHA-256 integrity digests against manifest ---"
-    cat <<EOF > /tmp/expected.sha256
-a86b7e9e709d7111f6b3a9d77a5cf3be8a7f0c8ee8b7486dfa42423787014b41  artcraft-launcher-0.11.1-linux-x86_64.rpm
-912123716ece88e1b808c34873cfcc3871d086ec40d79bab258814d5e92a823f  artcraft-launcher-0.11.1-linux-aarch64.rpm
-a172ea550f528200e2ec444353d049982a962f8347e6907122c580ed835fc53a  artcraft-launcher-0.11.1-linux-riscv64.rpm
-b5d30dde0d5dea634af7a8f0a7bb1f81b75861ae7338c5b4c76a9b1da66ef2d3  pdfcraft-0.16.1-linux-x86_64.rpm
-9034a6ff6e40443f700f869c357bc9a5dc4d859fe87fc4a5dcf3759d57750810  pdfcraft-0.16.1-linux-aarch64.rpm
-8f1e9fa6b3da20df374d12db2bf895340530a48cd72c955e9bcfe9a458976c7e  pdfcraft-0.16.1-linux-riscv64.rpm
-EOF
     sha256sum -c /tmp/expected.sha256
 
-    echo "=== Fedora Latest (DNF) verification passed! All packages verified. ==="
+    echo "--- Testing real installation of native packages ---"
+    dnf install -y --setopt=install_weak_deps=False '"$dnf_install_pkgs"'
+    for pkg in '"$dnf_install_pkgs"'; do
+      if [[ ! -x "/usr/bin/$pkg" ]]; then
+        echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2
+        exit 1
+      fi
+      echo "  ✓ /usr/bin/$pkg verified executable"
+    done
+
+    echo "=== Fedora Latest (DNF) verification and installation passed! ==="
   '
 }
 
@@ -230,28 +248,43 @@ test_opensuse() {
     zypper_url="http://127.0.0.1:4213"
   fi
 
-  $CONTAINER_TOOL run --rm --network host opensuse:latest bash -c '
+  local zypper_install_pkgs zypper_x86_pkgs zypper_arm_pkgs zypper_riscv_pkgs
+  zypper_install_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-install-packages)"
+  zypper_x86_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-packages x86_64)"
+  zypper_arm_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-packages aarch64)"
+  zypper_riscv_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-packages riscv64)"
+  node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" rpm-checksums > /tmp/expected-zypper.sha256
+
+  $CONTAINER_TOOL run --rm --network host \
+    -v /tmp/expected-zypper.sha256:/tmp/expected.sha256:ro \
+    opensuse:latest bash -c '
     set -euo pipefail
     mkdir -p /etc/zypp /tmp/all_pkgs
 
     # Disable remote mirrors to avoid downloading unrelated openSUSE package metadata
     zypper --non-interactive modifyrepo --all --disable 2>/dev/null || true
 
-    for TARGET_ARCH in x86_64 aarch64 riscv64; do
+    download_for_arch() {
+      local arch="$1"
+      shift
+      local pkgs=("$@")
       echo ""
-      echo "--- Testing openSUSE Zypper for architecture: $TARGET_ARCH ---"
+      echo "--- Testing openSUSE Zypper for architecture: $arch ---"
       cat <<EOF > /etc/zypp/zypp.conf
 [main]
-arch = $TARGET_ARCH
+arch = $arch
 EOF
-      zypper --non-interactive addrepo --no-check --no-gpgcheck "'"$zypper_url"'/rpm" "artcraft-$TARGET_ARCH"
-      zypper --non-interactive refresh "artcraft-$TARGET_ARCH"
-      zypper --non-interactive search -r "artcraft-$TARGET_ARCH" -s
-      zypper --non-interactive download "artcraft-$TARGET_ARCH:artcraft-launcher" "artcraft-$TARGET_ARCH:pdfcraft"
-      
-      cp /var/cache/zypp/packages/"artcraft-$TARGET_ARCH"/packages/*.rpm /tmp/all_pkgs/
-      zypper --non-interactive removerepo "artcraft-$TARGET_ARCH"
-    done
+      zypper --non-interactive addrepo --no-check --no-gpgcheck "'"$zypper_url"'/rpm" "artcraft-$arch"
+      zypper --non-interactive refresh "artcraft-$arch"
+      zypper --non-interactive search -r "artcraft-$arch" -s
+      zypper --non-interactive download "${pkgs[@]}"
+      cp /var/cache/zypp/packages/"artcraft-$arch"/packages/*.rpm /tmp/all_pkgs/
+      zypper --non-interactive removerepo "artcraft-$arch"
+    }
+
+    download_for_arch x86_64 '"$zypper_x86_pkgs"'
+    download_for_arch aarch64 '"$zypper_arm_pkgs"'
+    download_for_arch riscv64 '"$zypper_riscv_pkgs"'
 
     echo ""
     echo "--- Verifying all downloaded RPM packages ---"
@@ -262,17 +295,21 @@ EOF
     done
 
     echo "--- Verifying SHA-256 integrity digests against manifest ---"
-    cat <<EOF > /tmp/expected.sha256
-a86b7e9e709d7111f6b3a9d77a5cf3be8a7f0c8ee8b7486dfa42423787014b41  artcraft-launcher-0.11.1-linux-x86_64.rpm
-912123716ece88e1b808c34873cfcc3871d086ec40d79bab258814d5e92a823f  artcraft-launcher-0.11.1-linux-aarch64.rpm
-a172ea550f528200e2ec444353d049982a962f8347e6907122c580ed835fc53a  artcraft-launcher-0.11.1-linux-riscv64.rpm
-b5d30dde0d5dea634af7a8f0a7bb1f81b75861ae7338c5b4c76a9b1da66ef2d3  pdfcraft-0.16.1-linux-x86_64.rpm
-9034a6ff6e40443f700f869c357bc9a5dc4d859fe87fc4a5dcf3759d57750810  pdfcraft-0.16.1-linux-aarch64.rpm
-8f1e9fa6b3da20df374d12db2bf895340530a48cd72c955e9bcfe9a458976c7e  pdfcraft-0.16.1-linux-riscv64.rpm
-EOF
     sha256sum -c /tmp/expected.sha256
 
-    echo "=== openSUSE Latest (Zypper) verification passed! All packages verified. ==="
+    echo "--- Testing real installation of native packages ---"
+    zypper --non-interactive addrepo --no-check --no-gpgcheck "'"$zypper_url"'/rpm" artcraft
+    zypper --non-interactive refresh artcraft
+    zypper --non-interactive install --no-recommends '"$zypper_install_pkgs"'
+    for pkg in $(echo "'"$zypper_install_pkgs"'" | tr " " "\n" | sed "s/^artcraft://"); do
+      if [[ ! -x "/usr/bin/$pkg" ]]; then
+        echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2
+        exit 1
+      fi
+      echo "  ✓ /usr/bin/$pkg verified executable"
+    done
+
+    echo "=== openSUSE Latest (Zypper) verification and installation passed! ==="
   '
 
   if [[ -n "$PROXY_PID" ]]; then
@@ -295,9 +332,14 @@ test_flatpak() {
     flatpak_url="http://127.0.0.1:4214"
   fi
 
-  $CONTAINER_TOOL run --rm --network host alpine:latest sh -c '
+  local flatpak_apps
+  flatpak_apps="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" flatpak-apps)"
+
+  # Use Ubuntu Latest (glibc-based standard Linux container) for Flatpak tests
+  $CONTAINER_TOOL run --rm --network host ubuntu:latest bash -c '
     set -euo pipefail
-    apk add --no-cache flatpak >/dev/null 2>&1 || true
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends flatpak ca-certificates curl >/dev/null
 
     echo "--- Adding ArtCraft Flatpak OCI remote ---"
     flatpak remote-add --user --if-not-exists test-artcraft "'"$flatpak_url"'/artcraft-oci.flatpakrepo"
@@ -306,9 +348,8 @@ test_flatpak() {
     OUTPUT="$(flatpak remote-ls --user -d test-artcraft)"
     echo "$OUTPUT"
 
-    echo "--- Verifying presence of all 14 published apps in manifest ---"
-    APPS="artcraft-launcher cadcraft deckcraft designcraft effectcraft figcraft filmcraft gridcraft lightcraft pdfcraft photocraft soundcraft vectorcraft wordcraft"
-    for app in $APPS; do
+    echo "--- Verifying presence of all published apps in manifest ---"
+    for app in '"$flatpak_apps"'; do
       if ! echo "$OUTPUT" | grep -q "ai.storyteller.$app"; then
         echo "Error: Application ai.storyteller.$app not found in Flatpak remote!" >&2
         exit 1
@@ -316,7 +357,7 @@ test_flatpak() {
       echo "  ✓ ai.storyteller.$app verified"
     done
 
-    echo "=== Flatpak (OCI Remote) verification passed! All 14 apps verified. ==="
+    echo "=== Flatpak (OCI Remote) verification passed! All apps verified. ==="
   '
 
   if [[ -n "$PROXY_PID" ]]; then

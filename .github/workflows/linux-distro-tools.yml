@@ -82,8 +82,7 @@ jobs:
         working-directory: frontend/apps/artcraft-website-next
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Setup Node & build locally (if testing without Netlify preview)
-        if: needs.wait-for-deploy.outputs.preview-url == ''
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
