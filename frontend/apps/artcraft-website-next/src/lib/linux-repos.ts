@@ -240,18 +240,31 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
  */
 export function resolvePackageDownloadUrl(filename: string): string | null {
   for (const app of LINUX_REPO_APPS) {
-    const debAsset = app.debAssets.find((a) => a.filename === filename);
-    if (debAsset) {
-      const repo = app.slug === "artcraft-launcher" ? "craft-launcher" : app.slug;
-      return `https://github.com/storytold/${repo}/releases/download/v${app.version}/${filename}`;
-    }
-    const rpmAsset = app.rpmAssets.find((a) => a.filename === filename);
-    if (rpmAsset) {
+    const isDeb = app.debAssets.some((a) => a.filename === filename);
+    const isRpm = app.rpmAssets.some((a) => a.filename === filename);
+    if (isDeb || isRpm) {
       const repo = app.slug === "artcraft-launcher" ? "craft-launcher" : app.slug;
       return `https://github.com/storytold/${repo}/releases/download/v${app.version}/${filename}`;
     }
   }
   return null;
+}
+
+export function handlePackageDownloadRedirect(pathSegments: string[] | undefined): Response {
+  const filename = pathSegments?.at(-1);
+  if (!filename) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const targetUrl = resolvePackageDownloadUrl(filename);
+  if (!targetUrl) {
+    return new Response(`Package asset "${filename}" not found in release catalog`, {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  return Response.redirect(targetUrl, 302);
 }
 
 export function generateAptPackages(arch: string): string {
@@ -261,23 +274,27 @@ export function generateAptPackages(arch: string): string {
     const asset = app.debAssets.find((a) => a.arch === arch);
     if (!asset) continue;
 
-    lines.push(`Package: ${app.name}`);
-    lines.push(`Version: ${app.version}-1`);
-    lines.push(`Section: ${app.section}`);
-    lines.push(`Priority: optional`);
-    lines.push(`Architecture: ${asset.arch}`);
-    lines.push(`Maintainer: ${app.name} maintainers <hello@storyteller.ai>`);
-    lines.push(`Installed-Size: ${asset.installedSize}`);
-    lines.push(`Depends: ${asset.depends}`);
+    lines.push(
+      `Package: ${app.name}`,
+      `Version: ${app.version}-1`,
+      `Section: ${app.section}`,
+      "Priority: optional",
+      `Architecture: ${asset.arch}`,
+      `Maintainer: ${app.name} maintainers <hello@storyteller.ai>`,
+      `Installed-Size: ${asset.installedSize}`,
+      `Depends: ${asset.depends}`,
+    );
     if (asset.recommends) {
       lines.push(`Recommends: ${asset.recommends}`);
     }
-    lines.push(`Homepage: https://getartcraft.com/apps/${app.slug}`);
-    lines.push(`Filename: pool/main/${app.slug}/${asset.filename}`);
-    lines.push(`Size: ${asset.size}`);
-    lines.push(`SHA256: ${asset.sha256}`);
-    lines.push(`Description: ${app.description}`);
-    lines.push("");
+    lines.push(
+      `Homepage: https://getartcraft.com/apps/${app.slug}`,
+      `Filename: pool/main/${app.slug}/${asset.filename}`,
+      `Size: ${asset.size}`,
+      `SHA256: ${asset.sha256}`,
+      `Description: ${app.description}`,
+      "",
+    );
   }
 
   return lines.join("\n");

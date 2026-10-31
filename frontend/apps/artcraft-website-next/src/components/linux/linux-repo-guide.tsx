@@ -224,8 +224,8 @@ export function LinuxRepoGuide() {
           <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
             <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
             <span>
-              During public repository preview, repositories use un-signed transport flags (
-              <code className="font-mono text-ink">[trusted=yes]</code> for APT and{" "}
+              During public repository preview, repositories use un-signed transport flags{" "}
+              (<code className="font-mono text-ink">[trusted=yes]</code> for APT and{" "}
               <code className="font-mono text-ink">gpgcheck=0</code> for DNF). Official GPG signing key
               distribution will be integrated alongside release signing.
             </span>
@@ -365,7 +365,7 @@ export function LinuxRepoGuide() {
   );
 }
 
-function TerminalBox({ command }: { command: string }) {
+function TerminalBox({ command }: { readonly command: string }) {
   return (
     <figure className="mt-3 border border-line bg-bg-sunken">
       <div className="flex items-center justify-between border-b border-line pl-4">
