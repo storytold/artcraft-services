@@ -165,9 +165,8 @@ export function AppHeroDownloadButton({
  * it is known (with the file's platform and build underneath), else a jump
  * to `fallbackHref`, where every platform is listed.
  *
- * On Linux, offers Flatpak as the default button action, plus a dropdown
- * arrow on the right to select and download other formats: Flatpak first,
- * then AppImage, then deb, then rpm.
+ * On Linux, offers the recommended build and a dropdown for other formats.
+ * Flatpak is the default where available; RISC-V defaults to the tarball.
  */
 export function LauncherDownloadButton({
   recommended,
@@ -286,7 +285,7 @@ export function LauncherDownloadButton({
               </div>
               <ul className="flex flex-col">
                 {linuxOptions.map((opt) => {
-                  const isDefault = opt.fileName.endsWith(".flatpak");
+                    const isDefault = opt.fileName === defaultLinuxDownload?.fileName;
                   const isSelected = activeDownload.fileName === opt.fileName;
                   return (
                     <li key={opt.href}>
@@ -391,7 +390,11 @@ export function AppHeroOtherDownloadsLink() {
 function useDetectedDesktop(): DetectedDesktop | null {
   const [detected, setDetected] = useState<DetectedDesktop | null>(null);
   useEffect(() => {
-    setDetected(detectDesktop());
+    let active = true;
+    void detectDesktop().then((desktop) => {
+      if (active) setDetected(desktop);
+    });
+    return () => { active = false; };
   }, []);
   return detected;
 }
@@ -407,7 +410,7 @@ function pickDownload(
   return candidates.find((download) => arch && download.arch === arch) ?? candidates[0];
 }
 
-function detectDesktop(): DetectedDesktop | null {
+async function detectDesktop(): Promise<DetectedDesktop | null> {
   const ua = navigator.userAgent;
   if (/Android|iPhone|iPad|iPod|Mobile|CrOS/i.test(ua)) return null;
   if (/FreeBSD|GhostBSD/i.test(ua)) return { platform: "FreeBSD", arch: "x86_64" };
@@ -417,9 +420,31 @@ function detectDesktop(): DetectedDesktop | null {
     return navigator.maxTouchPoints > 1 ? null : { platform: "macOS" };
   }
   if (/Linux/i.test(ua)) {
+    // Chromium can reduce Linux user agents to x86_64 on other CPUs.
+    // Prefer explicit architecture in the user agent, then client hints.
+    let architecture = ua;
+    if (!/riscv64|aarch64|arm64|armv8/i.test(ua)) {
+      const clientHints = (navigator as Navigator & {
+        userAgentData?: {
+          getHighEntropyValues: (hints: string[]) => Promise<{ architecture?: string; bitness?: string }>;
+        };
+      }).userAgentData;
+      try {
+        const hints = await clientHints?.getHighEntropyValues(["architecture", "bitness"]);
+        if (hints?.bitness === "64" && /^(arm|riscv)$/i.test(hints.architecture ?? "")) {
+          architecture = `${hints.architecture}64`;
+        } else if (/^(arm64|aarch64|riscv64)$/i.test(hints?.architecture ?? "")) {
+          architecture = hints!.architecture!;
+        }
+      } catch {
+        // Client hints may be unavailable or blocked; use the user agent.
+      }
+    }
     return {
       platform: "Linux",
-      arch: /aarch64|arm64|armv8/i.test(ua) ? "aarch64" : "x86_64",
+      arch: /riscv64/i.test(architecture)
+        ? "riscv64"
+        : /aarch64|arm64|armv8/i.test(architecture) ? "aarch64" : "x86_64",
     };
   }
   return null;

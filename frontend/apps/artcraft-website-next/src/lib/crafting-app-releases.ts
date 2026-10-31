@@ -26,7 +26,7 @@ export type CraftReleaseAsset = {
   /** One line on who should pick this file. */
   description: string;
   /** CPU architecture, used to choose between recommended Linux builds. */
-  arch?: "universal" | "x64" | "x86" | "x86_64" | "aarch64";
+  arch?: "universal" | "x64" | "x86" | "x86_64" | "aarch64" | "riscv64";
   /**
    * Offered as a platform's main download button. The first recommended
    * asset in a group is the default; a later one wins only when its `arch`
@@ -178,6 +178,28 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     arch: "aarch64",
   },
   {
+    file: "{slug}-{version}-linux-riscv64.tar.gz",
+    group: "Linux",
+    label: "Tarball (RISC-V 64)",
+    description: "Plain binaries for 64-bit RISC-V.",
+    arch: "riscv64",
+    recommended: true,
+  },
+  {
+    file: "{slug}-{version}-linux-riscv64.deb",
+    group: "Linux",
+    label: "Debian package (RISC-V 64)",
+    description: "Debian and derivatives on 64-bit RISC-V.",
+    arch: "riscv64",
+  },
+  {
+    file: "{slug}-{version}-linux-riscv64.rpm",
+    group: "Linux",
+    label: "RPM package (RISC-V 64)",
+    description: "RPM-based distributions on 64-bit RISC-V.",
+    arch: "riscv64",
+  },
+  {
     file: "{slug}-web-{version}.zip",
     group: "Other",
     label: "Web build",
@@ -193,7 +215,7 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     file: "{slug}-{version}-freebsd-x86_64.tar.gz",
     group: "FreeBSD",
     label: "FreeBSD (x86_64)",
-    description: "Plain binaries for FreeBSD 14.",
+    description: "Plain binaries for FreeBSD 15.1.",
     arch: "x86_64",
     recommended: true,
   },
