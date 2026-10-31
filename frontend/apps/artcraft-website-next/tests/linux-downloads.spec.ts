@@ -26,6 +26,10 @@ for (const { arch, userAgentArch, extension } of cases) {
         await page.getByRole("button", { name: "Other Linux download formats" }).first().click();
         const menu = page.getByRole("menu");
         await expect(menu.getByRole("menuitem")).toHaveCount(3);
+        for (const option of await menu.getByRole("menuitem").all()) {
+          await expect(option).toContainText("Requires glibc 2.39 or newer.");
+        }
+        await expect(card).not.toContainText("Requires glibc 2.39 or newer.");
         await expect(menu.getByRole("menuitem").filter({ hasText: "Tarball" })).toContainText("Default");
         await expect(menu.getByRole("menuitem").filter({ hasText: "Debian package" })).toHaveAttribute("href", /linux-riscv64\.deb$/);
         await expect(menu.getByRole("menuitem").filter({ hasText: "RPM package" })).toHaveAttribute("href", /linux-riscv64\.rpm$/);

@@ -224,7 +224,13 @@ export function craftRelease(
 // the same file set minus the macOS CLI, named artcraft-launcher-*.
 export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
   "0.10.0",
-  CRAFT_RELEASE_ASSETS.filter((asset) => !asset.file.startsWith("{slug}-cli-")),
+  CRAFT_RELEASE_ASSETS
+    .filter((asset) => !asset.file.startsWith("{slug}-cli-"))
+    // The launcher's RISC-V binary needs glibc 2.39, including in its tarball.
+    // Keep this launcher-specific; the other apps have their own release floors.
+    .map((asset) => asset.arch === "riscv64"
+      ? { ...asset, description: `${asset.description} Requires glibc 2.39 or newer.` }
+      : asset),
 );
 
 // Every app must be listed, so a new slug fails the type check until it is.
