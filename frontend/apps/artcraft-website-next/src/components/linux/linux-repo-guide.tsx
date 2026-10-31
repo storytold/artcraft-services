@@ -46,7 +46,7 @@ flatpak remote-add --user --if-not-exists artcraft-oci https://getartcraft.com/a
 
 # Search and install Craft apps
 flatpak remote-ls artcraft-oci
-flatpak install --user artcraft-oci com.artcraft.Launcher com.artcraft.pdfcraft`,
+flatpak install --user artcraft-oci ai.storyteller.artcraft-launcher ai.storyteller.pdfcraft`,
     altSetupDescription: "Single-app installation via .flatpakref file:",
     altSetupCommand: `# Install pdfcraft directly via its flatpakref descriptor
 flatpak install --user https://getartcraft.com/apps/pdfcraft/pdfcraft-oci.flatpakref`,
@@ -77,18 +77,18 @@ sudo apt install artcraft-launcher pdfcraft`,
     name: "DNF & RPM (Fedora, RHEL & Derivatives)",
     distros: "Fedora 40+, RHEL 9+, CentOS Stream, Rocky Linux, AlmaLinux",
     architectures: ["x86_64 (amd64)", "aarch64 (arm64)", "riscv64 (64-bit RISC-V)"],
-    setupDescription: "Add repository using dnf config-manager:",
+    setupDescription: "Add the ArtCraft RPM repository and install:",
     setupCommand: `# Add the ArtCraft RPM repository
-sudo dnf config-manager addrepo --from-repofile=https://getartcraft.com/rpm/artcraft.repo
+sudo curl -fsSL https://getartcraft.com/rpm/artcraft.repo -o /etc/yum.repos.d/artcraft.repo
 
 # Install apps
 sudo dnf install artcraft-launcher pdfcraft`,
-    altSetupDescription: "Direct repository file download:",
-    altSetupCommand: `# Drop the repository configuration into /etc/yum.repos.d/
-sudo curl -fsSL https://getartcraft.com/rpm/artcraft.repo -o /etc/yum.repos.d/artcraft.repo
+    altSetupDescription: "Or using dnf config-manager (Fedora / RHEL):",
+    altSetupCommand: `# Fedora 41+ (DNF5):
+sudo dnf config-manager addrepo --from-repofile=https://getartcraft.com/rpm/artcraft.repo
 
-# Install apps (works with baseurl=/rpm and baseurl=/rpm/$basearch)
-sudo dnf install artcraft-launcher pdfcraft`,
+# Fedora 40 / RHEL 9 (DNF4):
+sudo dnf config-manager --add-repo https://getartcraft.com/rpm/artcraft.repo`,
     rawFiles: [
       { name: "artcraft.repo", href: "/rpm/artcraft.repo", description: "YUM/DNF repository configuration" },
       { name: "repomd.xml", href: "/rpm/repodata/repomd.xml", description: "RPM repository master metadata index" },
@@ -113,7 +113,7 @@ sudo zypper install artcraft-launcher pdfcraft`,
 };
 
 function getPackageInstallCommand(tab: string, appName: string, isCopy = false): string {
-  const flatpakId = appName === "pdfcraft" ? "com.artcraft.pdfcraft" : "com.artcraft.Launcher";
+  const flatpakId = appName === "pdfcraft" ? "ai.storyteller.pdfcraft" : "ai.storyteller.artcraft-launcher";
   if (tab === "flatpak") {
     return isCopy ? `flatpak install --user artcraft-oci ${flatpakId}` : `flatpak install artcraft-oci ${flatpakId}`;
   }
@@ -225,16 +225,16 @@ export function LinuxRepoGuide() {
           <p className="mt-4 text-sm leading-relaxed text-muted">
             Package managers verify all downloaded `.deb` and `.rpm` files against exact SHA-256
             checksums published in the repository index. Downloads are streamed directly from official
-            GitHub Releases via HTTP 302 redirects, ensuring full end-to-end binary verification.
+            GitHub Releases via HTTP 302 redirects, verifying binary integrity against the repository catalog.
           </p>
           <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
             <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
             <span>
-              {"During public repository preview, repositories use un-signed transport flags ("}
+              {"During public repository preview, repositories use unsigned preview settings ("}
               <code className="font-mono text-ink">[trusted=yes]</code>
               {" for APT and "}
               <code className="font-mono text-ink">gpgcheck=0</code>
-              {" for DNF). Official GPG signing key distribution will be integrated alongside release signing."}
+              {" for RPM/DNF). Downloads are verified against repository index digests; cryptographic index signing will be enabled when official release GPG keys are published."}
             </span>
           </div>
         </div>
