@@ -7,13 +7,16 @@ import {
   generateRpmPrimaryXml,
   generateRpmRepomdXml,
   generateRpmRepoConfig,
+  getRpmPrimaryXml,
+  getRpmPrimaryGz,
+  getRpmRepomdXml,
   resolvePackageDownloadUrl,
-  LINUX_REPO_APPS,
+  RPM_REPO_TIMESTAMP,
 } from "../src/lib/linux-repos";
-import { gzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 
 test.describe("Linux Package Repositories (APT & RPM)", () => {
-  test("resolves release download URLs for deb and rpm packages", () => {
+  test("resolves release download URLs only for catalogued package assets", () => {
     const debUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.deb");
     expect(debUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.deb");
 
@@ -23,8 +26,10 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-riscv64.deb");
     expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-riscv64.deb");
 
-    const invalid = resolvePackageDownloadUrl("some-random-file.tar.gz");
-    expect(invalid).toBeNull();
+    // Uncatalogued versions or files must return null so route returns 404
+    expect(resolvePackageDownloadUrl("pdfcraft-9.9.9-linux-x86_64.deb")).toBeNull();
+    expect(resolvePackageDownloadUrl("unknown-app-1.0.0-linux-x86_64.rpm")).toBeNull();
+    expect(resolvePackageDownloadUrl("some-random-file.tar.gz")).toBeNull();
   });
 
   test("generates valid APT Packages stanzas", () => {
@@ -64,7 +69,7 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(sources).toContain("Trusted: yes");
   });
 
-  test("generates valid RPM primary metadata XML", () => {
+  test("generates valid RPM primary metadata XML with requires and dependencies", () => {
     const primaryXml = generateRpmPrimaryXml();
     expect(primaryXml).toContain('<metadata xmlns="http://linux.duke.edu/metadata/common"');
     expect(primaryXml).toContain("<name>pdfcraft</name>");
@@ -74,25 +79,34 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(primaryXml).toContain("<arch>riscv64</arch>");
     expect(primaryXml).toContain("<name>artcraft-launcher</name>");
 
-    const x86Xml = generateRpmPrimaryXml(1730000000, "x86_64");
+    // Check declared RPM requirements
+    expect(primaryXml).toContain('<rpm:entry name="libxkbcommon.so.0()(64bit)"/>');
+    expect(primaryXml).toContain('<rpm:entry name="(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))"/>');
+    expect(primaryXml).toContain('<rpm:entry name="glibc" flags="GE" epoch="0" ver="2.35"/>');
+
+    const x86Xml = generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, "x86_64");
     expect(x86Xml).toContain("<arch>x86_64</arch>");
     expect(x86Xml).not.toContain("<arch>aarch64</arch>");
     expect(x86Xml).not.toContain("<arch>riscv64</arch>");
 
-    const riscvXml = generateRpmPrimaryXml(1730000000, "riscv64");
+    const riscvXml = generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, "riscv64");
     expect(riscvXml).toContain("<arch>riscv64</arch>");
     expect(riscvXml).not.toContain("<arch>x86_64</arch>");
   });
 
-  test("generates valid repomd.xml pointing to primary.xml.gz", () => {
-    const primaryXml = generateRpmPrimaryXml();
-    const primaryBuffer = Buffer.from(primaryXml, "utf-8");
-    const gzBuffer = gzipSync(primaryBuffer);
-
-    const repomd = generateRpmRepomdXml(primaryBuffer, gzBuffer);
+  test("generates valid, stable repomd.xml matching primary.xml.gz checksums", () => {
+    const repomd = getRpmRepomdXml();
     expect(repomd).toContain('<repomd xmlns="http://linux.duke.edu/metadata/repo">');
     expect(repomd).toContain('<data type="primary">');
     expect(repomd).toContain('<location href="repodata/primary.xml.gz"/>');
+
+    const gzBuffer = getRpmPrimaryGz();
+    const primaryXml = getRpmPrimaryXml();
+    const gzSha = createHash("sha256").update(gzBuffer).digest("hex");
+    const openSha = createHash("sha256").update(Buffer.from(primaryXml, "utf-8")).digest("hex");
+
+    expect(repomd).toContain(`<checksum type="sha256">${gzSha}</checksum>`);
+    expect(repomd).toContain(`<open-checksum type="sha256">${openSha}</open-checksum>`);
   });
 
   test("generates RPM repo config with gpgcheck=0", () => {

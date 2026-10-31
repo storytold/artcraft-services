@@ -1,5 +1,4 @@
-import { gzipSync } from "node:zlib";
-import { generateRpmPrimaryXml, generateRpmRepomdXml } from "@/lib/linux-repos";
+import { getRpmRepomdXml } from "@/lib/linux-repos";
 
 type RouteProps = {
   params: Promise<{
@@ -15,12 +14,7 @@ export async function GET(_request: Request, props: RouteProps) {
     return new Response(`Architecture "${arch}" not supported`, { status: 404 });
   }
 
-  const timestamp = 1730000000;
-  const primaryXml = generateRpmPrimaryXml(timestamp, arch);
-  const primaryBuffer = Buffer.from(primaryXml, "utf-8");
-  const primaryGzBuffer = gzipSync(primaryBuffer);
-
-  const repomd = generateRpmRepomdXml(primaryBuffer, primaryGzBuffer, timestamp);
+  const repomd = getRpmRepomdXml(arch);
 
   return new Response(repomd, {
     headers: {

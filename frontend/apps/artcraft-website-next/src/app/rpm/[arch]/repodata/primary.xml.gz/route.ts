@@ -1,5 +1,4 @@
-import { gzipSync } from "node:zlib";
-import { generateRpmPrimaryXml } from "@/lib/linux-repos";
+import { getRpmPrimaryGz } from "@/lib/linux-repos";
 
 type RouteProps = {
   params: Promise<{
@@ -15,11 +14,9 @@ export async function GET(_request: Request, props: RouteProps) {
     return new Response(`Architecture "${arch}" not supported`, { status: 404 });
   }
 
-  const timestamp = 1730000000;
-  const primaryXml = generateRpmPrimaryXml(timestamp, arch);
-  const primaryGzBuffer = gzipSync(Buffer.from(primaryXml, "utf-8"));
+  const primaryGzBuffer = getRpmPrimaryGz(arch);
 
-  return new Response(primaryGzBuffer, {
+  return new Response(new Uint8Array(primaryGzBuffer), {
     headers: {
       "Content-Type": "application/gzip",
       "Cache-Control": "public, max-age=300, s-maxage=300",

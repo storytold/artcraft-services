@@ -1,6 +1,17 @@
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 
+export const RPM_REPO_TIMESTAMP = 1730000000;
+export const APT_REPO_DATE = new Date("2026-10-31T17:30:00Z");
+
+export type RpmRequire = {
+  name: string;
+  flags?: "GE" | "EQ" | "LE";
+  epoch?: number;
+  ver?: string;
+  rel?: string;
+};
+
 export type LinuxRepoApp = {
   slug: string;
   name: string;
@@ -20,6 +31,7 @@ export type LinuxRepoApp = {
     filename: string;
     size: number;
     sha256: string;
+    requires: RpmRequire[];
     installedSize: number;
   }[];
 };
@@ -67,6 +79,13 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         filename: "pdfcraft-0.16.1-linux-x86_64.rpm",
         size: 111638587,
         sha256: "b5d30dde0d5dea634af7a8f0a7bb1f81b75861ae7338c5b4c76a9b1da66ef2d3",
+        requires: [
+          { name: "libc.so.6()(64bit)" },
+          { name: "libm.so.6(GLIBC_2.35)(64bit)" },
+          { name: "libgcc_s.so.1()(64bit)" },
+          { name: "libxkbcommon.so.0()(64bit)" },
+          { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
+        ],
         installedSize: 213532000,
       },
       {
@@ -74,6 +93,13 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         filename: "pdfcraft-0.16.1-linux-aarch64.rpm",
         size: 108543068,
         sha256: "9034a6ff6e40443f700f869c357bc9a5dc4d859fe87fc4a5dcf3759d57750810",
+        requires: [
+          { name: "libc.so.6()(64bit)" },
+          { name: "libm.so.6(GLIBC_2.35)(64bit)" },
+          { name: "libgcc_s.so.1()(64bit)" },
+          { name: "libxkbcommon.so.0()(64bit)" },
+          { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
+        ],
         installedSize: 207840000,
       },
       {
@@ -81,6 +107,13 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         filename: "pdfcraft-0.16.1-linux-riscv64.rpm",
         size: 109167000,
         sha256: "8f1e9fa6b3da20df374d12db2bf895340530a48cd72c955e9bcfe9a458976c7e",
+        requires: [
+          { name: "libc.so.6()(64bit)" },
+          { name: "libm.so.6(GLIBC_2.35)(64bit)" },
+          { name: "libgcc_s.so.1()(64bit)" },
+          { name: "libxkbcommon.so.0()(64bit)" },
+          { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
+        ],
         installedSize: 208500000,
       },
     ],
@@ -123,6 +156,18 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         filename: "artcraft-launcher-0.11.1-linux-x86_64.rpm",
         size: 13629087,
         sha256: "a86b7e9e709d7111f6b3a9d77a5cf3be8a7f0c8ee8b7486dfa42423787014b41",
+        requires: [
+          { name: "glibc", flags: "GE", epoch: 0, ver: "2.35" },
+          { name: "libxkbcommon.so.0()(64bit)" },
+          { name: "libxkbcommon-x11.so.0()(64bit)" },
+          { name: "libwayland-client.so.0()(64bit)" },
+          { name: "libX11.so.6()(64bit)" },
+          { name: "libX11-xcb.so.1()(64bit)" },
+          { name: "libxcb.so.1()(64bit)" },
+          { name: "libXcursor.so.1()(64bit)" },
+          { name: "libXi.so.6()(64bit)" },
+          { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
+        ],
         installedSize: 32000000,
       },
       {
@@ -130,6 +175,18 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         filename: "artcraft-launcher-0.11.1-linux-aarch64.rpm",
         size: 13043298,
         sha256: "912123716ece88e1b808c34873cfcc3871d086ec40d79bab258814d5e92a823f",
+        requires: [
+          { name: "glibc", flags: "GE", epoch: 0, ver: "2.35" },
+          { name: "libxkbcommon.so.0()(64bit)" },
+          { name: "libxkbcommon-x11.so.0()(64bit)" },
+          { name: "libwayland-client.so.0()(64bit)" },
+          { name: "libX11.so.6()(64bit)" },
+          { name: "libX11-xcb.so.1()(64bit)" },
+          { name: "libxcb.so.1()(64bit)" },
+          { name: "libXcursor.so.1()(64bit)" },
+          { name: "libXi.so.6()(64bit)" },
+          { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
+        ],
         installedSize: 31000000,
       },
       {
@@ -137,6 +194,18 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
         filename: "artcraft-launcher-0.11.1-linux-riscv64.rpm",
         size: 13592087,
         sha256: "a172ea550f528200e2ec444353d049982a962f8347e6907122c580ed835fc53a",
+        requires: [
+          { name: "glibc", flags: "GE", epoch: 0, ver: "2.39" },
+          { name: "libxkbcommon.so.0()(64bit)" },
+          { name: "libxkbcommon-x11.so.0()(64bit)" },
+          { name: "libwayland-client.so.0()(64bit)" },
+          { name: "libX11.so.6()(64bit)" },
+          { name: "libX11-xcb.so.1()(64bit)" },
+          { name: "libxcb.so.1()(64bit)" },
+          { name: "libXcursor.so.1()(64bit)" },
+          { name: "libXi.so.6()(64bit)" },
+          { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
+        ],
         installedSize: 31500000,
       },
     ],
@@ -145,11 +214,19 @@ export const LINUX_REPO_APPS: LinuxRepoApp[] = [
 
 /** Resolve package file download request to GitHub Release binary asset */
 export function resolvePackageDownloadUrl(filename: string): string | null {
-  const match = filename.match(/^([a-z0-9_-]+)-([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9]+)?)-linux-.*?\.(deb|rpm)$/);
-  if (!match) return null;
-  const [, slug, version] = match;
-  const repo = slug === "artcraft-launcher" ? "craft-launcher" : slug;
-  return `https://github.com/storytold/${repo}/releases/download/v${version}/${filename}`;
+  for (const app of LINUX_REPO_APPS) {
+    const debAsset = app.debAssets.find((a) => a.filename === filename);
+    if (debAsset) {
+      const repo = app.slug === "artcraft-launcher" ? "craft-launcher" : app.slug;
+      return `https://github.com/storytold/${repo}/releases/download/v${app.version}/${filename}`;
+    }
+    const rpmAsset = app.rpmAssets.find((a) => a.filename === filename);
+    if (rpmAsset) {
+      const repo = app.slug === "artcraft-launcher" ? "craft-launcher" : app.slug;
+      return `https://github.com/storytold/${repo}/releases/download/v${app.version}/${filename}`;
+    }
+  }
+  return null;
 }
 
 export function generateAptPackages(arch: string): string {
@@ -178,7 +255,7 @@ export function generateAptPackages(arch: string): string {
   return lines.join("\n");
 }
 
-export function generateAptRelease(date: Date = new Date()): string {
+export function generateAptRelease(date: Date = APT_REPO_DATE): string {
   const architectures = ["amd64", "arm64", "riscv64"];
   const fileEntries: string[] = [];
 
@@ -224,8 +301,15 @@ export function generateAptSourcesDeb822(baseUrl: string): string {
   ].join("\n");
 }
 
+function formatRpmRequire(req: RpmRequire): string {
+  if (req.flags && req.ver) {
+    return `<rpm:entry name="${req.name}" flags="${req.flags}" epoch="${req.epoch ?? 0}" ver="${req.ver}"/>`;
+  }
+  return `<rpm:entry name="${req.name}"/>`;
+}
+
 export function generateRpmPrimaryXml(
-  timestamp: number = Math.floor(Date.now() / 1000),
+  timestamp: number = RPM_REPO_TIMESTAMP,
   archFilter?: string,
 ): string {
   let packageCount = 0;
@@ -256,6 +340,9 @@ export function generateRpmPrimaryXml(
         <rpm:entry name="${app.name}" flags="EQ" epoch="0" ver="${app.version}" rel="1"/>
         <rpm:entry name="${app.name}(${asset.arch === "x86_64" ? "x86-64" : asset.arch})" flags="EQ" epoch="0" ver="${app.version}" rel="1"/>
       </rpm:provides>
+      <rpm:requires>
+        ${asset.requires.map(formatRpmRequire).join("\n        ")}
+      </rpm:requires>
     </format>
   </package>`);
     }
@@ -271,7 +358,7 @@ ${packageXmls.join("\n")}
 export function generateRpmRepomdXml(
   primaryXmlBuffer: Buffer,
   primaryGzBuffer: Buffer,
-  timestamp: number = Math.floor(Date.now() / 1000),
+  timestamp: number = RPM_REPO_TIMESTAMP,
 ): string {
   const openSha = createHash("sha256").update(primaryXmlBuffer).digest("hex");
   const gzSha = createHash("sha256").update(primaryGzBuffer).digest("hex");
@@ -288,6 +375,21 @@ export function generateRpmRepomdXml(
   </data>
 </repomd>
 `;
+}
+
+export function getRpmPrimaryXml(archFilter?: string): string {
+  return generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, archFilter);
+}
+
+export function getRpmPrimaryGz(archFilter?: string): Buffer {
+  return gzipSync(Buffer.from(getRpmPrimaryXml(archFilter), "utf-8"));
+}
+
+export function getRpmRepomdXml(archFilter?: string): string {
+  const primaryXml = getRpmPrimaryXml(archFilter);
+  const primaryBuffer = Buffer.from(primaryXml, "utf-8");
+  const primaryGzBuffer = gzipSync(primaryBuffer);
+  return generateRpmRepomdXml(primaryBuffer, primaryGzBuffer, RPM_REPO_TIMESTAMP);
 }
 
 export function generateRpmRepoConfig(baseUrl: string): string {

@@ -1,12 +1,7 @@
-import { gzipSync } from "node:zlib";
-import { generateRpmPrimaryXml, generateRpmRepomdXml } from "@/lib/linux-repos";
+import { getRpmRepomdXml } from "@/lib/linux-repos";
 
 export function GET() {
-  const xml = generateRpmPrimaryXml();
-  const xmlBuffer = Buffer.from(xml, "utf-8");
-  const gzBuffer = gzipSync(xmlBuffer);
-
-  const repomdXml = generateRpmRepomdXml(xmlBuffer, gzBuffer);
+  const repomdXml = getRpmRepomdXml();
 
   return new Response(repomdXml, {
     headers: {
