@@ -1,6 +1,7 @@
+import { getRequestBaseUrl } from "@/lib/linux-repos";
+
 export function GET(request: Request) {
-  const url = new URL(request.url);
-  const baseUrl = `${url.protocol}//${url.host}`;
+  const baseUrl = getRequestBaseUrl(request);
 
   const ini = `[Flatpak Repo]
 Title=ArtCraft OCI

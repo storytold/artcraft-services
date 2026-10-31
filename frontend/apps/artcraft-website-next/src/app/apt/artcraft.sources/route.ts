@@ -1,8 +1,7 @@
-import { generateAptSourcesDeb822 } from "@/lib/linux-repos";
+import { generateAptSourcesDeb822, getRequestBaseUrl } from "@/lib/linux-repos";
 
 export function GET(request: Request) {
-  const url = new URL(request.url);
-  const baseUrl = `${url.protocol}//${url.host}`;
+  const baseUrl = getRequestBaseUrl(request);
 
   return new Response(generateAptSourcesDeb822(baseUrl), {
     headers: {

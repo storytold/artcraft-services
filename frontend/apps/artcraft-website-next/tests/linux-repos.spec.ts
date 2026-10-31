@@ -18,6 +18,7 @@ import {
   VALID_APT_ARCHES,
   VALID_RPM_ARCHES,
   escapeXml,
+  getRequestBaseUrl,
 } from "../src/lib/linux-repos";
 import { createHash } from "node:crypto";
 
@@ -139,6 +140,26 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
 
   test("escapes XML entities safely", () => {
     expect(escapeXml('foo & "bar" <baz>')).toBe("foo &amp; &quot;bar&quot; &lt;baz&gt;");
+  });
+
+  test("extracts request base URL supporting forwarded headers", () => {
+    const directReq = new Request("http://127.0.0.1:4210/rpm/artcraft.repo");
+    expect(getRequestBaseUrl(directReq)).toBe("http://127.0.0.1:4210");
+
+    const proxiedReq = new Request("http://localhost:3000/apt/artcraft.sources", {
+      headers: {
+        "x-forwarded-host": "getartcraft.com",
+        "x-forwarded-proto": "https",
+      },
+    });
+    expect(getRequestBaseUrl(proxiedReq)).toBe("https://getartcraft.com");
+
+    const hostHeaderReq = new Request("http://0.0.0.0:4210/artcraft-oci.flatpakrepo", {
+      headers: {
+        host: "artcraft.internal:4210",
+      },
+    });
+    expect(getRequestBaseUrl(hostHeaderReq)).toBe("http://artcraft.internal:4210");
   });
 
   test("provides metadata and catalog for /linux setup page", () => {

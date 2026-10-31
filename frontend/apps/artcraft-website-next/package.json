@@ -10,8 +10,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:media": "playwright test tests/media.spec.ts tests/media-metadata.spec.ts",
-    "test:downloads": "playwright test tests/app-downloads.spec.ts tests/linux-downloads.spec.ts"
+    "test:repos": "playwright test tests/linux-repos.spec.ts tests/flatpak-oci.spec.ts",
+    "test:downloads": "playwright test tests/app-downloads.spec.ts tests/linux-downloads.spec.ts tests/linux-repos.spec.ts tests/flatpak-oci.spec.ts"
   },
   "dependencies": {
     "@radix-ui/react-navigation-menu": "^1.2.22",

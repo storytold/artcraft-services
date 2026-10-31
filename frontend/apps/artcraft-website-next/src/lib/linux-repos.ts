@@ -52,6 +52,16 @@ export function escapeXml(unsafe: string): string {
 }
 
 /**
+ * Extract public base URL from incoming Request, supporting reverse proxy headers.
+ */
+export function getRequestBaseUrl(request: Request): string {
+  const url = new URL(request.url);
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+  const proto = request.headers.get("x-forwarded-proto") || (url.protocol ? url.protocol.replace(":", "") : "https");
+  return `${proto}://${host}`;
+}
+
+/**
  * Catalog of Crafting apps available in the Linux package repositories.
  * Release metadata (file size, sha256, dependencies, installed sizes)
  * strictly verified against real published release binary package headers.
