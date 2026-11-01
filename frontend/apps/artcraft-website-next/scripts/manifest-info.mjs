@@ -1,4 +1,5 @@
 import { getLinuxRepoApps } from "../src/lib/linux-repos.ts";
+import { getFlatpakOciIndex } from "../src/lib/flatpak-oci.ts";
 
 const mode = process.argv[2] || "";
 const targetArch = process.argv[3];
@@ -88,7 +89,7 @@ switch (mode) {
   }
 
   case "flatpak-apps": {
-    const apps = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name))).sort((a, b) => a.localeCompare(b));
+    const apps = getFlatpakOciIndex().Results.map((r) => r.Name.replace("storytold/", "")).sort((a, b) => a.localeCompare(b));
     console.log(apps.join(" "));
     break;
   }
