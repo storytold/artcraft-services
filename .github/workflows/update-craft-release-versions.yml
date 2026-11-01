@@ -41,11 +41,13 @@ jobs:
               "effectcraft",
               "designcraft",
               "figcraft",
+              "texturecraft",
               "wordcraft",
               "soundcraft",
               "deckcraft",
               "cadcraft",
               "gridcraft",
+              "craft-anything",
             ];
 
             const launcher = {
