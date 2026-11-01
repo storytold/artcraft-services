@@ -249,7 +249,7 @@ export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
 
 // Craft Anything (github.com/storytold/craft-anything)
 export const CRAFT_ANYTHING_RELEASE: CraftRelease | null = craftRelease(
-  "0.1.0",
+  "0.2.0",
   CRAFT_RELEASE_ASSETS.filter(
     (asset) =>
       !asset.file.includes("riscv64.deb") &&
