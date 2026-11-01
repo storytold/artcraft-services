@@ -62,6 +62,9 @@ use crate::threads::poll_craft_app_releases_thread::poll_craft_app_releases::pol
 use crate::threads::poll_craft_app_releases_thread::shared_store::build_poller_redis_pool;
 use crate::threads::poll_ip_banlist_thread::poll_ip_bans;
 use crate::threads::poll_model_token_info_thread::poll_model_token_info_thread;
+use crate::threads::recover_lost_fal_webhooks_thread::config::FalWebhookRecoveryConfig;
+use crate::threads::recover_lost_fal_webhooks_thread::fal_queue_poller::{FalApiQueuePoller, FalQueuePoller};
+use crate::threads::recover_lost_fal_webhooks_thread::recover_lost_fal_webhooks::recover_lost_fal_webhooks_thread;
 
 pub mod billing;
 pub mod configs;
@@ -106,7 +109,8 @@ async fn main() -> AnyhowResult<()> {
   // ==================== Setup all dependencies ==================== //
 
   let setup = setup_dependencies(&server_hostname).await?;
-  let server_state = setup.server_state;
+  // Shared with the background threads that need it (FAL webhook recovery).
+  let server_state = Arc::new(setup.server_state);
   let health_check_interval = setup.health_check_interval;
   let pager_worker = setup.pager_worker;
 
@@ -166,6 +170,21 @@ async fn main() -> AnyhowResult<()> {
     poll_craft_app_releases(craft_apps_release_cache_clone, craft_apps_poll_config, craft_apps_redis_pool, hostname_clone).await;
   });
 
+  let fal_webhook_recovery_config = FalWebhookRecoveryConfig::from_env();
+
+  if fal_webhook_recovery_config.enabled {
+    info!("Spawning FAL webhook recovery thread.");
+
+    let server_state_clone = server_state.clone();
+    let poller: Arc<dyn FalQueuePoller> = Arc::new(FalApiQueuePoller {
+      api_key: server_state.inference_providers.fal.api_key.clone(),
+    });
+
+    tokio_runtime.spawn(async move {
+      recover_lost_fal_webhooks_thread(server_state_clone, poller, fal_webhook_recovery_config).await;
+    });
+  }
+
   // ==================== Metrics worker ==================== //
 
   let (metrics_collector, maybe_metrics_worker) =
@@ -205,7 +224,7 @@ async fn main() -> AnyhowResult<()> {
 }
 
 pub async fn serve(
-  server_state: ServerState,
+  server_state: Arc<ServerState>,
   metrics_collector: metrics::collector::MetricsCollector,
 ) -> AnyhowResult<()>
 {
@@ -224,7 +243,7 @@ pub async fn serve(
     info!("Error alerting middleware is ENABLED (ENABLE_PAGING=true, ENABLE_PAGING_FOR_500S=true).");
   }
 
-  let server_state_arc = web::Data::new(Arc::new(server_state));
+  let server_state_arc = web::Data::new(server_state);
 
   let disabled_endpoints = read_disabled_endpoints();
 

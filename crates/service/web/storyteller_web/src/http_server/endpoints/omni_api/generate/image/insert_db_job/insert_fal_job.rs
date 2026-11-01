@@ -9,11 +9,15 @@ use mysql_queries::queries::generic_inference::api_providers::fal::insert_generi
 use tokens::tokens::generic_inference_jobs::InferenceJobToken;
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::endpoints::webhooks::fal::record_fal_queue_urls::{record_fal_queue_urls, RecordFalQueueUrlsArgs};
 
 use super::shared_job_args::SharedJobArgs;
 
 pub struct InsertFalJobArgs<'a, 'tx> {
   pub external_job_id: &'a str,
+  /// FAL's queue URLs for the request, kept so the job can be recovered if its webhook is lost.
+  pub maybe_status_url: Option<&'a str>,
+  pub maybe_response_url: Option<&'a str>,
   pub shared: SharedJobArgs<'a, 'tx>,
 }
 
@@ -24,6 +28,8 @@ pub struct InsertFalJobArgs<'a, 'tx> {
 pub async fn insert_fal_job(args: InsertFalJobArgs<'_, '_>) -> Result<InferenceJobToken, CommonWebError> {
   let InsertFalJobArgs {
     external_job_id,
+    maybe_status_url,
+    maybe_response_url,
     shared,
   } = args;
 
@@ -51,11 +57,20 @@ pub async fn insert_fal_job(args: InsertFalJobArgs<'_, '_>) -> Result<InferenceJ
     }
   ).await;
 
-  match db_result {
-    Ok(token) => Ok(token),
+  let token = match db_result {
+    Ok(token) => token,
     Err(err) => {
       warn!("Error inserting fal inference job (image): {:?}", err);
-      Err(CommonWebError::from_error(err))
+      return Err(CommonWebError::from_error(err));
     }
-  }
+  };
+
+  record_fal_queue_urls(RecordFalQueueUrlsArgs {
+    fal_request_id: external_job_id,
+    maybe_status_url,
+    maybe_response_url,
+    mysql_executor: &mut **shared.transaction,
+  }).await;
+
+  Ok(token)
 }

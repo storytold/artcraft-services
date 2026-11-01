@@ -56,6 +56,9 @@ use crate::http_server::user_lookup::user_session::session_utils::session_checke
 use crate::http_server::web_utils::scoped_temp_dir_creator::ScopedTempDirCreator;
 use crate::http_server::web_utils::web_opaque_cursor_encoder_v2::WebOpaqueCursorEncoderV2;
 use crate::http_server::web_utils::web_sort_key_crypto::WebSortKeyCrypto;
+use crate::http_server::endpoints::webhooks::fal::signature::fal_webhook_signature_mode::FalWebhookSignatureMode;
+use crate::http_server::endpoints::webhooks::fal::signature::fal_webhook_signature_settings::FalWebhookSignatureSettings;
+use fal_client::webhook_signature::fal_jwks_cache::FalJwksCache;
 use crate::startup::setup_inference_providers::{
   BeebleData, FalData, GmiCloudData, GrokApiData, InferenceProviders, KinoviWebData, OpenAiData,
   WorldLabsData,
@@ -678,6 +681,10 @@ pub(crate) fn build_test_server_state(pool: MySqlPool, media_cdn_override_url: S
       fal: FalData {
         api_key: fal_client::creds::fal_api_key::FalApiKey::new("test".to_string()),
         webhook_url: "http://localhost/webhook".to_string(),
+        webhook_signature: FalWebhookSignatureSettings {
+          mode: FalWebhookSignatureMode::Off,
+          jwks_cache: Arc::new(FalJwksCache::for_fal()),
+        },
       },
       gmicloud: GmiCloudData {
         api_key: gmicloud_client::creds::gmicloud_api_key::GmiCloudApiKey::new("test".to_string()),
