@@ -243,6 +243,7 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   effectcraft: craftRelease("0.19.0"),
   designcraft: craftRelease("0.15.2"),
   figcraft: craftRelease("0.13.1"),
+  texturecraft: craftRelease("0.1.0"),
   wordcraft: craftRelease("0.13.2"),
   soundcraft: craftRelease("0.15.0"),
   deckcraft: craftRelease("0.13.1"),
