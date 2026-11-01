@@ -87,7 +87,11 @@ switch (mode) {
   }
 
   case "pacman-install-packages": {
-    const names = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name)));
+    const names = Array.from(
+      new Set(
+        LINUX_REPO_APPS.filter((app) => app.archAssets.length > 0).map((app) => app.name)
+      )
+    );
     console.log(names.join(" "));
     break;
   }

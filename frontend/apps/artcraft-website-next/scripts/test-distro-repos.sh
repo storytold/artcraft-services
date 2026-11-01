@@ -98,7 +98,8 @@ class P(http.server.BaseHTTPRequestHandler):
         else:
             conn = http.client.HTTPConnection(host)
         headers = {
-            "Host": host,
+            "Host": f"127.0.0.1:{port}",
+            "x-forwarded-host": f"127.0.0.1:{port}",
             "User-Agent": self.headers.get("User-Agent", "artcraft-proxy")
         }
         for h in ("Accept", "Accept-Encoding"):
@@ -154,7 +155,7 @@ test_ubuntu() {
   apt_install_pkgs="$(manifest_info apt-install-packages)"
   manifest_info apt-checksums > /tmp/expected-apt.sha256
 
-  $CONTAINER_TOOL run --rm --network host \
+  $CONTAINER_TOOL run --rm --network host --tmpfs /tmp/pkg:exec \
     -v /tmp/expected-apt.sha256:/tmp/expected.sha256:ro \
     "$UBUNTU_IMAGE" bash -c '
     set -euo pipefail
@@ -212,7 +213,7 @@ test_fedora() {
   dnf_install_pkgs="$(manifest_info dnf-install-packages)"
   manifest_info rpm-checksums > /tmp/expected-rpm.sha256
 
-  $CONTAINER_TOOL run --rm --network host \
+  $CONTAINER_TOOL run --rm --network host --tmpfs /tmp/pkg:exec \
     -v /tmp/expected-rpm.sha256:/tmp/expected.sha256:ro \
     "$FEDORA_IMAGE" bash -c '
     set -euo pipefail
@@ -270,7 +271,7 @@ test_opensuse() {
   zypper_riscv_pkgs="$(manifest_info zypper-packages riscv64)"
   manifest_info rpm-checksums > /tmp/expected-zypper.sha256
 
-  $CONTAINER_TOOL run --rm --network host \
+  $CONTAINER_TOOL run --rm --network host --tmpfs /tmp/pkg:exec \
     -v /tmp/expected-zypper.sha256:/tmp/expected.sha256:ro \
     "$OPENSUSE_IMAGE" bash -c '
     set -euo pipefail

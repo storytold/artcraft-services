@@ -5,8 +5,10 @@ import {
   craftAppRelease,
 } from "./crafting-apps";
 import { CRAFT_LAUNCHER_NAME } from "./craft-launcher";
+import { CRAFT_ANYTHING_NAME } from "./craft-anything";
 import {
   CRAFT_LAUNCHER_RELEASE,
+  CRAFT_ANYTHING_RELEASE,
   type CraftRelease,
 } from "./crafting-app-releases";
 
@@ -134,6 +136,21 @@ export function getFlatpakOciIndex(searchParams?: URLSearchParams): FlatpakOciIn
         "ai.storyteller.artcraft-launcher",
         CRAFT_LAUNCHER_NAME,
         CRAFT_LAUNCHER_RELEASE,
+        criteria,
+      );
+      if (entry) results.push(entry);
+    }
+  }
+
+  // Craft Anything
+  if (CRAFT_ANYTHING_RELEASE) {
+    const anythingRepo = "storytold/craft-anything";
+    if (!reqRepo || reqRepo === anythingRepo) {
+      const entry = createRepoEntry(
+        anythingRepo,
+        "ai.storyteller.craft-anything",
+        CRAFT_ANYTHING_NAME,
+        CRAFT_ANYTHING_RELEASE,
         criteria,
       );
       if (entry) results.push(entry);

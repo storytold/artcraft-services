@@ -1,6 +1,6 @@
 import { generatePacmanRepoConfig, getRequestBaseUrl } from "@/lib/linux-repos";
 
-export async function GET(request: Request) {
+export function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request);
   const content = generatePacmanRepoConfig(baseUrl);
 

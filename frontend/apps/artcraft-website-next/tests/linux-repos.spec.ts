@@ -42,6 +42,9 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
     expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
 
+    const craftAnythingUrl = resolvePackageDownloadUrl("craft-anything-0.1.0-linux-x86_64.deb");
+    expect(craftAnythingUrl).toBe("https://github.com/storytold/craft-anything/releases/download/v0.1.0/craft-anything-0.1.0-linux-x86_64.deb");
+
     // Uncatalogued versions or files must return null so route returns 404
     expect(resolvePackageDownloadUrl("pdfcraft-9.9.9-linux-x86_64.deb")).toBeNull();
     expect(resolvePackageDownloadUrl("unknown-app-1.0.0-linux-x86_64.rpm")).toBeNull();
@@ -175,7 +178,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
   });
 
   test("provides metadata and catalog for /linux setup page", () => {
-    expect(LINUX_REPO_APPS).toHaveLength(14);
+    expect(LINUX_REPO_APPS).toHaveLength(15);
     const pdfcraft = LINUX_REPO_APPS.find((app) => app.slug === "pdfcraft");
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.debAssets).toHaveLength(3);
@@ -187,6 +190,12 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(launcher?.debAssets).toHaveLength(3);
     expect(launcher?.rpmAssets).toHaveLength(3);
     expect(launcher?.archAssets).toHaveLength(2);
+
+    const craftAnything = LINUX_REPO_APPS.find((app) => app.slug === "craft-anything");
+    expect(craftAnything).toBeDefined();
+    expect(craftAnything?.debAssets).toHaveLength(2);
+    expect(craftAnything?.rpmAssets).toHaveLength(2);
+    expect(craftAnything?.archAssets).toHaveLength(0);
   });
 
   test("generates valid pacman sync database and repo config", () => {

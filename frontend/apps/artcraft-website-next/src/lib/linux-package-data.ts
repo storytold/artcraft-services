@@ -569,4 +569,24 @@ export const LINUX_PACKAGE_METADATA: Record<string, LinuxPackageAssetMeta> = {
     sha256: "b201a3ff98313e481b2fee6b27352a32165d93f04d5291f1088cfa4edba96d5f",
     installedSize: 210739020,
   },
+  "craft-anything-0.1.0-linux-aarch64.deb": {
+    size: 34499444,
+    sha256: "a988c8fb71e6d83c5b2498bc4fbac3f5d58526d1d4888ebed29bf0b75b974983",
+    installedSize: 69717,
+  },
+  "craft-anything-0.1.0-linux-aarch64.rpm": {
+    size: 34084623,
+    sha256: "cf758d3edad6b157fe0fd55915dd68f46548b2cb992ba388c7a4b5ef76866d8e",
+    installedSize: 71390546,
+  },
+  "craft-anything-0.1.0-linux-x86_64.deb": {
+    size: 36445750,
+    sha256: "5a906f74801cf64381b1513666b9e3fc225d9c658a3d4cdbcb2727e0e9e204b0",
+    installedSize: 82151,
+  },
+  "craft-anything-0.1.0-linux-x86_64.rpm": {
+    size: 36192699,
+    sha256: "b28049ac00cf0abd8b3f2d316a8a87ef8d74830faa61bcaae3a8d7d64060c296",
+    installedSize: 84123570,
+  },
 };

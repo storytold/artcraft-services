@@ -10,7 +10,11 @@ import {
   craftLauncherDownloads,
 } from "./craft-launcher";
 import {
+  craftAnythingDownloads,
+} from "./craft-anything";
+import {
   CRAFT_LAUNCHER_RELEASE,
+  CRAFT_ANYTHING_RELEASE,
 } from "./crafting-app-releases";
 import { LINUX_PACKAGE_METADATA } from "./linux-package-data";
 
@@ -100,12 +104,16 @@ const AUDIO_APPS = new Set(["filmcraft", "soundcraft", "effectcraft", "deckcraft
 function buildDebAssets(
   name: string,
   version: string,
+  supportedArches?: Array<"amd64" | "arm64" | "riscv64">,
 ): LinuxRepoApp["debAssets"] {
-  const debArchMap: Array<{ debArch: "amd64" | "arm64" | "riscv64"; fileArch: "x86_64" | "aarch64" | "riscv64" }> = [
+  let debArchMap: Array<{ debArch: "amd64" | "arm64" | "riscv64"; fileArch: "x86_64" | "aarch64" | "riscv64" }> = [
     { debArch: "amd64", fileArch: "x86_64" },
     { debArch: "arm64", fileArch: "aarch64" },
     { debArch: "riscv64", fileArch: "riscv64" },
   ];
+  if (supportedArches) {
+    debArchMap = debArchMap.filter((item) => supportedArches.includes(item.debArch));
+  }
 
   const baseDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
   const defaultDepends = AUDIO_APPS.has(name)
@@ -137,8 +145,12 @@ function buildDebAssets(
 function buildRpmAssets(
   name: string,
   version: string,
+  supportedArches?: Array<"x86_64" | "aarch64" | "riscv64">,
 ): LinuxRepoApp["rpmAssets"] {
-  const arches: Array<"x86_64" | "aarch64" | "riscv64"> = ["x86_64", "aarch64", "riscv64"];
+  let arches: Array<"x86_64" | "aarch64" | "riscv64"> = ["x86_64", "aarch64", "riscv64"];
+  if (supportedArches) {
+    arches = arches.filter((arch) => supportedArches.includes(arch));
+  }
 
   return arches.map((arch) => {
     const filename = `${name}-${version}-linux-${arch}.rpm`;
@@ -211,6 +223,20 @@ export function getLinuxRepoApps(): LinuxRepoApp[] {
     });
   }
 
+  // Craft Anything
+  if (CRAFT_ANYTHING_RELEASE) {
+    apps.push({
+      slug: "craft-anything",
+      name: "craft-anything",
+      version: CRAFT_ANYTHING_RELEASE.version,
+      description: "Craft Anything: find out how any software works, then craft your own.",
+      section: "devel",
+      debAssets: buildDebAssets("craft-anything", CRAFT_ANYTHING_RELEASE.version, ["amd64", "arm64"]),
+      rpmAssets: buildRpmAssets("craft-anything", CRAFT_ANYTHING_RELEASE.version, ["x86_64", "aarch64"]),
+      archAssets: [],
+    });
+  }
+
   // Crafting Apps
   for (const app of CRAFTING_APPS) {
     const release = craftAppRelease(app);
@@ -241,6 +267,12 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
   if (CRAFT_LAUNCHER_RELEASE) {
     const launcherDownloads = craftLauncherDownloads();
     const match = launcherDownloads.find((d) => d.fileName === filename);
+    if (match) return match.href;
+  }
+
+  if (CRAFT_ANYTHING_RELEASE) {
+    const anythingDownloads = craftAnythingDownloads();
+    const match = anythingDownloads.find((d) => d.fileName === filename);
     if (match) return match.href;
   }
 
@@ -658,17 +690,19 @@ export function generatePacmanDb(
     if (!asset) continue;
 
     const dirName = `ai.storyteller.${app.name}-${app.version}-1`;
-    entries.push({
-      name: `${dirName}/`,
-      type: "dir",
-      mtime: timestamp,
-    });
-    entries.push({
-      name: `${dirName}/desc`,
-      type: "file",
-      content: generatePacmanDesc(app, asset, timestamp),
-      mtime: timestamp,
-    });
+    entries.push(
+      {
+        name: `${dirName}/`,
+        type: "dir",
+        mtime: timestamp,
+      },
+      {
+        name: `${dirName}/desc`,
+        type: "file",
+        content: generatePacmanDesc(app, asset, timestamp),
+        mtime: timestamp,
+      },
+    );
   }
 
   const tarBuffer = buildTar(entries);

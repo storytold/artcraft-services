@@ -6,9 +6,9 @@ import LinuxRepoGuide from "@/components/linux/linux-repo-guide";
 import { mediaUrl } from "@/lib/links";
 
 export const metadata: Metadata = {
-  title: "Linux Package Repositories - APT, DNF, Zypper & Flatpak",
+  title: "Linux Package Repositories - Flatpak, DEB, RPM & Arch",
   description:
-    "Official Linux package repository setup instructions for Debian, Ubuntu, Fedora, RHEL, openSUSE, and Flatpak. Install and continuously update Crafting apps natively.",
+    "Official Linux package repository setup instructions for Flatpak, Debian, Ubuntu, Fedora, RHEL, openSUSE, and Arch Linux. Install and continuously update Crafting apps natively.",
   alternates: { canonical: "/linux" },
 };
 
@@ -21,13 +21,13 @@ export default function LinuxReposPage() {
         id="linux"
         index="01"
         label="Linux Repositories"
-        annotation="APT · DNF · Zypper · Flatpak OCI"
+        annotation="Flatpak · DEB · RPM · Arch"
         title={
           <>
             Install on <Accent>Linux</Accent>.
           </>
         }
-        lede="Native package repositories for Debian, Ubuntu, Fedora, RHEL, openSUSE, and Flatpak. Keep ArtCraft apps and the ArtCraft Launcher up to date directly through your distribution's package manager."
+        lede="Native package repositories for Flatpak, Debian, Ubuntu, Fedora, RHEL, openSUSE, and Arch Linux. Keep ArtCraft apps and the ArtCraft Launcher up to date directly through your distribution's package manager."
         aside={
           <div
             data-reveal
