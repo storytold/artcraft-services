@@ -5,6 +5,7 @@ import {
   AppFamily,
   AppGallery,
   AppGetIt,
+  AppShowcase,
 } from "@/components/apps/app-sections";
 import {
   AppHeroDownloadButton,
@@ -112,9 +113,12 @@ export default async function CraftAppPage({ params }: { params: Params }) {
   const [hero] = app.shots;
   const [before, accent, after] = app.headline;
   const shareUrl = siteUrl(craftAppPath(app));
-  // A demo takes section 02 and pushes the rest down one.
+  // Numbered as if every optional section were there: a missing demo (02) or
+  // showcase (04, after the highlights) pulls the sections after it up one.
   const sectionIndex = (n: number) =>
-    String(n + (app.demo ? 1 : 0)).padStart(2, "0");
+    String(
+      n - (app.demo ? 0 : 1) - (!app.showcase && n > 4 ? 1 : 0),
+    ).padStart(2, "0");
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -212,7 +216,7 @@ export default async function CraftAppPage({ params }: { params: Params }) {
 
       <CampaignSection
         id="highlights"
-        index={sectionIndex(2)}
+        index={sectionIndex(3)}
         label="Highlights"
         annotation={app.category}
         title={
@@ -224,9 +228,12 @@ export default async function CraftAppPage({ params }: { params: Params }) {
         <TipGrid items={app.features} columns={3} />
       </CampaignSection>
 
-      <AppGallery app={app} index={sectionIndex(3)} />
-      <AppGetIt app={app} index={sectionIndex(4)} />
-      <AppFamily app={app} index={sectionIndex(5)} />
+      {app.showcase && (
+        <AppShowcase app={app} showcase={app.showcase} index={sectionIndex(4)} />
+      )}
+      <AppGallery app={app} index={sectionIndex(5)} />
+      <AppGetIt app={app} index={sectionIndex(6)} />
+      <AppFamily app={app} index={sectionIndex(7)} />
 
       <ClosingCta
         eyebrow="Open source · Free"
