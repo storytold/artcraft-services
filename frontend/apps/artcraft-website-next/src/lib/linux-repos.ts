@@ -87,6 +87,8 @@ const COMMON_RPM_REQUIRES: RpmRequire[] = [
   { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
 ];
 
+const AUDIO_APPS = new Set(["filmcraft", "soundcraft", "effectcraft", "deckcraft"]);
+
 function buildDebAssets(
   name: string,
   version: string,
@@ -97,7 +99,10 @@ function buildDebAssets(
     { debArch: "riscv64", fileArch: "riscv64" },
   ];
 
-  const defaultDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
+  const baseDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
+  const defaultDepends = AUDIO_APPS.has(name)
+    ? `${baseDepends}, libasound2 | libasound2t64`
+    : baseDepends;
   const defaultRecommends = "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal";
 
   return debArchMap.map(({ debArch, fileArch }) => {
@@ -135,9 +140,13 @@ function buildRpmAssets(
       installedSize: 200_000_000,
     };
     const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
+    const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
+      ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
+      : [];
     const requires: RpmRequire[] = [
       { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
       ...COMMON_RPM_REQUIRES,
+      ...audioRequires,
     ];
     return {
       arch,
@@ -253,7 +262,7 @@ export function handleAptPackagesRoute(
     return new Response(new Uint8Array(gzBuffer), {
       headers: {
         "Content-Type": "application/gzip",
-        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "Cache-Control": "public, max-age=0, must-revalidate",
       },
     });
   }
@@ -261,7 +270,7 @@ export function handleAptPackagesRoute(
   return new Response(content, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=60, s-maxage=60",
+      "Cache-Control": "public, max-age=0, must-revalidate",
     },
   });
 }

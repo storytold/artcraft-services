@@ -43,10 +43,12 @@ jobs:
                 exit 1
               fi
 
-              if curl -sf -o /dev/null "${PREVIEW_URL}/apt/artcraft.sources" 2>/dev/null; then
-                echo "Netlify preview is live and responsive at ${PREVIEW_URL} (attempt $i)!"
-                echo "preview_url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
-                exit 0
+              if [[ "$STATUS" == "success" ]]; then
+                if curl -sf -o /dev/null "${PREVIEW_URL}/apt/artcraft.sources" 2>/dev/null; then
+                  echo "Netlify preview is live and responsive for ${HEAD_SHA} at ${PREVIEW_URL} (attempt $i)!"
+                  echo "preview_url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
               fi
 
               echo "Attempt $i/90: Waiting for Netlify deploy preview (commit status: ${STATUS:-waiting})..."

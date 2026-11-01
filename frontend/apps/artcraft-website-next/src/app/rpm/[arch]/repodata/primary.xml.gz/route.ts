@@ -17,7 +17,7 @@ export async function GET(_request: Request, props: RouteProps) {
   return new Response(new Uint8Array(primaryGzBuffer), {
     headers: {
       "Content-Type": "application/gzip",
-      "Cache-Control": "public, max-age=60, s-maxage=60",
+      "Cache-Control": "public, max-age=0, must-revalidate",
     },
   });
 }
