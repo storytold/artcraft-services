@@ -247,12 +247,6 @@ export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
       : asset),
 );
 
-// Craft Anything (github.com/storytold/craft-anything)
-export const CRAFT_ANYTHING_RELEASE: CraftRelease | null = craftRelease("0.1.0");
-
-// TextureCraft (github.com/storytold/texturecraft)
-export const TEXTURECRAFT_RELEASE: CraftRelease | null = craftRelease("0.1.0");
-
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   photocraft: craftRelease("0.18.0"),
@@ -269,5 +263,5 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   deckcraft: craftRelease("0.13.1"),
   cadcraft: craftRelease("0.15.1"),
   gridcraft: craftRelease("0.14.2"),
-  "craft-anything": CRAFT_ANYTHING_RELEASE,
+  "craft-anything": craftRelease("0.1.0"),
 };
