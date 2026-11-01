@@ -247,7 +247,7 @@ async function extractArchPkgInfo(downloadUrl: string): Promise<{ size: number; 
     });
     const contentRange = rangeRes.headers.get("content-range");
     const sizeMatch = contentRange?.match(/\/(\d+)$/);
-    const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+    const size = sizeMatch ? Number.parseInt(sizeMatch[1], 10) : 0;
 
     const buf = new Uint8Array(await rangeRes.arrayBuffer());
     const chunks: Buffer[] = [];
@@ -261,7 +261,7 @@ async function extractArchPkgInfo(downloadUrl: string): Promise<{ size: number; 
     }
     const text = Buffer.concat(chunks).toString("utf-8");
     const isizeMatch = text.match(/size = (\d+)/);
-    const installedSize = isizeMatch ? parseInt(isizeMatch[1], 10) : 0;
+    const installedSize = isizeMatch ? Number.parseInt(isizeMatch[1], 10) : 0;
 
     return { size, installedSize };
   } catch {
@@ -631,21 +631,24 @@ export async function generateAptPackages(arch: string): Promise<string> {
 
 export async function generateAptRelease(date: Date = APT_REPO_DATE): Promise<string> {
   const architectures = ["amd64", "arm64", "riscv64"];
-  const fileEntries: string[] = [];
 
-  for (const arch of architectures) {
-    const pkgContent = await generateAptPackages(arch);
-    const pkgBuffer = Buffer.from(pkgContent, "utf-8");
-    const pkgGzBuffer = gzipSync(pkgBuffer);
+  const results = await Promise.all(
+    architectures.map(async (arch) => {
+      const pkgContent = await generateAptPackages(arch);
+      const pkgBuffer = Buffer.from(pkgContent, "utf-8");
+      const pkgGzBuffer = gzipSync(pkgBuffer);
 
-    const pkgSha = createHash("sha256").update(pkgBuffer).digest("hex");
-    const pkgGzSha = createHash("sha256").update(pkgGzBuffer).digest("hex");
+      const pkgSha = createHash("sha256").update(pkgBuffer).digest("hex");
+      const pkgGzSha = createHash("sha256").update(pkgGzBuffer).digest("hex");
 
-    fileEntries.push(
-      ` ${pkgSha} ${pkgBuffer.length} main/binary-${arch}/Packages`,
-      ` ${pkgGzSha} ${pkgGzBuffer.length} main/binary-${arch}/Packages.gz`
-    );
-  }
+      return [
+        ` ${pkgSha} ${pkgBuffer.length} main/binary-${arch}/Packages`,
+        ` ${pkgGzSha} ${pkgGzBuffer.length} main/binary-${arch}/Packages.gz`,
+      ];
+    }),
+  );
+
+  const fileEntries = results.flat();
 
   return [
     "Origin: ArtCraft",
