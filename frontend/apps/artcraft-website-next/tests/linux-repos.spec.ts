@@ -183,7 +183,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
 
   test("provides metadata and catalog for /linux setup page", async () => {
     const apps = await getLinuxRepoApps();
-    expect(apps).toHaveLength(15);
+    expect(apps).toHaveLength(16);
     const pdfcraft = apps.find((app) => app.slug === "pdfcraft");
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.debAssets).toHaveLength(3);
@@ -195,6 +195,10 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(launcher?.debAssets).toHaveLength(3);
     expect(launcher?.rpmAssets).toHaveLength(3);
     expect(launcher?.archAssets).toHaveLength(2);
+
+    const texturecraft = apps.find((app) => app.slug === "texturecraft");
+    expect(texturecraft).toBeDefined();
+    expect(texturecraft?.version).toBe("0.2.0");
 
     const craftAnything = apps.find((app) => app.slug === "craft-anything");
     expect(craftAnything).toBeDefined();
