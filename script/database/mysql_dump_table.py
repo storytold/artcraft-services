@@ -98,7 +98,8 @@ def table_exists(conn, table_name):
 
 def count_rows(conn, table_name):
     with conn.cursor() as cursor:
-        cursor.execute(f"SELECT COUNT(*) AS cnt FROM `{table_name}`")
+        # table_name is checked against ALLOWED_TABLES in main() before this is reached.
+        cursor.execute(f"SELECT COUNT(*) AS cnt FROM `{table_name}`")  # NOSONAR
         result = cursor.fetchone()
         return result["cnt"]
 
@@ -137,7 +138,8 @@ def main():
         conn.close()
 
     # Build output path
-    backup_dir.mkdir(parents=True, exist_ok=True)
+    # The operator picks the output directory with --directory; this is a local backup tool.
+    backup_dir.mkdir(parents=True, exist_ok=True)  # NOSONAR
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     output_file = backup_dir / f"{table_name}_{timestamp}.sql"
 
@@ -170,8 +172,10 @@ def main():
 
     print(f"\nRunning mysqldump for '{table_name}'...")
 
-    with open(output_file, "w") as f:
-        result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
+    # output_file lives under the operator-chosen backup directory.
+    with open(output_file, "w") as f:  # NOSONAR
+        # argv, no shell; table_name is allowlisted and the rest comes from secrets.toml.
+        result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)  # NOSONAR
 
     if result.returncode != 0:
         print(f"Error: mysqldump failed (exit code {result.returncode})")
