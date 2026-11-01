@@ -4,7 +4,6 @@ import { useState, type FormEvent } from "react";
 import { CheckIcon } from "lucide-react";
 import { Button, Input, Textarea } from "@/components/ui";
 import { trackEvent } from "@/lib/analytics";
-import { webappUrl } from "@/lib/links";
 
 // Submissions go to a Google Form whose responses land in a Google Sheet.
 // The form URL and field IDs are public by nature (they ship in the bundle).
@@ -182,10 +181,7 @@ export default function BetaForm() {
       </Button>
 
       <p className="text-center text-xs leading-relaxed text-faint">
-        We only use this to contact you about the beta. Already have access?{" "}
-        <a href={webappUrl("/login")} className="text-muted underline underline-offset-2 hover:text-ink">
-          Log in
-        </a>
+        We only use this to contact you about the beta.
       </p>
     </form>
   );
