@@ -12,7 +12,7 @@ export async function GET(_request: Request, props: RouteProps) {
     return new Response(`Architecture "${arch}" not supported`, { status: 404 });
   }
 
-  const primaryGzBuffer = getRpmPrimaryGz(arch);
+  const primaryGzBuffer = await getRpmPrimaryGz(arch);
 
   return new Response(new Uint8Array(primaryGzBuffer), {
     headers: {

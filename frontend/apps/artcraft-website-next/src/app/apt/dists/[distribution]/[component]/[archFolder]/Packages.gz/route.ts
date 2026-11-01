@@ -10,5 +10,5 @@ type RouteProps = {
 
 export async function GET(_request: Request, props: RouteProps) {
   const { distribution, component, archFolder } = await props.params;
-  return handleAptPackagesRoute(distribution, component, archFolder, { gzip: true });
+  return await handleAptPackagesRoute(distribution, component, archFolder, { gzip: true });
 }

@@ -409,6 +409,8 @@ test_arch() {
     set -euo pipefail
     cat /etc/os-release | grep PRETTY_NAME || true
 
+    sed -i "s/^\[options\]/[options]\nDisableDownloadTimeout/" /etc/pacman.conf || true
+
     echo "--- Configuring ArtCraft repository in pacman.conf ---"
     tee -a /etc/pacman.conf << EOF
 

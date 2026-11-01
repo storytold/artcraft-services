@@ -12,7 +12,7 @@ export async function GET(_request: Request, props: RouteProps) {
     return new Response(`Architecture "${arch}" not supported`, { status: 404 });
   }
 
-  const repomd = getRpmRepomdXml(arch);
+  const repomd = await getRpmRepomdXml(arch);
 
   return new Response(repomd, {
     headers: {

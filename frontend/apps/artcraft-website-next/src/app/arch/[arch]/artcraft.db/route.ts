@@ -12,7 +12,7 @@ export async function GET(_request: Request, props: RouteProps) {
     return new Response(`Architecture "${arch}" not supported`, { status: 404 });
   }
 
-  const dbBuffer = generatePacmanDb(arch);
+  const dbBuffer = await generatePacmanDb(arch);
 
   return new Response(new Uint8Array(dbBuffer), {
     headers: {

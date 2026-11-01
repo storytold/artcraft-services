@@ -13,7 +13,7 @@ export async function GET(_request: Request, props: RouteProps) {
     return new Response("Not found", { status: 404 });
   }
 
-  const content = generateAptRelease();
+  const content = await generateAptRelease();
 
   return new Response(content, {
     headers: {

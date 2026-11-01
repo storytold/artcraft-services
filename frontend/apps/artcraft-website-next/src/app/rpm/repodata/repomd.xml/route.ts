@@ -1,7 +1,7 @@
 import { getRpmRepomdXml } from "@/lib/linux-repos";
 
-export function GET() {
-  const repomdXml = getRpmRepomdXml();
+export async function GET() {
+  const repomdXml = await getRpmRepomdXml();
 
   return new Response(repomdXml, {
     headers: {

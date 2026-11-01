@@ -1,7 +1,22 @@
-import { LINUX_REPO_APPS } from "../src/lib/linux-repos.ts";
+import { getLinuxRepoApps } from "../src/lib/linux-repos.ts";
 
-const mode = process.argv[2];
+const mode = process.argv[2] || "";
 const targetArch = process.argv[3];
+
+let filter = {};
+if (mode.startsWith("apt")) {
+  filter = { deb: true };
+} else if (mode.startsWith("dnf") || mode.startsWith("rpm") || mode.startsWith("zypper")) {
+  filter = { rpm: true };
+} else if (mode.startsWith("pacman")) {
+  filter = { arch: true };
+} else if (mode === "flatpak-apps") {
+  filter = {};
+} else {
+  filter = { deb: true, rpm: true, arch: true };
+}
+
+const LINUX_REPO_APPS = await getLinuxRepoApps(filter);
 
 switch (mode) {
   case "apt-packages": {

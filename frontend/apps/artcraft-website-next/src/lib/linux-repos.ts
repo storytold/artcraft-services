@@ -16,7 +16,6 @@ import {
   CRAFT_LAUNCHER_RELEASE,
   CRAFT_ANYTHING_RELEASE,
 } from "./crafting-app-releases";
-import { LINUX_PACKAGE_METADATA } from "./linux-package-data";
 
 export const RPM_REPO_TIMESTAMP = 1730000000;
 export const PACMAN_REPO_TIMESTAMP = 1730000000;
@@ -39,6 +38,12 @@ export type RpmRequire = {
 export type DebPackageArch = "amd64" | "arm64" | "riscv64";
 export type RpmPackageArch = "x86_64" | "aarch64" | "riscv64";
 export type ArchPackageArch = "x86_64" | "aarch64";
+
+export type LinuxPackageAssetMeta = {
+  size: number;
+  sha256: string;
+  installedSize: number;
+};
 
 export type LinuxRepoApp = {
   slug: string;
@@ -72,6 +77,12 @@ export type LinuxRepoApp = {
   }[];
 };
 
+export type RepoFormatFilter = {
+  deb?: boolean;
+  rpm?: boolean;
+  arch?: boolean;
+};
+
 export function escapeXml(unsafe: string): string {
   return unsafe
     .replaceAll("&", "&amp;")
@@ -90,183 +101,6 @@ export function getRequestBaseUrl(request: Request): string {
   const proto = request.headers.get("x-forwarded-proto") || (url.protocol ? url.protocol.replace(":", "") : "https");
   return `${proto}://${host}`;
 }
-
-const COMMON_RPM_REQUIRES: RpmRequire[] = [
-  { name: "libxkbcommon.so.0()(64bit)" },
-  { name: "libxkbcommon-x11.so.0()(64bit)" },
-  { name: "libwayland-client.so.0()(64bit)" },
-  { name: "libX11.so.6()(64bit)" },
-  { name: "libX11-xcb.so.1()(64bit)" },
-  { name: "libxcb.so.1()(64bit)" },
-  { name: "libXcursor.so.1()(64bit)" },
-  { name: "libXi.so.6()(64bit)" },
-  { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
-];
-
-const AUDIO_APPS = new Set(["filmcraft", "soundcraft", "effectcraft", "deckcraft"]);
-
-interface DebArchMapItem {
-  debArch: DebPackageArch;
-  fileArch: RpmPackageArch;
-}
-
-function buildDebAssets(
-  name: string,
-  version: string,
-  supportedArches?: DebPackageArch[],
-): LinuxRepoApp["debAssets"] {
-  let debArchMap: DebArchMapItem[] = [
-    { debArch: "amd64", fileArch: "x86_64" },
-    { debArch: "arm64", fileArch: "aarch64" },
-    { debArch: "riscv64", fileArch: "riscv64" },
-  ];
-  if (supportedArches) {
-    debArchMap = debArchMap.filter((item) => supportedArches.includes(item.debArch));
-  }
-
-  const baseDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
-  const defaultDepends = AUDIO_APPS.has(name)
-    ? `${baseDepends}, libasound2 | libasound2t64`
-    : baseDepends;
-  const defaultRecommends = "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal";
-
-  return debArchMap.map(({ debArch, fileArch }) => {
-    const filename = `${name}-${version}-linux-${fileArch}.deb`;
-    const meta = LINUX_PACKAGE_METADATA[filename] ?? {
-      size: 100_000_000,
-      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-      installedSize: 200_000,
-    };
-    return {
-      arch: debArch,
-      filename,
-      size: meta.size,
-      sha256: meta.sha256,
-      depends: (name === "artcraft-launcher" && debArch === "riscv64")
-        ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
-        : defaultDepends,
-      recommends: defaultRecommends,
-      installedSize: meta.installedSize,
-    };
-  });
-}
-
-function buildRpmAssets(
-  name: string,
-  version: string,
-  supportedArches?: RpmPackageArch[],
-): LinuxRepoApp["rpmAssets"] {
-  let arches: RpmPackageArch[] = ["x86_64", "aarch64", "riscv64"];
-  if (supportedArches) {
-    arches = arches.filter((arch) => supportedArches.includes(arch));
-  }
-
-  return arches.map((arch) => {
-    const filename = `${name}-${version}-linux-${arch}.rpm`;
-    const meta = LINUX_PACKAGE_METADATA[filename] ?? {
-      size: 100_000_000,
-      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-      installedSize: 200_000_000,
-    };
-    const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
-    const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
-      ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
-      : [];
-    const requires: RpmRequire[] = [
-      { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
-      ...COMMON_RPM_REQUIRES,
-      ...audioRequires,
-    ];
-    return {
-      arch,
-      filename,
-      size: meta.size,
-      sha256: meta.sha256,
-      requires,
-      installedSize: meta.installedSize,
-    };
-  });
-}
-
-function buildArchAssets(
-  name: string,
-  version: string,
-): LinuxRepoApp["archAssets"] {
-  const arches: ArchPackageArch[] = ["x86_64", "aarch64"];
-
-  return arches.map((arch) => {
-    const filename = `${name}-${version}-linux-${arch}.pkg.tar.zst`;
-    const meta = LINUX_PACKAGE_METADATA[filename] ?? {
-      size: 100_000_000,
-      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-      installedSize: 200_000_000,
-    };
-    return {
-      arch,
-      filename,
-      size: meta.size,
-      sha256: meta.sha256,
-      installedSize: meta.installedSize,
-    };
-  });
-}
-
-/**
- * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
- * No hardcoded list of apps is maintained here.
- */
-export function getLinuxRepoApps(): LinuxRepoApp[] {
-  const apps: LinuxRepoApp[] = [];
-
-  // Craft Launcher
-  if (CRAFT_LAUNCHER_RELEASE) {
-    apps.push({
-      slug: "artcraft-launcher",
-      name: "artcraft-launcher",
-      version: CRAFT_LAUNCHER_RELEASE.version,
-      description: "ArtCraft Launcher: install, update and run native Crafting apps.",
-      section: "utils",
-      debAssets: buildDebAssets("artcraft-launcher", CRAFT_LAUNCHER_RELEASE.version),
-      rpmAssets: buildRpmAssets("artcraft-launcher", CRAFT_LAUNCHER_RELEASE.version),
-      archAssets: buildArchAssets("artcraft-launcher", CRAFT_LAUNCHER_RELEASE.version),
-    });
-  }
-
-  // Craft Anything
-  if (CRAFT_ANYTHING_RELEASE) {
-    apps.push({
-      slug: "craft-anything",
-      name: "craft-anything",
-      version: CRAFT_ANYTHING_RELEASE.version,
-      description: "Craft Anything: find out how any software works, then craft your own.",
-      section: "devel",
-      debAssets: buildDebAssets("craft-anything", CRAFT_ANYTHING_RELEASE.version, ["amd64", "arm64"]),
-      rpmAssets: buildRpmAssets("craft-anything", CRAFT_ANYTHING_RELEASE.version, ["x86_64", "aarch64"]),
-      archAssets: [],
-    });
-  }
-
-  // Crafting Apps
-  for (const app of CRAFTING_APPS) {
-    const release = craftAppRelease(app);
-    if (!release) continue;
-
-    apps.push({
-      slug: app.slug,
-      name: app.slug,
-      version: release.version,
-      description: `${craftAppName(app)}: ${app.lede || app.pitch}`,
-      section: app.schemaCategory === "BusinessApplication" ? "utils" : "graphics",
-      debAssets: buildDebAssets(app.slug, release.version),
-      rpmAssets: buildRpmAssets(app.slug, release.version),
-      archAssets: buildArchAssets(app.slug, release.version),
-    });
-  }
-
-  return apps;
-}
-
-export const LINUX_REPO_APPS: LinuxRepoApp[] = getLinuxRepoApps();
 
 /**
  * Resolve package file download request strictly to catalogued GitHub Release binary asset.
@@ -313,12 +147,385 @@ export function handlePackageDownloadRedirect(pathSegments: string[] | undefined
   return Response.redirect(targetUrl, 302);
 }
 
-export function handleAptPackagesRoute(
+// In-memory cache for release checksums (repo:version -> sha256 Map)
+const shaSumsCache = new Map<string, Promise<Map<string, string>>>();
+
+// In-memory cache for package metadata (filename -> LinuxPackageAssetMeta)
+const packageMetaCache = new Map<string, Promise<LinuxPackageAssetMeta>>();
+
+async function getShaSums(repo: string, version: string): Promise<Map<string, string>> {
+  const key = `${repo}:${version}`;
+  let promise = shaSumsCache.get(key);
+  if (!promise) {
+    promise = (async () => {
+      const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          return new Map<string, string>();
+        }
+        const text = await res.text();
+        const map = new Map<string, string>();
+        for (const line of text.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const [sha, fname] = trimmed.split(/\s+/);
+          if (sha && fname) {
+            map.set(fname.replace(/^\*/, ""), sha);
+          }
+        }
+        return map;
+      } catch {
+        return new Map<string, string>();
+      }
+    })();
+    shaSumsCache.set(key, promise);
+  }
+  return promise;
+}
+
+/**
+ * Dynamically computes metadata (size, SHA-256 digest, installed size) for a package asset.
+ * Fetches SHA256SUMS.txt and HTTP metadata on demand and caches in memory.
+ */
+export async function getLinuxPackageMetadata(
+  filename: string,
+  repo: string,
+  version: string,
+): Promise<LinuxPackageAssetMeta> {
+  let promise = packageMetaCache.get(filename);
+  if (!promise) {
+    promise = (async () => {
+      const downloadUrl = resolvePackageDownloadUrl(filename);
+      if (!downloadUrl) {
+        return {
+          size: 100_000_000,
+          sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+          installedSize: 200_000,
+        };
+      }
+
+      // 1. Fetch sha256 checksum from SHA256SUMS.txt
+      const sumsMap = await getShaSums(repo, version);
+      const sha256 =
+        sumsMap.get(filename) ||
+        "0000000000000000000000000000000000000000000000000000000000000000";
+
+      let size = 0;
+      let installedSize = 0;
+
+      if (filename.endsWith(".pkg.tar.zst")) {
+        try {
+          const { Decompress } = await import("fzstd");
+          // Attempt fast 128KB Range request (where .PKGINFO lives for standard packages)
+          const rangeRes = await fetch(downloadUrl, {
+            headers: { Range: "bytes=0-131071" },
+          });
+          const contentRange = rangeRes.headers.get("content-range");
+          const sizeMatch = contentRange?.match(/\/(\d+)$/);
+          if (sizeMatch) {
+            size = parseInt(sizeMatch[1], 10);
+          }
+
+          const buf = new Uint8Array(await rangeRes.arrayBuffer());
+          const chunks: Buffer[] = [];
+          const d = new Decompress((chunk) => {
+            chunks.push(Buffer.from(chunk));
+          });
+          try {
+            d.push(buf, false);
+          } catch {
+            // Partial stream EOF expected
+          }
+          const text = Buffer.concat(chunks).toString("utf-8");
+          const isizeMatch = text.match(/size = (\d+)/);
+          if (isizeMatch) {
+            installedSize = parseInt(isizeMatch[1], 10);
+          } else {
+            // Fallback for packages where .PKGINFO is placed after usr/bin
+            const fullRes = await fetch(downloadUrl);
+            if (!size) {
+              size = parseInt(fullRes.headers.get("content-length") || "0", 10);
+            }
+            let streamedIsize = 0;
+            const needle = Buffer.from("size = ");
+            const streamer = new Decompress((chunk) => {
+              const buf = Buffer.from(chunk);
+              const idx = buf.indexOf(needle);
+              if (idx !== -1) {
+                const slice = buf.slice(idx, idx + 30).toString("ascii");
+                const m = slice.match(/size = (\d+)/);
+                if (m) streamedIsize = parseInt(m[1], 10);
+              }
+            });
+
+            if (fullRes.body) {
+              const reader = fullRes.body.getReader();
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                streamer.push(value, false);
+                if (streamedIsize > 0) {
+                  await reader.cancel();
+                  break;
+                }
+              }
+            }
+            installedSize = streamedIsize || Math.round(size * 1.95);
+          }
+        } catch {
+          if (!size) size = 100_000_000;
+          if (!installedSize) installedSize = Math.round(size * 1.95);
+        }
+      } else {
+        // .deb or .rpm
+        try {
+          const headRes = await fetch(downloadUrl, {
+            method: "HEAD",
+            redirect: "follow",
+          });
+          size = parseInt(headRes.headers.get("content-length") || "0", 10);
+        } catch {
+          size = 100_000_000;
+        }
+
+        if (filename.endsWith(".deb")) {
+          installedSize = Math.round((size * 1.95) / 1024);
+        } else {
+          installedSize = Math.round(size * 1.95);
+        }
+      }
+
+      return { size, sha256, installedSize };
+    })();
+    packageMetaCache.set(filename, promise);
+  }
+  return promise;
+}
+
+const COMMON_RPM_REQUIRES: RpmRequire[] = [
+  { name: "libxkbcommon.so.0()(64bit)" },
+  { name: "libxkbcommon-x11.so.0()(64bit)" },
+  { name: "libwayland-client.so.0()(64bit)" },
+  { name: "libX11.so.6()(64bit)" },
+  { name: "libX11-xcb.so.1()(64bit)" },
+  { name: "libxcb.so.1()(64bit)" },
+  { name: "libXcursor.so.1()(64bit)" },
+  { name: "libXi.so.6()(64bit)" },
+  { name: "(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))" },
+];
+
+const AUDIO_APPS = new Set(["filmcraft", "soundcraft", "effectcraft", "deckcraft"]);
+
+interface DebArchMapItem {
+  debArch: DebPackageArch;
+  fileArch: RpmPackageArch;
+}
+
+async function buildDebAssets(
+  name: string,
+  repo: string,
+  version: string,
+  supportedArches?: DebPackageArch[],
+): Promise<LinuxRepoApp["debAssets"]> {
+  let debArchMap: DebArchMapItem[] = [
+    { debArch: "amd64", fileArch: "x86_64" },
+    { debArch: "arm64", fileArch: "aarch64" },
+    { debArch: "riscv64", fileArch: "riscv64" },
+  ];
+  if (supportedArches) {
+    debArchMap = debArchMap.filter((item) => supportedArches.includes(item.debArch));
+  }
+
+  const baseDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
+  const defaultDepends = AUDIO_APPS.has(name)
+    ? `${baseDepends}, libasound2 | libasound2t64`
+    : baseDepends;
+  const defaultRecommends = "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal";
+
+  return Promise.all(
+    debArchMap.map(async ({ debArch, fileArch }) => {
+      const filename = `${name}-${version}-linux-${fileArch}.deb`;
+      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      return {
+        arch: debArch,
+        filename,
+        size: meta.size,
+        sha256: meta.sha256,
+        depends: (name === "artcraft-launcher" && debArch === "riscv64")
+          ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
+          : defaultDepends,
+        recommends: defaultRecommends,
+        installedSize: meta.installedSize,
+      };
+    })
+  );
+}
+
+async function buildRpmAssets(
+  name: string,
+  repo: string,
+  version: string,
+  supportedArches?: RpmPackageArch[],
+): Promise<LinuxRepoApp["rpmAssets"]> {
+  let arches: RpmPackageArch[] = ["x86_64", "aarch64", "riscv64"];
+  if (supportedArches) {
+    arches = arches.filter((arch) => supportedArches.includes(arch));
+  }
+
+  return Promise.all(
+    arches.map(async (arch) => {
+      const filename = `${name}-${version}-linux-${arch}.rpm`;
+      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
+      const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
+        ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
+        : [];
+      const requires: RpmRequire[] = [
+        { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
+        ...COMMON_RPM_REQUIRES,
+        ...audioRequires,
+      ];
+      return {
+        arch,
+        filename,
+        size: meta.size,
+        sha256: meta.sha256,
+        requires,
+        installedSize: meta.installedSize,
+      };
+    })
+  );
+}
+
+async function buildArchAssets(
+  name: string,
+  repo: string,
+  version: string,
+): Promise<LinuxRepoApp["archAssets"]> {
+  const arches: ArchPackageArch[] = ["x86_64", "aarch64"];
+
+  return Promise.all(
+    arches.map(async (arch) => {
+      const filename = `${name}-${version}-linux-${arch}.pkg.tar.zst`;
+      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      return {
+        arch,
+        filename,
+        size: meta.size,
+        sha256: meta.sha256,
+        installedSize: meta.installedSize,
+      };
+    })
+  );
+}
+
+let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
+export let LINUX_REPO_APPS: LinuxRepoApp[] = [];
+
+/**
+ * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
+ * Package metadata is fetched and computed on demand.
+ */
+export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<LinuxRepoApp[]> {
+  const includeDeb = formats ? !!formats.deb : true;
+  const includeRpm = formats ? !!formats.rpm : true;
+  const includeArch = formats ? !!formats.arch : true;
+
+  if (includeDeb && includeRpm && includeArch && cachedAllAppsPromise) {
+    return cachedAllAppsPromise;
+  }
+
+  const compute = async (): Promise<LinuxRepoApp[]> => {
+    const appPromises: Promise<LinuxRepoApp | null>[] = [];
+
+    // Craft Launcher
+    if (CRAFT_LAUNCHER_RELEASE) {
+      appPromises.push((async () => {
+        const [debAssets, rpmAssets, archAssets] = await Promise.all([
+          includeDeb ? buildDebAssets("artcraft-launcher", "craft-launcher", CRAFT_LAUNCHER_RELEASE.version) : Promise.resolve([]),
+          includeRpm ? buildRpmAssets("artcraft-launcher", "craft-launcher", CRAFT_LAUNCHER_RELEASE.version) : Promise.resolve([]),
+          includeArch ? buildArchAssets("artcraft-launcher", "craft-launcher", CRAFT_LAUNCHER_RELEASE.version) : Promise.resolve([]),
+        ]);
+        return {
+          slug: "artcraft-launcher",
+          name: "artcraft-launcher",
+          version: CRAFT_LAUNCHER_RELEASE.version,
+          description: "ArtCraft Launcher: install, update and run native Crafting apps.",
+          section: "utils",
+          debAssets,
+          rpmAssets,
+          archAssets,
+        };
+      })());
+    }
+
+    // Craft Anything
+    if (CRAFT_ANYTHING_RELEASE) {
+      appPromises.push((async () => {
+        const [debAssets, rpmAssets] = await Promise.all([
+          includeDeb ? buildDebAssets("craft-anything", "craft-anything", CRAFT_ANYTHING_RELEASE.version, ["amd64", "arm64"]) : Promise.resolve([]),
+          includeRpm ? buildRpmAssets("craft-anything", "craft-anything", CRAFT_ANYTHING_RELEASE.version, ["x86_64", "aarch64"]) : Promise.resolve([]),
+        ]);
+        return {
+          slug: "craft-anything",
+          name: "craft-anything",
+          version: CRAFT_ANYTHING_RELEASE.version,
+          description: "Craft Anything: find out how any software works, then craft your own.",
+          section: "devel",
+          debAssets,
+          rpmAssets,
+          archAssets: [],
+        };
+      })());
+    }
+
+    // Crafting Apps
+    for (const app of CRAFTING_APPS) {
+      const release = craftAppRelease(app);
+      if (!release) continue;
+
+      appPromises.push((async () => {
+        const [debAssets, rpmAssets, archAssets] = await Promise.all([
+          includeDeb ? buildDebAssets(app.slug, app.slug, release.version) : Promise.resolve([]),
+          includeRpm ? buildRpmAssets(app.slug, app.slug, release.version) : Promise.resolve([]),
+          includeArch ? buildArchAssets(app.slug, app.slug, release.version) : Promise.resolve([]),
+        ]);
+        return {
+          slug: app.slug,
+          name: app.slug,
+          version: release.version,
+          description: `${craftAppName(app)}: ${app.lede || app.pitch}`,
+          section: app.schemaCategory === "BusinessApplication" ? "utils" : "graphics",
+          debAssets,
+          rpmAssets,
+          archAssets,
+        };
+      })());
+    }
+
+    const apps = await Promise.all(appPromises);
+    const result = apps.filter((a): a is LinuxRepoApp => a !== null);
+    if (includeDeb && includeRpm && includeArch) {
+      LINUX_REPO_APPS = result;
+    }
+    return result;
+  };
+
+  if (includeDeb && includeRpm && includeArch) {
+    cachedAllAppsPromise = compute();
+    return cachedAllAppsPromise;
+  }
+
+  return compute();
+}
+
+export async function handleAptPackagesRoute(
   distribution: string,
   component: string,
   archFolder: string,
   options?: { gzip?: boolean },
-): Response {
+): Promise<Response> {
   if (
     !VALID_APT_DISTRIBUTIONS.has(distribution) ||
     !VALID_APT_COMPONENTS.has(component) ||
@@ -329,7 +536,7 @@ export function handleAptPackagesRoute(
   }
 
   const arch = archFolder.slice(7);
-  const content = generateAptPackages(arch);
+  const content = await generateAptPackages(arch);
 
   if (options?.gzip) {
     const gzBuffer = gzipSync(Buffer.from(content, "utf-8"));
@@ -349,9 +556,9 @@ export function handleAptPackagesRoute(
   });
 }
 
-export function generateAptPackages(arch: string): string {
+export async function generateAptPackages(arch: string): Promise<string> {
   const lines: string[] = [];
-  const apps = getLinuxRepoApps();
+  const apps = await getLinuxRepoApps({ deb: true });
 
   for (const app of apps) {
     const asset = app.debAssets.find((a) => a.arch === arch);
@@ -381,12 +588,12 @@ export function generateAptPackages(arch: string): string {
   return lines.join("\n");
 }
 
-export function generateAptRelease(date: Date = APT_REPO_DATE): string {
+export async function generateAptRelease(date: Date = APT_REPO_DATE): Promise<string> {
   const architectures = ["amd64", "arm64", "riscv64"];
   const fileEntries: string[] = [];
 
   for (const arch of architectures) {
-    const pkgContent = generateAptPackages(arch);
+    const pkgContent = await generateAptPackages(arch);
     const pkgBuffer = Buffer.from(pkgContent, "utf-8");
     const pkgGzBuffer = gzipSync(pkgBuffer);
 
@@ -483,12 +690,12 @@ function generateRpmPackageXml(
   </package>`;
 }
 
-export function generateRpmPrimaryXml(
+export async function generateRpmPrimaryXml(
   timestamp: number = RPM_REPO_TIMESTAMP,
   archFilter?: string,
-): string {
+): Promise<string> {
   const packageXmls: string[] = [];
-  const apps = getLinuxRepoApps();
+  const apps = await getLinuxRepoApps({ rpm: true });
 
   for (const app of apps) {
     for (const asset of app.rpmAssets) {
@@ -528,16 +735,17 @@ export function generateRpmRepomdXml(
 `;
 }
 
-export function getRpmPrimaryXml(archFilter?: string): string {
+export async function getRpmPrimaryXml(archFilter?: string): Promise<string> {
   return generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, archFilter);
 }
 
-export function getRpmPrimaryGz(archFilter?: string): Buffer {
-  return gzipSync(Buffer.from(getRpmPrimaryXml(archFilter), "utf-8"));
+export async function getRpmPrimaryGz(archFilter?: string): Promise<Buffer> {
+  const primaryXml = await getRpmPrimaryXml(archFilter);
+  return gzipSync(Buffer.from(primaryXml, "utf-8"));
 }
 
-export function getRpmRepomdXml(archFilter?: string): string {
-  const primaryXml = getRpmPrimaryXml(archFilter);
+export async function getRpmRepomdXml(archFilter?: string): Promise<string> {
+  const primaryXml = await getRpmPrimaryXml(archFilter);
   const primaryBuffer = Buffer.from(primaryXml, "utf-8");
   const primaryGzBuffer = gzipSync(primaryBuffer);
   return generateRpmRepomdXml(primaryBuffer, primaryGzBuffer, RPM_REPO_TIMESTAMP);
@@ -687,12 +895,12 @@ vulkan-icd-loader
 ${optdepends}`.trimEnd() + "\n";
 }
 
-export function generatePacmanDb(
+export async function generatePacmanDb(
   arch: string,
   timestamp: number = PACMAN_REPO_TIMESTAMP,
-): Buffer {
+): Promise<Buffer> {
   const entries: Array<{ name: string; type: "file" | "dir"; content?: string; mtime?: number }> = [];
-  const apps = getLinuxRepoApps();
+  const apps = await getLinuxRepoApps({ arch: true });
 
   for (const app of apps) {
     const asset = app.archAssets.find((a) => a.arch === arch);

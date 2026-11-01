@@ -12,9 +12,9 @@ import {
   getRpmPrimaryXml,
   getRpmPrimaryGz,
   getRpmRepomdXml,
+  getLinuxRepoApps,
   resolvePackageDownloadUrl,
   RPM_REPO_TIMESTAMP,
-  LINUX_REPO_APPS,
   VALID_APT_DISTRIBUTIONS,
   VALID_APT_COMPONENTS,
   VALID_APT_ARCHES,
@@ -51,25 +51,25 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(resolvePackageDownloadUrl("some-random-file.tar.gz")).toBeNull();
   });
 
-  test("generates valid APT Packages stanzas", () => {
-    const amd64Packages = generateAptPackages("amd64");
+  test("generates valid APT Packages stanzas", async () => {
+    const amd64Packages = await generateAptPackages("amd64");
     expect(amd64Packages).toContain("Package: pdfcraft");
     expect(amd64Packages).toContain("Architecture: amd64");
     expect(amd64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.16.1-linux-x86_64.deb");
     expect(amd64Packages).toContain("SHA256: fb71f9b366214c8b0dafe01afba80d5280d554a7683ab7756f601a170668823b");
 
-    const arm64Packages = generateAptPackages("arm64");
+    const arm64Packages = await generateAptPackages("arm64");
     expect(arm64Packages).toContain("Architecture: arm64");
     expect(arm64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.16.1-linux-aarch64.deb");
 
-    const riscv64Packages = generateAptPackages("riscv64");
+    const riscv64Packages = await generateAptPackages("riscv64");
     expect(riscv64Packages).toContain("Architecture: riscv64");
     expect(riscv64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.16.1-linux-riscv64.deb");
     expect(riscv64Packages).toContain("Package: artcraft-launcher");
   });
 
-  test("generates valid APT Release index with hashes", () => {
-    const release = generateAptRelease();
+  test("generates valid APT Release index with hashes", async () => {
+    const release = await generateAptRelease();
     expect(release).toContain("Origin: ArtCraft");
     expect(release).toContain("Suite: stable");
     expect(release).toContain("Architectures: amd64 arm64 riscv64");
@@ -88,8 +88,8 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(sources).toContain("Trusted: yes");
   });
 
-  test("generates valid RPM primary metadata XML with requires and dependencies", () => {
-    const primaryXml = generateRpmPrimaryXml();
+  test("generates valid RPM primary metadata XML with requires and dependencies", async () => {
+    const primaryXml = await generateRpmPrimaryXml();
     expect(primaryXml).toContain('<metadata xmlns="http://linux.duke.edu/metadata/common"');
     expect(primaryXml).toContain("<name>pdfcraft</name>");
     expect(primaryXml).toContain("<arch>x86_64</arch>");
@@ -103,24 +103,24 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(primaryXml).toContain('<rpm:entry name="(libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))"/>');
     expect(primaryXml).toContain('<rpm:entry name="glibc" flags="GE" epoch="0" ver="2.35"/>');
 
-    const x86Xml = generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, "x86_64");
+    const x86Xml = await generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, "x86_64");
     expect(x86Xml).toContain("<arch>x86_64</arch>");
     expect(x86Xml).not.toContain("<arch>aarch64</arch>");
     expect(x86Xml).not.toContain("<arch>riscv64</arch>");
 
-    const riscvXml = generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, "riscv64");
+    const riscvXml = await generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, "riscv64");
     expect(riscvXml).toContain("<arch>riscv64</arch>");
     expect(riscvXml).not.toContain("<arch>x86_64</arch>");
   });
 
-  test("generates valid, stable repomd.xml matching primary.xml.gz checksums", () => {
-    const repomd = getRpmRepomdXml();
+  test("generates valid, stable repomd.xml matching primary.xml.gz checksums", async () => {
+    const repomd = await getRpmRepomdXml();
     expect(repomd).toContain('<repomd xmlns="http://linux.duke.edu/metadata/repo">');
     expect(repomd).toContain('<data type="primary">');
     expect(repomd).toContain('<location href="repodata/primary.xml.gz"/>');
 
-    const gzBuffer = getRpmPrimaryGz();
-    const primaryXml = getRpmPrimaryXml();
+    const gzBuffer = await getRpmPrimaryGz();
+    const primaryXml = await getRpmPrimaryXml();
     const gzSha = createHash("sha256").update(gzBuffer).digest("hex");
     const openSha = createHash("sha256").update(Buffer.from(primaryXml, "utf-8")).digest("hex");
 
@@ -177,42 +177,44 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(getRequestBaseUrl(hostHeaderReq)).toBe("http://artcraft.internal:4210");
   });
 
-  test("provides metadata and catalog for /linux setup page", () => {
-    expect(LINUX_REPO_APPS).toHaveLength(15);
-    const pdfcraft = LINUX_REPO_APPS.find((app) => app.slug === "pdfcraft");
+  test("provides metadata and catalog for /linux setup page", async () => {
+    const apps = await getLinuxRepoApps();
+    expect(apps).toHaveLength(15);
+    const pdfcraft = apps.find((app) => app.slug === "pdfcraft");
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.debAssets).toHaveLength(3);
     expect(pdfcraft?.rpmAssets).toHaveLength(3);
     expect(pdfcraft?.archAssets).toHaveLength(2);
 
-    const launcher = LINUX_REPO_APPS.find((app) => app.slug === "artcraft-launcher");
+    const launcher = apps.find((app) => app.slug === "artcraft-launcher");
     expect(launcher).toBeDefined();
     expect(launcher?.debAssets).toHaveLength(3);
     expect(launcher?.rpmAssets).toHaveLength(3);
     expect(launcher?.archAssets).toHaveLength(2);
 
-    const craftAnything = LINUX_REPO_APPS.find((app) => app.slug === "craft-anything");
+    const craftAnything = apps.find((app) => app.slug === "craft-anything");
     expect(craftAnything).toBeDefined();
     expect(craftAnything?.debAssets).toHaveLength(2);
     expect(craftAnything?.rpmAssets).toHaveLength(2);
     expect(craftAnything?.archAssets).toHaveLength(0);
   });
 
-  test("generates valid pacman sync database and repo config", () => {
+  test("generates valid pacman sync database and repo config", async () => {
     const repoConfig = generatePacmanRepoConfig("https://getartcraft.com");
     expect(repoConfig).toContain("[artcraft]");
     expect(repoConfig).toContain("Server = https://getartcraft.com/arch/$arch");
     expect(repoConfig).toContain("SigLevel = Optional TrustAll");
 
-    const x86Db = generatePacmanDb("x86_64");
+    const x86Db = await generatePacmanDb("x86_64");
     expect(x86Db.length).toBeGreaterThan(100);
 
-    const armDb = generatePacmanDb("aarch64");
+    const armDb = await generatePacmanDb("aarch64");
     expect(armDb.length).toBeGreaterThan(100);
   });
 
-  test("verifies download URLs and digests for all manifest package assets", () => {
-    for (const app of LINUX_REPO_APPS) {
+  test("verifies download URLs and digests for all manifest package assets", async () => {
+    const apps = await getLinuxRepoApps();
+    for (const app of apps) {
       for (const deb of app.debAssets) {
         expect(deb.size).toBeGreaterThan(10_000_000);
         expect(deb.sha256).toMatch(/^[0-9a-f]{64}$/);

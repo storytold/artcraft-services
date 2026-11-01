@@ -1,7 +1,7 @@
 import { getRpmPrimaryGz } from "@/lib/linux-repos";
 
-export function GET() {
-  const gzBuffer = getRpmPrimaryGz();
+export async function GET() {
+  const gzBuffer = await getRpmPrimaryGz();
 
   return new Response(new Uint8Array(gzBuffer), {
     headers: {
