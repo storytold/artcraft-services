@@ -163,7 +163,7 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
   });
 
   test("provides metadata and catalog for /linux setup page", () => {
-    expect(LINUX_REPO_APPS.length).toBeGreaterThan(0);
+    expect(LINUX_REPO_APPS.length).toBe(14);
     const pdfcraft = LINUX_REPO_APPS.find((app) => app.slug === "pdfcraft");
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.debAssets.length).toBe(3);

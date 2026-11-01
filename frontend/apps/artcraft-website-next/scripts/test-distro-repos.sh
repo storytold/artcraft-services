@@ -130,6 +130,14 @@ with socketserver.TCPServer(("127.0.0.1", port), P) as httpd:
   sleep 1
 }
 
+manifest_info() {
+  if [[ -x "$SCRIPT_DIR/../node_modules/.bin/jiti" ]]; then
+    node --no-warnings "$SCRIPT_DIR/../node_modules/.bin/jiti" "$SCRIPT_DIR/manifest-info.mjs" "$@"
+  else
+    npx --yes jiti "$SCRIPT_DIR/manifest-info.mjs" "$@"
+  fi
+}
+
 test_ubuntu() {
   echo ""
   echo "=================================================="
@@ -137,9 +145,9 @@ test_ubuntu() {
   echo "=================================================="
 
   local apt_pkgs apt_install_pkgs
-  apt_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" apt-packages)"
-  apt_install_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" apt-install-packages)"
-  node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" apt-checksums > /tmp/expected-apt.sha256
+  apt_pkgs="$(manifest_info apt-packages)"
+  apt_install_pkgs="$(manifest_info apt-install-packages)"
+  manifest_info apt-checksums > /tmp/expected-apt.sha256
 
   $CONTAINER_TOOL run --rm --network host \
     -v /tmp/expected-apt.sha256:/tmp/expected.sha256:ro \
@@ -194,9 +202,9 @@ test_fedora() {
   echo "=================================================="
 
   local dnf_pkgs dnf_install_pkgs
-  dnf_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" dnf-packages)"
-  dnf_install_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" dnf-install-packages)"
-  node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" rpm-checksums > /tmp/expected-rpm.sha256
+  dnf_pkgs="$(manifest_info dnf-packages)"
+  dnf_install_pkgs="$(manifest_info dnf-install-packages)"
+  manifest_info rpm-checksums > /tmp/expected-rpm.sha256
 
   $CONTAINER_TOOL run --rm --network host \
     -v /tmp/expected-rpm.sha256:/tmp/expected.sha256:ro \
@@ -249,11 +257,11 @@ test_opensuse() {
   fi
 
   local zypper_install_pkgs zypper_x86_pkgs zypper_arm_pkgs zypper_riscv_pkgs
-  zypper_install_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-install-packages)"
-  zypper_x86_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-packages x86_64)"
-  zypper_arm_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-packages aarch64)"
-  zypper_riscv_pkgs="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" zypper-packages riscv64)"
-  node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" rpm-checksums > /tmp/expected-zypper.sha256
+  zypper_install_pkgs="$(manifest_info zypper-install-packages)"
+  zypper_x86_pkgs="$(manifest_info zypper-packages x86_64)"
+  zypper_arm_pkgs="$(manifest_info zypper-packages aarch64)"
+  zypper_riscv_pkgs="$(manifest_info zypper-packages riscv64)"
+  manifest_info rpm-checksums > /tmp/expected-zypper.sha256
 
   $CONTAINER_TOOL run --rm --network host \
     -v /tmp/expected-zypper.sha256:/tmp/expected.sha256:ro \
@@ -335,7 +343,7 @@ test_flatpak() {
   fi
 
   local flatpak_apps
-  flatpak_apps="$(node --no-warnings --experimental-strip-types "$SCRIPT_DIR/manifest-info.mjs" flatpak-apps)"
+  flatpak_apps="$(manifest_info flatpak-apps)"
 
   # Use Ubuntu Latest (glibc-based standard Linux container) for Flatpak tests
   $CONTAINER_TOOL run --rm --network host ubuntu:latest bash -c '

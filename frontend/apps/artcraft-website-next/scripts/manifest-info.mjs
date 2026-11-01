@@ -79,23 +79,7 @@ switch (mode) {
   }
 
   case "flatpak-apps": {
-    // Standard list of Crafting apps published in Flatpak OCI remote
-    const apps = [
-      "artcraft-launcher",
-      "cadcraft",
-      "deckcraft",
-      "designcraft",
-      "effectcraft",
-      "figcraft",
-      "filmcraft",
-      "gridcraft",
-      "lightcraft",
-      "pdfcraft",
-      "photocraft",
-      "soundcraft",
-      "vectorcraft",
-      "wordcraft",
-    ];
+    const apps = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name))).sort();
     console.log(apps.join(" "));
     break;
   }

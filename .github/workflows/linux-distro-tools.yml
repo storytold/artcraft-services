@@ -86,10 +86,11 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
       - name: Build local Next.js server (if testing without Netlify preview)
         if: needs.wait-for-deploy.outputs.preview-url == ''
         run: |
-          npm ci --ignore-scripts
           ./node_modules/.bin/next typegen
           npm run build
       - name: Verify repository via ${{ matrix.name }}
