@@ -33,14 +33,14 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     const rpmUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.rpm");
     expect(rpmUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.rpm");
 
-    const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.12.0-linux-riscv64.deb");
-    expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.12.0/artcraft-launcher-0.12.0-linux-riscv64.deb");
+    const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.13.0-linux-riscv64.deb");
+    expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.13.0/artcraft-launcher-0.13.0-linux-riscv64.deb");
 
     const archUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.pkg.tar.zst");
     expect(archUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.pkg.tar.zst");
 
-    const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.12.0-linux-aarch64.pkg.tar.zst");
-    expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.12.0/artcraft-launcher-0.12.0-linux-aarch64.pkg.tar.zst");
+    const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.13.0-linux-aarch64.pkg.tar.zst");
+    expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.13.0/artcraft-launcher-0.13.0-linux-aarch64.pkg.tar.zst");
 
     const craftAnythingUrl = resolvePackageDownloadUrl("craft-anything-0.1.0-linux-x86_64.deb");
     expect(craftAnythingUrl).toBe("https://github.com/storytold/craft-anything/releases/download/v0.1.0/craft-anything-0.1.0-linux-x86_64.deb");

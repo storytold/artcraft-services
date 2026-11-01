@@ -165,30 +165,17 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
   if (!promise) {
     promise = (async () => {
       const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-        if (res.status === 404) {
-          // Release not published or repo is private; return empty map so artifacts are dynamically detected as missing
-          return new Map<string, string>();
-        }
-        if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
-        const text = await res.text();
-        const map = new Map<string, string>();
-        for (const line of text.split("\n")) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          const [sha, fname] = trimmed.split(/\s+/);
-          if (sha && fname) {
-            map.set(fname.replace(/^\*/, ""), sha);
-          }
-        }
-        return map;
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") {
-          throw err;
-        }
-        return new Map<string, string>();
+      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
+      const text = await res.text();
+      const map = new Map<string, string>();
+      for (const line of text.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const [sha, fname] = trimmed.split(/\s+/);
+        if (sha && fname) map.set(fname.replace(/^\*/, ""), sha);
       }
+      return map;
     })();
     shaSumsCache.set(key, promise);
     promise.catch(() => shaSumsCache.delete(key));
@@ -281,7 +268,7 @@ async function fetchArchPackageSizes(
   let installedSize = extracted.installedSize;
 
   if (!size) {
-    size = await fetchHeadPackageSize(downloadUrl, filename).catch(() => 0);
+    size = await fetchHeadPackageSize(downloadUrl, filename);
   }
 
   if (!installedSize) {
@@ -385,26 +372,22 @@ async function buildDebAssets(
   const results = await Promise.all(
     candidates.map(async ({ debArch, fileArch }) => {
       const filename = `${name}-${version}-linux-${fileArch}.deb`;
-      try {
-        const meta = await getLinuxPackageMetadata(filename, repo, version);
-        return {
-          arch: debArch,
-          filename,
-          size: meta.size,
-          sha256: meta.sha256,
-          depends: (name === "artcraft-launcher" && debArch === "riscv64")
-            ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
-            : defaultDepends,
-          recommends: defaultRecommends,
-          installedSize: meta.installedSize,
-        };
-      } catch {
-        return null;
-      }
+      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      return {
+        arch: debArch,
+        filename,
+        size: meta.size,
+        sha256: meta.sha256,
+        depends: (name === "artcraft-launcher" && debArch === "riscv64")
+          ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
+          : defaultDepends,
+        recommends: defaultRecommends,
+        installedSize: meta.installedSize,
+      };
     })
   );
 
-  return results.filter((asset): asset is NonNullable<typeof asset> => asset !== null);
+  return results;
 }
 
 async function buildRpmAssets(
@@ -419,32 +402,28 @@ async function buildRpmAssets(
   const results = await Promise.all(
     candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.rpm`;
-      try {
-        const meta = await getLinuxPackageMetadata(filename, repo, version);
-        const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
-        const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
-          ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
-          : [];
-        const requires: RpmRequire[] = [
-          { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
-          ...COMMON_RPM_REQUIRES,
-          ...audioRequires,
-        ];
-        return {
-          arch,
-          filename,
-          size: meta.size,
-          sha256: meta.sha256,
-          requires,
-          installedSize: meta.installedSize,
-        };
-      } catch {
-        return null;
-      }
+      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
+      const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
+        ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
+        : [];
+      const requires: RpmRequire[] = [
+        { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
+        ...COMMON_RPM_REQUIRES,
+        ...audioRequires,
+      ];
+      return {
+        arch,
+        filename,
+        size: meta.size,
+        sha256: meta.sha256,
+        requires,
+        installedSize: meta.installedSize,
+      };
     })
   );
 
-  return results.filter((asset): asset is NonNullable<typeof asset> => asset !== null);
+  return results;
 }
 
 async function buildArchAssets(
@@ -459,24 +438,19 @@ async function buildArchAssets(
   const results = await Promise.all(
     candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.pkg.tar.zst`;
-      try {
-        const meta = await getLinuxPackageMetadata(filename, repo, version);
-        return {
-          arch,
-          filename,
-          size: meta.size,
-          sha256: meta.sha256,
-          installedSize: meta.installedSize,
-        };
-      } catch {
-        return null;
-      }
+      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      return {
+        arch,
+        filename,
+        size: meta.size,
+        sha256: meta.sha256,
+        installedSize: meta.installedSize,
+      };
     })
   );
 
-  return results.filter((asset): asset is NonNullable<typeof asset> => asset !== null);
+  return results;
 }
-
 let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
 
 /**
