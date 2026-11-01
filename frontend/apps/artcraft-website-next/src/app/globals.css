@@ -334,6 +334,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
 .app-deckcraft { --app: #f26b1d; --app-ink: #ad4306; }
 .app-cadcraft { --app: #14a3c7; --app-ink: #09596d; }
 .app-gridcraft { --app: #1f9d55; --app-ink: #136938; }
+.app-craft-anything { --app: #4e7bfb; --app-ink: #1659c4; }
 :root[data-theme="dark"] .app-photocraft { --app-ink: #7fb0ff; }
 :root[data-theme="dark"] .app-vectorcraft { --app-ink: #ff8a70; }
 :root[data-theme="dark"] .app-filmcraft { --app-ink: #b69cff; }
@@ -347,6 +348,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
 :root[data-theme="dark"] .app-deckcraft { --app-ink: #ff9657; }
 :root[data-theme="dark"] .app-cadcraft { --app-ink: #4cc7e6; }
 :root[data-theme="dark"] .app-gridcraft { --app-ink: #5ee089; }
+:root[data-theme="dark"] .app-craft-anything { --app-ink: #74aaff; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .app-photocraft { --app-ink: #7fb0ff; }
   :root:not([data-theme="light"]) .app-vectorcraft { --app-ink: #ff8a70; }
@@ -361,6 +363,7 @@ html[data-ruler="on"]::-webkit-scrollbar {
   :root:not([data-theme="light"]) .app-deckcraft { --app-ink: #ff9657; }
   :root:not([data-theme="light"]) .app-cadcraft { --app-ink: #4cc7e6; }
   :root:not([data-theme="light"]) .app-gridcraft { --app-ink: #5ee089; }
+  :root:not([data-theme="light"]) .app-craft-anything { --app-ink: #74aaff; }
 }
 
 /* Plan cell: a color wash pooling under the index tab and fading into the

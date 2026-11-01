@@ -34,7 +34,8 @@ export type CraftAppSlug =
   | "soundcraft"
   | "deckcraft"
   | "cadcraft"
-  | "gridcraft";
+  | "gridcraft"
+  | "craft-anything";
 
 export type CraftPlatform = "macOS" | "Windows" | "Linux" | "Web";
 
@@ -70,6 +71,8 @@ export type CraftApp = {
   slug: CraftAppSlug;
   /** Prefix before "Craft" — the wordmark colors "Craft". */
   prefix: string;
+  /** Text following Craft in names such as Craft Anything. */
+  nameSuffix?: string;
   category: string;
   status: string;
   /** Headline split around its one color-accented contrast word. */
@@ -1010,6 +1013,33 @@ export const CRAFTING_APPS: CraftApp[] = [
       },
     ],
   },
+  {
+    slug: "craft-anything",
+    prefix: "",
+    nameSuffix: " Anything",
+    category: "Software exploration & creation",
+    status: "Early alpha",
+    headline: ["Understand how software works, then ", "craft", " your own."],
+    pitch: "Explore how software works and build your own version.",
+    lede: "Study websites, apps, games and files with evidence-backed tools, then work with a coding agent to build and check your own project.",
+    schemaCategory: "DesignApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.97",
+    features: [
+      { title: "Study software", body: "Inspect websites, applications, games and files with tools that record the evidence behind their findings." },
+      { title: "Build your own", body: "Describe what you want and work with a coding agent to build a new project." },
+      { title: "Check and refine", body: "Compare the result with the original, review the differences and ask for changes." },
+      { title: "Choose your approach", body: "Use clean-room tools or opt into deeper inspection when you need it." },
+      { title: "Work with agents", body: "Use the desktop app, command line or MCP server to access the same engine." },
+      { title: "Stay in control", body: "Review requests for actions outside the rules you set before they run." },
+    ],
+    shots: [
+      { file: "project-website.webp", source: "project-website.png", caption: "Review a website project", alt: "Craft Anything showing a website project with build checks, an approval request and a plan" },
+      { file: "make.webp", source: "make.png", caption: "Start a project", alt: "Craft Anything's Make screen for choosing a target and describing a project" },
+      { file: "project-game.webp", source: "project-game.png", caption: "Play a finished project", alt: "Craft Anything showing a finished game project" },
+      { file: "workbench.webp", source: "workbench.png", caption: "Explore the workbench", alt: "Craft Anything's workbench" },
+    ],
+  },
 ];
 
 const COUNT_WORDS = [
@@ -1082,7 +1112,7 @@ export function getCraftApp(slug: string): CraftApp | undefined {
 }
 
 export function craftAppName(app: CraftApp): string {
-  return `${app.prefix}Craft`;
+  return `${app.prefix}Craft${app.nameSuffix ?? ""}`;
 }
 
 /** Two-digit lineup position, e.g. "03". */

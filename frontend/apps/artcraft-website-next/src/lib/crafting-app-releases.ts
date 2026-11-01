@@ -248,4 +248,7 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   deckcraft: craftRelease("0.13.1"),
   cadcraft: craftRelease("0.15.1"),
   gridcraft: craftRelease("0.14.2"),
+  "craft-anything": craftRelease("0.1.0", CRAFT_RELEASE_ASSETS.filter((asset) =>
+    asset.file !== "{slug}-{version}-linux-riscv64.deb" && asset.file !== "{slug}-{version}-linux-riscv64.rpm"
+  )),
 };

@@ -130,6 +130,8 @@ export function getFlatpakOciIndex(searchParams?: URLSearchParams): FlatpakOciIn
 
   // Craft Apps
   for (const app of CRAFTING_APPS) {
+    // Craft Anything 0.1.0 predates OCI publishing; it ships Flatpak bundles instead.
+    if (app.slug === "craft-anything") continue;
     const repoName = `storytold/${app.slug}`;
     if (reqRepo && reqRepo !== repoName) continue;
 
