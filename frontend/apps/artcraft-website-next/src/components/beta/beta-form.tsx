@@ -22,19 +22,24 @@ const FORM_FIELD_IDS = {
   referrer: "entry.617211358",
 } as const;
 
-const USER_TYPES = ["Business", "Hobbyist", "Film maker", "Agency", "Other"] as const;
-type UserType = (typeof USER_TYPES)[number];
+// Every Google Form field is free text, so these map onto the existing
+// "Type" / "Type Detail" columns without touching the form.
+const ACCOUNT_TYPES = ["Personal", "Company"] as const;
+type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+const COMPANY_SIZES = ["1–10", "11–50", "51–200", "201–1,000", "1,000+"] as const;
+type CompanySize = (typeof COMPANY_SIZES)[number];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type FieldErrors = Partial<Record<"name" | "email" | "type" | "typeOther", string>>;
+type FieldErrors = Partial<Record<"name" | "email" | "accountType" | "companySize", string>>;
 
 export default function BetaForm() {
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
-  const [userType, setUserType] = useState<UserType | null>(null);
-  const [typeOther, setTypeOther] = useState("");
+  const [accountType, setAccountType] = useState<AccountType | null>(null);
+  const [companySize, setCompanySize] = useState<CompanySize | null>(null);
   // Honeypot: hidden from humans; bots that fill it are silently dropped.
   const [website, setWebsite] = useState("");
 
@@ -50,9 +55,9 @@ export default function BetaForm() {
     else if (!EMAIL_PATTERN.test(email.trim())) {
       next.email = "That doesn't look like a valid email address.";
     }
-    if (userType === null) next.type = "Please pick the option closest to you.";
-    else if (userType === "Other" && !typeOther.trim()) {
-      next.typeOther = "Tell us a little about what you do.";
+    if (accountType === null) next.accountType = "Please choose personal or company.";
+    else if (accountType === "Company" && companySize === null) {
+      next.companySize = "Please pick your company size.";
     }
     return next;
   };
@@ -70,21 +75,22 @@ export default function BetaForm() {
       return;
     }
 
+    const isCompany = accountType === "Company";
     setLoading(true);
     try {
       const body = new URLSearchParams({
         [FORM_FIELD_IDS.name]: name.trim(),
-        [FORM_FIELD_IDS.company]: company.trim(),
+        [FORM_FIELD_IDS.company]: isCompany ? company.trim() : "",
         [FORM_FIELD_IDS.email]: email.trim(),
-        [FORM_FIELD_IDS.type]: userType ?? "",
-        [FORM_FIELD_IDS.typeDetail]: userType === "Other" ? typeOther.trim() : "",
+        [FORM_FIELD_IDS.type]: accountType ?? "",
+        [FORM_FIELD_IDS.typeDetail]: isCompany ? (companySize ?? "") : "",
         [FORM_FIELD_IDS.page]: window.location.href,
         [FORM_FIELD_IDS.referrer]: document.referrer,
       });
       // Google Forms sends no CORS headers, so this is fire-and-forget: the
       // response is opaque and "request completed" counts as success.
       await fetch(FORM_RESPONSE_URL, { method: "POST", mode: "no-cors", body });
-      trackEvent("generate_lead", { form_name: "beta", user_type: userType ?? "" });
+      trackEvent("generate_lead", { form_name: "beta", user_type: accountType ?? "" });
       setSubmitted(true);
     } catch {
       setSubmitError(
@@ -95,9 +101,14 @@ export default function BetaForm() {
     }
   };
 
-  const selectType = (type: UserType) => {
-    setUserType(type);
-    setErrors((prev) => ({ ...prev, type: undefined, typeOther: undefined }));
+  const selectAccountType = (type: AccountType) => {
+    setAccountType(type);
+    setErrors((prev) => ({ ...prev, accountType: undefined, companySize: undefined }));
+  };
+
+  const selectCompanySize = (size: CompanySize) => {
+    setCompanySize(size);
+    setErrors((prev) => ({ ...prev, companySize: undefined }));
   };
 
   if (submitted) {
@@ -143,16 +154,6 @@ export default function BetaForm() {
       />
 
       <Input
-        id="beta-company"
-        label="Company (optional)"
-        type="text"
-        autoComplete="organization"
-        value={company}
-        onChange={(e) => setCompany(e.target.value)}
-        placeholder="Studio or company name"
-      />
-
-      <Input
         id="beta-email"
         label="Email"
         type="email"
@@ -164,50 +165,35 @@ export default function BetaForm() {
         errorMessage={errors.email}
       />
 
-      <div className="flex flex-col">
-        <Label htmlFor="beta-type-Business">I am a…</Label>
-        <div className="flex flex-wrap gap-px bg-line" role="radiogroup" aria-label="I am a…">
-          {USER_TYPES.map((type) => {
-            const selected = userType === type;
-            return (
-              <button
-                key={type}
-                id={`beta-type-${type}`}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => selectType(type)}
-                className={twMerge(
-                  "hud-label h-10 px-4 transition-colors",
-                  selected
-                    ? "bg-invert-bg text-invert-fg"
-                    : "bg-bg text-muted hover:bg-bg-raised hover:text-ink",
-                )}
-              >
-                {type}
-              </button>
-            );
-          })}
-        </div>
-        {errors.type && (
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-danger">
-            {errors.type}
-          </p>
-        )}
-      </div>
+      <ChoiceGroup
+        id="beta-account-type"
+        label="Signing up as"
+        options={ACCOUNT_TYPES}
+        value={accountType}
+        onChange={selectAccountType}
+        error={errors.accountType}
+      />
 
-      {userType === "Other" && (
-        <Input
-          id="beta-type-other"
-          label="What best describes you?"
-          type="text"
-          value={typeOther}
-          onChange={(e) => setTypeOther(e.target.value)}
-          placeholder="Game developer, educator, …"
-          autoFocus
-          isError={!!errors.typeOther}
-          errorMessage={errors.typeOther}
-        />
+      {accountType === "Company" && (
+        <>
+          <Input
+            id="beta-company"
+            label="Company name (optional)"
+            type="text"
+            autoComplete="organization"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder="Studio or company name"
+          />
+          <ChoiceGroup
+            id="beta-company-size"
+            label="Company size"
+            options={COMPANY_SIZES}
+            value={companySize}
+            onChange={selectCompanySize}
+            error={errors.companySize}
+          />
+        </>
       )}
 
       <div aria-hidden="true" className="absolute -left-[9999px] top-auto h-px w-px overflow-hidden">
@@ -233,5 +219,63 @@ export default function BetaForm() {
         </a>
       </p>
     </form>
+  );
+}
+
+// Single-select row of squared pills, ARIA radio semantics.
+function ChoiceGroup<T extends string>({
+  id,
+  label,
+  options,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  label: string;
+  options: readonly T[];
+  value: T | null;
+  onChange: (value: T) => void;
+  error?: string;
+}) {
+  const labelId = `${id}-label`;
+  const errorId = `${id}-error`;
+  return (
+    <div className="flex flex-col">
+      <Label id={labelId}>{label}</Label>
+      <div
+        className="flex flex-wrap gap-px bg-line"
+        role="radiogroup"
+        aria-labelledby={labelId}
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
+      >
+        {options.map((option) => {
+          const selected = value === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(option)}
+              className={twMerge(
+                "hud-label h-10 flex-1 whitespace-nowrap px-4 transition-colors",
+                selected
+                  ? "bg-invert-bg text-invert-fg"
+                  : "bg-bg text-muted hover:bg-bg-raised hover:text-ink",
+              )}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+      {error && (
+        <p id={errorId} className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-danger">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
