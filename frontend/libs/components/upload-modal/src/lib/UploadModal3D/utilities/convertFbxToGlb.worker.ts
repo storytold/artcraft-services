@@ -23,26 +23,28 @@ const scope = self as unknown as {
   postMessage: (message: ConvertResponse, transfer?: Transferable[]) => void;
 };
 
-scope.onmessage = async (event) => {
-  const { id, buffer } = event.data;
-  try {
-    const group = new FBXLoader().parse(buffer, "");
-    const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
-      new GLTFExporter().parse(
-        group,
-        (result) => {
-          if (result instanceof ArrayBuffer) {
-            resolve(result);
-          } else {
-            reject(new Error("GLTF export did not produce binary output."));
-          }
-        },
-        (error) => reject(error),
-        { binary: true, animations: group.animations ?? [] },
-      );
-    });
-    scope.postMessage({ id, ok: true, glb }, [glb]);
-  } catch (error) {
-    scope.postMessage({ id, ok: false, error: String(error) });
-  }
+scope.onmessage = (event) => {
+  void (async () => {
+    const { id, buffer } = event.data;
+    try {
+      const group = new FBXLoader().parse(buffer, "");
+      const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
+        new GLTFExporter().parse(
+          group,
+          (result) => {
+            if (result instanceof ArrayBuffer) {
+              resolve(result);
+            } else {
+              reject(new Error("GLTF export did not produce binary output."));
+            }
+          },
+          (error) => reject(error),
+          { binary: true, animations: group.animations ?? [] },
+        );
+      });
+      scope.postMessage({ id, ok: true, glb }, [glb]);
+    } catch (error) {
+      scope.postMessage({ id, ok: false, error: String(error) });
+    }
+  })();
 };
