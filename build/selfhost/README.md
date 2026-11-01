@@ -50,6 +50,12 @@ OpenAI, Stripe, Resend and others) to be present at startup. `.env.example`
 sets them to the placeholder `unset`, which lets the server start. Features
 that call a provider only work after you add a real key for it.
 
+`FAL_WEBHOOK_SIGNATURE_MODE` controls the check that FAL webhooks are signed
+by FAL (with the public keys FAL publishes at
+`https://rest.fal.ai/.well-known/jwks.json`): `enforce` rejects requests that
+don't verify, `report` (the default) logs them and accepts them, and `off`
+skips the check.
+
 Provider webhooks, such as `FAL_WEBHOOK_URL`, must be reachable from the
 internet for asynchronous generation results to arrive.
 
