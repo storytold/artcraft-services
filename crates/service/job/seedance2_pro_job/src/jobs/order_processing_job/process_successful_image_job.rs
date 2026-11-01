@@ -19,6 +19,7 @@ use tokens::tokens::batch_generations::BatchGenerationToken;
 use tokens::tokens::media_files::MediaFileToken;
 
 use crate::alert_on_error::alert_pager_and_return_err;
+use crate::download_result_bytes::download_result_bytes;
 use crate::job_dependencies::JobDependencies;
 use crate::jobs::order_processing_job::is_job_status_terminal::is_job_status_terminal;
 
@@ -186,14 +187,9 @@ async fn download_and_store_one_image(
     index + 1, order.results.len(), order.order_id, image_url,
   );
 
-  let image_bytes: Vec<u8> = deps.download_client.get(image_url)
-    .send()
+  let image_bytes: Vec<u8> = download_result_bytes(&deps.download_client, image_url)
     .await
-    .map_err(|err| anyhow!("reqwest error downloading image {}: {:?}", index, err))?
-    .bytes()
-    .await
-    .map_err(|err| anyhow!("error reading image bytes for index {}: {:?}", index, err))?
-    .to_vec();
+    .map_err(|err| anyhow!("error downloading image {}: {:?}", index, err))?;
 
   info!(
     "Downloaded {} bytes for image {}/{} of order {}",
