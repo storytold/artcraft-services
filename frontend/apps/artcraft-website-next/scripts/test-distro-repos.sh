@@ -450,9 +450,9 @@ EOF
     sha256sum -c /tmp/expected.sha256
 
     echo "--- Testing real installation of native packages via pacman ---"
-    if ! pacman -S --noconfirm '"$pacman_install_pkgs"'; then
+    if ! printf "y\nn\nn\nn\n" | pacman --debug -S '"$pacman_install_pkgs"'; then
       echo "--- Diagnosing verified package archives ---" >&2
-      for archive in /tmp/all_pkgs/artcraft-launcher-*-x86_64.pkg.tar.zst /tmp/all_pkgs/texturecraft-*-x86_64.pkg.tar.zst; do
+      for archive in /var/cache/pacman/pkg/artcraft-launcher-*.pkg.tar.zst /var/cache/pacman/pkg/texturecraft-*.pkg.tar.zst; do
         [[ -f "$archive" ]] || continue
         sha256sum "$archive" >&2
         pacman --debug -Qip "$archive" >&2 || true
