@@ -838,6 +838,9 @@ export function generatePacmanDesc(
 ): string {
   const pkgname = `ai.storyteller.${app.name}`;
   const provides = app.name === "designcraft" ? "designcraft" : `${app.name}=${app.version}-1`;
+  // These releases declare the X11 keyboard library in their package metadata.
+  const needsXkbcommonX11 = (app.name === "artcraft-launcher" && app.version === "0.13.0")
+    || (app.name === "texturecraft" && app.version === "0.2.0");
   const optdepends = app.name === "designcraft"
     ? ""
     : `%OPTDEPENDS%
@@ -908,7 +911,7 @@ glibc
 gcc-libs
 hicolor-icon-theme
 libxkbcommon
-vulkan-icd-loader
+${needsXkbcommonX11 ? "libxkbcommon-x11\n" : ""}vulkan-icd-loader
 
 ${optdepends}`.trimEnd() + "\n";
 }
