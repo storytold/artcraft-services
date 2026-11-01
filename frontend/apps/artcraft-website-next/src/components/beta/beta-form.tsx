@@ -2,8 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { CheckIcon } from "lucide-react";
-import { twMerge } from "tailwind-merge";
-import { Button, Input, Label } from "@/components/ui";
+import { Button, Input, Textarea } from "@/components/ui";
 import { trackEvent } from "@/lib/analytics";
 import { webappUrl } from "@/lib/links";
 
@@ -12,29 +11,27 @@ import { webappUrl } from "@/lib/links";
 const FORM_RESPONSE_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfjRVkOzfBlR0uefebHWSaoEm7R0DRLhUKqwHQlNvBE8bmd-w/formResponse";
 
+// Reuses the form's original short-answer questions (renaming a question in
+// Google Forms keeps its ID): appName was "Name", repo was "Company" and
+// description was "Type Detail". "Type" is left blank, which marks new rows.
 const FORM_FIELD_IDS = {
-  name: "entry.666666785",
-  company: "entry.121325393",
+  appName: "entry.666666785",
+  repo: "entry.121325393",
   email: "entry.467034813",
-  type: "entry.2139364913",
-  typeDetail: "entry.1914395461",
+  description: "entry.1914395461",
   page: "entry.709868934",
   referrer: "entry.617211358",
 } as const;
 
-const USER_TYPES = ["Business", "Hobbyist", "Film maker", "Agency", "Other"] as const;
-type UserType = (typeof USER_TYPES)[number];
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type FieldErrors = Partial<Record<"name" | "email" | "type" | "typeOther", string>>;
+type FieldErrors = Partial<Record<"appName" | "email" | "repo" | "description", string>>;
 
 export default function BetaForm() {
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
+  const [appName, setAppName] = useState("");
   const [email, setEmail] = useState("");
-  const [userType, setUserType] = useState<UserType | null>(null);
-  const [typeOther, setTypeOther] = useState("");
+  const [repo, setRepo] = useState("");
+  const [description, setDescription] = useState("");
   // Honeypot: hidden from humans; bots that fill it are silently dropped.
   const [website, setWebsite] = useState("");
 
@@ -45,15 +42,13 @@ export default function BetaForm() {
 
   const validate = (): FieldErrors => {
     const next: FieldErrors = {};
-    if (!name.trim()) next.name = "Please enter your name.";
+    if (!appName.trim()) next.appName = "Please enter your app's name.";
     if (!email.trim()) next.email = "Please enter your email.";
     else if (!EMAIL_PATTERN.test(email.trim())) {
       next.email = "That doesn't look like a valid email address.";
     }
-    if (userType === null) next.type = "Please pick the option closest to you.";
-    else if (userType === "Other" && !typeOther.trim()) {
-      next.typeOther = "Tell us a little about what you do.";
-    }
+    if (!repo.trim()) next.repo = "Please link your app's repo.";
+    if (!description.trim()) next.description = "Tell us a little about your app.";
     return next;
   };
 
@@ -73,18 +68,17 @@ export default function BetaForm() {
     setLoading(true);
     try {
       const body = new URLSearchParams({
-        [FORM_FIELD_IDS.name]: name.trim(),
-        [FORM_FIELD_IDS.company]: company.trim(),
+        [FORM_FIELD_IDS.appName]: appName.trim(),
+        [FORM_FIELD_IDS.repo]: repo.trim(),
         [FORM_FIELD_IDS.email]: email.trim(),
-        [FORM_FIELD_IDS.type]: userType ?? "",
-        [FORM_FIELD_IDS.typeDetail]: userType === "Other" ? typeOther.trim() : "",
+        [FORM_FIELD_IDS.description]: description.trim(),
         [FORM_FIELD_IDS.page]: window.location.href,
         [FORM_FIELD_IDS.referrer]: document.referrer,
       });
       // Google Forms sends no CORS headers, so this is fire-and-forget: the
       // response is opaque and "request completed" counts as success.
       await fetch(FORM_RESPONSE_URL, { method: "POST", mode: "no-cors", body });
-      trackEvent("generate_lead", { form_name: "beta", user_type: userType ?? "" });
+      trackEvent("generate_lead", { form_name: "beta" });
       setSubmitted(true);
     } catch {
       setSubmitError(
@@ -93,11 +87,6 @@ export default function BetaForm() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const selectType = (type: UserType) => {
-    setUserType(type);
-    setErrors((prev) => ({ ...prev, type: undefined, typeOther: undefined }));
   };
 
   if (submitted) {
@@ -110,10 +99,10 @@ export default function BetaForm() {
           You&rsquo;re on the list
         </h2>
         <p className="mt-3 max-w-xs leading-relaxed text-muted">
-          Thanks, {name.trim().split(/\s+/)[0]}. We review applications
+          Thanks for applying with {appName.trim()}. We review applications
           regularly and will reach out at{" "}
-          <span className="text-ink">{email.trim()}</span> when your spot
-          opens.
+          <span className="text-ink">{email.trim()}</span>{" "}
+          if it&rsquo;s selected.
         </p>
         <Button href="/" variant="secondary" className="mt-8">
           Back to the homepage
@@ -131,25 +120,15 @@ export default function BetaForm() {
       )}
 
       <Input
-        id="beta-name"
-        label="Name"
+        id="beta-app-name"
+        label="App name"
         type="text"
-        autoComplete="name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Ada Lovelace"
-        isError={!!errors.name}
-        errorMessage={errors.name}
-      />
-
-      <Input
-        id="beta-company"
-        label="Company (optional)"
-        type="text"
-        autoComplete="organization"
-        value={company}
-        onChange={(e) => setCompany(e.target.value)}
-        placeholder="Studio or company name"
+        autoComplete="off"
+        value={appName}
+        onChange={(e) => setAppName(e.target.value)}
+        placeholder="My App"
+        isError={!!errors.appName}
+        errorMessage={errors.appName}
       />
 
       <Input
@@ -164,51 +143,27 @@ export default function BetaForm() {
         errorMessage={errors.email}
       />
 
-      <div className="flex flex-col">
-        <Label htmlFor="beta-type-Business">I am a…</Label>
-        <div className="flex flex-wrap gap-px bg-line" role="radiogroup" aria-label="I am a…">
-          {USER_TYPES.map((type) => {
-            const selected = userType === type;
-            return (
-              <button
-                key={type}
-                id={`beta-type-${type}`}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => selectType(type)}
-                className={twMerge(
-                  "hud-label h-10 px-4 transition-colors",
-                  selected
-                    ? "bg-invert-bg text-invert-fg"
-                    : "bg-bg text-muted hover:bg-bg-raised hover:text-ink",
-                )}
-              >
-                {type}
-              </button>
-            );
-          })}
-        </div>
-        {errors.type && (
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-danger">
-            {errors.type}
-          </p>
-        )}
-      </div>
+      <Input
+        id="beta-repo"
+        label="Repo"
+        type="url"
+        autoComplete="url"
+        value={repo}
+        onChange={(e) => setRepo(e.target.value)}
+        placeholder="https://github.com/you/my-app"
+        isError={!!errors.repo}
+        errorMessage={errors.repo}
+      />
 
-      {userType === "Other" && (
-        <Input
-          id="beta-type-other"
-          label="What best describes you?"
-          type="text"
-          value={typeOther}
-          onChange={(e) => setTypeOther(e.target.value)}
-          placeholder="Game developer, educator, …"
-          autoFocus
-          isError={!!errors.typeOther}
-          errorMessage={errors.typeOther}
-        />
-      )}
+      <Textarea
+        id="beta-description"
+        label="Description"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="What does your app do, and who is it for?"
+        isError={!!errors.description}
+        errorMessage={errors.description}
+      />
 
       <div aria-hidden="true" className="absolute -left-[9999px] top-auto h-px w-px overflow-hidden">
         <label htmlFor="beta-website">Website</label>
