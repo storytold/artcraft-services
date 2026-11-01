@@ -10,11 +10,7 @@ import {
   craftLauncherDownloads,
 } from "./craft-launcher";
 import {
-  craftAnythingDownloads,
-} from "./craft-anything";
-import {
   CRAFT_LAUNCHER_RELEASE,
-  CRAFT_ANYTHING_RELEASE,
 } from "./crafting-app-releases";
 
 export const RPM_REPO_TIMESTAMP = 1730000000;
@@ -129,12 +125,6 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
     if (match) return match.href;
   }
 
-  if (CRAFT_ANYTHING_RELEASE) {
-    const anythingDownloads = craftAnythingDownloads();
-    const match = anythingDownloads.find((d) => d.fileName === filename);
-    if (match) return match.href;
-  }
-
   for (const app of CRAFTING_APPS) {
     const release = craftAppRelease(app);
     if (!release) continue;
@@ -163,8 +153,6 @@ export function handlePackageDownloadRedirect(pathSegments: string[] | undefined
   return Response.redirect(targetUrl, 302);
 }
 
-class MissingReleaseChecksums extends Error {}
-
 // In-memory cache for release checksums (repo:version -> sha256 Map)
 const shaSumsCache = new Map<string, Promise<Map<string, string>>>();
 
@@ -177,9 +165,12 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
   if (!promise) {
     promise = (async () => {
       const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
-      {
+      try {
         const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-        if (res.status === 404) throw new MissingReleaseChecksums(`No checksums published for ${repo} ${version}`);
+        if (res.status === 404) {
+          // Release not published or repo is private; return empty map so artifacts are dynamically detected as missing
+          return new Map<string, string>();
+        }
         if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
         const text = await res.text();
         const map = new Map<string, string>();
@@ -192,6 +183,11 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
           }
         }
         return map;
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          throw err;
+        }
+        return new Map<string, string>();
       }
     })();
     shaSumsCache.set(key, promise);
@@ -314,19 +310,15 @@ async function buildDebAssets(
   name: string,
   repo: string,
   version: string,
-  supportedArches?: DebPackageArch[],
 ): Promise<LinuxRepoApp["debAssets"]> {
-  let debArchMap: DebArchMapItem[] = [
+  const debArchMap: DebArchMapItem[] = [
     { debArch: "amd64", fileArch: "x86_64" },
     { debArch: "arm64", fileArch: "aarch64" },
     { debArch: "riscv64", fileArch: "riscv64" },
   ];
-  if (supportedArches) {
-    debArchMap = debArchMap.filter((item) => supportedArches.includes(item.debArch));
-  }
 
   const sums = await getShaSums(repo, version);
-  debArchMap = debArchMap.filter(({ fileArch }) => sums.has(`${name}-${version}-linux-${fileArch}.deb`));
+  const candidates = debArchMap.filter(({ fileArch }) => sums.has(`${name}-${version}-linux-${fileArch}.deb`));
 
   const baseDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
   const defaultDepends = AUDIO_APPS.has(name)
@@ -334,62 +326,69 @@ async function buildDebAssets(
     : baseDepends;
   const defaultRecommends = "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal";
 
-  return Promise.all(
-    debArchMap.map(async ({ debArch, fileArch }) => {
+  const results = await Promise.all(
+    candidates.map(async ({ debArch, fileArch }) => {
       const filename = `${name}-${version}-linux-${fileArch}.deb`;
-      const meta = await getLinuxPackageMetadata(filename, repo, version);
-      return {
-        arch: debArch,
-        filename,
-        size: meta.size,
-        sha256: meta.sha256,
-        depends: (name === "artcraft-launcher" && debArch === "riscv64")
-          ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
-          : defaultDepends,
-        recommends: defaultRecommends,
-        installedSize: meta.installedSize,
-      };
+      try {
+        const meta = await getLinuxPackageMetadata(filename, repo, version);
+        return {
+          arch: debArch,
+          filename,
+          size: meta.size,
+          sha256: meta.sha256,
+          depends: (name === "artcraft-launcher" && debArch === "riscv64")
+            ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
+            : defaultDepends,
+          recommends: defaultRecommends,
+          installedSize: meta.installedSize,
+        };
+      } catch {
+        return null;
+      }
     })
   );
+
+  return results.filter((asset): asset is NonNullable<typeof asset> => asset !== null);
 }
 
 async function buildRpmAssets(
   name: string,
   repo: string,
   version: string,
-  supportedArches?: RpmPackageArch[],
 ): Promise<LinuxRepoApp["rpmAssets"]> {
-  let arches: RpmPackageArch[] = ["x86_64", "aarch64", "riscv64"];
-  if (supportedArches) {
-    arches = arches.filter((arch) => supportedArches.includes(arch));
-  }
-
+  const arches: RpmPackageArch[] = ["x86_64", "aarch64", "riscv64"];
   const sums = await getShaSums(repo, version);
-  arches = arches.filter((arch) => sums.has(`${name}-${version}-linux-${arch}.rpm`));
+  const candidates = arches.filter((arch) => sums.has(`${name}-${version}-linux-${arch}.rpm`));
 
-  return Promise.all(
-    arches.map(async (arch) => {
+  const results = await Promise.all(
+    candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.rpm`;
-      const meta = await getLinuxPackageMetadata(filename, repo, version);
-      const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
-      const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
-        ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
-        : [];
-      const requires: RpmRequire[] = [
-        { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
-        ...COMMON_RPM_REQUIRES,
-        ...audioRequires,
-      ];
-      return {
-        arch,
-        filename,
-        size: meta.size,
-        sha256: meta.sha256,
-        requires,
-        installedSize: meta.installedSize,
-      };
+      try {
+        const meta = await getLinuxPackageMetadata(filename, repo, version);
+        const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
+        const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
+          ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
+          : [];
+        const requires: RpmRequire[] = [
+          { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
+          ...COMMON_RPM_REQUIRES,
+          ...audioRequires,
+        ];
+        return {
+          arch,
+          filename,
+          size: meta.size,
+          sha256: meta.sha256,
+          requires,
+          installedSize: meta.installedSize,
+        };
+      } catch {
+        return null;
+      }
     })
   );
+
+  return results.filter((asset): asset is NonNullable<typeof asset> => asset !== null);
 }
 
 async function buildArchAssets(
@@ -398,22 +397,28 @@ async function buildArchAssets(
   version: string,
 ): Promise<LinuxRepoApp["archAssets"]> {
   const sums = await getShaSums(repo, version);
-  const arches: ArchPackageArch[] = (["x86_64", "aarch64"] as ArchPackageArch[])
+  const candidates: ArchPackageArch[] = (["x86_64", "aarch64"] as ArchPackageArch[])
     .filter((arch) => sums.has(`${name}-${version}-linux-${arch}.pkg.tar.zst`));
 
-  return Promise.all(
-    arches.map(async (arch) => {
+  const results = await Promise.all(
+    candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.pkg.tar.zst`;
-      const meta = await getLinuxPackageMetadata(filename, repo, version);
-      return {
-        arch,
-        filename,
-        size: meta.size,
-        sha256: meta.sha256,
-        installedSize: meta.installedSize,
-      };
+      try {
+        const meta = await getLinuxPackageMetadata(filename, repo, version);
+        return {
+          arch,
+          filename,
+          size: meta.size,
+          sha256: meta.sha256,
+          installedSize: meta.installedSize,
+        };
+      } catch {
+        return null;
+      }
     })
   );
+
+  return results.filter((asset): asset is NonNullable<typeof asset> => asset !== null);
 }
 
 let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
@@ -438,6 +443,9 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
           includeRpm ? buildRpmAssets("artcraft-launcher", "craft-launcher", CRAFT_LAUNCHER_RELEASE.version) : Promise.resolve([]),
           includeArch ? buildArchAssets("artcraft-launcher", "craft-launcher", CRAFT_LAUNCHER_RELEASE.version) : Promise.resolve([]),
         ]);
+        if (debAssets.length === 0 && rpmAssets.length === 0 && archAssets.length === 0) {
+          return null;
+        }
         return {
           slug: "artcraft-launcher",
           name: "artcraft-launcher",
@@ -451,30 +459,8 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
       })());
     }
 
-    // Craft Anything
-    if (CRAFT_ANYTHING_RELEASE) {
-      appPromises.push((async () => {
-        const [debAssets, rpmAssets] = await Promise.all([
-          includeDeb ? buildDebAssets("craft-anything", "craft-anything", CRAFT_ANYTHING_RELEASE.version, ["amd64", "arm64"]) : Promise.resolve([]),
-          includeRpm ? buildRpmAssets("craft-anything", "craft-anything", CRAFT_ANYTHING_RELEASE.version, ["x86_64", "aarch64"]) : Promise.resolve([]),
-        ]);
-        return {
-          slug: "craft-anything",
-          name: "craft-anything",
-          version: CRAFT_ANYTHING_RELEASE.version,
-          description: "Craft Anything: find out how any software works, then craft your own.",
-          section: "devel",
-          debAssets,
-          rpmAssets,
-          archAssets: [],
-        };
-      })());
-    }
-
     // Crafting Apps
     for (const app of CRAFTING_APPS) {
-      // Craft Anything is handled above with its available package architectures.
-      if (app.slug === "craft-anything") continue;
       const release = craftAppRelease(app);
       if (!release) continue;
 
@@ -484,12 +470,15 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
           includeRpm ? buildRpmAssets(app.slug, app.slug, release.version) : Promise.resolve([]),
           includeArch ? buildArchAssets(app.slug, app.slug, release.version) : Promise.resolve([]),
         ]);
+        if (debAssets.length === 0 && rpmAssets.length === 0 && archAssets.length === 0) {
+          return null;
+        }
         return {
           slug: app.slug,
           name: app.slug,
           version: release.version,
           description: `${craftAppName(app)}: ${app.lede || app.pitch}`,
-          section: app.schemaCategory === "BusinessApplication" ? "utils" : "graphics",
+          section: app.schemaCategory === "BusinessApplication" ? "utils" : (app.slug === "craft-anything" ? "devel" : "graphics"),
           debAssets,
           rpmAssets,
           archAssets,
@@ -497,16 +486,10 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
       })());
     }
 
-    const settled = await Promise.allSettled(appPromises);
+    const settled = await Promise.all(appPromises);
     const apps: LinuxRepoApp[] = [];
-    for (const result of settled) {
-      if (result.status === "fulfilled") {
-        if (result.value) apps.push(result.value);
-      } else if (result.reason instanceof MissingReleaseChecksums) {
-        console.warn(result.reason.message);
-      } else {
-        throw result.reason;
-      }
+    for (const app of settled) {
+      if (app) apps.push(app);
     }
     return apps;
   };
