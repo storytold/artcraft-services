@@ -1,62 +1,50 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { getFlatpakOciIndex } from "../src/lib/flatpak-oci";
 
-test.describe("Flatpak OCI Registry Index Protocol", () => {
-  test("generates valid registry index response", () => {
-    const index = getFlatpakOciIndex();
-    expect(index.Registry).toBe("https://ghcr.io/v2");
-    expect(index.Results.length).toBeGreaterThan(0);
+const sha = (body: string) => `sha256:${createHash("sha256").update(body).digest("hex")}`;
+const ref = "app/ai.storyteller.pdfcraft/x86_64/stable";
+const config = JSON.stringify({ os: "linux", architecture: "amd64", config: { Labels: { "org.flatpak.ref": ref, "org.flatpak.metadata": "[Application]" } } });
+const manifest = JSON.stringify({ schemaVersion: 2, mediaType: "application/vnd.oci.image.manifest.v1+json", config: { digest: sha(config), size: Buffer.byteLength(config) }, layers: [] });
 
-    // Verifies ArtCraft Launcher is present
-    const launcher = index.Results.find((r) => r.Repository === "storytold/artcraft-launcher");
-    expect(launcher).toBeDefined();
-    expect(launcher?.Images).toHaveLength(2); // x86_64 and aarch64
-
-    // Verifies PdfCraft is present
-    const pdfcraft = index.Results.find((r) => r.Name === "storytold/pdfcraft");
-    expect(pdfcraft).toBeDefined();
-    expect(pdfcraft?.Repository).toBe("storytold/pdfcraft");
-
-    const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "x86_64");
-    expect(pdfcraftX86).toBeDefined();
-    expect(pdfcraftX86?.Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.pdfcraft/x86_64/stable");
-    expect(pdfcraftX86?.Digest).toMatch(/^sha256:[a-f0-9]{64}$/);
-    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("[Application]");
-    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("ai.storyteller.pdfcraft");
-
-    // Craft Anything has no published OCI image yet.
-    expect(index.Results.find((r) => r.Repository === "storytold/craft-anything")).toBeUndefined();
-  });
-
-  test("filters by architecture", () => {
-    const params = new URLSearchParams({ architecture: "amd64" });
-    const index = getFlatpakOciIndex(params);
-
-    for (const repo of index.Results) {
-      for (const img of repo.Images) {
-        expect(img.Architecture).toBe("x86_64");
-      }
+function registry(options: { corruptConfig?: boolean; wrongDigest?: boolean; missing?: boolean } = {}): typeof fetch {
+  return async (input) => {
+    const url = String(input);
+    if (url.startsWith("https://ghcr.io/token?")) return Response.json({ token: "test-token" });
+    if (options.missing) return new Response(null, { status: 404 });
+    if (url.includes("/manifests/")) {
+      return new Response(manifest, { headers: { "docker-content-digest": options.wrongDigest ? `sha256:${"0".repeat(64)}` : sha(manifest) } });
     }
-  });
+    if (url.includes("/blobs/")) return new Response(options.corruptConfig ? "{}" : config);
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+}
 
-  test("filters by org.flatpak.ref label", () => {
-    const params = new URLSearchParams({
-      "label:org.flatpak.ref": "app/ai.storyteller.pdfcraft/x86_64/stable",
-    });
-    const index = getFlatpakOciIndex(params);
+const pdf = new URLSearchParams({ repository: "storytold/pdfcraft", architecture: "amd64" });
 
-    expect(index.Results).toHaveLength(1);
-    expect(index.Results[0].Repository).toBe("storytold/pdfcraft");
-    expect(index.Results[0].Images).toHaveLength(1);
-    expect(index.Results[0].Images[0].Architecture).toBe("x86_64");
-  });
+test("indexes the actual manifest digest and verified Flatpak labels", async () => {
+  const index = await getFlatpakOciIndex(pdf, registry());
+  expect(index.Results).toHaveLength(1);
+  const image = index.Results[0].Images[0];
+  expect(image.Digest).toBe(sha(manifest));
+  expect(image.Size).toBe(Buffer.byteLength(manifest));
+  expect(image.Labels["org.flatpak.ref"]).toBe(ref);
+  expect(image.Tags).toEqual(["0.16.1-x86_64"]);
+});
 
-  test("filters by repository", () => {
-    const params = new URLSearchParams({ repository: "storytold/pdfcraft" });
-    const index = getFlatpakOciIndex(params);
+test("does not advertise an image absent from the registry", async () => {
+  const index = await getFlatpakOciIndex(pdf, registry({ missing: true }));
+  expect(index.Results).toEqual([]);
+});
 
-    expect(index.Results).toHaveLength(1);
-    expect(index.Results[0].Name).toBe("storytold/pdfcraft");
-    expect(index.Results[0].Repository).toBe("storytold/pdfcraft");
-  });
+test("rejects mismatched manifest and configuration digests", async () => {
+  await expect(getFlatpakOciIndex(pdf, registry({ wrongDigest: true }))).rejects.toThrow("manifest digest mismatch");
+  await expect(getFlatpakOciIndex(pdf, registry({ corruptConfig: true }))).rejects.toThrow("configuration digest mismatch");
+});
+
+test("filters on real tags and Flatpak references", async () => {
+  const params = new URLSearchParams({ repository: "storytold/pdfcraft", architecture: "amd64", tag: "0.16.1-x86_64", "label:org.flatpak.ref": ref });
+  expect((await getFlatpakOciIndex(params, registry())).Results).toHaveLength(1);
+  params.set("tag", "stable");
+  expect((await getFlatpakOciIndex(params, registry())).Results).toEqual([]);
 });

@@ -1,182 +1,119 @@
 import { createHash } from "node:crypto";
-import {
-  CRAFTING_APPS,
-  craftAppName,
-  craftAppRelease,
-} from "./crafting-apps";
-import { CRAFT_LAUNCHER_NAME } from "./craft-launcher";
-import {
-  CRAFT_LAUNCHER_RELEASE,
-  type CraftRelease,
-} from "./crafting-app-releases";
+import { CRAFTING_APPS, craftAppRelease } from "./crafting-apps";
+import { CRAFT_LAUNCHER_RELEASE } from "./crafting-app-releases";
 
-/**
- * Flatpak Registry Index Protocol response types (flatpak-oci-specs).
- * @see https://github.com/flatpak/flatpak-oci-specs
- */
 export type FlatpakOciImage = {
   Tags: string[];
   Digest: string;
   MediaType: string;
-  Size?: number;
+  Size: number;
   Architecture: "x86_64" | "aarch64";
   OS: "linux";
   Labels: Record<string, string>;
   Annotations?: Record<string, string>;
 };
-
-export type FlatpakOciRepository = {
-  Name: string;
-  Repository: string;
-  Images: FlatpakOciImage[];
-};
-
-export type FlatpakOciIndexResponse = {
-  Registry: string;
-  Results: FlatpakOciRepository[];
-};
-
+export type FlatpakOciRepository = { Name: string; Repository: string; Images: FlatpakOciImage[] };
+export type FlatpakOciIndexResponse = { Registry: string; Results: FlatpakOciRepository[] };
 export const DEFAULT_OCI_REGISTRY = "https://ghcr.io/v2";
 export const ARCHITECTURES: Array<"x86_64" | "aarch64"> = ["x86_64", "aarch64"];
+const MANIFEST_TYPE = "application/vnd.oci.image.manifest.v1+json";
+const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
 
-/** Normalize container architecture names to Flatpak conventions. */
 function normalizeArch(arch: string | null): string | null {
   if (!arch) return null;
-  const lower = arch.toLowerCase();
-  if (lower === "amd64" || lower === "x86_64" || lower === "x64") return "x86_64";
-  if (lower === "arm64" || lower === "aarch64") return "aarch64";
-  return lower;
+  const value = arch.toLowerCase();
+  if (["amd64", "x86_64", "x64"].includes(value)) return "x86_64";
+  if (["arm64", "aarch64"].includes(value)) return "aarch64";
+  return value;
 }
 
-function buildImagesForTarget(
-  repoName: string,
-  appId: string,
-  appName: string,
-  release: CraftRelease,
-): FlatpakOciImage[] {
-  const version = release.version;
-  const tags = ["stable", "latest", version];
-  const binaryName = appId.replace("ai.storyteller.", "");
-
-  return ARCHITECTURES.map((arch) => {
-    const ref = `app/${appId}/${arch}/stable`;
-    const digestHash = createHash("sha256")
-      .update(`${repoName}:${ref}:${version}`)
-      .digest("hex");
-
-    return {
-      Tags: tags,
-      Digest: `sha256:${digestHash}`,
-      MediaType: "application/vnd.oci.image.manifest.v1+json",
-      Architecture: arch,
-      OS: "linux",
-      Labels: {
-        "org.flatpak.ref": ref,
-        "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/23.08\nsdk=org.freedesktop.Sdk/${arch}/23.08\ncommand=${binaryName}\n`,
-        "org.opencontainers.image.version": version,
-        "org.opencontainers.image.title": appName,
-        "org.opencontainers.image.vendor": "Storytold",
-      },
-    };
-  });
-}
-
-type OciFilterCriteria = {
-  arch: string | null;
-  ref: string | null;
-  refMustExist: boolean;
-  tag: string | null;
-};
-
-function filterImages(images: FlatpakOciImage[], criteria: OciFilterCriteria): FlatpakOciImage[] {
-  return images.filter((img) => {
-    if (criteria.arch && img.Architecture !== criteria.arch) return false;
-    if (criteria.ref && img.Labels["org.flatpak.ref"] !== criteria.ref) return false;
-    if (criteria.refMustExist && !img.Labels["org.flatpak.ref"]) return false;
-    if (criteria.tag && !img.Tags.includes(criteria.tag)) return false;
-    return true;
-  });
-}
-
-function createRepoEntry(
-  repoName: string,
-  appId: string,
-  appName: string,
-  release: CraftRelease,
-  criteria: OciFilterCriteria,
-): FlatpakOciRepository | null {
-  const images = filterImages(buildImagesForTarget(repoName, appId, appName, release), criteria);
-  if (images.length === 0) return null;
-  return { Name: repoName, Repository: repoName, Images: images };
-}
-
-interface FlatpakCatalogItem {
-  repoName: string;
-  appId: string;
-  displayName: string;
-  release: CraftRelease | null;
-}
-
-function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
-  const items: FlatpakCatalogItem[] = [];
-
-  if (CRAFT_LAUNCHER_RELEASE) {
-    items.push({
-      repoName: "storytold/artcraft-launcher",
-      appId: "ai.storyteller.artcraft-launcher",
-      displayName: CRAFT_LAUNCHER_NAME,
-      release: CRAFT_LAUNCHER_RELEASE,
-    });
-  }
-
-
-  for (const app of CRAFTING_APPS) {
-    if (app.slug === "craft-anything") continue;
-    const release = craftAppRelease(app);
-    if (release) {
-      items.push({
-        repoName: `storytold/${app.slug}`,
-        appId: `ai.storyteller.${app.slug}`,
-        displayName: craftAppName(app),
-        release,
-      });
+async function boundedBytes(response: Response): Promise<Buffer> {
+  const advertised = Number(response.headers.get("content-length"));
+  if (advertised > MAX_DOCUMENT_BYTES) throw new Error("OCI document exceeds size limit");
+  if (!response.body) throw new Error("OCI document has no body");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_DOCUMENT_BYTES) throw new Error("OCI document exceeds size limit");
+      chunks.push(value);
     }
+  } finally {
+    await reader.cancel();
   }
+  return Buffer.concat(chunks, size);
+}
 
+function digest(bytes: Buffer): string {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+type CatalogItem = { repoName: string; appId: string; version: string };
+function catalogItems(): CatalogItem[] {
+  const items: CatalogItem[] = [];
+  if (CRAFT_LAUNCHER_RELEASE) {
+    items.push({ repoName: "storytold/craft-launcher", appId: "ai.storyteller.artcraft-launcher", version: CRAFT_LAUNCHER_RELEASE.version });
+  }
+  for (const app of CRAFTING_APPS) {
+    const release = craftAppRelease(app);
+    if (release) items.push({ repoName: `storytold/${app.slug}`, appId: `ai.storyteller.${app.slug}`, version: release.version });
+  }
   return items;
 }
 
-/**
- * Build the Flatpak OCI index catalog from the release catalog.
- * Supports filtering by architecture, ref, repo, and tag per flatpak-oci-specs.
- */
-export function getFlatpakOciIndex(searchParams?: URLSearchParams): FlatpakOciIndexResponse {
-  const criteria: OciFilterCriteria = {
-    arch: normalizeArch(searchParams?.get("architecture") ?? null),
-    ref: searchParams?.get("label:org.flatpak.ref") ?? null,
-    refMustExist: searchParams?.get("label:org.flatpak.ref:exists") === "1",
-    tag: searchParams?.get("tag") ?? null,
-  };
-  const reqRepo = searchParams?.get("repository") ?? searchParams?.get("repo");
-
-  const results: FlatpakOciRepository[] = [];
-
-  for (const item of getFlatpakCatalogItems()) {
-    if (reqRepo && reqRepo !== item.repoName) continue;
-    if (!item.release) continue;
-
-    const entry = createRepoEntry(
-      item.repoName,
-      item.appId,
-      item.displayName,
-      item.release,
-      criteria,
-    );
-    if (entry) results.push(entry);
+/** Read published GHCR metadata; absent or private repositories are not advertised. */
+async function fetchImage(item: CatalogItem, arch: "x86_64" | "aarch64", fetcher: typeof fetch): Promise<FlatpakOciImage | null> {
+  const scope = encodeURIComponent(`repository:${item.repoName}:pull`);
+  const tokenResponse = await fetcher(`https://ghcr.io/token?service=ghcr.io&scope=${scope}`, { signal: AbortSignal.timeout(10_000) });
+  if ([401, 403, 404].includes(tokenResponse.status)) return null;
+  if (!tokenResponse.ok) throw new Error(`GHCR token request failed for ${item.repoName}: ${tokenResponse.status}`);
+  const tokenData = JSON.parse((await boundedBytes(tokenResponse)).toString("utf8")) as { token?: unknown };
+  if (typeof tokenData.token !== "string" || !tokenData.token) throw new Error(`Invalid GHCR token for ${item.repoName}`);
+  const headers = { Authorization: `Bearer ${tokenData.token}`, Accept: MANIFEST_TYPE };
+  const tag = `${item.version}-${arch}`;
+  const manifestResponse = await fetcher(`${DEFAULT_OCI_REGISTRY}/${item.repoName}/manifests/${tag}`, { headers, signal: AbortSignal.timeout(10_000), redirect: "error" });
+  if ([401, 403, 404].includes(manifestResponse.status)) return null;
+  if (!manifestResponse.ok) throw new Error(`GHCR manifest request failed for ${item.repoName}:${tag}: ${manifestResponse.status}`);
+  const manifestBytes = await boundedBytes(manifestResponse);
+  const manifestDigest = digest(manifestBytes);
+  const reported = manifestResponse.headers.get("docker-content-digest");
+  if (reported && reported !== manifestDigest) throw new Error(`GHCR manifest digest mismatch for ${item.repoName}:${tag}`);
+  const manifest = JSON.parse(manifestBytes.toString("utf8")) as { mediaType?: unknown; config?: { digest?: unknown; size?: unknown }; annotations?: Record<string, string> };
+  if (manifest.mediaType !== MANIFEST_TYPE || typeof manifest.config?.digest !== "string" || !/^sha256:[0-9a-f]{64}$/.test(manifest.config.digest)) {
+    throw new Error(`Invalid OCI manifest for ${item.repoName}:${tag}`);
   }
+  const configResponse = await fetcher(`${DEFAULT_OCI_REGISTRY}/${item.repoName}/blobs/${manifest.config.digest}`, { headers, signal: AbortSignal.timeout(10_000), redirect: "follow" });
+  if (!configResponse.ok) throw new Error(`GHCR configuration request failed for ${item.repoName}:${tag}: ${configResponse.status}`);
+  const configBytes = await boundedBytes(configResponse);
+  if (digest(configBytes) !== manifest.config.digest || (typeof manifest.config.size === "number" && configBytes.length !== manifest.config.size)) {
+    throw new Error(`GHCR configuration digest mismatch for ${item.repoName}:${tag}`);
+  }
+  const config = JSON.parse(configBytes.toString("utf8")) as { os?: string; architecture?: string; config?: { Labels?: Record<string, string> } };
+  const labels = config.config?.Labels ?? {};
+  if (config.os !== "linux" || normalizeArch(config.architecture ?? null) !== arch || labels["org.flatpak.ref"] !== `app/${item.appId}/${arch}/stable`) {
+    throw new Error(`Invalid Flatpak image metadata for ${item.repoName}:${tag}`);
+  }
+  return { Tags: [tag], Digest: manifestDigest, MediaType: MANIFEST_TYPE, Size: manifestBytes.length, Architecture: arch, OS: "linux", Labels: labels, Annotations: manifest.annotations };
+}
 
-  return {
-    Registry: process.env.FLATPAK_OCI_REGISTRY_URL ?? DEFAULT_OCI_REGISTRY,
-    Results: results,
-  };
+/** Build the index only from verified registry manifests and image configurations. */
+export async function getFlatpakOciIndex(searchParams?: URLSearchParams, fetcher: typeof fetch = fetch): Promise<FlatpakOciIndexResponse> {
+  const registry = process.env.FLATPAK_OCI_REGISTRY_URL ?? DEFAULT_OCI_REGISTRY;
+  if (registry !== DEFAULT_OCI_REGISTRY) throw new Error("Only GHCR OCI metadata is supported");
+  const requestedRepo = searchParams?.get("repository") ?? searchParams?.get("repo");
+  const requestedArch = normalizeArch(searchParams?.get("architecture") ?? null);
+  const requestedRef = searchParams?.get("label:org.flatpak.ref");
+  const requestedTag = searchParams?.get("tag");
+  if (searchParams?.get("os") && searchParams.get("os") !== "linux") return { Registry: registry, Results: [] };
+  const results = await Promise.all(catalogItems().filter((item) => !requestedRepo || requestedRepo === item.repoName).map(async (item) => {
+    const images = await Promise.all(ARCHITECTURES.filter((arch) => !requestedArch || arch === requestedArch).map((arch) => fetchImage(item, arch, fetcher)));
+    const matching = images.filter((image): image is FlatpakOciImage => image !== null)
+      .filter((image) => (!requestedRef || image.Labels["org.flatpak.ref"] === requestedRef) && (!requestedTag || image.Tags.includes(requestedTag)));
+    return matching.length ? { Name: item.repoName, Repository: item.repoName, Images: matching } : null;
+  }));
+  return { Registry: registry, Results: results.filter((entry): entry is FlatpakOciRepository => entry !== null) };
 }

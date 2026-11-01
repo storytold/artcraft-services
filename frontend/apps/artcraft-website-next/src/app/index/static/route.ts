@@ -1,8 +1,8 @@
 import { getFlatpakOciIndex } from "@/lib/flatpak-oci";
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   const url = new URL(request.url);
-  const catalog = getFlatpakOciIndex(url.searchParams);
+  const catalog = await getFlatpakOciIndex(url.searchParams);
 
   return Response.json(catalog, {
     headers: {
