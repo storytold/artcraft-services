@@ -89,7 +89,19 @@ switch (mode) {
   }
 
   case "flatpak-apps": {
-    const apps = getFlatpakOciIndex().Results.map((r) => r.Name.replace("storytold/", "")).sort((a, b) => a.localeCompare(b));
+    const apps = Array.from(
+      new Set(
+        getFlatpakOciIndex().Results.flatMap((r) =>
+          r.Images.map((img) => {
+            const ref = img.Labels?.["org.flatpak.ref"] ?? "";
+            const appId = ref.split("/")[1] ?? "";
+            return appId.replace("ai.storyteller.", "");
+          })
+        )
+      )
+    )
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
     console.log(apps.join(" "));
     break;
   }

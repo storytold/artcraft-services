@@ -122,7 +122,7 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
 
   if (CRAFT_LAUNCHER_RELEASE) {
     items.push({
-      repoName: "storytold/artcraft-launcher",
+      repoName: "storytold/craft-launcher",
       appId: "ai.storyteller.artcraft-launcher",
       displayName: CRAFT_LAUNCHER_NAME,
       release: CRAFT_LAUNCHER_RELEASE,

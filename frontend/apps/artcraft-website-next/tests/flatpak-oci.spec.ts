@@ -7,10 +7,11 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     expect(index.Registry).toBe("https://ghcr.io/v2");
     expect(index.Results.length).toBeGreaterThan(0);
 
-    // Verifies ArtCraft Launcher is present
-    const launcher = index.Results.find((r) => r.Repository === "storytold/artcraft-launcher");
+    // Verifies ArtCraft Launcher is present under storytold/craft-launcher repository
+    const launcher = index.Results.find((r) => r.Repository === "storytold/craft-launcher");
     expect(launcher).toBeDefined();
     expect(launcher?.Images).toHaveLength(2); // x86_64 and aarch64
+    expect(launcher?.Images[0].Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.artcraft-launcher/x86_64/stable");
 
     // Verifies PdfCraft is present
     const pdfcraft = index.Results.find((r) => r.Name === "storytold/pdfcraft");
