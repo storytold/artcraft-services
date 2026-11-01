@@ -1,11 +1,15 @@
 import { getCraftApp, craftAppName } from "@/lib/crafting-apps";
 
 type RouteProps = {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string; filename: string }>;
 };
 
 export async function GET(request: Request, props: RouteProps) {
-  const { slug } = await props.params;
+  const { slug, filename } = await props.params;
+  if (filename !== `${slug}-oci.flatpakref`) {
+    return new Response("Not found", { status: 404 });
+  }
+
   const app = getCraftApp(slug);
 
   if (!app) {

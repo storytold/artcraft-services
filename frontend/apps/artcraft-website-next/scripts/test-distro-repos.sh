@@ -380,9 +380,7 @@ test_flatpak() {
     done
 
     echo "--- Testing app installation from repository ---"
-    dbus-run-session -- flatpak install --user --noninteractive --no-deps test-artcraft ai.storyteller.artcraft-launcher || {
-      echo "Note: Container image not yet published to GHCR (404); Flatpak OCI remote index catalog and token negotiation verified successfully."
-    }
+    dbus-run-session -- flatpak install --user --noninteractive --no-deps test-artcraft ai.storyteller.artcraft-launcher
 
     echo "=== Flatpak (OCI Remote) verification passed! All apps verified. ==="
   '

@@ -81,7 +81,7 @@ sudo apt install artcraft-launcher pdfcraft`,
   dnf: {
     id: "dnf",
     name: "DNF & RPM (Fedora, RHEL & Derivatives)",
-    distros: "Fedora 40+, RHEL 9+, CentOS Stream, Rocky Linux, AlmaLinux",
+    distros: "Fedora 40+, RHEL 10+, CentOS Stream, Rocky Linux, AlmaLinux",
     architectures: STANDARD_ARCHITECTURES,
     setupDescription: "Add the ArtCraft RPM repository and install:",
     setupCommand: `# Add the ArtCraft RPM repository
@@ -93,7 +93,7 @@ sudo dnf install artcraft-launcher pdfcraft`,
     altSetupCommand: `# Fedora 41+ (DNF5):
 sudo dnf config-manager addrepo --from-repofile=https://getartcraft.com/rpm/artcraft.repo
 
-# Fedora 40 / RHEL 9 (DNF4):
+# Fedora 40 (DNF4):
 sudo dnf config-manager --add-repo https://getartcraft.com/rpm/artcraft.repo`,
     rawFiles: [
       { name: "artcraft.repo", href: "/rpm/artcraft.repo", description: "YUM/DNF repository configuration" },
@@ -121,14 +121,17 @@ sudo zypper install artcraft-launcher pdfcraft`,
     name: "Pacman (Arch Linux & Derivatives)",
     distros: "Arch Linux, Manjaro, EndeavourOS, CachyOS",
     architectures: STANDARD_ARCHITECTURES.slice(0, 2),
-    setupDescription: "Add the ArtCraft repository configuration:",
-    setupCommand: `# Add the ArtCraft repository configuration
+    setupDescription: "Add and enable the ArtCraft repository configuration:",
+    setupCommand: `# Download the ArtCraft repository configuration
 sudo curl -fsSL https://getartcraft.com/arch/artcraft.conf -o /etc/pacman.d/artcraft.conf
+
+# Enable it in pacman.conf (safe to run more than once)
+if ! grep -Fxq 'Include = /etc/pacman.d/artcraft.conf' /etc/pacman.conf; then
+  echo 'Include = /etc/pacman.d/artcraft.conf' | sudo tee -a /etc/pacman.conf
+fi
 
 # Synchronize repositories and install apps
 sudo pacman -Syu artcraft-launcher pdfcraft`,
-    altSetupDescription: "If your /etc/pacman.conf does not include /etc/pacman.d/*.conf, add it with:",
-    altSetupCommand: `echo "Include = /etc/pacman.d/artcraft.conf" | sudo tee -a /etc/pacman.conf`,
     rawFiles: [
       { name: "artcraft.conf", href: "/arch/artcraft.conf", description: "Pacman repository configuration" },
       { name: "artcraft.db", href: "/arch/x86_64/artcraft.db", description: "Sync repository database (x86_64)" },
@@ -149,6 +152,7 @@ export function LinuxRepoGuide() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           className="w-full sm:w-auto"
+          listClassName="min-w-0 max-w-full"
         />
         <p className="hud-label hidden text-faint sm:block">
           Continuous updates via native packages
