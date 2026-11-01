@@ -5,6 +5,8 @@ use serde_derive::{Deserialize, Serialize};
 use url::Url;
 use utoipa::ToSchema;
 
+use crate::craft_apps::flatpak::CraftAppFlatpakRepoInfo;
+
 // ── GET /v1/craft_apps/release_info ──
 //
 // The latest release of every Craft App (PhotoCraft, VectorCraft, …, and ArtCraft Launcher
@@ -27,6 +29,10 @@ pub struct GetCraftAppsReleaseInfoResponse {
   pub repo_renames: Vec<CraftAppRepoRename>,
 
   pub important_notices: CraftAppsImportantNotices,
+
+  /// Flatpak repository configuration for the complete ArtCraft Suite (if configured).
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub suite_flatpak_repo: Option<CraftAppFlatpakRepoInfo>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
@@ -56,6 +62,10 @@ pub struct CraftAppReleaseInfo {
   /// When this app's release data was last fetched successfully. Absent if it never was; then
   /// `latest_release` says nothing and clients should ask GitHub themselves.
   pub app_last_fetched: Option<DateTime<Utc>>,
+
+  /// Flatpak repository configuration for this application (if available).
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub flatpak_repo: Option<CraftAppFlatpakRepoInfo>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]

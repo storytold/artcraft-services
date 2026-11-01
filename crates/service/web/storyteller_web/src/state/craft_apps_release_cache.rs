@@ -159,22 +159,160 @@ impl CraftAppsReleaseCache {
     }
   }
 
-  /// Everything, as the endpoint serves it: `apps` keyed by app key.
-  pub fn snapshot(&self) -> CraftAppsReleaseInfo {
+  /// Returns the canonical app key and cached app info for the specified key or alias, if known.
+  pub fn get_app_with_key(&self, key: &str) -> Option<(String, CachedCraftApp)> {
     let map = self.inner.read().unwrap_or_else(PoisonError::into_inner);
+    let lower = key.to_lowercase();
+    if let Some((k, app)) = map.get_key_value(key).or_else(|| map.get_key_value(&lower)) {
+      return Some((k.clone(), app.clone()));
+    }
+    for (k, app) in map.iter() {
+      if k.eq_ignore_ascii_case(key)
+        || app.name.eq_ignore_ascii_case(key)
+        || app.repo.eq_ignore_ascii_case(key)
+        || app.repo.split('/').last().is_some_and(|r| r.eq_ignore_ascii_case(key))
+        || (key.eq_ignore_ascii_case("launcher") && k == "artcraft-launcher")
+        || (key.eq_ignore_ascii_case("craft-launcher") && k == "artcraft-launcher")
+      {
+        return Some((k.clone(), app.clone()));
+      }
+    }
+    None
+  }
+
+  /// Returns the cached app info for the specified key or alias, if known.
+  pub fn get_app(&self, key: &str) -> Option<CachedCraftApp> {
+    self.get_app_with_key(key).map(|(_, app)| app)
+  }
+
+  /// Returns the latest release for the specified app key (e.g. `photocraft`, `artcraft-launcher`),
+  /// if fetched.
+  pub fn get_app_release(&self, key: &str) -> Option<CraftAppRelease> {
+    self.get_app(key).and_then(|app| app.latest_release)
+  }
+
+  /// Helper to load Flatpak config from environment once using registered app keys.
+  pub fn load_flatpak_config_from_env(&self) -> CraftAppsFlatpakConfig {
+    let map = self.inner.read().unwrap_or_else(PoisonError::into_inner);
+    CraftAppsFlatpakConfig::from_env(map.keys())
+  }
+
+  /// Everything, as the endpoint serves it: `apps` keyed by app key.
+  /// Uses default (disabled) flatpak config without reading environment variables.
+  pub fn snapshot(&self) -> CraftAppsReleaseInfo {
+    self.snapshot_with_flatpak_config(&CraftAppsFlatpakConfig::default())
+  }
+
+  /// Takes explicit flatpak config / overrides rather than reading environment variables
+  /// inside `snapshot()`.
+  pub fn snapshot_with_flatpak_config(&self, config: &CraftAppsFlatpakConfig) -> CraftAppsReleaseInfo {
+    let map = self.inner.read().unwrap_or_else(PoisonError::into_inner);
+
     let apps: BTreeMap<String, CraftAppReleaseInfo> = map
-        .iter()
-        .map(|(key, app)| {
-          (key.clone(), CraftAppReleaseInfo {
-            name: app.name.clone(),
-            repo: app.repo.clone(),
-            latest_release: app.latest_release.clone(),
-            app_last_fetched: app.app_last_fetched,
+      .iter()
+      .map(|(key, app)| {
+        let flatpak_repo = if config.enabled {
+          let app_override = config.app_overrides.get(key);
+          let app_version_override = app_override.and_then(|o| o.version.clone());
+          let min_version = app_override.and_then(|o| o.min_version.clone());
+          let latest_v = app.latest_release.as_ref().map(|r| r.version.clone());
+
+          let (version, is_synced) = match (app_version_override, latest_v) {
+            (Some(override_v), Some(latest)) => {
+              let synced = artcraft_api_defs::craft_apps::flatpak::compare_versions(&override_v, &latest) != Some(std::cmp::Ordering::Less);
+              (Some(override_v), Some(synced))
+            }
+            (Some(override_v), None) => (Some(override_v), None),
+            (None, _) => (None, None),
+          };
+
+          Some(artcraft_api_defs::craft_apps::flatpak::CraftAppFlatpakRepoInfo {
+            app_id: format!("ai.storyteller.{key}"),
+            repo_url: format!("{}/{}", config.repo_base_url.trim_end_matches('/'), key),
+            flatpakrepo_url: format!("{}/v1/craft_apps/flatpak/{key}.flatpakrepo", config.api_base_url.trim_end_matches('/')),
+            branch: "stable".to_string(),
+            version,
+            min_version,
+            is_synced,
+            gpg_key_url: config.gpg_key_url.clone(),
           })
+        } else {
+          None
+        };
+
+        (key.clone(), CraftAppReleaseInfo {
+          name: app.name.clone(),
+          repo: app.repo.clone(),
+          latest_release: app.latest_release.clone(),
+          app_last_fetched: app.app_last_fetched,
+          flatpak_repo,
         })
-        .collect();
+      })
+      .collect();
     let last_fetched = least_recently_fetched(&apps);
     CraftAppsReleaseInfo { apps, last_fetched }
+  }
+}
+
+/// Configuration for Flatpak repository advertising in release info responses.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CraftAppsFlatpakConfig {
+  pub enabled: bool,
+  pub repo_base_url: String,
+  pub api_base_url: String,
+  pub gpg_key_url: Option<String>,
+  pub app_overrides: BTreeMap<String, CraftAppFlatpakOverride>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CraftAppFlatpakOverride {
+  pub version: Option<String>,
+  pub min_version: Option<String>,
+}
+
+impl Default for CraftAppsFlatpakConfig {
+  fn default() -> Self {
+    Self {
+      enabled: false,
+      repo_base_url: "https://repo.getartcraft.com".to_string(),
+      api_base_url: "https://api.getartcraft.com".to_string(),
+      gpg_key_url: Some("https://getartcraft.com/keys/flatpak.gpg".to_string()),
+      app_overrides: BTreeMap::new(),
+    }
+  }
+}
+
+impl CraftAppsFlatpakConfig {
+  /// Reads flatpak configuration and per-app overrides from environment variables once,
+  /// outside of snapshot().
+  pub fn from_env(known_app_keys: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+    let enabled = easyenv::get_env_bool_or_default("CRAFT_APPS_FLATPAK_REPO_ENABLED", false);
+    let repo_base_url = easyenv::get_env_string_or_default("CRAFT_APPS_FLATPAK_REPO_BASE_URL", "https://repo.getartcraft.com");
+    let api_base_url = easyenv::get_env_string_or_default("CRAFT_APPS_API_BASE_URL", "https://api.getartcraft.com");
+    let website_base_url = easyenv::get_env_string_or_default("CRAFT_APPS_WEBSITE_BASE_URL", "https://getartcraft.com");
+    let default_gpg_key = format!("{}/keys/flatpak.gpg", website_base_url.trim_end_matches('/'));
+    let gpg_key_url = Some(easyenv::get_env_string_or_default("CRAFT_APPS_FLATPAK_GPG_KEY_URL", &default_gpg_key));
+
+    let mut app_overrides = BTreeMap::new();
+    if enabled {
+      for app_key in known_app_keys {
+        let key_str = app_key.as_ref();
+        let app_env_key = key_str.to_uppercase().replace('-', "_");
+        let version = easyenv::get_env_string_optional(&format!("CRAFT_APPS_FLATPAK_VERSION_{app_env_key}"));
+        let min_version = easyenv::get_env_string_optional(&format!("CRAFT_APPS_FLATPAK_MIN_VERSION_{app_env_key}"));
+        if version.is_some() || min_version.is_some() {
+          app_overrides.insert(key_str.to_string(), CraftAppFlatpakOverride { version, min_version });
+        }
+      }
+    }
+
+    Self {
+      enabled,
+      repo_base_url,
+      api_base_url,
+      gpg_key_url,
+      app_overrides,
+    }
   }
 }
 
@@ -275,5 +413,131 @@ mod tests {
     assert_eq!(cache.app("photocraft").unwrap().consecutive_failures, 1, "older failure ignored");
     cache.merge_failure("photocraft", t(5), 4);
     assert_eq!(cache.app("photocraft").unwrap().consecutive_failures, 4);
+  }
+
+  #[test]
+  fn snapshot_populates_flatpak_repo_info() {
+    let cache = CraftAppsReleaseCache::new();
+    let apps = [("photocraft".to_string(), "PhotoCraft".to_string(), "storytold/photocraft".to_string())];
+    cache.register_apps(&apps);
+
+    // Default snapshot has flatpak disabled:
+    let snapshot = cache.snapshot();
+    assert!(snapshot.apps["photocraft"].flatpak_repo.is_none());
+
+    // With flatpak enabled:
+    let config = CraftAppsFlatpakConfig {
+      enabled: true,
+      repo_base_url: "https://repo.getartcraft.com".to_string(),
+      api_base_url: "https://api.getartcraft.com".to_string(),
+      gpg_key_url: Some("https://getartcraft.com/keys/flatpak.gpg".to_string()),
+      app_overrides: BTreeMap::new(),
+    };
+    let snapshot = cache.snapshot_with_flatpak_config(&config);
+    let flatpak = snapshot.apps["photocraft"].flatpak_repo.as_ref().unwrap();
+    assert_eq!(flatpak.app_id, "ai.storyteller.photocraft");
+    assert!(flatpak.repo_url.contains("photocraft"));
+    assert!(flatpak.flatpakrepo_url.ends_with("photocraft.flatpakrepo"));
+    assert_eq!(flatpak.branch, "stable");
+    assert_eq!(flatpak.gpg_key_url.as_deref(), Some("https://getartcraft.com/keys/flatpak.gpg"));
+  }
+
+  #[test]
+  fn snapshot_detects_lagging_flatpak_repo() {
+    let cache = CraftAppsReleaseCache::new();
+    let apps = [("photocraft".to_string(), "PhotoCraft".to_string(), "storytold/photocraft".to_string())];
+    cache.register_apps(&apps);
+    let release = artcraft_api_defs::craft_apps::release_info::CraftAppRelease {
+      tag: "v0.5.0".to_string(),
+      version: "0.5.0".to_string(),
+      name: "PhotoCraft 0.5.0".to_string(),
+      published_at: None,
+      html_url: "https://github.com/storytold/photocraft/releases/tag/v0.5.0".to_string(),
+      prerelease: false,
+      notes_markdown: String::new(),
+      assets: Vec::new(),
+    };
+    cache.store("photocraft", Some(release), None, Utc::now());
+
+    // Without override, version and is_synced are None (unknown repo state):
+    let config_no_override = CraftAppsFlatpakConfig {
+      enabled: true,
+      repo_base_url: "https://repo.getartcraft.com".to_string(),
+      api_base_url: "https://api.getartcraft.com".to_string(),
+      gpg_key_url: Some("https://getartcraft.com/keys/flatpak.gpg".to_string()),
+      app_overrides: BTreeMap::new(),
+    };
+    let snapshot = cache.snapshot_with_flatpak_config(&config_no_override);
+    let flatpak = snapshot.apps["photocraft"].flatpak_repo.as_ref().unwrap();
+    assert_eq!(flatpak.version, None);
+    assert_eq!(flatpak.is_synced, None);
+
+    // With explicit override simulating repo lag (0.4.0 < 0.5.0):
+    let mut overrides = BTreeMap::new();
+    overrides.insert("photocraft".to_string(), CraftAppFlatpakOverride {
+      version: Some("0.4.0".to_string()),
+      min_version: None,
+    });
+    let config_lag = CraftAppsFlatpakConfig {
+      enabled: true,
+      repo_base_url: "https://repo.getartcraft.com".to_string(),
+      api_base_url: "https://api.getartcraft.com".to_string(),
+      gpg_key_url: Some("https://getartcraft.com/keys/flatpak.gpg".to_string()),
+      app_overrides: overrides,
+    };
+    let snapshot_lag = cache.snapshot_with_flatpak_config(&config_lag);
+    let flatpak_lag = snapshot_lag.apps["photocraft"].flatpak_repo.as_ref().unwrap();
+    assert_eq!(flatpak_lag.version.as_deref(), Some("0.4.0"));
+    assert_eq!(flatpak_lag.is_synced, Some(false));
+    assert!(flatpak_lag.would_downgrade("0.5.0"));
+  }
+
+  #[test]
+  fn get_app_and_release_lookup() {
+    let cache = CraftAppsReleaseCache::new();
+    let apps = [
+      ("photocraft".to_string(), "PhotoCraft".to_string(), "storytold/photocraft".to_string()),
+      ("artcraft-launcher".to_string(), "ArtCraft Launcher".to_string(), "storytold/craft-launcher".to_string()),
+    ];
+    cache.register_apps(&apps);
+
+    // Initial state: app known, but no release
+    let app_meta = cache.get_app("photocraft");
+    assert!(app_meta.is_some());
+    assert_eq!(app_meta.as_ref().unwrap().name, "PhotoCraft");
+    assert!(cache.get_app_release("photocraft").is_none());
+
+    let (canonical_key, app_entry) = cache.get_app_with_key("photocraft").unwrap();
+    assert_eq!(canonical_key, "photocraft");
+    assert_eq!(app_entry.name, "PhotoCraft");
+
+    // Alias lookups
+    assert!(cache.get_app("PhotoCraft").is_some());
+    assert!(cache.get_app("launcher").is_some());
+    assert!(cache.get_app("craft-launcher").is_some());
+    let (alias_key, _) = cache.get_app_with_key("craft-launcher").unwrap();
+    assert_eq!(alias_key, "artcraft-launcher");
+    assert!(cache.get_app("unknown-app").is_none());
+
+    // Once release stored:
+    let release = artcraft_api_defs::craft_apps::release_info::CraftAppRelease {
+      tag: "v0.5.0".to_string(),
+      version: "0.5.0".to_string(),
+      name: "PhotoCraft 0.5.0".to_string(),
+      published_at: None,
+      html_url: "https://github.com/storytold/photocraft/releases/tag/v0.5.0".to_string(),
+      prerelease: false,
+      notes_markdown: String::new(),
+      assets: Vec::new(),
+    };
+    cache.store("photocraft", Some(release), None, Utc::now());
+
+    let fetched = cache.get_app_release("photocraft");
+    assert!(fetched.is_some());
+    assert_eq!(fetched.unwrap().version, "0.5.0");
+
+    let fetched_alias = cache.get_app_release("PhotoCraft");
+    assert!(fetched_alias.is_some());
+    assert_eq!(fetched_alias.unwrap().version, "0.5.0");
   }
 }

@@ -326,6 +326,7 @@ mod tests {
       app_renames: Vec::new(),
       repo_renames: Vec::new(),
       important_notices: CraftAppsImportantNotices::default(),
+      suite_flatpak_repo: None,
     };
     let json = serde_json::to_string_pretty(&response).unwrap();
     if let Ok(path) = std::env::var("CRAFT_APPS_SAMPLE_OUT") {
