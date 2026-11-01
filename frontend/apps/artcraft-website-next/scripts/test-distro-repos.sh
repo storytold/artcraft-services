@@ -15,6 +15,7 @@ BASE_URL="${2:-${NETLIFY_PREVIEW_URL:-http://127.0.0.1:4210}}"
 BANNER_SEP="=================================================="
 UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:26.04}"
 FEDORA_IMAGE="${FEDORA_IMAGE:-fedora:45}"
+OPENSUSE_IMAGE="${OPENSUSE_IMAGE:-opensuse/tumbleweed:latest}"
 
 if [[ -d "/home/linuxbrew/.linuxbrew/bin" ]]; then
   export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
@@ -65,12 +66,11 @@ if [[ "$BASE_URL" == "http://127.0.0.1:4210"* ]] && ! curl -sf -o /dev/null "$BA
   done
 fi
 
-# Ensure opensuse:latest image is available (Docker Hub tags openSUSE as opensuse/tumbleweed)
+# Ensure openSUSE Tumbleweed image is available
 ensure_opensuse_image() {
-  if ! $CONTAINER_TOOL image inspect opensuse:latest >/dev/null 2>&1; then
-    echo "Tagging opensuse/tumbleweed:latest as opensuse:latest..."
-    $CONTAINER_TOOL pull opensuse/tumbleweed:latest
-    $CONTAINER_TOOL tag opensuse/tumbleweed:latest opensuse:latest
+  if ! $CONTAINER_TOOL image inspect "$OPENSUSE_IMAGE" >/dev/null 2>&1; then
+    echo "Pulling $OPENSUSE_IMAGE..."
+    $CONTAINER_TOOL pull "$OPENSUSE_IMAGE"
   fi
 }
 
@@ -251,7 +251,7 @@ test_fedora() {
 test_opensuse() {
   echo ""
   echo "$BANNER_SEP"
-  echo ">>> Testing openSUSE Latest (Zypper) against $BASE_URL"
+  echo ">>> Testing openSUSE Tumbleweed (Zypper) with $OPENSUSE_IMAGE against $BASE_URL"
   echo "$BANNER_SEP"
   ensure_opensuse_image
 
@@ -271,7 +271,7 @@ test_opensuse() {
 
   $CONTAINER_TOOL run --rm --network host \
     -v /tmp/expected-zypper.sha256:/tmp/expected.sha256:ro \
-    opensuse:latest bash -c '
+    "$OPENSUSE_IMAGE" bash -c '
     set -euo pipefail
     cat /etc/os-release | grep PRETTY_NAME || true
     mkdir -p /etc/zypp /tmp/all_pkgs
@@ -326,7 +326,7 @@ EOF
       echo "  ✓ /usr/bin/$pkg verified executable"
     done
 
-    echo "=== openSUSE Latest (Zypper) verification and installation passed! ==="
+    echo "=== openSUSE Tumbleweed (Zypper) verification and installation passed! ==="
   '
 
   if [[ -n "$PROXY_PID" ]]; then

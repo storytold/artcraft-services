@@ -75,7 +75,7 @@ jobs:
             distro: ubuntu
           - name: "Fedora 45 (DNF)"
             distro: fedora
-          - name: "openSUSE Latest (Zypper)"
+          - name: "openSUSE Tumbleweed (Zypper)"
             distro: opensuse
           - name: "Flatpak OCI Remote"
             distro: flatpak
