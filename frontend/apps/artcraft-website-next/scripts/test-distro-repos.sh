@@ -420,6 +420,13 @@ Server = '"$BASE_URL"'/arch/\$arch
 EOF
 
     echo "--- Synchronizing pacman repository ---"
+    for attempt in {1..5}; do
+      if curl -fsSL -m 30 -o /dev/null "'"$BASE_URL"'/arch/x86_64/artcraft.db" 2>/dev/null; then
+        break
+      fi
+      echo "Waiting for artcraft.db to be ready (attempt $attempt/5)..."
+      sleep 3
+    done
     pacman -Sy
 
     echo "--- Downloading packages to verify against manifest checksums ---"

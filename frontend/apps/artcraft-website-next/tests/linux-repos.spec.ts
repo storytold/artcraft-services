@@ -157,7 +157,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(escapeXml('foo & "bar" <baz>')).toBe("foo &amp; &quot;bar&quot; &lt;baz&gt;");
   });
 
-  test("extracts request base URL supporting forwarded headers", () => {
+  test("uses trusted origins for repository configuration", () => {
     const directReq = new Request("http://127.0.0.1:4210/rpm/artcraft.repo");
     expect(getRequestBaseUrl(directReq)).toBe("http://127.0.0.1:4210");
 
@@ -167,14 +167,18 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
         "x-forwarded-proto": "https",
       },
     });
-    expect(getRequestBaseUrl(proxiedReq)).toBe("https://getartcraft.com");
+    expect(getRequestBaseUrl(proxiedReq)).toBe("http://localhost:3000");
 
     const hostHeaderReq = new Request("http://0.0.0.0:4210/artcraft-oci.flatpakrepo", {
       headers: {
         host: "artcraft.internal:4210",
       },
     });
-    expect(getRequestBaseUrl(hostHeaderReq)).toBe("http://artcraft.internal:4210");
+    expect(getRequestBaseUrl(hostHeaderReq)).toBe("https://getartcraft.com");
+    const preview = new Request("https://deploy-preview-204--artcraft-website-next.netlify.app/apt/artcraft.sources", {
+      headers: { "x-forwarded-host": "attacker.example" },
+    });
+    expect(getRequestBaseUrl(preview)).toBe("https://deploy-preview-204--artcraft-website-next.netlify.app");
   });
 
   test("provides metadata and catalog for /linux setup page", async () => {

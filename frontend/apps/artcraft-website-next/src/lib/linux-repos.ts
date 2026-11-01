@@ -93,13 +93,17 @@ export function escapeXml(unsafe: string): string {
 }
 
 /**
- * Extract public base URL from incoming Request, supporting reverse proxy headers.
+ * Use only known deployment origins for generated repository configuration.
  */
 export function getRequestBaseUrl(request: Request): string {
   const url = new URL(request.url);
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
-  const proto = request.headers.get("x-forwarded-proto") || (url.protocol ? url.protocol.replace(":", "") : "https");
-  return `${proto}://${host}`;
+  if (url.protocol === "https:" && /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname)) {
+    return url.origin;
+  }
+  if ((url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.protocol === "http:") {
+    return url.origin;
+  }
+  return "https://getartcraft.com";
 }
 
 /**
@@ -159,11 +163,9 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
   if (!promise) {
     promise = (async () => {
       const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
-      try {
+      {
         const res = await fetch(url);
-        if (!res.ok) {
-          return new Map<string, string>();
-        }
+        if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
         const text = await res.text();
         const map = new Map<string, string>();
         for (const line of text.split("\n")) {
@@ -175,11 +177,10 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
           }
         }
         return map;
-      } catch {
-        return new Map<string, string>();
       }
     })();
     shaSumsCache.set(key, promise);
+    promise.catch(() => shaSumsCache.delete(key));
   }
   return promise;
 }
@@ -198,107 +199,28 @@ export async function getLinuxPackageMetadata(
     promise = (async () => {
       const downloadUrl = resolvePackageDownloadUrl(filename);
       if (!downloadUrl) {
-        return {
-          size: 100_000_000,
-          sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-          installedSize: 200_000,
-        };
+        throw new Error(`Package asset not found in release catalog: ${filename}`);
       }
 
       // 1. Fetch sha256 checksum from SHA256SUMS.txt
       const sumsMap = await getShaSums(repo, version);
-      const sha256 =
-        sumsMap.get(filename) ||
-        "0000000000000000000000000000000000000000000000000000000000000000";
-
-      let size = 0;
-      let installedSize = 0;
-
-      if (filename.endsWith(".pkg.tar.zst")) {
-        try {
-          const { Decompress } = await import("fzstd");
-          // Attempt fast 128KB Range request (where .PKGINFO lives for standard packages)
-          const rangeRes = await fetch(downloadUrl, {
-            headers: { Range: "bytes=0-131071" },
-          });
-          const contentRange = rangeRes.headers.get("content-range");
-          const sizeMatch = contentRange?.match(/\/(\d+)$/);
-          if (sizeMatch) {
-            size = parseInt(sizeMatch[1], 10);
-          }
-
-          const buf = new Uint8Array(await rangeRes.arrayBuffer());
-          const chunks: Buffer[] = [];
-          const d = new Decompress((chunk) => {
-            chunks.push(Buffer.from(chunk));
-          });
-          try {
-            d.push(buf, false);
-          } catch {
-            // Partial stream EOF expected
-          }
-          const text = Buffer.concat(chunks).toString("utf-8");
-          const isizeMatch = text.match(/size = (\d+)/);
-          if (isizeMatch) {
-            installedSize = parseInt(isizeMatch[1], 10);
-          } else {
-            // Fallback for packages where .PKGINFO is placed after usr/bin
-            const fullRes = await fetch(downloadUrl);
-            if (!size) {
-              size = parseInt(fullRes.headers.get("content-length") || "0", 10);
-            }
-            let streamedIsize = 0;
-            const needle = Buffer.from("size = ");
-            const streamer = new Decompress((chunk) => {
-              const buf = Buffer.from(chunk);
-              const idx = buf.indexOf(needle);
-              if (idx !== -1) {
-                const slice = buf.slice(idx, idx + 30).toString("ascii");
-                const m = slice.match(/size = (\d+)/);
-                if (m) streamedIsize = parseInt(m[1], 10);
-              }
-            });
-
-            if (fullRes.body) {
-              const reader = fullRes.body.getReader();
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                streamer.push(value, false);
-                if (streamedIsize > 0) {
-                  await reader.cancel();
-                  break;
-                }
-              }
-            }
-            installedSize = streamedIsize || Math.round(size * 1.95);
-          }
-        } catch {
-          if (!size) size = 100_000_000;
-          if (!installedSize) installedSize = Math.round(size * 1.95);
-        }
-      } else {
-        // .deb or .rpm
-        try {
-          const headRes = await fetch(downloadUrl, {
-            method: "HEAD",
-            redirect: "follow",
-          });
-          size = parseInt(headRes.headers.get("content-length") || "0", 10);
-        } catch {
-          size = 100_000_000;
-        }
-
-        if (filename.endsWith(".deb")) {
-          installedSize = Math.round((size * 1.95) / 1024);
-        } else {
-          installedSize = Math.round(size * 1.95);
-        }
+      const sha256 = sumsMap.get(filename);
+      if (!sha256 || !/^[a-fA-F0-9]{64}$/.test(sha256) || /^0+$/.test(sha256)) {
+        throw new Error(`Missing or invalid checksum for ${filename}`);
       }
+
+      const headRes = await fetch(downloadUrl, { method: "HEAD", redirect: "follow" });
+      const size = Number(headRes.headers.get("content-length"));
+      if (!headRes.ok || !Number.isSafeInteger(size) || size <= 0) {
+        throw new Error(`Unable to determine package size for ${filename}`);
+      }
+      // Installed size is estimated for all formats; Debian uses KiB, others bytes.
+      const installedSize = Math.round(size * 1.95 / (filename.endsWith(".deb") ? 1024 : 1));
 
       return { size, sha256, installedSize };
     })();
     packageMetaCache.set(filename, promise);
+    promise.catch(() => packageMetaCache.delete(filename));
   }
   return promise;
 }
@@ -421,7 +343,6 @@ async function buildArchAssets(
 }
 
 let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
-export let LINUX_REPO_APPS: LinuxRepoApp[] = [];
 
 /**
  * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
@@ -506,14 +427,12 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
 
     const apps = await Promise.all(appPromises);
     const result = apps.filter((a): a is LinuxRepoApp => a !== null);
-    if (includeDeb && includeRpm && includeArch) {
-      LINUX_REPO_APPS = result;
-    }
     return result;
   };
 
   if (includeDeb && includeRpm && includeArch) {
     cachedAllAppsPromise = compute();
+    cachedAllAppsPromise.catch(() => { cachedAllAppsPromise = null; });
     return cachedAllAppsPromise;
   }
 

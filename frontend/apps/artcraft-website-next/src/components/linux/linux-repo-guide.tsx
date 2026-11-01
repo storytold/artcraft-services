@@ -126,7 +126,7 @@ sudo zypper install artcraft-launcher pdfcraft`,
 sudo curl -fsSL https://getartcraft.com/arch/artcraft.conf -o /etc/pacman.d/artcraft.conf
 
 # Synchronize repositories and install apps
-sudo pacman -Sy artcraft-launcher pdfcraft`,
+sudo pacman -Syu artcraft-launcher pdfcraft`,
     altSetupDescription: "If your /etc/pacman.conf does not include /etc/pacman.d/*.conf, add it with:",
     altSetupCommand: `echo "Include = /etc/pacman.d/artcraft.conf" | sudo tee -a /etc/pacman.conf`,
     rawFiles: [

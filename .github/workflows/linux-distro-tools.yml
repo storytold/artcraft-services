@@ -47,6 +47,10 @@ jobs:
 
               if [[ "$STATUS" == *"success"* ]] && curl -sf -o /dev/null "${PREVIEW_URL}/apt/artcraft.sources" 2>/dev/null; then
                 echo "Netlify preview is live and responsive for ${HEAD_SHA} at ${PREVIEW_URL} (attempt $i)!"
+                echo "Warming up package repository endpoints..."
+                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/apt/dists/stable/Release" 2>/dev/null || true
+                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/rpm/repodata/repomd.xml" 2>/dev/null || true
+                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/arch/x86_64/artcraft.db" 2>/dev/null || true
                 echo "preview_url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
                 exit 0
               fi
