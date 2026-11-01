@@ -87,7 +87,7 @@ pub async fn password_reset_request_handler(
     server_state: web::Data<Arc<ServerState>>,
 ) -> Result<HttpResponse, PasswordResetRequestedErrorResponse> {
 
-    let username_or_email = request.username_or_email.trim();
+    let username_or_email = normalize_username_or_email(&request.username_or_email);
 
     // TODO(bt,2023-11-12): I need to prevent user lookup attacks.
     let maybe_user = if username_or_email.contains("@") {
@@ -187,4 +187,31 @@ fn success_response() -> Result<HttpResponse, PasswordResetRequestedErrorRespons
     Ok(HttpResponse::Ok()
         .content_type("application/json")
         .body(body))
+}
+
+/// Usernames and emails are stored trimmed and lowercased, and the `users` columns
+/// compare case-sensitively, so the lookup input has to be normalized the same way.
+fn normalize_username_or_email(username_or_email: &str) -> String {
+    username_or_email.trim().to_lowercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_username_or_email;
+
+    #[test]
+    fn lowercases_email() {
+        // Phone keyboards capitalize the first letter.
+        assert_eq!(normalize_username_or_email("Alice@Example.com"), "alice@example.com");
+    }
+
+    #[test]
+    fn lowercases_username() {
+        assert_eq!(normalize_username_or_email("AliceCrafts"), "alicecrafts");
+    }
+
+    #[test]
+    fn trims_whitespace() {
+        assert_eq!(normalize_username_or_email("  alice@example.com \n"), "alice@example.com");
+    }
 }
