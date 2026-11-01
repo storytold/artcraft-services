@@ -50,7 +50,7 @@ export function useAccount(): Account {
 
   useEffect(() => {
     let live = true;
-    loadAccount().then((a) => {
+    void loadAccount().then((a) => {
       if (live) setAccount(a);
     });
     return () => {

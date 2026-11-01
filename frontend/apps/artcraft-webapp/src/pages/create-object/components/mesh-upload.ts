@@ -25,7 +25,7 @@ export async function uploadViewImage(
 ): Promise<RefImage | null> {
   const url = await readAsDataUrl(file);
   return new Promise((resolve) => {
-    uploadImage({
+    void uploadImage({
       title: `${label.toLowerCase()}-view-${Math.random().toString(36).substring(2, 10)}`,
       assetFile: file,
       progressCallback: (state) => {

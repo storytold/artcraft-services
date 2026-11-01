@@ -135,7 +135,7 @@ function useSceneCardImages(outputToken: string): {
     setPreviewUrl(null);
     setHoverUrl(null);
 
-    (async () => {
+    void (async () => {
       try {
         const mediaResp = await new MediaFilesApi().GetMediaFileByToken({
           mediaFileToken: outputToken,

@@ -110,7 +110,7 @@ export function UserCreations() {
       setIsLoading(false);
     }
 
-    init();
+    void init();
     return () => {
       cancelledRef.current = true;
     };

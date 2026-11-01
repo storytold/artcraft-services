@@ -39,7 +39,7 @@ export function MediaDetail({ item }: MediaDetailProps) {
   const likeCount = liked ? item.likes + 1 : item.likes;
 
   function handleCopy() {
-    navigator.clipboard.writeText(item.prompt);
+    void navigator.clipboard.writeText(item.prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

@@ -32,6 +32,7 @@ import {
   IconLoader2,
   IconPencil,
 } from "@tabler/icons-react";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 function gravatarUrl(hash?: string): string | undefined {
   return hash ? `https://gravatar.com/avatar/${hash}?s=48&d=404` : undefined;
@@ -80,9 +81,7 @@ export function UserEmailChanges() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   const cancelledRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
-
+  
   const loadHistory = async (
     username: string,
     cursor?: string | null,
@@ -123,40 +122,25 @@ export function UserEmailChanges() {
 
   const loadMore = useCallback(() => {
     if (user && !isLoadingMore && nextCursor != null) {
-      loadHistory(user.username, nextCursor, true);
+      void loadHistory(user.username, nextCursor, true);
     }
   }, [user, nextCursor, isLoadingMore]);
 
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { threshold: 0.1 },
-    );
-
-    if (sentinelRef.current) {
-      observerRef.current.observe(sentinelRef.current);
-    }
-
-    return () => observerRef.current?.disconnect();
-  }, [loadMore]);
+  const sentinelRef = useInfiniteScroll<HTMLTableRowElement>(loadMore);
 
   const handleSelect = (next: ModeratorUserLookupResponse | null) => {
     setUser(next);
     setCurrentEmail(next?.email_address ?? null);
     setChanges([]);
     setNextCursor(null);
-    if (next) loadHistory(next.username);
+    if (next) void loadHistory(next.username);
   };
 
   const handleChangeSuccess = (newEmail: string) => {
     setCurrentEmail(newEmail);
     setUser((prev) => (prev ? { ...prev, email_address: newEmail } : prev));
     toast.success("Email address changed");
-    if (user) loadHistory(user.username);
+    if (user) void loadHistory(user.username);
   };
 
   const { ref: tableRef, height: tableHeight } = useTableHeight();

@@ -108,7 +108,7 @@ export function UserSpendSummary() {
     if (!username) return;
     cancelledRef.current = false;
 
-    (async () => {
+    void (async () => {
       setIsLoading(true);
       setError(null);
       try {

@@ -348,7 +348,7 @@ export default function Library() {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
+    void (async () => {
       const usersApi = new UsersApi();
       const response = await usersApi.GetSession();
       if (response.success && response.data?.loggedIn && response.data.user) {

@@ -16,7 +16,7 @@ export function DashboardHome() {
   useEffect(() => {
     let cancelled = false;
     const api = new ModerationApi();
-    api.ListDataboxDashboards().then((resp) => {
+    void api.ListDataboxDashboards().then((resp) => {
       if (cancelled) return;
       setDataboards(resp.success && resp.data ? resp.data : []);
       setIsLoading(false);

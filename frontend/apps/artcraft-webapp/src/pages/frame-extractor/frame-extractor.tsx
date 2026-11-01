@@ -133,7 +133,7 @@ export default function FrameExtractor() {
     if (!token) return;
     setSearchParams({}, { replace: true });
 
-    (async () => {
+    void (async () => {
       try {
         const response = await new MediaFilesApi().GetMediaFileByToken({
           mediaFileToken: token,
