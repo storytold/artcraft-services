@@ -25,3 +25,11 @@ package = "@netlify/plugin-nextjs"
   to = "/media/:token"
   status = 301
   force = true
+
+# Also set catalog headers at the edge for deploys and previews.
+[[headers]]
+  for = "/launcher-catalog.toml"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Type = "application/toml; charset=utf-8"

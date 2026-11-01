@@ -12,6 +12,17 @@ const nextConfig: NextConfig = {
   // output file tracing on serverless deploys).
   turbopack: { root: __dirname },
   outputFileTracingRoot: __dirname,
+  // Let the launcher web build read the catalog and revalidate on each check.
+  async headers() {
+    return [{
+      source: "/launcher-catalog.toml",
+      headers: [
+        { key: "Access-Control-Allow-Origin", value: "*" },
+        { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+        { key: "Content-Type", value: "application/toml; charset=utf-8" },
+      ],
+    }];
+  },
   async redirects() {
     return [
       // Legacy Stripe return paths from the Vite site; checkout now lives in
