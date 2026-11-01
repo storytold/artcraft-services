@@ -71,9 +71,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "Ubuntu Latest (APT)"
+          - name: "Ubuntu 26.04 (APT)"
             distro: ubuntu
-          - name: "Fedora Latest (DNF)"
+          - name: "Fedora 45 (DNF)"
             distro: fedora
           - name: "openSUSE Latest (Zypper)"
             distro: opensuse

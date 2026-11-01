@@ -13,6 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-all}"
 BASE_URL="${2:-${NETLIFY_PREVIEW_URL:-http://127.0.0.1:4210}}"
 BANNER_SEP="=================================================="
+UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:26.04}"
+FEDORA_IMAGE="${FEDORA_IMAGE:-fedora:45}"
 
 if [[ -d "/home/linuxbrew/.linuxbrew/bin" ]]; then
   export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
@@ -143,7 +145,7 @@ manifest_info() {
 test_ubuntu() {
   echo ""
   echo "$BANNER_SEP"
-  echo ">>> Testing Ubuntu Latest (APT) against $BASE_URL"
+  echo ">>> Testing Ubuntu 26.04 (APT) with $UBUNTU_IMAGE against $BASE_URL"
   echo "$BANNER_SEP"
 
   local apt_pkgs apt_install_pkgs
@@ -153,8 +155,9 @@ test_ubuntu() {
 
   $CONTAINER_TOOL run --rm --network host \
     -v /tmp/expected-apt.sha256:/tmp/expected.sha256:ro \
-    ubuntu:latest bash -c '
+    "$UBUNTU_IMAGE" bash -c '
     set -euo pipefail
+    cat /etc/os-release | grep PRETTY_NAME || true
 
     # Avoid 404s from standard Ubuntu mirrors when non-x86 architectures are added
     sed -i "/^Types: deb/a Architectures: amd64" /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
@@ -193,14 +196,14 @@ test_ubuntu() {
       echo "  ✓ /usr/bin/$pkg verified executable"
     done
 
-    echo "=== Ubuntu Latest (APT) verification and installation passed! ==="
+    echo "=== Ubuntu 26.04 (APT) verification and installation passed! ==="
   '
 }
 
 test_fedora() {
   echo ""
   echo "$BANNER_SEP"
-  echo ">>> Testing Fedora Latest (DNF) against $BASE_URL"
+  echo ">>> Testing Fedora 45 (DNF) with $FEDORA_IMAGE against $BASE_URL"
   echo "$BANNER_SEP"
 
   local dnf_pkgs dnf_install_pkgs
@@ -210,8 +213,9 @@ test_fedora() {
 
   $CONTAINER_TOOL run --rm --network host \
     -v /tmp/expected-rpm.sha256:/tmp/expected.sha256:ro \
-    fedora:latest bash -c '
+    "$FEDORA_IMAGE" bash -c '
     set -euo pipefail
+    cat /etc/os-release | grep PRETTY_NAME || true
     curl -fsSL "'"$BASE_URL"'/rpm/artcraft.repo" -o /etc/yum.repos.d/artcraft.repo
 
     echo "--- DNF repoquery: listing all packages in repository ---"
@@ -240,7 +244,7 @@ test_fedora() {
       echo "  ✓ /usr/bin/$pkg verified executable"
     done
 
-    echo "=== Fedora Latest (DNF) verification and installation passed! ==="
+    echo "=== Fedora 45 (DNF) verification and installation passed! ==="
   '
 }
 
@@ -269,6 +273,7 @@ test_opensuse() {
     -v /tmp/expected-zypper.sha256:/tmp/expected.sha256:ro \
     opensuse:latest bash -c '
     set -euo pipefail
+    cat /etc/os-release | grep PRETTY_NAME || true
     mkdir -p /etc/zypp /tmp/all_pkgs
 
     # Disable remote mirrors to avoid downloading unrelated openSUSE package metadata
@@ -347,9 +352,10 @@ test_flatpak() {
   local flatpak_apps
   flatpak_apps="$(manifest_info flatpak-apps)"
 
-  # Use Ubuntu Latest (glibc-based standard Linux container) for Flatpak tests
-  $CONTAINER_TOOL run --rm --network host ubuntu:latest bash -c '
+  # Use Ubuntu (glibc-based standard Linux container) for Flatpak tests
+  $CONTAINER_TOOL run --rm --network host "$UBUNTU_IMAGE" bash -c '
     set -euo pipefail
+    cat /etc/os-release | grep PRETTY_NAME || true
     apt-get update -qq
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends flatpak ca-certificates curl >/dev/null
 
