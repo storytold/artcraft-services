@@ -36,14 +36,14 @@ jobs:
             echo "Awaiting Netlify deploy preview for PR #${PR_NUMBER} (commit ${HEAD_SHA}) at ${PREVIEW_URL}..."
             for i in {1..90}; do
               STATUS=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/statuses" \
-                --jq '.[] | select(.context == "netlify/artcraft-website-next/deploy-preview") | .state' 2>/dev/null || true)
+                --jq '[.[] | select(.context == "netlify/artcraft-website-next/deploy-preview")][0].state' 2>/dev/null || true)
 
               if [[ "$STATUS" == "failure" || "$STATUS" == "error" ]]; then
                 echo "Error: Netlify deploy preview reported failure!" >&2
                 exit 1
               fi
 
-              if [[ "$STATUS" == "success" ]]; then
+              if [[ "$STATUS" == *"success"* ]]; then
                 if curl -sf -o /dev/null "${PREVIEW_URL}/apt/artcraft.sources" 2>/dev/null; then
                   echo "Netlify preview is live and responsive for ${HEAD_SHA} at ${PREVIEW_URL} (attempt $i)!"
                   echo "preview_url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
