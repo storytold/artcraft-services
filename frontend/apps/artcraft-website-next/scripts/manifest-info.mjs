@@ -1,5 +1,5 @@
 import { getLinuxRepoApps } from "../src/lib/linux-repos.ts";
-import { getFlatpakOciIndex } from "../src/lib/flatpak-oci.ts";
+import { getFlatpakOciAppIds } from "../src/lib/flatpak-oci.ts";
 
 const mode = process.argv[2] || "";
 const targetArch = process.argv[3];
@@ -91,13 +91,7 @@ switch (mode) {
   case "flatpak-apps": {
     const apps = Array.from(
       new Set(
-        getFlatpakOciIndex().Results.flatMap((r) =>
-          r.Images.map((img) => {
-            const ref = img.Labels?.["org.flatpak.ref"] ?? "";
-            const appId = ref.split("/")[1] ?? "";
-            return appId.replace("ai.storyteller.", "");
-          })
-        )
+        getFlatpakOciAppIds().map((appId) => appId.replace("ai.storyteller.", ""))
       )
     )
       .filter(Boolean)

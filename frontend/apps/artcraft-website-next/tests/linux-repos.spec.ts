@@ -220,6 +220,27 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(armDb.length).toBeGreaterThan(100);
   });
 
+  test("keeps all distro tabs reachable on mobile and shows the supported RHEL baseline", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/linux");
+
+    const repoTablist = page.getByRole("tablist").filter({
+      has: page.getByRole("tab", { name: "Flatpak (OCI)" }),
+    });
+    const dimensions = await repoTablist.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
+
+    await page.getByRole("tab", { name: "Arch Linux" }).click();
+    await expect(page.getByRole("tab", { name: "Arch Linux" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText(/Include = \/etc\/pacman\.d\/artcraft\.conf/)).toBeVisible();
+
+    await page.getByRole("tab", { name: "Fedora / RHEL" }).click();
+    await expect(page.getByText("Fedora 40+, RHEL 10+, CentOS Stream, Rocky Linux, AlmaLinux")).toBeVisible();
+  });
+
   test("verifies download URLs and digests for all manifest package assets", async () => {
     const apps = await getLinuxRepoApps();
     for (const app of apps) {
