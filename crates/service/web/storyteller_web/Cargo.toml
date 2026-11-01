@@ -16,13 +16,18 @@ publish = false
 name = "storyteller-web"
 path = "src/main.rs"
 
+# The docs binaries declare the same module tree as `storyteller-web`, so without
+# `test = false` every unit test in the crate is compiled and run three times.
+# They have no tests of their own; `storyteller-web` runs the crate's tests once.
 [[bin]]
 name = "docs"
 path = "src/api_doc_server.rs"
+test = false
 
 [[bin]]
 name = "docs-cli"
 path = "src/api_doc_cli.rs"
+test = false
 
 #[package.metadata.cargo-udeps.ignore]
 #normal = ["workspace-build-acceleration"]
