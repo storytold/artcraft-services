@@ -359,8 +359,10 @@ test_flatpak() {
   $CONTAINER_TOOL run --rm --network host "$UBUNTU_IMAGE" bash -c '
     set -euo pipefail
     cat /etc/os-release | grep PRETTY_NAME || true
+    mkdir -p /var/lib/dbus
+    cat /proc/sys/kernel/random/boot_id | tr -d "-" | tee /etc/machine-id /var/lib/dbus/machine-id >/dev/null
     apt-get update -qq
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends flatpak ca-certificates curl >/dev/null
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends flatpak ca-certificates curl dbus >/dev/null
 
     echo "--- Adding ArtCraft Flatpak OCI remote ---"
     flatpak remote-add --user --if-not-exists test-artcraft "'"$flatpak_url"'/artcraft-oci.flatpakrepo"
@@ -379,7 +381,7 @@ test_flatpak() {
     done
 
     echo "--- Installing an app to verify OCI manifest digests ---"
-    flatpak install --user --noninteractive --no-deps test-artcraft ai.storyteller.artcraft-launcher
+    dbus-run-session -- flatpak install --user --noninteractive --no-deps test-artcraft ai.storyteller.artcraft-launcher
 
     echo "=== Flatpak (OCI Remote) verification passed! All apps verified. ==="
   '
