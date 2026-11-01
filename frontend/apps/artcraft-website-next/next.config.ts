@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
         { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
         { key: "Content-Type", value: "application/toml; charset=utf-8" },
       ],
+    }, {
+      source: "/launcher-app-icons/:path*",
+      headers: [{ key: "Access-Control-Allow-Origin", value: "*" }],
     }];
   },
   async redirects() {
