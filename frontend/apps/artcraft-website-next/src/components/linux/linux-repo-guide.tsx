@@ -119,7 +119,7 @@ sudo zypper install artcraft-launcher pdfcraft`,
   pacman: {
     id: "pacman",
     name: "Pacman (Arch Linux & Derivatives)",
-    distros: "Arch Linux, Manjaro, EndeavourOS, CachyOS, Asahi Linux",
+    distros: "Arch Linux, Manjaro, EndeavourOS, CachyOS",
     architectures: STANDARD_ARCHITECTURES.slice(0, 2),
     setupDescription: "Add the ArtCraft repository configuration:",
     setupCommand: `# Add the ArtCraft repository configuration
