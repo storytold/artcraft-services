@@ -36,6 +36,10 @@ export type RpmRequire = {
   rel?: string;
 };
 
+export type DebPackageArch = "amd64" | "arm64" | "riscv64";
+export type RpmPackageArch = "x86_64" | "aarch64" | "riscv64";
+export type ArchPackageArch = "x86_64" | "aarch64";
+
 export type LinuxRepoApp = {
   slug: string;
   name: string;
@@ -43,7 +47,7 @@ export type LinuxRepoApp = {
   description: string;
   section: string;
   debAssets: {
-    arch: "amd64" | "arm64" | "riscv64";
+    arch: DebPackageArch;
     filename: string;
     size: number;
     sha256: string;
@@ -52,7 +56,7 @@ export type LinuxRepoApp = {
     installedSize: number;
   }[];
   rpmAssets: {
-    arch: "x86_64" | "aarch64" | "riscv64";
+    arch: RpmPackageArch;
     filename: string;
     size: number;
     sha256: string;
@@ -60,7 +64,7 @@ export type LinuxRepoApp = {
     installedSize: number;
   }[];
   archAssets: {
-    arch: "x86_64" | "aarch64";
+    arch: ArchPackageArch;
     filename: string;
     size: number;
     sha256: string;
@@ -101,12 +105,17 @@ const COMMON_RPM_REQUIRES: RpmRequire[] = [
 
 const AUDIO_APPS = new Set(["filmcraft", "soundcraft", "effectcraft", "deckcraft"]);
 
+interface DebArchMapItem {
+  debArch: DebPackageArch;
+  fileArch: RpmPackageArch;
+}
+
 function buildDebAssets(
   name: string,
   version: string,
-  supportedArches?: Array<"amd64" | "arm64" | "riscv64">,
+  supportedArches?: DebPackageArch[],
 ): LinuxRepoApp["debAssets"] {
-  let debArchMap: Array<{ debArch: "amd64" | "arm64" | "riscv64"; fileArch: "x86_64" | "aarch64" | "riscv64" }> = [
+  let debArchMap: DebArchMapItem[] = [
     { debArch: "amd64", fileArch: "x86_64" },
     { debArch: "arm64", fileArch: "aarch64" },
     { debArch: "riscv64", fileArch: "riscv64" },
@@ -145,9 +154,9 @@ function buildDebAssets(
 function buildRpmAssets(
   name: string,
   version: string,
-  supportedArches?: Array<"x86_64" | "aarch64" | "riscv64">,
+  supportedArches?: RpmPackageArch[],
 ): LinuxRepoApp["rpmAssets"] {
-  let arches: Array<"x86_64" | "aarch64" | "riscv64"> = ["x86_64", "aarch64", "riscv64"];
+  let arches: RpmPackageArch[] = ["x86_64", "aarch64", "riscv64"];
   if (supportedArches) {
     arches = arches.filter((arch) => supportedArches.includes(arch));
   }
@@ -183,7 +192,7 @@ function buildArchAssets(
   name: string,
   version: string,
 ): LinuxRepoApp["archAssets"] {
-  const arches: Array<"x86_64" | "aarch64"> = ["x86_64", "aarch64"];
+  const arches: ArchPackageArch[] = ["x86_64", "aarch64"];
 
   return arches.map((arch) => {
     const filename = `${name}-${version}-linux-${arch}.pkg.tar.zst`;

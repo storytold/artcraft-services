@@ -5,10 +5,8 @@ import {
   craftAppRelease,
 } from "./crafting-apps";
 import { CRAFT_LAUNCHER_NAME } from "./craft-launcher";
-import { CRAFT_ANYTHING_NAME } from "./craft-anything";
 import {
   CRAFT_LAUNCHER_RELEASE,
-  CRAFT_ANYTHING_RELEASE,
   type CraftRelease,
 } from "./crafting-app-releases";
 
@@ -112,6 +110,42 @@ function createRepoEntry(
   return { Name: repoName, Repository: repoName, Images: images };
 }
 
+interface FlatpakCatalogItem {
+  repoName: string;
+  appId: string;
+  displayName: string;
+  release: CraftRelease | null;
+}
+
+function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
+  const items: FlatpakCatalogItem[] = [];
+
+  if (CRAFT_LAUNCHER_RELEASE) {
+    items.push({
+      repoName: "storytold/artcraft-launcher",
+      appId: "ai.storyteller.artcraft-launcher",
+      displayName: CRAFT_LAUNCHER_NAME,
+      release: CRAFT_LAUNCHER_RELEASE,
+    });
+  }
+
+
+  for (const app of CRAFTING_APPS) {
+    if (app.slug === "craft-anything") continue;
+    const release = craftAppRelease(app);
+    if (release) {
+      items.push({
+        repoName: `storytold/${app.slug}`,
+        appId: `ai.storyteller.${app.slug}`,
+        displayName: craftAppName(app),
+        release,
+      });
+    }
+  }
+
+  return items;
+}
+
 /**
  * Build the Flatpak OCI index catalog from the release catalog.
  * Supports filtering by architecture, ref, repo, and tag per flatpak-oci-specs.
@@ -127,51 +161,15 @@ export function getFlatpakOciIndex(searchParams?: URLSearchParams): FlatpakOciIn
 
   const results: FlatpakOciRepository[] = [];
 
-  // Craft Launcher
-  if (CRAFT_LAUNCHER_RELEASE) {
-    const launcherRepo = "storytold/artcraft-launcher";
-    if (!reqRepo || reqRepo === launcherRepo) {
-      const entry = createRepoEntry(
-        launcherRepo,
-        "ai.storyteller.artcraft-launcher",
-        CRAFT_LAUNCHER_NAME,
-        CRAFT_LAUNCHER_RELEASE,
-        criteria,
-      );
-      if (entry) results.push(entry);
-    }
-  }
-
-  // Craft Anything
-  if (CRAFT_ANYTHING_RELEASE) {
-    const anythingRepo = "storytold/craft-anything";
-    if (!reqRepo || reqRepo === anythingRepo) {
-      const entry = createRepoEntry(
-        anythingRepo,
-        "ai.storyteller.craft-anything",
-        CRAFT_ANYTHING_NAME,
-        CRAFT_ANYTHING_RELEASE,
-        criteria,
-      );
-      if (entry) results.push(entry);
-    }
-  }
-
-  // Craft Apps
-  for (const app of CRAFTING_APPS) {
-    // Craft Anything 0.1.0 predates OCI publishing; it ships Flatpak bundles instead.
-    if (app.slug === "craft-anything") continue;
-    const repoName = `storytold/${app.slug}`;
-    if (reqRepo && reqRepo !== repoName) continue;
-
-    const release = craftAppRelease(app);
-    if (!release) continue;
+  for (const item of getFlatpakCatalogItems()) {
+    if (reqRepo && reqRepo !== item.repoName) continue;
+    if (!item.release) continue;
 
     const entry = createRepoEntry(
-      repoName,
-      `ai.storyteller.${app.slug}`,
-      craftAppName(app),
-      release,
+      item.repoName,
+      item.appId,
+      item.displayName,
+      item.release,
       criteria,
     );
     if (entry) results.push(entry);
