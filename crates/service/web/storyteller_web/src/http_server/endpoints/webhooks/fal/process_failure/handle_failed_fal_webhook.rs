@@ -1,3 +1,4 @@
+use enums::common::job_status_plus::JobStatusPlus;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::state::server_state::ServerState;
 use actix_web::web::Json;
@@ -46,6 +47,12 @@ pub async fn handle_failed_fal_webhook(
       return Err(CommonWebError::from_anyhow_error(err));
     }
   };
+
+  // A failure report must not undo a finished job: FAL may deliver a webhook more than once.
+  if matches!(job.status, JobStatusPlus::CompleteSuccess | JobStatusPlus::CompleteFailure) {
+    info!("Job {} for FAL request_id {} already finished ({:?}); ignoring a failure report", job.job_token.as_str(), request_id, job.status);
+    return Ok(SimpleGenericJsonSuccess::wrapped(true));
+  }
 
   // Insert debug log for the webhook payload.
   if let Some(debug_log_event_token) = &job.maybe_debug_log_event_token {
