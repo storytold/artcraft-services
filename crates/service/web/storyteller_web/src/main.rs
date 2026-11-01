@@ -53,7 +53,6 @@ use crate::http_server::routes::add_routes::add_routes;
 use crate::http_server::web_utils::handle_multipart_error::handle_multipart_error;
 use crate::startup::build_dependencies::setup_dependencies;
 use crate::startup::setup_disabled_endpoints::read_disabled_endpoints;
-use crate::startup::setup_metrics::build_metrics;
 use crate::state::server_state::ServerState;
 use crate::threads::db_health_checker_thread::db_health_checker_thread::db_health_checker_thread;
 use crate::threads::expire_login_challenges::expire_login_challenges;
@@ -109,6 +108,7 @@ async fn main() -> AnyhowResult<()> {
   let server_state = setup.server_state;
   let health_check_interval = setup.health_check_interval;
   let pager_worker = setup.pager_worker;
+  let maybe_metrics_worker = setup.maybe_metrics_worker;
 
   // ==================== Background threads ==================== //
 
@@ -168,8 +168,7 @@ async fn main() -> AnyhowResult<()> {
 
   // ==================== Metrics worker ==================== //
 
-  let (metrics_collector, maybe_metrics_worker) =
-    build_metrics(server_state.server_environment, &server_state.hostname);
+  let metrics_collector = server_state.metrics.clone();
 
   let maybe_metrics_shutdown = maybe_metrics_worker.map(|worker| {
     info!("Spawning metrics worker thread.");
