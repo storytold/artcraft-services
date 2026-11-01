@@ -378,6 +378,9 @@ test_flatpak() {
       echo "  ✓ ai.storyteller.$app verified"
     done
 
+    echo "--- Installing an app to verify OCI manifest digests ---"
+    flatpak install --user --noninteractive --no-deps test-artcraft ai.storyteller.artcraft-launcher
+
     echo "=== Flatpak (OCI Remote) verification passed! All apps verified. ==="
   '
 

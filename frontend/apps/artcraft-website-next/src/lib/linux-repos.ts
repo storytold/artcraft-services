@@ -151,6 +151,8 @@ export function handlePackageDownloadRedirect(pathSegments: string[] | undefined
   return Response.redirect(targetUrl, 302);
 }
 
+class MissingReleaseChecksums extends Error {}
+
 // In-memory cache for release checksums (repo:version -> sha256 Map)
 const shaSumsCache = new Map<string, Promise<Map<string, string>>>();
 
@@ -164,7 +166,8 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
     promise = (async () => {
       const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
       {
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+        if (res.status === 404) throw new MissingReleaseChecksums(`No checksums published for ${repo} ${version}`);
         if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
         const text = await res.text();
         const map = new Map<string, string>();
@@ -209,7 +212,7 @@ export async function getLinuxPackageMetadata(
         throw new Error(`Missing or invalid checksum for ${filename}`);
       }
 
-      const headRes = await fetch(downloadUrl, { method: "HEAD", redirect: "follow" });
+      const headRes = await fetch(downloadUrl, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(10_000) });
       const size = Number(headRes.headers.get("content-length"));
       if (!headRes.ok || !Number.isSafeInteger(size) || size <= 0) {
         throw new Error(`Unable to determine package size for ${filename}`);
@@ -259,6 +262,9 @@ async function buildDebAssets(
     debArchMap = debArchMap.filter((item) => supportedArches.includes(item.debArch));
   }
 
+  const sums = await getShaSums(repo, version);
+  debArchMap = debArchMap.filter(({ fileArch }) => sums.has(`${name}-${version}-linux-${fileArch}.deb`));
+
   const baseDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
   const defaultDepends = AUDIO_APPS.has(name)
     ? `${baseDepends}, libasound2 | libasound2t64`
@@ -295,6 +301,9 @@ async function buildRpmAssets(
     arches = arches.filter((arch) => supportedArches.includes(arch));
   }
 
+  const sums = await getShaSums(repo, version);
+  arches = arches.filter((arch) => sums.has(`${name}-${version}-linux-${arch}.rpm`));
+
   return Promise.all(
     arches.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.rpm`;
@@ -325,7 +334,9 @@ async function buildArchAssets(
   repo: string,
   version: string,
 ): Promise<LinuxRepoApp["archAssets"]> {
-  const arches: ArchPackageArch[] = ["x86_64", "aarch64"];
+  const sums = await getShaSums(repo, version);
+  const arches: ArchPackageArch[] = (["x86_64", "aarch64"] as ArchPackageArch[])
+    .filter((arch) => sums.has(`${name}-${version}-linux-${arch}.pkg.tar.zst`));
 
   return Promise.all(
     arches.map(async (arch) => {
@@ -342,8 +353,6 @@ async function buildArchAssets(
   );
 }
 
-let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
-
 /**
  * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
  * Package metadata is fetched and computed on demand.
@@ -352,10 +361,6 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
   const includeDeb = formats ? !!formats.deb : true;
   const includeRpm = formats ? !!formats.rpm : true;
   const includeArch = formats ? !!formats.arch : true;
-
-  if (includeDeb && includeRpm && includeArch && cachedAllAppsPromise) {
-    return cachedAllAppsPromise;
-  }
 
   const compute = async (): Promise<LinuxRepoApp[]> => {
     const appPromises: Promise<LinuxRepoApp | null>[] = [];
@@ -427,16 +432,19 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
       })());
     }
 
-    const apps = await Promise.all(appPromises);
-    const result = apps.filter((a): a is LinuxRepoApp => a !== null);
-    return result;
+    const settled = await Promise.allSettled(appPromises);
+    const apps: LinuxRepoApp[] = [];
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        if (result.value) apps.push(result.value);
+      } else if (result.reason instanceof MissingReleaseChecksums) {
+        console.warn(result.reason.message);
+      } else {
+        throw result.reason;
+      }
+    }
+    return apps;
   };
-
-  if (includeDeb && includeRpm && includeArch) {
-    cachedAllAppsPromise = compute();
-    cachedAllAppsPromise.catch(() => { cachedAllAppsPromise = null; });
-    return cachedAllAppsPromise;
-  }
 
   return compute();
 }

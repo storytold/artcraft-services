@@ -33,14 +33,14 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     const rpmUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.rpm");
     expect(rpmUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.rpm");
 
-    const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-riscv64.deb");
-    expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-riscv64.deb");
+    const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.12.0-linux-riscv64.deb");
+    expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.12.0/artcraft-launcher-0.12.0-linux-riscv64.deb");
 
     const archUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.pkg.tar.zst");
     expect(archUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.pkg.tar.zst");
 
-    const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
-    expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
+    const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.12.0-linux-aarch64.pkg.tar.zst");
+    expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.12.0/artcraft-launcher-0.12.0-linux-aarch64.pkg.tar.zst");
 
     const craftAnythingUrl = resolvePackageDownloadUrl("craft-anything-0.1.0-linux-x86_64.deb");
     expect(craftAnythingUrl).toBe("https://github.com/storytold/craft-anything/releases/download/v0.1.0/craft-anything-0.1.0-linux-x86_64.deb");
@@ -222,6 +222,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
       for (const deb of app.debAssets) {
         expect(deb.size).toBeGreaterThan(10_000_000);
         expect(deb.sha256).toMatch(/^[0-9a-f]{64}$/);
+        expect(deb.sha256).not.toMatch(/^0+$/);
         expect(deb.filename).toMatch(/\.deb$/);
         const url = resolvePackageDownloadUrl(deb.filename);
         expect(url).not.toBeNull();
@@ -231,6 +232,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
       for (const rpm of app.rpmAssets) {
         expect(rpm.size).toBeGreaterThan(10_000_000);
         expect(rpm.sha256).toMatch(/^[0-9a-f]{64}$/);
+        expect(rpm.sha256).not.toMatch(/^0+$/);
         expect(rpm.filename).toMatch(/\.rpm$/);
         const url = resolvePackageDownloadUrl(rpm.filename);
         expect(url).not.toBeNull();
@@ -240,6 +242,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
       for (const arch of app.archAssets) {
         expect(arch.size).toBeGreaterThan(5_000_000);
         expect(arch.sha256).toMatch(/^[0-9a-f]{64}$/);
+        expect(arch.sha256).not.toMatch(/^0+$/);
         expect(arch.filename).toMatch(/\.pkg\.tar\.zst$/);
         const url = resolvePackageDownloadUrl(arch.filename);
         expect(url).not.toBeNull();

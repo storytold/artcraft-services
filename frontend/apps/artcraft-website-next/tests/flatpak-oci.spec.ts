@@ -24,13 +24,8 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("[Application]");
     expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("ai.storyteller.pdfcraft");
 
-    // Verifies Craft Anything is present
-    const craftAnything = index.Results.find((r) => r.Repository === "storytold/craft-anything");
-    expect(craftAnything).toBeDefined();
-    expect(craftAnything?.Images).toHaveLength(2);
-    const craftAnythingX86 = craftAnything?.Images.find((img) => img.Architecture === "x86_64");
-    expect(craftAnythingX86).toBeDefined();
-    expect(craftAnythingX86?.Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.craft-anything/x86_64/stable");
+    // Craft Anything has no published OCI image yet.
+    expect(index.Results.find((r) => r.Repository === "storytold/craft-anything")).toBeUndefined();
   });
 
   test("filters by architecture", () => {
