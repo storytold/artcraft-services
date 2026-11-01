@@ -33,3 +33,8 @@ package = "@netlify/plugin-nextjs"
     Access-Control-Allow-Origin = "*"
     Cache-Control = "public, max-age=0, must-revalidate"
     Content-Type = "application/toml; charset=utf-8"
+
+[[headers]]
+  for = "/launcher-app-icons/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
