@@ -45,7 +45,7 @@ type AnalyticsEvents = {
   press_kit_download: { asset_name: string };
 
   // Sent from component code.
-  generate_lead: { form_name: string; user_type: string };
+  generate_lead: { form_name: string };
   sign_up: { method: "email"; signup_source: string };
   login: { method: "email" };
   prompt_submit: {
