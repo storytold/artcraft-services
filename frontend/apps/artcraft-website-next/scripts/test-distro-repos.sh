@@ -451,11 +451,11 @@ EOF
 
     echo "--- Testing real installation of native packages via pacman ---"
     if ! pacman -S --noconfirm '"$pacman_install_pkgs"'; then
-      echo "--- Diagnosing downloaded launcher package ---" >&2
-      for archive in /var/cache/pacman/pkg/artcraft-launcher-*.pkg.tar.zst; do
+      echo "--- Diagnosing verified package archives ---" >&2
+      for archive in /tmp/all_pkgs/artcraft-launcher-*-x86_64.pkg.tar.zst /tmp/all_pkgs/texturecraft-*-x86_64.pkg.tar.zst; do
         [[ -f "$archive" ]] || continue
         sha256sum "$archive" >&2
-        pacman -Qip "$archive" >&2 || true
+        pacman --debug -Qip "$archive" >&2 || true
       done
       exit 1
     fi
