@@ -10,6 +10,11 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "sync:packages": "node scripts/sync-linux-package-data.mjs",
+    "prebuild": "node scripts/sync-linux-package-data.mjs",
+    "predev": "node scripts/sync-linux-package-data.mjs",
+    "pretest:repos": "node scripts/sync-linux-package-data.mjs",
+    "pretest:downloads": "node scripts/sync-linux-package-data.mjs",
     "test:media": "playwright test tests/media.spec.ts tests/media-metadata.spec.ts",
     "test:repos": "playwright test tests/linux-repos.spec.ts tests/flatpak-oci.spec.ts",
     "test:downloads": "playwright test tests/app-downloads.spec.ts tests/linux-downloads.spec.ts tests/linux-repos.spec.ts tests/flatpak-oci.spec.ts"

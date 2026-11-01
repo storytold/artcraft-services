@@ -42,8 +42,8 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
     expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
 
-    const craftAnythingUrl = resolvePackageDownloadUrl("craft-anything-0.2.0-linux-x86_64.deb");
-    expect(craftAnythingUrl).toBe("https://github.com/storytold/craft-anything/releases/download/v0.2.0/craft-anything-0.2.0-linux-x86_64.deb");
+    const craftAnythingUrl = resolvePackageDownloadUrl("craft-anything-0.1.0-linux-x86_64.deb");
+    expect(craftAnythingUrl).toBe("https://github.com/storytold/craft-anything/releases/download/v0.1.0/craft-anything-0.1.0-linux-x86_64.deb");
 
     // Uncatalogued versions or files must return null so route returns 404
     expect(resolvePackageDownloadUrl("pdfcraft-9.9.9-linux-x86_64.deb")).toBeNull();
