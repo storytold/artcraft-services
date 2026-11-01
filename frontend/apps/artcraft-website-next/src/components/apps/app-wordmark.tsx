@@ -58,7 +58,7 @@ export function AppWordmark({
       )}
     >
       {app.prefix}
-      <ColorAccent>Craft</ColorAccent>
+      <ColorAccent>Craft</ColorAccent>{app.nameSuffix}
     </span>
   );
 }
