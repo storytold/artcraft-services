@@ -4,16 +4,44 @@
 
 @layer base {
   :root {
+    /* Theme tokens, as "R G B" so Tailwind can add alpha. These defaults are
+       the app's own colours; a theme overrides them on <html>.
+       "white" is the ink that hairlines and most text are drawn in, "black"
+       the deepest surface; a theme swaps them as a pair.
+       The desktop app's own names (--st-bg, --st-fg, --st-fg-rgb,
+       --st-divider, --st-controls-rgb) are read by shared libs with
+       fallbacks of their own, so they are left unset here: setting them
+       would change those libs' look. A theme sets them as well. */
+    --st-white-rgb: 255 255 255;
+    --st-black-rgb: 0 0 0;
+    --st-text-rgb: 242 241 238;
+    --st-bg-rgb: 18 19 22;
+    --st-panel-rgb: 16 16 20;
+    --st-control-rgb: 30 31 34;
+    --st-sunken-rgb: 6 6 7;
+    --st-scroll-track-rgb: 11 11 12;
+    --st-scroll-thumb-rgb: 44 44 47;
+    --st-accent-rgb: 45 129 255;
+    --st-accent-300-rgb: 142 199 255;
+    --st-accent-400-rgb: 89 167 255;
+    --st-accent-600-rgb: 27 99 245;
+    --st-accent-700-rgb: 20 78 225;
+    --st-accent-ink-rgb: 116 170 255;
+    --st-accent-text-rgb: 45 129 255;
+    --st-accent-line-rgb: 45 129 255;
+    --st-text-fade: 1;
+    --st-icon-filter: invert(1);
+
     /* Sidebar tokens (consumed by tailwind colors in tailwind.config.js).
        Brutalist system: near-black surfaces, white/15 hairlines, white
        accent for selection/focus. */
-    color-scheme: dark;
-    --sidebar-bg: #1e1f22;
-    --sidebar-fg: rgba(255, 255, 255, 0.72);
-    --sidebar-border: rgba(255, 255, 255, 0.15);
-    --sidebar-accent: rgba(255, 255, 255, 0.08);
-    --sidebar-accent-fg: #ffffff;
-    --sidebar-ring: #74aaff;
+    color-scheme: var(--st-color-scheme, dark);
+    --sidebar-bg: rgb(var(--st-control-rgb));
+    --sidebar-fg: rgb(var(--st-white-rgb) / 0.72);
+    --sidebar-border: rgb(var(--st-white-rgb) / 0.15);
+    --sidebar-accent: rgb(var(--st-white-rgb) / 0.08);
+    --sidebar-accent-fg: rgb(var(--st-white-rgb));
+    --sidebar-ring: rgb(var(--st-accent-ink-rgb));
 
     /* shadcn design tokens consumed by @storyteller/ui-video-editor.
        Dark-theme palette (the editor only runs in dark mode today).
@@ -91,7 +119,7 @@
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2c2c2f #0b0b0c;
+  scrollbar-color: rgb(var(--st-scroll-thumb-rgb)) rgb(var(--st-scroll-track-rgb));
 }
 
 *::-webkit-scrollbar {
@@ -99,12 +127,12 @@
 }
 
 *::-webkit-scrollbar-track {
-  background: #0b0b0c;
+  background: rgb(var(--st-scroll-track-rgb));
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #2c2c2f;
-  border: 2px solid #0b0b0c;
+  background-color: rgb(var(--st-scroll-thumb-rgb));
+  border: 2px solid rgb(var(--st-scroll-track-rgb));
 }
 
 .scrollbar-hidden {
@@ -158,19 +186,19 @@
       "Helvetica Neue",
       Arial,
       sans-serif;
-    color: #f2f1ee;
-    background-color: #121316;
+    color: rgb(var(--st-text-rgb));
+    background-color: rgb(var(--st-bg-rgb));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    background: #2d81ff;
-    color: #ffffff;
+    background: rgb(var(--st-accent-rgb));
+    color: rgb(var(--st-white-rgb));
   }
 
   :focus-visible {
-    outline: 2px solid #74aaff;
+    outline: 2px solid rgb(var(--st-accent-ink-rgb));
     outline-offset: 3px;
   }
 
@@ -203,18 +231,23 @@
 
 /* Shared component utilities (matching desktop app theme) */
 .bg-ui-badge {
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: rgb(var(--st-black-rgb) / 0.4);
+}
+
+/* The ArtCraft wordmark image, which is white; a light theme flips it. */
+.st-wordmark {
+  filter: var(--st-wordmark-filter, none);
 }
 
 .icon-auto-contrast {
-  filter: invert(1);
+  filter: var(--st-icon-filter);
 }
 
 /* Panel surface used by pagescene + lib components. Brutalist system:
    flat near-black, no gradient (class name kept for lib compatibility). */
 .bg-ui-panel-gradient {
-  background: #101014;
-  background-color: #101014;
+  background: rgb(var(--st-panel-rgb));
+  background-color: rgb(var(--st-panel-rgb));
 }
 
 .prevent-select {
@@ -231,57 +264,57 @@
   width: 10px;
   height: 10px;
   border-radius: 5px;
-  background-color: #ffffff30;
-  color: #ffffff30;
+  background-color: rgb(var(--st-white-rgb) / 0.188);
+  color: rgb(var(--st-white-rgb) / 0.188);
   box-shadow:
-    9984px 0 0 0 #ffffff30,
-    9999px 0 0 0 #ffffff30,
-    10014px 0 0 0 #ffffff30;
+    9984px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+    9999px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+    10014px 0 0 0 rgb(var(--st-white-rgb) / 0.188);
   animation: dot-typing 1.5s infinite linear;
 }
 
 @keyframes dot-typing {
   0% {
     box-shadow:
-      9984px 0 0 0 #ffffff30,
-      9999px 0 0 0 #ffffff30,
-      10014px 0 0 0 #ffffff30;
+      9984px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      9999px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      10014px 0 0 0 rgb(var(--st-white-rgb) / 0.188);
   }
   16.667% {
     box-shadow:
-      9984px -10px 0 0 #ffffff30,
-      9999px 0 0 0 #ffffff30,
-      10014px 0 0 0 #ffffff30;
+      9984px -10px 0 0 rgb(var(--st-white-rgb) / 0.188),
+      9999px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      10014px 0 0 0 rgb(var(--st-white-rgb) / 0.188);
   }
   33.333% {
     box-shadow:
-      9984px 0 0 0 #ffffff30,
-      9999px 0 0 0 #ffffff30,
-      10014px 0 0 0 #ffffff30;
+      9984px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      9999px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      10014px 0 0 0 rgb(var(--st-white-rgb) / 0.188);
   }
   50% {
     box-shadow:
-      9984px 0 0 0 #ffffff30,
-      9999px -10px 0 0 #ffffff30,
-      10014px 0 0 0 #ffffff30;
+      9984px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      9999px -10px 0 0 rgb(var(--st-white-rgb) / 0.188),
+      10014px 0 0 0 rgb(var(--st-white-rgb) / 0.188);
   }
   66.667% {
     box-shadow:
-      9984px 0 0 0 #ffffff30,
-      9999px 0 0 0 #ffffff30,
-      10014px 0 0 0 #ffffff30;
+      9984px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      9999px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      10014px 0 0 0 rgb(var(--st-white-rgb) / 0.188);
   }
   83.333% {
     box-shadow:
-      9984px 0 0 0 #ffffff30,
-      9999px 0 0 0 #ffffff30,
-      10014px -10px 0 0 #ffffff30;
+      9984px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      9999px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      10014px -10px 0 0 rgb(var(--st-white-rgb) / 0.188);
   }
   100% {
     box-shadow:
-      9984px 0 0 0 #ffffff30,
-      9999px 0 0 0 #ffffff30,
-      10014px 0 0 0 #ffffff30;
+      9984px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      9999px 0 0 0 rgb(var(--st-white-rgb) / 0.188),
+      10014px 0 0 0 rgb(var(--st-white-rgb) / 0.188);
   }
 }
 
@@ -290,19 +323,19 @@
 @layer components {
   .glass {
     @apply relative border border-white/15 transition-colors duration-300 rounded-[3px] backdrop-blur-sm;
-    @apply bg-[#1E1F22]/95 !important;
+    @apply bg-ui-controls/95 !important;
   }
 }
 
 .liquid-glass {
-  background: rgba(11, 11, 12, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgb(var(--st-scroll-track-rgb) / 0.92);
+  border: 1px solid rgb(var(--st-white-rgb) / 0.15);
 }
 
 /* Minimal thin scrollbar for prompt textareas */
 .promptbox-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-color: rgb(var(--st-white-rgb) / 0.2) transparent;
 }
 
 .promptbox-scrollbar::-webkit-scrollbar {
@@ -314,11 +347,11 @@
 }
 
 .promptbox-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgb(var(--st-white-rgb) / 0.2);
 }
 
 .promptbox-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.35);
+  background-color: rgb(var(--st-white-rgb) / 0.35);
 }
 
 /* Hide the native resize grip (Chromium draws different grips for textareas
@@ -344,16 +377,16 @@
   background: linear-gradient(
     135deg,
     transparent 40%,
-    rgba(255, 255, 255, 0.5) 40%,
-    rgba(255, 255, 255, 0.5) 45%,
+    rgb(var(--st-white-rgb) / 0.5) 40%,
+    rgb(var(--st-white-rgb) / 0.5) 45%,
     transparent 45%,
     transparent 55%,
-    rgba(255, 255, 255, 0.5) 55%,
-    rgba(255, 255, 255, 0.5) 60%,
+    rgb(var(--st-white-rgb) / 0.5) 55%,
+    rgb(var(--st-white-rgb) / 0.5) 60%,
     transparent 60%,
     transparent 70%,
-    rgba(255, 255, 255, 0.5) 70%,
-    rgba(255, 255, 255, 0.5) 75%,
+    rgb(var(--st-white-rgb) / 0.5) 70%,
+    rgb(var(--st-white-rgb) / 0.5) 75%,
     transparent 75%
   );
 }
@@ -448,7 +481,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.08) 50%,
+    rgb(var(--st-white-rgb) / 0.08) 50%,
     transparent 100%
   );
   background-size: 200% 100%;
@@ -456,8 +489,8 @@
 }
 
 .bg-dots {
-  background-image: radial-gradient(#ffffff20 1px, transparent 0);
-  background-color: #101014;
+  background-image: radial-gradient(rgb(var(--st-white-rgb) / 0.125) 1px, transparent 0);
+  background-color: rgb(var(--st-panel-rgb));
   background-size: 33px 33px;
   @apply bg-center;
 }
@@ -535,15 +568,15 @@
   margin: -5px;
   pointer-events: none;
   background:
-    linear-gradient(rgba(242, 241, 238, 0.4), rgba(242, 241, 238, 0.4)) center / 1px 11px no-repeat,
-    linear-gradient(rgba(242, 241, 238, 0.4), rgba(242, 241, 238, 0.4)) center / 11px 1px no-repeat;
+    linear-gradient(rgb(var(--st-text-rgb) / 0.4), rgb(var(--st-text-rgb) / 0.4)) center / 1px 11px no-repeat,
+    linear-gradient(rgb(var(--st-text-rgb) / 0.4), rgb(var(--st-text-rgb) / 0.4)) center / 11px 1px no-repeat;
 }
 
 /* Contained section borders match the landing without decorative extensions. */
 .create-empty-section {
   margin-inline: 12px;
-  border: 1px solid rgba(242, 241, 238, 0.2);
-  background: rgba(242, 241, 238, 0.015);
+  border: 1px solid rgb(var(--st-text-rgb) / 0.2);
+  background: rgb(var(--st-text-rgb) / 0.015);
 }
 
 @media (min-width: 640px) {

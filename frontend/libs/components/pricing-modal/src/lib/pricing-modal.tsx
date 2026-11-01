@@ -194,7 +194,7 @@ export function PricingContent({ title, subtitle }: PricingContentProps) {
               className={twMerge(
                 getColorSchemeClasses(plan.colorScheme),
                 frame
-                  ? `relative z-10 h-full w-full border-2 bg-[#101014] shadow-2xl ${frame.border}`
+                  ? `relative z-10 h-full w-full border-2 bg-ui-panel shadow-2xl ${frame.border}`
                   : "",
                 isCurrent ? "ring-2 ring-white/50" : "",
               )}
@@ -323,7 +323,7 @@ const getColorSchemeClasses = (
   colorScheme: SubscriptionPlanDetails["colorScheme"],
 ) => {
   const base =
-    "relative flex flex-col rounded-3xl border p-6 transition-all duration-300 backdrop-blur-md md:p-8";
+    "st-keep-dark relative flex flex-col rounded-3xl border p-6 transition-all duration-300 backdrop-blur-md md:p-8";
 
   switch (colorScheme) {
     case "green":
@@ -430,7 +430,7 @@ export function PricingModal({}: PricingModalProps = {}) {
     <Modal
       isOpen={isOpen}
       onClose={closeModal}
-      className="flex max-h-[90vh] max-w-screen-2xl flex-col overflow-y-auto rounded-2xl border border-white/5 bg-[#101014]"
+      className="flex max-h-[90vh] max-w-screen-2xl flex-col overflow-y-auto rounded-2xl border border-white/5 bg-ui-panel"
       allowBackgroundInteraction={false}
       showClose={true}
       closeOnOutsideClick={true}
