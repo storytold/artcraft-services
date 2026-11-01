@@ -4,7 +4,7 @@ import { getFlatpakOciIndex } from "../src/lib/flatpak-oci";
 test.describe("Flatpak OCI Registry Index Protocol", () => {
   test("generates valid registry index response", () => {
     const index = getFlatpakOciIndex();
-    expect(index.Registry).toBe("https://ghcr.io/v2");
+    expect(index.Registry).toBe("https://ghcr.io");
     expect(index.Results.length).toBeGreaterThan(0);
 
     // Verifies ArtCraft Launcher is present under storytold/craft-launcher repository

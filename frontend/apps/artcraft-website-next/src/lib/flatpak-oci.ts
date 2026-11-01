@@ -36,7 +36,7 @@ export type FlatpakOciIndexResponse = {
   Results: FlatpakOciRepository[];
 };
 
-export const DEFAULT_OCI_REGISTRY = "https://ghcr.io/v2";
+export const DEFAULT_OCI_REGISTRY = "https://ghcr.io";
 export const ARCHITECTURES: Array<"x86_64" | "aarch64"> = ["x86_64", "aarch64"];
 
 /** Normalize container architecture names to Flatpak conventions. */

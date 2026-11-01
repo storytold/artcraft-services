@@ -1,4 +1,4 @@
-import { getLinuxRepoApps, resolvePackageDownloadUrl } from "../src/lib/linux-repos.ts";
+import { getLinuxRepoApps } from "../src/lib/linux-repos.ts";
 import { getFlatpakOciIndex } from "../src/lib/flatpak-oci.ts";
 
 const mode = process.argv[2] || "";
@@ -103,14 +103,6 @@ switch (mode) {
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
     console.log(apps.join(" "));
-    break;
-  }
-
-  case "flatpak-bundle-url": {
-    const launcher = LINUX_REPO_APPS.find((app) => app.slug === "artcraft-launcher");
-    const version = launcher ? launcher.version : "0.12.0";
-    const filename = `artcraft-launcher-${version}-linux-x86_64.flatpak`;
-    console.log(resolvePackageDownloadUrl(filename) ?? "");
     break;
   }
 
