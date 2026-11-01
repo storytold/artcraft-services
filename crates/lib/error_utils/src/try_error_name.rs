@@ -93,7 +93,7 @@ mod tests {
   #[derive(Debug)]
   enum TestAppError {
     DatabaseTimeout,
-    InvalidInput,
+    InvalidInput(#[allow(dead_code)] String),
   }
 
   impl std::fmt::Display for TestAppError {
@@ -112,8 +112,8 @@ mod tests {
   }
 
   #[test]
-  fn title_from_custom_input_variant() {
-    let err = TestAppError::InvalidInput;
+  fn title_from_custom_tuple_variant() {
+    let err = TestAppError::InvalidInput("bad data".to_string());
     let title = try_error_name(&err);
     assert_eq!(title, Some("InvalidInput".to_string()));
   }
