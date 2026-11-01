@@ -6,7 +6,7 @@ export async function GET() {
   return new Response(new Uint8Array(gzBuffer), {
     headers: {
       "Content-Type": "application/gzip",
-      "Cache-Control": "public, max-age=0, must-revalidate",
+      "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
     },
   });
 }

@@ -258,6 +258,16 @@ export const CRAFT_ANYTHING_RELEASE: CraftRelease | null = craftRelease(
   ),
 );
 
+// TextureCraft (github.com/storytold/texturecraft)
+export const TEXTURECRAFT_RELEASE: CraftRelease | null = craftRelease(
+  "0.1.0",
+  CRAFT_RELEASE_ASSETS.filter(
+    (asset) =>
+      asset.arch !== "riscv64" &&
+      !asset.file.endsWith(".pkg.tar.zst")
+  ),
+);
+
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   photocraft: craftRelease("0.18.0"),
