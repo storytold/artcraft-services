@@ -7,7 +7,6 @@ import {
   craftReleaseDownloads,
 } from "./crafting-apps";
 import {
-  CRAFT_LAUNCHER_NAME,
   craftLauncherDownloads,
 } from "./craft-launcher";
 import {
@@ -319,8 +318,10 @@ export function generateAptRelease(date: Date = APT_REPO_DATE): string {
     const pkgSha = createHash("sha256").update(pkgBuffer).digest("hex");
     const pkgGzSha = createHash("sha256").update(pkgGzBuffer).digest("hex");
 
-    fileEntries.push(` ${pkgSha} ${pkgBuffer.length} main/binary-${arch}/Packages`);
-    fileEntries.push(` ${pkgGzSha} ${pkgGzBuffer.length} main/binary-${arch}/Packages.gz`);
+    fileEntries.push(
+      ` ${pkgSha} ${pkgBuffer.length} main/binary-${arch}/Packages`,
+      ` ${pkgGzSha} ${pkgGzBuffer.length} main/binary-${arch}/Packages.gz`
+    );
   }
 
   return [

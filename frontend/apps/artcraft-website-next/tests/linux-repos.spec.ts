@@ -163,16 +163,16 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
   });
 
   test("provides metadata and catalog for /linux setup page", () => {
-    expect(LINUX_REPO_APPS.length).toBe(14);
+    expect(LINUX_REPO_APPS).toHaveLength(14);
     const pdfcraft = LINUX_REPO_APPS.find((app) => app.slug === "pdfcraft");
     expect(pdfcraft).toBeDefined();
-    expect(pdfcraft?.debAssets.length).toBe(3);
-    expect(pdfcraft?.rpmAssets.length).toBe(3);
+    expect(pdfcraft?.debAssets).toHaveLength(3);
+    expect(pdfcraft?.rpmAssets).toHaveLength(3);
 
     const launcher = LINUX_REPO_APPS.find((app) => app.slug === "artcraft-launcher");
     expect(launcher).toBeDefined();
-    expect(launcher?.debAssets.length).toBe(3);
-    expect(launcher?.rpmAssets.length).toBe(3);
+    expect(launcher?.debAssets).toHaveLength(3);
+    expect(launcher?.rpmAssets).toHaveLength(3);
   });
 
   test("verifies download URLs and digests for all manifest package assets", () => {

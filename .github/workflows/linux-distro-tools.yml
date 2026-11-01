@@ -13,12 +13,14 @@ on:
 
 permissions:
   contents: read
-  statuses: read
 
 jobs:
   wait-for-deploy:
     name: Wait for Netlify deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: read
     timeout-minutes: 15
     outputs:
       preview-url: ${{ steps.wait.outputs.preview_url }}

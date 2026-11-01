@@ -12,6 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-all}"
 BASE_URL="${2:-${NETLIFY_PREVIEW_URL:-http://127.0.0.1:4210}}"
+BANNER_SEP="=================================================="
 
 if [[ -d "/home/linuxbrew/.linuxbrew/bin" ]]; then
   export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
@@ -44,24 +45,22 @@ cleanup() {
 trap cleanup EXIT
 
 # If testing against default local port and nothing is listening, build & start Next.js
-if [[ "$BASE_URL" == "http://127.0.0.1:4210"* ]]; then
-  if ! curl -sf -o /dev/null "$BASE_URL/apt/artcraft.sources" 2>/dev/null; then
-    echo "Building and starting local Next.js server on 127.0.0.1:4210..."
-    if [[ ! -d ".next" ]]; then
-      npx next build
-    fi
-    npx next start -H 127.0.0.1 -p 4210 &
-    SERVER_PID=$!
-    
-    # Wait for server to become ready
-    for i in {1..30}; do
-      if curl -sf -o /dev/null "$BASE_URL/apt/artcraft.sources" 2>/dev/null; then
-        echo "Local Next.js server ready."
-        break
-      fi
-      sleep 0.5
-    done
+if [[ "$BASE_URL" == "http://127.0.0.1:4210"* ]] && ! curl -sf -o /dev/null "$BASE_URL/apt/artcraft.sources" 2>/dev/null; then
+  echo "Building and starting local Next.js server on 127.0.0.1:4210..."
+  if [[ ! -d ".next" ]]; then
+    npm run build
   fi
+  npm run start -- -H 127.0.0.1 -p 4210 &
+  SERVER_PID=$!
+  
+  # Wait for server to become ready
+  for i in {1..30}; do
+    if curl -sf -o /dev/null "$BASE_URL/apt/artcraft.sources" 2>/dev/null; then
+      echo "Local Next.js server ready."
+      break
+    fi
+    sleep 0.5
+  done
 fi
 
 # Ensure opensuse:latest image is available (Docker Hub tags openSUSE as opensuse/tumbleweed)
@@ -133,16 +132,19 @@ with socketserver.TCPServer(("127.0.0.1", port), P) as httpd:
 manifest_info() {
   if [[ -x "$SCRIPT_DIR/../node_modules/.bin/jiti" ]]; then
     node --no-warnings "$SCRIPT_DIR/../node_modules/.bin/jiti" "$SCRIPT_DIR/manifest-info.mjs" "$@"
+  elif command -v jiti >/dev/null 2>&1; then
+    jiti "$SCRIPT_DIR/manifest-info.mjs" "$@"
   else
-    npx --yes jiti "$SCRIPT_DIR/manifest-info.mjs" "$@"
+    echo "Error: jiti is required to execute manifest-info.mjs. Run 'npm install' first." >&2
+    exit 1
   fi
 }
 
 test_ubuntu() {
   echo ""
-  echo "=================================================="
+  echo "$BANNER_SEP"
   echo ">>> Testing Ubuntu Latest (APT) against $BASE_URL"
-  echo "=================================================="
+  echo "$BANNER_SEP"
 
   local apt_pkgs apt_install_pkgs
   apt_pkgs="$(manifest_info apt-packages)"
@@ -197,9 +199,9 @@ test_ubuntu() {
 
 test_fedora() {
   echo ""
-  echo "=================================================="
+  echo "$BANNER_SEP"
   echo ">>> Testing Fedora Latest (DNF) against $BASE_URL"
-  echo "=================================================="
+  echo "$BANNER_SEP"
 
   local dnf_pkgs dnf_install_pkgs
   dnf_pkgs="$(manifest_info dnf-packages)"
@@ -244,9 +246,9 @@ test_fedora() {
 
 test_opensuse() {
   echo ""
-  echo "=================================================="
+  echo "$BANNER_SEP"
   echo ">>> Testing openSUSE Latest (Zypper) against $BASE_URL"
-  echo "=================================================="
+  echo "$BANNER_SEP"
   ensure_opensuse_image
 
   local zypper_url="$BASE_URL"
@@ -331,9 +333,9 @@ EOF
 
 test_flatpak() {
   echo ""
-  echo "=================================================="
+  echo "$BANNER_SEP"
   echo ">>> Testing Flatpak (OCI Remote) against $BASE_URL"
-  echo "=================================================="
+  echo "$BANNER_SEP"
 
   local flatpak_url="$BASE_URL"
   if [[ "$BASE_URL" == "http://"* ]]; then

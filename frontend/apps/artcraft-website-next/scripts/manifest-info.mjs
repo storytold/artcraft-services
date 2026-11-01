@@ -13,7 +13,8 @@ switch (mode) {
     break;
   }
 
-  case "apt-install-packages": {
+  case "apt-install-packages":
+  case "dnf-install-packages": {
     // Unique package names to install on native system
     const names = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name)));
     console.log(names.join(" "));
@@ -39,13 +40,6 @@ switch (mode) {
       app.rpmAssets.map((asset) => `${app.name}.${asset.arch}`)
     );
     console.log(pkgs.join(" "));
-    break;
-  }
-
-  case "dnf-install-packages": {
-    // Unique package names to install on native system
-    const names = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name)));
-    console.log(names.join(" "));
     break;
   }
 
@@ -79,7 +73,7 @@ switch (mode) {
   }
 
   case "flatpak-apps": {
-    const apps = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name))).sort();
+    const apps = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name))).sort((a, b) => a.localeCompare(b));
     console.log(apps.join(" "));
     break;
   }
