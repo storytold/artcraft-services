@@ -64,11 +64,10 @@ export function BaseImageSelector({
 
   const handleBlankCanvasConfirm = (width: number, height: number) => {
     setIsBlankCanvasOpen(false);
+    const suffix = Math.random().toString(36).substring(2, 8); // NOSONAR: UI-only id or cosmetic value, never a secret.
     onImageSelect({
       url: "",
-      mediaToken: `blank_canvas_${width}x${height}_${Math.random()
-        .toString(36)
-        .substring(2, 8)}`,
+      mediaToken: `blank_canvas_${width}x${height}_${suffix}`,
       isBlankCanvas: true,
       blankCanvasWidth: width,
       blankCanvasHeight: height,
@@ -81,7 +80,7 @@ export function BaseImageSelector({
     reader.onloadend = async () => {
       const dataUrl = reader.result as string;
       await uploadImage({
-        title: `edit-image-${Math.random().toString(36).substring(2, 15)}`,
+        title: `edit-image-${Math.random().toString(36).substring(2, 15)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
         assetFile: file,
         progressCallback: (state) => {
           if (state.status === UploaderStates.success && state.data) {

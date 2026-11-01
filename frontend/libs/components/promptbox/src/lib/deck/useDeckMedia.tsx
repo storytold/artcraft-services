@@ -65,7 +65,7 @@ export interface UseDeckMediaOptions<
   ownGalleryModal?: boolean;
 }
 
-const randomId = () => Math.random().toString(36).substring(7);
+const randomId = () => Math.random().toString(36).substring(7); // NOSONAR: UI-only id or cosmetic value, never a secret.
 
 // A non-finite duration cap means "no limit" — leave it out of the message.
 const videoLimitMessage = (maxVideos: number, maxTotalSec: number) =>
@@ -74,7 +74,7 @@ const videoLimitMessage = (maxVideos: number, maxTotalSec: number) =>
     : `Max ${maxVideos} video${maxVideos === 1 ? "" : "s"}`;
 
 const randomTitle = (prefix: string) =>
-  `${prefix}-${Math.random().toString(36).substring(2, 15)}`;
+  `${prefix}-${Math.random().toString(36).substring(2, 15)}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
 
 const getVideoDurationFromSrc = (src: string): Promise<number> =>
   new Promise((resolve) => {

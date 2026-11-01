@@ -273,7 +273,7 @@ export const PromptBoxAudio = ({
         }
         total += duration;
         added.push({
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: item.fullImage,
           file: new File([], "library-audio"),
           mediaToken: item.id,

@@ -135,7 +135,7 @@ export default function CreateVFX() {
           const id =
             typeof crypto !== "undefined" && crypto.randomUUID
               ? crypto.randomUUID()
-              : Math.random().toString(36).slice(2);
+              : Math.random().toString(36).slice(2); // NOSONAR: UI-only id or cosmetic value, never a secret.
           seedFromSession({
             id,
             status: job.status,

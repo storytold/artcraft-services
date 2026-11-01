@@ -322,7 +322,7 @@ export interface SceneState {
 }
 
 export const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 9);
+  return Math.random().toString(36).substring(2, 9); // NOSONAR: UI-only id or cosmetic value, never a secret.
 };
 
 // Add a flag to prevent saving state during restoration

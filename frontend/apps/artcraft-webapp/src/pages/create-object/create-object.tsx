@@ -318,7 +318,7 @@ export default function CreateObject() {
       const item = items[0];
       if (item && libraryTarget) {
         const refImage: RefImage = {
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: item.thumbnail || item.fullImage || "",
           fullUrl: item.fullImage || undefined,
           file: new File([], "library-image"),

@@ -121,7 +121,7 @@ export const PromptBoxVideo = ({
   useEffect(() => {
     if (imageMediaId && url) {
       const referenceImage: RefImage = {
-        id: Math.random().toString(36).substring(7),
+        id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
         url: url,
         file: new File([], "library-image"),
         mediaToken: imageMediaId,
@@ -324,7 +324,7 @@ export const PromptBoxVideo = ({
   useEffect(() => {
     if (imageMediaId && url) {
       const referenceImage: RefImage = {
-        id: Math.random().toString(36).substring(7),
+        id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
         url: url,
         file: new File([], "library-image"),
         mediaToken: imageMediaId,
@@ -1199,7 +1199,7 @@ export const PromptBoxVideo = ({
     for (let i = 0; i < count; i++) {
       const subscriberId = crypto.randomUUID
         ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2);
+        : Math.random().toString(36).slice(2); // NOSONAR: UI-only id or cosmetic value, never a secret.
       subscriberIds.push(subscriberId);
       enqueuePromises.push(GenerateVideo(buildRequest(subscriberId)));
     }
