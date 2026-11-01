@@ -352,17 +352,17 @@ test_flatpak() {
     flatpak_url="http://127.0.0.1:4214"
   fi
 
-  local flatpak_apps
+  local flatpak_apps flatpak_bundle_url
   flatpak_apps="$(manifest_info flatpak-apps)"
+  flatpak_bundle_url="$(manifest_info flatpak-bundle-url)"
 
   # Use Ubuntu (glibc-based standard Linux container) for Flatpak tests
   $CONTAINER_TOOL run --rm --network host "$UBUNTU_IMAGE" bash -c '
     set -euo pipefail
     cat /etc/os-release | grep PRETTY_NAME || true
-    mkdir -p /var/lib/dbus
-    cat /proc/sys/kernel/random/boot_id | tr -d "-" | tee /etc/machine-id /var/lib/dbus/machine-id >/dev/null
+    cat /proc/sys/kernel/random/boot_id | tr -d "-" | tee /etc/machine-id >/dev/null
     apt-get update -qq
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends flatpak ca-certificates curl dbus >/dev/null
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends flatpak ca-certificates curl >/dev/null
 
     echo "--- Adding ArtCraft Flatpak OCI remote ---"
     flatpak remote-add --user --if-not-exists test-artcraft "'"$flatpak_url"'/artcraft-oci.flatpakrepo"
@@ -380,12 +380,16 @@ test_flatpak() {
       echo "  ✓ ai.storyteller.$app verified"
     done
 
-    echo "--- Installing an app to verify OCI manifest digests ---"
-    dbus-run-session -- flatpak install --user --noninteractive --no-deps test-artcraft ai.storyteller.artcraft-launcher || {
-      echo "Note: GHCR container image pull returned unauthorized or denied; Flatpak OCI remote index catalog verified successfully."
-    }
+    echo "--- Testing real installation of published standalone Flatpak bundle ---"
+    curl -fsSL "'"$flatpak_bundle_url"'" -o /tmp/artcraft-launcher.flatpak
+    flatpak install --user --noninteractive --no-deps /tmp/artcraft-launcher.flatpak
+    if ! flatpak list | grep -q "ai.storyteller.artcraft-launcher"; then
+      echo "Error: Flatpak package not found in installed apps!" >&2
+      exit 1
+    fi
+    echo "  ✓ ai.storyteller.artcraft-launcher installed and verified"
 
-    echo "=== Flatpak (OCI Remote) verification passed! All apps verified. ==="
+    echo "=== Flatpak verification passed! All remote apps and bundle installation verified. ==="
   '
 
   if [[ -n "$PROXY_PID" ]]; then

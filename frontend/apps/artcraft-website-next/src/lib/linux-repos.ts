@@ -197,6 +197,113 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
 }
 
 /**
+ * Resolves repository package section from app metadata.
+ */
+function getAppSection(schemaCategory: string | undefined, slug: string): string {
+  if (schemaCategory === "BusinessApplication") {
+    return "utils";
+  }
+  if (slug === "craft-anything") {
+    return "devel";
+  }
+  return "graphics";
+}
+
+/**
+ * Reads HTTP HEAD content-length for a package download URL.
+ */
+async function fetchHeadPackageSize(downloadUrl: string, filename: string): Promise<number> {
+  const headRes = await fetch(downloadUrl, {
+    method: "HEAD",
+    redirect: "follow",
+    signal: AbortSignal.timeout(10_000),
+  });
+  const size = Number(headRes.headers.get("content-length"));
+  if (!headRes.ok || !Number.isSafeInteger(size) || size <= 0) {
+    throw new Error(`Unable to determine package size for ${filename}`);
+  }
+  return size;
+}
+
+/**
+ * Fallback installed size resolution for Arch packages where .PKGINFO is placed after usr/bin.
+ */
+function resolveArchFallbackInstalledSize(filename: string, size: number): number {
+  if (filename.includes("designcraft-0.15.2")) {
+    return filename.includes("aarch64") ? 222699462 : 240682966;
+  }
+  return Math.round(size * 1.95);
+}
+
+/**
+ * Fast 128KB Range request to extract .PKGINFO uncompressed size from an Arch .pkg.tar.zst package.
+ */
+async function extractArchPkgInfo(downloadUrl: string): Promise<{ size: number; installedSize: number }> {
+  try {
+    const { Decompress } = await import("fzstd");
+    const rangeRes = await fetch(downloadUrl, {
+      headers: { Range: "bytes=0-131071" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    const contentRange = rangeRes.headers.get("content-range");
+    const sizeMatch = contentRange?.match(/\/(\d+)$/);
+    const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+
+    const buf = new Uint8Array(await rangeRes.arrayBuffer());
+    const chunks: Buffer[] = [];
+    const d = new Decompress((chunk) => {
+      chunks.push(Buffer.from(chunk));
+    });
+    try {
+      d.push(buf, false);
+    } catch {
+      // Partial stream EOF expected
+    }
+    const text = Buffer.concat(chunks).toString("utf-8");
+    const isizeMatch = text.match(/size = (\d+)/);
+    const installedSize = isizeMatch ? parseInt(isizeMatch[1], 10) : 0;
+
+    return { size, installedSize };
+  } catch {
+    return { size: 0, installedSize: 0 };
+  }
+}
+
+/**
+ * Computes size and installed uncompressed size for an Arch Linux (.pkg.tar.zst) package asset.
+ */
+async function fetchArchPackageSizes(
+  downloadUrl: string,
+  filename: string,
+): Promise<{ size: number; installedSize: number }> {
+  const extracted = await extractArchPkgInfo(downloadUrl);
+  let size = extracted.size;
+  let installedSize = extracted.installedSize;
+
+  if (!size) {
+    size = await fetchHeadPackageSize(downloadUrl, filename).catch(() => 0);
+  }
+
+  if (!installedSize) {
+    installedSize = resolveArchFallbackInstalledSize(filename, size);
+  }
+
+  return { size, installedSize };
+}
+
+/**
+ * Fetches and validates the SHA-256 digest from SHA256SUMS.txt.
+ */
+async function fetchValidatedSha256(repo: string, version: string, filename: string): Promise<string> {
+  const sumsMap = await getShaSums(repo, version);
+  const sha256 = sumsMap.get(filename);
+  if (!sha256 || !/^[a-fA-F0-9]{64}$/.test(sha256) || /^0+$/.test(sha256)) {
+    throw new Error(`Missing or invalid checksum for ${filename}`);
+  }
+  return sha256;
+}
+
+/**
  * Dynamically computes metadata (size, SHA-256 digest, installed size) for a package asset.
  * Fetches SHA256SUMS.txt and HTTP metadata on demand and caches in memory.
  */
@@ -213,70 +320,19 @@ export async function getLinuxPackageMetadata(
         throw new Error(`Package asset not found in release catalog: ${filename}`);
       }
 
-      // 1. Fetch sha256 checksum from SHA256SUMS.txt
-      const sumsMap = await getShaSums(repo, version);
-      const sha256 = sumsMap.get(filename);
-      if (!sha256 || !/^[a-fA-F0-9]{64}$/.test(sha256) || /^0+$/.test(sha256)) {
-        throw new Error(`Missing or invalid checksum for ${filename}`);
-      }
+      const sha256 = await fetchValidatedSha256(repo, version, filename);
 
       let size = 0;
       let installedSize = 0;
 
       if (filename.endsWith(".pkg.tar.zst")) {
-        // Fast 128KB Range request extracts .PKGINFO for standard Arch packages
-        try {
-          const { Decompress } = await import("fzstd");
-          const rangeRes = await fetch(downloadUrl, {
-            headers: { Range: "bytes=0-131071" },
-            signal: AbortSignal.timeout(10_000),
-          });
-          const contentRange = rangeRes.headers.get("content-range");
-          const sizeMatch = contentRange?.match(/\/(\d+)$/);
-          if (sizeMatch) {
-            size = parseInt(sizeMatch[1], 10);
-          }
-
-          const buf = new Uint8Array(await rangeRes.arrayBuffer());
-          const chunks: Buffer[] = [];
-          const d = new Decompress((chunk) => {
-            chunks.push(Buffer.from(chunk));
-          });
-          try {
-            d.push(buf, false);
-          } catch {
-            // Partial stream EOF expected
-          }
-          const text = Buffer.concat(chunks).toString("utf-8");
-          const isizeMatch = text.match(/size = (\d+)/);
-          if (isizeMatch) {
-            installedSize = parseInt(isizeMatch[1], 10);
-          }
-        } catch {
-          // Fall back to HEAD below
-        }
-
-        if (!size) {
-          const headRes = await fetch(downloadUrl, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(10_000) });
-          size = Number(headRes.headers.get("content-length")) || 0;
-        }
-
-        // For packages like designcraft where .PKGINFO is placed after usr/bin, fallback to exact uncompressed size
-        if (!installedSize) {
-          if (filename.includes("designcraft-0.15.2")) {
-            installedSize = filename.includes("aarch64") ? 222699462 : 240682966;
-          } else {
-            installedSize = Math.round(size * 1.95);
-          }
-        }
+        const archSizes = await fetchArchPackageSizes(downloadUrl, filename);
+        size = archSizes.size;
+        installedSize = archSizes.installedSize;
       } else {
-        const headRes = await fetch(downloadUrl, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(10_000) });
-        size = Number(headRes.headers.get("content-length"));
-        if (!headRes.ok || !Number.isSafeInteger(size) || size <= 0) {
-          throw new Error(`Unable to determine package size for ${filename}`);
-        }
-        // Installed size is estimated for all formats; Debian uses KiB, others bytes.
-        installedSize = Math.round(size * 1.95 / (filename.endsWith(".deb") ? 1024 : 1));
+        size = await fetchHeadPackageSize(downloadUrl, filename);
+        const divisor = filename.endsWith(".deb") ? 1024 : 1;
+        installedSize = Math.round(size * 1.95 / divisor);
       }
 
       return { size, sha256, installedSize };
@@ -478,7 +534,7 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
           name: app.slug,
           version: release.version,
           description: `${craftAppName(app)}: ${app.lede || app.pitch}`,
-          section: app.schemaCategory === "BusinessApplication" ? "utils" : (app.slug === "craft-anything" ? "devel" : "graphics"),
+          section: getAppSection(app.schemaCategory, app.slug),
           debAssets,
           rpmAssets,
           archAssets,
