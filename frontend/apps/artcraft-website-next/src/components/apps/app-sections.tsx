@@ -26,10 +26,12 @@ import {
   formatList,
   type CraftApp,
   type CraftDemo,
+  type CraftShot,
+  type CraftShowcase,
 } from "@/lib/crafting-apps";
 import AppCard from "./app-card";
 import { AppPlatformDownloads, DownloadRow } from "./app-downloads";
-import { ColorAccent } from "./app-wordmark";
+import { AppWordmark, ColorAccent } from "./app-wordmark";
 import { LauncherCallout } from "./launcher-callout";
 
 // Body sections of an /apps/<slug> page, in page order. Server components;
@@ -103,52 +105,122 @@ export function AppGallery({ app, index }: { app: CraftApp; index: string }) {
         )}
       >
         {shots.map((shot, i) => (
-          <figure
+          <ShotFigure
             key={shot.file}
-            data-reveal
-            className={twMerge("bg-bg", leadFullWidth && i === 0 && "md:col-span-2")}
-          >
-            <a
-              href={craftShotSourceUrl(app, shot)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={twMerge(
-                "group relative block overflow-hidden bg-bg-sunken",
-                shot.portrait
-                  ? "aspect-[7/9]"
-                  : shot.wide
-                    ? "aspect-video"
-                    : "aspect-[16/10]",
-              )}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={craftShotUrl(app, shot)}
-                alt={shot.alt}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
-              <span className="hud-label absolute right-3 bottom-3 flex items-center gap-1 bg-bg/80 px-2 py-1 text-ink opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                Full size
-                <ArrowUpRightIcon aria-hidden className="h-3 w-3" />
-              </span>
-            </a>
-            <figcaption
-              className={twMerge(
-                "flex items-center justify-between gap-4 border-t border-line py-3",
-                portrait ? "px-4 md:px-6" : "px-6 md:px-10",
-              )}
-            >
-              <span className="hud-label text-muted">{shot.caption}</span>
-              <span className="hud-label text-faint">
-                {String(i + 2).padStart(2, "0")}
-              </span>
-            </figcaption>
-          </figure>
+            app={app}
+            shot={shot}
+            number={i + 2}
+            aspectClass={
+              shot.portrait
+                ? "aspect-[7/9]"
+                : shot.wide
+                  ? "aspect-video"
+                  : "aspect-[16/10]"
+            }
+            compact={portrait}
+            className={twMerge(leadFullWidth && i === 0 && "md:col-span-2")}
+          />
         ))}
       </div>
     </SectionShell>
+  );
+}
+
+// Work made in the app (apps with a `showcase`), after the highlights.
+export function AppShowcase({
+  app,
+  showcase,
+  index,
+}: {
+  app: CraftApp;
+  showcase: CraftShowcase;
+  index: string;
+}) {
+  return (
+    <CampaignSection
+      id="showcase"
+      index={index}
+      label="Showcase"
+      annotation={`Rendered in ${craftAppName(app)}`}
+      title={
+        <>
+          Made in <AppWordmark app={app} />.
+        </>
+      }
+      lede={showcase.lede}
+    >
+      <div
+        data-reveal-group
+        className="grid gap-px border-t border-line bg-line md:grid-cols-3"
+      >
+        {showcase.renders.map((render, i) => (
+          <ShotFigure
+            key={render.file}
+            app={app}
+            shot={render}
+            number={i + 1}
+            aspectClass="aspect-[4/3]"
+            compact
+          />
+        ))}
+      </div>
+    </CampaignSection>
+  );
+}
+
+// One gallery cell; the image opens its full-size original.
+function ShotFigure({
+  app,
+  shot,
+  number,
+  aspectClass,
+  compact,
+  className,
+}: {
+  app: CraftApp;
+  shot: CraftShot;
+  number: number;
+  aspectClass: string;
+  /** Tighter caption padding for three- and four-across grids. */
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <figure data-reveal className={twMerge("bg-bg", className)}>
+      <a
+        href={craftShotSourceUrl(app, shot)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={twMerge(
+          "group relative block overflow-hidden bg-bg-sunken",
+          aspectClass,
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={craftShotUrl(app, shot)}
+          alt={shot.alt}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
+        <span className="hud-label absolute right-3 bottom-3 flex items-center gap-1 bg-bg/80 px-2 py-1 text-ink opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+          Full size
+          <ArrowUpRightIcon aria-hidden className="h-3 w-3" />
+        </span>
+      </a>
+      <figcaption
+        className={twMerge(
+          "flex items-center justify-between gap-4 border-t border-line py-3",
+          compact ? "px-4 md:px-6" : "px-6 md:px-10",
+        )}
+      >
+        <span className="hud-label text-muted">{shot.caption}</span>
+        <span className="hud-label text-faint">
+          {String(number).padStart(2, "0")}
+        </span>
+      </figcaption>
+    </figure>
   );
 }
 

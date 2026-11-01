@@ -43,8 +43,11 @@ export type CraftPlatform = "macOS" | "Windows" | "Linux" | "Web";
 export type CraftShot = {
   /** File under public/images/apps/<slug>/. */
   file: string;
-  /** Full-resolution original in the repo's docs/images/ (press kit). */
-  source: string;
+  /**
+   * Full-resolution original in the repo's docs/images/ (press kit). Omit
+   * when the site's copy is the original.
+   */
+  source?: string;
   caption: string;
   alt: string;
   /** Portrait page (7:9) rather than a 16:10 window capture. */
@@ -68,6 +71,13 @@ export type CraftDemo = {
   alt: string;
 };
 
+/** Work made in the app, in its own section after the highlights. */
+export type CraftShowcase = {
+  lede: string;
+  /** 4:3 renders, three across. */
+  renders: CraftShot[];
+};
+
 export type CraftApp = {
   slug: CraftAppSlug;
   /** Prefix before "Craft" — the wordmark colors "Craft". */
@@ -89,6 +99,7 @@ export type CraftApp = {
   /** First shot is the hero. */
   shots: [CraftShot, ...CraftShot[]];
   demo?: CraftDemo;
+  showcase?: CraftShowcase;
 };
 
 /** One release file, resolved to a URL for a specific app. */
@@ -717,34 +728,56 @@ export const CRAFTING_APPS: CraftApp[] = [
       {
         file: "hero.webp",
         source: "texturecraft-workspace.png",
-        caption: "The workspace — chipped paint, grime and a gold stripe",
-        alt: "The TextureCraft workspace: the material library on the left, the 3D viewport and the 2D UV view of a material ball in chipped red paint with grime and a hand-painted gold stripe, and the texture set list, layer stack and brush properties on the right",
+        caption: "The workspace — a portable TV with wear and crayon doodles",
+        alt: "The TextureCraft workspace: the material library on the left, the 3D viewport and the 2D UV view of a cream 1970s portable TV with orange dials and crayon doodles, and the texture set list, layer stack and fill properties on the right",
       },
       {
         file: "bake.webp",
         source: "texturecraft-bake.png",
         caption: "Mesh map baking on the GPU",
-        alt: "TextureCraft's Bake mode: the texture sets and mesh map bakers on the left, the common bake parameters below them, and the Bake selected textures button under the viewport",
+        alt: "TextureCraft's Bake mode: the TV's texture sets and the mesh map bakers on the left, the common bake parameters below them, and the Bake selected textures button under the viewport",
       },
       {
         file: "export.webp",
         source: "texturecraft-export.png",
         caption: "Export presets and output templates",
-        alt: "TextureCraft's Export textures dialog: texture sets to export, the output directory, an output template, file type, size, padding and normal map format",
+        alt: "TextureCraft's Export textures dialog over the TV project: texture sets to export, the output directory, an output template, file type, size, padding and normal map format",
       },
       {
         file: "rendering.webp",
         source: "texturecraft-rendering.png",
         caption: "Rendering mode, path traced on the GPU",
-        alt: "TextureCraft's Rendering mode: the material ball path traced on the GPU at 256 samples with denoising, the gold stripe catching the studio light, and the render settings in a card over the viewport",
+        alt: "TextureCraft's Rendering mode: the portable TV path traced on the GPU at 256 samples with denoising, and the render settings in a card over the viewport",
       },
       {
         file: "light.webp",
         source: "texturecraft-light.png",
         caption: "Light theme with the blue accent",
-        alt: "TextureCraft in its light theme with the blue accent: the panels as rounded cards on a light background around the dark 3D viewport",
+        alt: "TextureCraft in its light theme with the blue accent: light panels around the dark 3D and UV views of the portable TV",
       },
     ],
+    showcase: {
+      lede: "Original models, painted in layers with masks and generators, baked and path traced in TextureCraft. No outside textures.",
+      renders: [
+        {
+          file: "tv.webp",
+          caption: "1970s portable TV",
+          alt: "A path-traced render of a cream 1970s portable TV with a chrome carry handle, orange dials, scuffed edges and a crayon flower and sun doodled on its side",
+        },
+        {
+          file: "lantern.webp",
+          source: "texturecraft-lantern.png",
+          caption: "Storm lantern",
+          alt: "A path-traced render of a storm lantern: red enamel chipped down to bare steel, a brass burner, a glass globe and a lit flame",
+        },
+        {
+          file: "camera.webp",
+          source: "texturecraft-camera.png",
+          caption: "Rangefinder camera",
+          alt: "A path-traced render of a vintage rangefinder camera: black paint worn through to brass on the edges, brown leatherette and chrome dials",
+        },
+      ],
+    },
   },
   {
     slug: "wordcraft",
@@ -1209,7 +1242,9 @@ export function craftShotUrl(app: CraftApp, shot: CraftShot): string {
 }
 
 export function craftShotSourceUrl(app: CraftApp, shot: CraftShot): string {
-  return `https://raw.githubusercontent.com/storytold/${app.slug}/main/docs/images/${shot.source}`;
+  return shot.source
+    ? `https://raw.githubusercontent.com/storytold/${app.slug}/main/docs/images/${shot.source}`
+    : craftShotUrl(app, shot);
 }
 
 export function craftDemoPosterUrl(app: CraftApp, demo: CraftDemo): string {
