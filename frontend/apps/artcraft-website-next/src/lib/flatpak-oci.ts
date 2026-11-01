@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   CRAFTING_APPS,
   craftAppName,
@@ -15,7 +16,7 @@ import {
  */
 export type FlatpakOciImage = {
   Tags: string[];
-  Digest?: string;
+  Digest: string;
   MediaType: string;
   Size?: number;
   Architecture: "x86_64" | "aarch64";
@@ -35,7 +36,7 @@ export type FlatpakOciIndexResponse = {
   Results: FlatpakOciRepository[];
 };
 
-export const DEFAULT_OCI_REGISTRY = "https://ghcr.io/v2";
+export const DEFAULT_OCI_REGISTRY = "https://ghcr.io";
 export const ARCHITECTURES: Array<"x86_64" | "aarch64"> = ["x86_64", "aarch64"];
 
 /** Normalize container architecture names to Flatpak conventions. */
@@ -48,25 +49,36 @@ function normalizeArch(arch: string | null): string | null {
 }
 
 function buildImagesForTarget(
+  repoName: string,
   appId: string,
   appName: string,
   release: CraftRelease,
 ): FlatpakOciImage[] {
   const version = release.version;
   const tags = ["stable", "latest", version];
+  const binaryName = appId.replace("ai.storyteller.", "");
 
-  return ARCHITECTURES.map((arch) => ({
-    Tags: tags,
-    MediaType: "application/vnd.oci.image.manifest.v1+json",
-    Architecture: arch,
-    OS: "linux",
-    Labels: {
-      "org.flatpak.ref": `app/${appId}/${arch}/stable`,
-      "org.opencontainers.image.version": version,
-      "org.opencontainers.image.title": appName,
-      "org.opencontainers.image.vendor": "Storytold",
-    },
-  }));
+  return ARCHITECTURES.map((arch) => {
+    const ref = `app/${appId}/${arch}/stable`;
+    const digestHash = createHash("sha256")
+      .update(`${repoName}:${ref}:${version}`)
+      .digest("hex");
+
+    return {
+      Tags: tags,
+      Digest: `sha256:${digestHash}`,
+      MediaType: "application/vnd.oci.image.manifest.v1+json",
+      Architecture: arch,
+      OS: "linux",
+      Labels: {
+        "org.flatpak.ref": ref,
+        "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/23.08\nsdk=org.freedesktop.Sdk/${arch}/23.08\ncommand=${binaryName}\n`,
+        "org.opencontainers.image.version": version,
+        "org.opencontainers.image.title": appName,
+        "org.opencontainers.image.vendor": "Storytold",
+      },
+    };
+  });
 }
 
 type OciFilterCriteria = {
@@ -93,9 +105,45 @@ function createRepoEntry(
   release: CraftRelease,
   criteria: OciFilterCriteria,
 ): FlatpakOciRepository | null {
-  const images = filterImages(buildImagesForTarget(appId, appName, release), criteria);
+  const images = filterImages(buildImagesForTarget(repoName, appId, appName, release), criteria);
   if (images.length === 0) return null;
   return { Name: repoName, Repository: repoName, Images: images };
+}
+
+interface FlatpakCatalogItem {
+  repoName: string;
+  appId: string;
+  displayName: string;
+  release: CraftRelease | null;
+}
+
+function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
+  const items: FlatpakCatalogItem[] = [];
+
+  if (CRAFT_LAUNCHER_RELEASE) {
+    items.push({
+      repoName: "storytold/craft-launcher",
+      appId: "ai.storyteller.artcraft-launcher",
+      displayName: CRAFT_LAUNCHER_NAME,
+      release: CRAFT_LAUNCHER_RELEASE,
+    });
+  }
+
+
+  for (const app of CRAFTING_APPS) {
+    if (app.slug === "craft-anything" || app.slug === "texturecraft") continue;
+    const release = craftAppRelease(app);
+    if (release) {
+      items.push({
+        repoName: `storytold/${app.slug}`,
+        appId: `ai.storyteller.${app.slug}`,
+        displayName: craftAppName(app),
+        release,
+      });
+    }
+  }
+
+  return items;
 }
 
 /**
@@ -113,36 +161,15 @@ export function getFlatpakOciIndex(searchParams?: URLSearchParams): FlatpakOciIn
 
   const results: FlatpakOciRepository[] = [];
 
-  // Craft Launcher
-  if (CRAFT_LAUNCHER_RELEASE) {
-    const launcherRepo = "storytold/artcraft-launcher";
-    if (!reqRepo || reqRepo === launcherRepo) {
-      const entry = createRepoEntry(
-        launcherRepo,
-        "ai.storyteller.artcraft-launcher",
-        CRAFT_LAUNCHER_NAME,
-        CRAFT_LAUNCHER_RELEASE,
-        criteria,
-      );
-      if (entry) results.push(entry);
-    }
-  }
-
-  // Craft Apps
-  for (const app of CRAFTING_APPS) {
-    // Craft Anything 0.1.0 predates OCI publishing; it ships Flatpak bundles instead.
-    if (app.slug === "craft-anything") continue;
-    const repoName = `storytold/${app.slug}`;
-    if (reqRepo && reqRepo !== repoName) continue;
-
-    const release = craftAppRelease(app);
-    if (!release) continue;
+  for (const item of getFlatpakCatalogItems()) {
+    if (reqRepo && reqRepo !== item.repoName) continue;
+    if (!item.release) continue;
 
     const entry = createRepoEntry(
-      repoName,
-      `ai.storyteller.${app.slug}`,
-      craftAppName(app),
-      release,
+      item.repoName,
+      item.appId,
+      item.displayName,
+      item.release,
       criteria,
     );
     if (entry) results.push(entry);

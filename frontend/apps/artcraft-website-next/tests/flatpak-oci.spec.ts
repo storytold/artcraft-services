@@ -4,13 +4,14 @@ import { getFlatpakOciIndex } from "../src/lib/flatpak-oci";
 test.describe("Flatpak OCI Registry Index Protocol", () => {
   test("generates valid registry index response", () => {
     const index = getFlatpakOciIndex();
-    expect(index.Registry).toBe("https://ghcr.io/v2");
+    expect(index.Registry).toBe("https://ghcr.io");
     expect(index.Results.length).toBeGreaterThan(0);
 
-    // Verifies ArtCraft Launcher is present
-    const launcher = index.Results.find((r) => r.Repository === "storytold/artcraft-launcher");
+    // Verifies ArtCraft Launcher is present under storytold/craft-launcher repository
+    const launcher = index.Results.find((r) => r.Repository === "storytold/craft-launcher");
     expect(launcher).toBeDefined();
     expect(launcher?.Images).toHaveLength(2); // x86_64 and aarch64
+    expect(launcher?.Images[0].Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.artcraft-launcher/x86_64/stable");
 
     // Verifies PdfCraft is present
     const pdfcraft = index.Results.find((r) => r.Name === "storytold/pdfcraft");
@@ -20,6 +21,12 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "x86_64");
     expect(pdfcraftX86).toBeDefined();
     expect(pdfcraftX86?.Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.pdfcraft/x86_64/stable");
+    expect(pdfcraftX86?.Digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("[Application]");
+    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("ai.storyteller.pdfcraft");
+
+    // Craft Anything has no published OCI image yet.
+    expect(index.Results.find((r) => r.Repository === "storytold/craft-anything")).toBeUndefined();
   });
 
   test("filters by architecture", () => {

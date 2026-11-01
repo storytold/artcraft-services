@@ -191,6 +191,20 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     recommended,
   })),
   {
+    file: "{slug}-{version}-linux-x86_64.pkg.tar.zst",
+    group: "Linux",
+    label: "Arch package (x86_64)",
+    description: "Arch Linux, Manjaro, and derivatives.",
+    arch: "x86_64",
+  },
+  {
+    file: "{slug}-{version}-linux-aarch64.pkg.tar.zst",
+    group: "Linux",
+    label: "Arch package (ARM64)",
+    description: "Arch Linux ARM and derivatives on 64-bit ARM.",
+    arch: "aarch64",
+  },
+  {
     file: "{slug}-web-{version}.zip",
     group: "Other",
     label: "Web build",
@@ -249,7 +263,5 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   deckcraft: craftRelease("0.13.1"),
   cadcraft: craftRelease("0.15.1"),
   gridcraft: craftRelease("0.14.2"),
-  "craft-anything": craftRelease("0.1.0", CRAFT_RELEASE_ASSETS.filter((asset) =>
-    asset.file !== "{slug}-{version}-linux-riscv64.deb" && asset.file !== "{slug}-{version}-linux-riscv64.rpm"
-  )),
+  "craft-anything": craftRelease("0.1.0"),
 };

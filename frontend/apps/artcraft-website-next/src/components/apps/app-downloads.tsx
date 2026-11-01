@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   AppleIcon,
   ArrowDownIcon,
@@ -103,6 +104,14 @@ export function AppPlatformDownloads({
                       </li>
                     ))}
                   </ul>
+                  {platform === "Linux" && (
+                    <Link
+                      href="/linux"
+                      className="hud-label mt-4 inline-flex items-center gap-1.5 text-muted hover:text-ink"
+                    >
+                      Package repositories (Flatpak, APT & RPM) →
+                    </Link>
+                  )}
                 </>
               )}
             </div>
@@ -373,7 +382,21 @@ export function LauncherDownloadButton({
         )}
         {/* Reserved line, so the layout doesn't shift when detection lands. */}
         <span aria-hidden={!shown} className="hud-label min-h-4 text-faint">
-          {shown ? `For ${shown.group} · ${shown.label}` : " "}
+          {shown ? (
+            <>
+              For {shown.group} · {shown.label}
+              {shown.group === "Linux" && (
+                <>
+                  {" · "}
+                  <Link href="/linux" className="underline hover:text-ink">
+                    Repository Setup (Preview)
+                  </Link>
+                </>
+              )}
+            </>
+          ) : (
+            " "
+          )}
         </span>
         <AllLauncherDownloadsLink />
       </div>

@@ -1,0 +1,105 @@
+name: Linux package repository tools
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/apps/artcraft-website-next/**'
+      - '.github/workflows/linux-distro-tools.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/apps/artcraft-website-next/**'
+      - '.github/workflows/linux-distro-tools.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  wait-for-deploy:
+    name: Wait for Netlify deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: read
+    timeout-minutes: 15
+    outputs:
+      preview-url: ${{ steps.wait.outputs.preview_url }}
+    steps:
+      - name: Await Netlify Deploy Preview
+        id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            PREVIEW_URL="https://deploy-preview-${PR_NUMBER}--artcraft-website-next.netlify.app"
+
+            echo "Awaiting Netlify deploy preview for PR #${PR_NUMBER} (commit ${HEAD_SHA}) at ${PREVIEW_URL}..."
+            for i in {1..90}; do
+              STATUS=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/statuses" \
+                --jq '[.[] | select(.context == "netlify/artcraft-website-next/deploy-preview")][0].state' 2>/dev/null || true)
+
+              if [[ "$STATUS" == "failure" || "$STATUS" == "error" ]]; then
+                echo "Error: Netlify deploy preview reported failure!" >&2
+                exit 1
+              fi
+
+              if [[ "$STATUS" == *"success"* ]] && curl -sf -o /dev/null "${PREVIEW_URL}/apt/artcraft.sources" 2>/dev/null; then
+                echo "Netlify preview is live and responsive for ${HEAD_SHA} at ${PREVIEW_URL} (attempt $i)!"
+                echo "Warming up package repository endpoints..."
+                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/apt/dists/stable/Release" 2>/dev/null || true
+                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/rpm/repodata/repomd.xml" 2>/dev/null || true
+                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/arch/x86_64/artcraft.db" 2>/dev/null || true
+                echo "preview_url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              echo "Attempt $i/90: Waiting for Netlify deploy preview (commit status: ${STATUS:-waiting})..."
+              sleep 10
+            done
+
+            echo "Error: Timed out waiting for Netlify preview (${PREVIEW_URL})" >&2
+            exit 1
+          else
+            echo "Push to main branch. Setting local build fallback."
+            echo "preview_url=" >> "$GITHUB_OUTPUT"
+          fi
+
+  test-distro-tools:
+    name: ${{ matrix.name }}
+    needs: wait-for-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Ubuntu 26.04 (APT)"
+            distro: ubuntu
+          - name: "Fedora 45 (DNF)"
+            distro: fedora
+          - name: "openSUSE Tumbleweed (Zypper)"
+            distro: opensuse
+          - name: "Flatpak OCI Remote"
+            distro: flatpak
+          - name: "Arch Linux (Pacman)"
+            distro: arch
+    defaults:
+      run:
+        working-directory: frontend/apps/artcraft-website-next
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Build local Next.js server (if testing without Netlify preview)
+        if: needs.wait-for-deploy.outputs.preview-url == ''
+        run: |
+          ./node_modules/.bin/next typegen
+          npm run build
+      - name: Verify repository via ${{ matrix.name }}
+        run: ./scripts/test-distro-repos.sh ${{ matrix.distro }} "${{ needs.wait-for-deploy.outputs.preview-url }}"

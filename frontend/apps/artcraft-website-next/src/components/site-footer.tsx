@@ -27,6 +27,7 @@ const LINK_COLUMNS: {
   {
     heading: "Resources",
     links: [
+      { name: "Linux Repositories", href: "/linux" },
       { name: "Tutorials", href: "/tutorials" },
       { name: "News", href: "/news" },
       { name: "FAQ", href: "/faq" },
