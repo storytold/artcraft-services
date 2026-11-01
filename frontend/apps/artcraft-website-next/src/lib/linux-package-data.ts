@@ -1,5 +1,5 @@
 /**
- * Cryptographic hashes and byte sizes for published Linux package assets (.deb and .rpm).
+ * Cryptographic hashes and byte sizes for published Linux package assets (.deb, .rpm, and .pkg.tar.zst).
  * Strictly matched against official storytold release assets and SHA256SUMS.txt.
  */
 export type LinuxPackageAssetMeta = {
@@ -428,5 +428,145 @@ export const LINUX_PACKAGE_METADATA: Record<string, LinuxPackageAssetMeta> = {
     size: 110841140,
     sha256: "c85e3da9dd7fb098d0a1724f6ce6c96983ad5cc6c13513d2732787efab4b471b",
     installedSize: 216140223,
+  },
+  "artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst": {
+    size: 9674991,
+    sha256: "73587503489038e92ff58232fd0cda4b1547f02a172da9164cbc6156ff7e2488",
+    installedSize: 27269309,
+  },
+  "artcraft-launcher-0.11.1-linux-x86_64.pkg.tar.zst": {
+    size: 10153348,
+    sha256: "749a815a6f6b39b8bce9561634d79351f1c723fe21db1becf9103d8d578efba3",
+    installedSize: 30684341,
+  },
+  "cadcraft-0.15.1-linux-aarch64.pkg.tar.zst": {
+    size: 52413189,
+    sha256: "c05799b6946dbb7adb95f192dadfd89a58051728324601feac9fe24680ac7f06",
+    installedSize: 138941762,
+  },
+  "cadcraft-0.15.1-linux-x86_64.pkg.tar.zst": {
+    size: 54279352,
+    sha256: "82799c5bf1bbd8c81ad9a404cbc11037f6427758777b49722779239ca8b63029",
+    installedSize: 151955818,
+  },
+  "deckcraft-0.13.1-linux-aarch64.pkg.tar.zst": {
+    size: 75453808,
+    sha256: "20cc1174bf139d0bdb78e11ab888fd77b740065f4f788414a8b6c2080f4e7b21",
+    installedSize: 198928538,
+  },
+  "deckcraft-0.13.1-linux-x86_64.pkg.tar.zst": {
+    size: 77366880,
+    sha256: "684970a9808647261c9f180c1548390d6f60b9a97926d3f07b108799b2e3dc65",
+    installedSize: 210294850,
+  },
+  "designcraft-0.15.2-linux-aarch64.pkg.tar.zst": {
+    size: 116179766,
+    sha256: "0ec149e9dbcd5791bdf0f3ebd5d318e7e12eb9af800e083796b1297cb6a4d8a2",
+    installedSize: 222699462,
+  },
+  "designcraft-0.15.2-linux-x86_64.pkg.tar.zst": {
+    size: 120007985,
+    sha256: "217f40a83065e47f2f361b77c45e2ca0a78d3c305f57144f365550d7754a675b",
+    installedSize: 240682966,
+  },
+  "effectcraft-0.19.0-linux-aarch64.pkg.tar.zst": {
+    size: 50931930,
+    sha256: "62e8cfc33931bd4a0d6c755629fca1795478a0bf919fd641f2ebafd3d0e2fffb",
+    installedSize: 165289975,
+  },
+  "effectcraft-0.19.0-linux-x86_64.pkg.tar.zst": {
+    size: 54128758,
+    sha256: "1a408fa3eaaf5e8daa2aa973ba7cbdd9364951c047b1f1a1291f7aca03b25060",
+    installedSize: 191343719,
+  },
+  "figcraft-0.13.1-linux-aarch64.pkg.tar.zst": {
+    size: 74074303,
+    sha256: "2c34247b4333fb5da683226fff55c550d15c8f2c390d11bb32fe43dd4f6dab05",
+    installedSize: 201213173,
+  },
+  "figcraft-0.13.1-linux-x86_64.pkg.tar.zst": {
+    size: 76562658,
+    sha256: "b1c58a4fb0e81881407f8252336ce2e005a81dcbb5937bb034950d602bd2a768",
+    installedSize: 216533701,
+  },
+  "filmcraft-0.15.0-linux-aarch64.pkg.tar.zst": {
+    size: 82294862,
+    sha256: "01686ba85b3457c916c62ed4f00097b0e4abb2849cfa09d2e616792be8076084",
+    installedSize: 183720236,
+  },
+  "filmcraft-0.15.0-linux-x86_64.pkg.tar.zst": {
+    size: 84148913,
+    sha256: "a8a4eac00c13ef5d93357222f9df67ede65710c6086b911ae672a3a60db492b8",
+    installedSize: 198809372,
+  },
+  "gridcraft-0.14.2-linux-aarch64.pkg.tar.zst": {
+    size: 35878355,
+    sha256: "25e4f0bc4f1c2343aa6a56cf0ac8bf9129decdea92196300c8486afa67c17924",
+    installedSize: 95146647,
+  },
+  "gridcraft-0.14.2-linux-x86_64.pkg.tar.zst": {
+    size: 34676019,
+    sha256: "ba5f5a2726a3b2208113fe7f8a927deeddd18af9ca9250e23acafe1f06939bf7",
+    installedSize: 101693079,
+  },
+  "lightcraft-0.16.0-linux-aarch64.pkg.tar.zst": {
+    size: 88893201,
+    sha256: "ce15a9c363077646d8bad3b9571ad8a67e6a7a747986ff338861fc034da5d742",
+    installedSize: 220349168,
+  },
+  "lightcraft-0.16.0-linux-x86_64.pkg.tar.zst": {
+    size: 92297878,
+    sha256: "c07c4e48668f21e2f5727bdf1e204ad5fdda8dcda03a3f92fd8f9f4af90d0bd2",
+    installedSize: 242435024,
+  },
+  "pdfcraft-0.16.1-linux-aarch64.pkg.tar.zst": {
+    size: 84101213,
+    sha256: "a2e09d1fb7c10093d7480a12b09592c26fba061ddaeaee193abf0507d3960091",
+    installedSize: 201732541,
+  },
+  "pdfcraft-0.16.1-linux-x86_64.pkg.tar.zst": {
+    size: 86612887,
+    sha256: "66fda9a046b483cf0dbfbae8346c1d5acce1aabf9aeac720d7aabd21fda76879",
+    installedSize: 218674077,
+  },
+  "photocraft-0.18.0-linux-aarch64.pkg.tar.zst": {
+    size: 96984615,
+    sha256: "ad79e07063f70f84aeebaef11879291c5b59f286b6514b14be05ea7cb345fad7",
+    installedSize: 212570126,
+  },
+  "photocraft-0.18.0-linux-x86_64.pkg.tar.zst": {
+    size: 100260814,
+    sha256: "4f5ac055c5352dd678673463eae0217d4a1c39bd76fcf0fe6ad8ab8ffa2f664a",
+    installedSize: 234705382,
+  },
+  "soundcraft-0.15.0-linux-aarch64.pkg.tar.zst": {
+    size: 12057562,
+    sha256: "ca6fdaf2a96ec4bcf681fa842f0cbede9b319eb011928dc205fa4539a6a16f19",
+    installedSize: 43628667,
+  },
+  "soundcraft-0.15.0-linux-x86_64.pkg.tar.zst": {
+    size: 13111599,
+    sha256: "e2b88503bc90f28b260c6497ff872449b216d858caad9b8317cd14196636b8c6",
+    installedSize: 49807820,
+  },
+  "vectorcraft-0.19.0-linux-aarch64.pkg.tar.zst": {
+    size: 99412945,
+    sha256: "9c96ba564fe9ccc0a768c4c6609e29f1377ddd56dc60788126b90312bafc378d",
+    installedSize: 248885906,
+  },
+  "vectorcraft-0.19.0-linux-x86_64.pkg.tar.zst": {
+    size: 103250726,
+    sha256: "bf0c2098c3cacec5e8dfdf162f3923c64f982aa09bb1e0617b89661f8e39d598",
+    installedSize: 273029330,
+  },
+  "wordcraft-0.13.2-linux-aarch64.pkg.tar.zst": {
+    size: 82644991,
+    sha256: "fe250f94feb4294ab46d99d5f0ec5fcab948b10470fd36bf6ff30913bf0509d7",
+    installedSize: 197307172,
+  },
+  "wordcraft-0.13.2-linux-x86_64.pkg.tar.zst": {
+    size: 84034875,
+    sha256: "b201a3ff98313e481b2fee6b27352a32165d93f04d5291f1088cfa4edba96d5f",
+    installedSize: 210739020,
   },
 };

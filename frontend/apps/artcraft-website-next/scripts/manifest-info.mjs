@@ -78,9 +78,23 @@ switch (mode) {
     break;
   }
 
+  case "pacman-checksums": {
+    const lines = LINUX_REPO_APPS.flatMap((app) =>
+      app.archAssets.map((asset) => `${asset.sha256}  ${asset.filename}`)
+    );
+    console.log(lines.join("\n"));
+    break;
+  }
+
+  case "pacman-install-packages": {
+    const names = Array.from(new Set(LINUX_REPO_APPS.map((app) => app.name)));
+    console.log(names.join(" "));
+    break;
+  }
+
   default: {
     console.error(`Unknown mode: ${mode}`);
-    console.error("Supported modes: apt-packages, apt-install-packages, apt-checksums, dnf-packages, dnf-install-packages, rpm-checksums, zypper-packages <arch>, zypper-install-packages, flatpak-apps");
+    console.error("Supported modes: apt-packages, apt-install-packages, apt-checksums, dnf-packages, dnf-install-packages, rpm-checksums, zypper-packages <arch>, zypper-install-packages, flatpak-apps, pacman-checksums, pacman-install-packages");
     process.exit(1);
   }
 }

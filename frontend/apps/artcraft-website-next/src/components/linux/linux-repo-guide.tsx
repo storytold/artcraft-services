@@ -19,6 +19,7 @@ const REPO_TABS: TabItem[] = [
   { id: "apt", label: "Ubuntu / Debian" },
   { id: "dnf", label: "Fedora / RHEL" },
   { id: "zypper", label: "openSUSE" },
+  { id: "pacman", label: "Arch Linux" },
 ];
 
 type DistroConfig = {
@@ -113,6 +114,32 @@ sudo zypper refresh
 sudo zypper install artcraft-launcher pdfcraft`,
     rawFiles: [
       { name: "artcraft.repo", href: "/rpm/artcraft.repo", description: "RPM repository configuration" },
+    ],
+  },
+  pacman: {
+    id: "pacman",
+    name: "Pacman (Arch Linux & Derivatives)",
+    distros: "Arch Linux, Manjaro, EndeavourOS, CachyOS, Asahi Linux",
+    architectures: STANDARD_ARCHITECTURES.slice(0, 2),
+    setupDescription: "Add the ArtCraft repository to /etc/pacman.conf:",
+    setupCommand: `# Add the ArtCraft repository to /etc/pacman.conf
+sudo tee -a /etc/pacman.conf << 'EOF'
+
+[artcraft]
+SigLevel = Optional TrustAll
+Server = https://getartcraft.com/arch/$arch
+EOF
+
+# Synchronize repositories and install apps
+sudo pacman -Sy
+sudo pacman -S artcraft-launcher pdfcraft`,
+    altSetupDescription: "Or drop a custom configuration into /etc/pacman.d:",
+    altSetupCommand: `# If /etc/pacman.conf includes 'Include = /etc/pacman.d/*.conf':
+sudo curl -fsSL https://getartcraft.com/arch/artcraft.conf -o /etc/pacman.d/artcraft.conf
+sudo pacman -Sy artcraft-launcher`,
+    rawFiles: [
+      { name: "artcraft.conf", href: "/arch/artcraft.conf", description: "Pacman repository configuration" },
+      { name: "artcraft.db", href: "/arch/x86_64/artcraft.db", description: "Sync repository database (x86_64)" },
     ],
   },
 };

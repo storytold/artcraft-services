@@ -79,6 +79,8 @@ jobs:
             distro: opensuse
           - name: "Flatpak OCI Remote"
             distro: flatpak
+          - name: "Arch Linux (Pacman)"
+            distro: arch
     defaults:
       run:
         working-directory: frontend/apps/artcraft-website-next

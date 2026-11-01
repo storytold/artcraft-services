@@ -16,6 +16,7 @@ BANNER_SEP="=================================================="
 UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:26.04}"
 FEDORA_IMAGE="${FEDORA_IMAGE:-fedora:45}"
 OPENSUSE_IMAGE="${OPENSUSE_IMAGE:-opensuse/tumbleweed:latest}"
+ARCH_IMAGE="${ARCH_IMAGE:-archlinux:latest}"
 
 if [[ -d "/home/linuxbrew/.linuxbrew/bin" ]]; then
   export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
@@ -385,6 +386,67 @@ test_flatpak() {
   fi
 }
 
+test_arch() {
+  echo ""
+  echo "$BANNER_SEP"
+  echo ">>> Testing Arch Linux (Pacman) with $ARCH_IMAGE against $BASE_URL"
+  echo "$BANNER_SEP"
+
+  local pacman_install_pkgs
+  pacman_install_pkgs="$(manifest_info pacman-install-packages)"
+  manifest_info pacman-checksums > /tmp/expected-pacman.sha256
+
+  local podman_flags=""
+  if [[ "$CONTAINER_TOOL" == "podman" ]]; then
+    podman_flags="--tmpfs /var/lib/pacman:exec --tmpfs /var/cache/pacman/pkg:exec"
+  fi
+
+  $CONTAINER_TOOL run --rm --network host $podman_flags \
+    -v /tmp/expected-pacman.sha256:/tmp/expected.sha256:ro \
+    "$ARCH_IMAGE" bash -c '
+    set -euo pipefail
+    cat /etc/os-release | grep PRETTY_NAME || true
+
+    echo "--- Configuring ArtCraft repository in pacman.conf ---"
+    tee -a /etc/pacman.conf << EOF
+
+[artcraft]
+SigLevel = Optional TrustAll
+Server = '"$BASE_URL"'/arch/\$arch
+EOF
+
+    echo "--- Synchronizing pacman repository ---"
+    pacman -Sy
+
+    echo "--- Downloading packages to verify against manifest checksums ---"
+    mkdir -p /tmp/all_pkgs && cd /tmp/all_pkgs
+    for file in $(awk "{print \$2}" /tmp/expected.sha256 | grep "x86_64"); do
+      echo "Fetching $file..."
+      curl -fsSL "'"$BASE_URL"'/arch/x86_64/$file" -o "$file"
+    done
+    for file in $(awk "{print \$2}" /tmp/expected.sha256 | grep "aarch64"); do
+      echo "Fetching $file..."
+      curl -fsSL "'"$BASE_URL"'/arch/aarch64/$file" -o "$file"
+    done
+
+    echo "--- Verifying SHA-256 integrity digests against manifest ---"
+    sha256sum -c /tmp/expected.sha256
+
+    echo "--- Testing real installation of native packages via pacman ---"
+    pacman -S --noconfirm '"$pacman_install_pkgs"'
+
+    for pkg in '"$pacman_install_pkgs"'; do
+      if [[ ! -x "/usr/bin/$pkg" ]]; then
+        echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2
+        exit 1
+      fi
+      echo "  ✓ /usr/bin/$pkg verified executable"
+    done
+
+    echo "=== Arch Linux (Pacman) verification and installation passed! ==="
+  '
+}
+
 case "$TARGET" in
   ubuntu)
     test_ubuntu
@@ -398,14 +460,18 @@ case "$TARGET" in
   flatpak)
     test_flatpak
     ;;
+  arch)
+    test_arch
+    ;;
   all)
     test_ubuntu
     test_fedora
     test_opensuse
     test_flatpak
+    test_arch
     ;;
   *)
-    echo "Unknown target: $TARGET (expected: ubuntu, fedora, opensuse, flatpak, all)" >&2
+    echo "Unknown target: $TARGET (expected: ubuntu, fedora, opensuse, flatpak, arch, all)" >&2
     exit 1
     ;;
 esac

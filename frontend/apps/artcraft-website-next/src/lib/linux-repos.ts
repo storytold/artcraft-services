@@ -15,12 +15,14 @@ import {
 import { LINUX_PACKAGE_METADATA } from "./linux-package-data";
 
 export const RPM_REPO_TIMESTAMP = 1730000000;
+export const PACMAN_REPO_TIMESTAMP = 1730000000;
 export const APT_REPO_DATE = new Date("2026-10-31T17:30:00Z");
 
 export const VALID_APT_DISTRIBUTIONS = new Set(["stable"]);
 export const VALID_APT_COMPONENTS = new Set(["main"]);
 export const VALID_APT_ARCHES = new Set(["amd64", "arm64", "riscv64"]);
 export const VALID_RPM_ARCHES = new Set(["x86_64", "aarch64", "riscv64", "noarch"]);
+export const VALID_PACMAN_ARCHES = new Set(["x86_64", "aarch64"]);
 
 export type RpmRequire = {
   name: string;
@@ -51,6 +53,13 @@ export type LinuxRepoApp = {
     size: number;
     sha256: string;
     requires: RpmRequire[];
+    installedSize: number;
+  }[];
+  archAssets: {
+    arch: "x86_64" | "aarch64";
+    filename: string;
+    size: number;
+    sha256: string;
     installedSize: number;
   }[];
 };
@@ -158,6 +167,29 @@ function buildRpmAssets(
   });
 }
 
+function buildArchAssets(
+  name: string,
+  version: string,
+): LinuxRepoApp["archAssets"] {
+  const arches: Array<"x86_64" | "aarch64"> = ["x86_64", "aarch64"];
+
+  return arches.map((arch) => {
+    const filename = `${name}-${version}-linux-${arch}.pkg.tar.zst`;
+    const meta = LINUX_PACKAGE_METADATA[filename] ?? {
+      size: 100_000_000,
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+      installedSize: 200_000_000,
+    };
+    return {
+      arch,
+      filename,
+      size: meta.size,
+      sha256: meta.sha256,
+      installedSize: meta.installedSize,
+    };
+  });
+}
+
 /**
  * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
  * No hardcoded list of apps is maintained here.
@@ -175,6 +207,7 @@ export function getLinuxRepoApps(): LinuxRepoApp[] {
       section: "utils",
       debAssets: buildDebAssets("artcraft-launcher", CRAFT_LAUNCHER_RELEASE.version),
       rpmAssets: buildRpmAssets("artcraft-launcher", CRAFT_LAUNCHER_RELEASE.version),
+      archAssets: buildArchAssets("artcraft-launcher", CRAFT_LAUNCHER_RELEASE.version),
     });
   }
 
@@ -191,6 +224,7 @@ export function getLinuxRepoApps(): LinuxRepoApp[] {
       section: app.schemaCategory === "BusinessApplication" ? "utils" : "graphics",
       debAssets: buildDebAssets(app.slug, release.version),
       rpmAssets: buildRpmAssets(app.slug, release.version),
+      archAssets: buildArchAssets(app.slug, release.version),
     });
   }
 
@@ -475,5 +509,175 @@ baseurl=${baseUrl}/rpm
 enabled=1
 gpgcheck=0
 repo_gpgcheck=0
+`;
+}
+
+export function createTarHeader(
+  name: string,
+  size: number,
+  type: "0" | "5" = "0",
+  mtime: number = PACMAN_REPO_TIMESTAMP,
+): Buffer {
+  const buf = Buffer.alloc(512);
+  buf.write(name, 0, 100, "utf-8");
+  buf.write(type === "5" ? "0000755\0" : "0000644\0", 100, 8, "utf-8");
+  buf.write("0000000\0", 108, 8, "utf-8");
+  buf.write("0000000\0", 116, 8, "utf-8");
+  const sizeOctal = (type === "5" ? 0 : size).toString(8).padStart(11, "0") + "\0";
+  buf.write(sizeOctal, 124, 12, "utf-8");
+  const mtimeOctal = mtime.toString(8).padStart(11, "0") + "\0";
+  buf.write(mtimeOctal, 136, 12, "utf-8");
+  buf.fill(0x20, 148, 156);
+  buf.write(type, 156, 1, "utf-8");
+  buf.write("ustar\0", 257, 6, "utf-8");
+  buf.write("00", 263, 2, "utf-8");
+  buf.write("root", 265, 32, "utf-8");
+  buf.write("root", 297, 32, "utf-8");
+
+  let chksum = 0;
+  for (let i = 0; i < 512; i++) {
+    chksum += buf[i];
+  }
+  const chksumStr = chksum.toString(8).padStart(6, "0") + "\0 ";
+  buf.write(chksumStr, 148, 8, "utf-8");
+  return buf;
+}
+
+export function buildTar(
+  entries: Array<{ name: string; type: "file" | "dir"; content?: string; mtime?: number }>,
+): Buffer {
+  const blocks: Buffer[] = [];
+  for (const entry of entries) {
+    const isDir = entry.type === "dir";
+    const contentBuf = isDir || !entry.content ? Buffer.alloc(0) : Buffer.from(entry.content, "utf-8");
+    const header = createTarHeader(entry.name, contentBuf.length, isDir ? "5" : "0", entry.mtime ?? PACMAN_REPO_TIMESTAMP);
+    blocks.push(header);
+    if (!isDir && contentBuf.length > 0) {
+      blocks.push(contentBuf);
+      const remainder = contentBuf.length % 512;
+      if (remainder !== 0) {
+        blocks.push(Buffer.alloc(512 - remainder));
+      }
+    }
+  }
+  blocks.push(Buffer.alloc(1024));
+  return Buffer.concat(blocks);
+}
+
+export function generatePacmanDesc(
+  app: LinuxRepoApp,
+  asset: LinuxRepoApp["archAssets"][number],
+  timestamp: number = PACMAN_REPO_TIMESTAMP,
+): string {
+  const pkgname = `ai.storyteller.${app.name}`;
+  const provides = app.name === "designcraft" ? "designcraft" : `${app.name}=${app.version}-1`;
+  const optdepends = app.name === "designcraft"
+    ? ""
+    : `%OPTDEPENDS%
+alsa-lib: sound support
+pipewire-alsa: audio playback and recording via PipeWire
+pulseaudio: audio playback and recording via PulseAudio
+wayland: native Wayland display support
+libx11: X11 and XWayland display support
+libxcursor: X11 cursor handling
+libxi: X11 input handling
+libxrandr: X11 display resolution handling
+libglvnd: GPU rendering through EGL
+mesa: GPU rendering through EGL
+vulkan-driver: GPU rendering through Vulkan
+xdg-desktop-portal: native desktop integration and file dialogs
+cups: printing support
+`;
+
+  return `%FILENAME%
+${asset.filename}
+
+%NAME%
+${pkgname}
+
+%BASE%
+${pkgname}
+
+%VERSION%
+${app.version}-1
+
+%DESC%
+${app.description}
+
+%CSIZE%
+${asset.size}
+
+%ISIZE%
+${asset.installedSize}
+
+%SHA256SUM%
+${asset.sha256}
+
+%URL%
+https://getartcraft.com/apps/${app.slug}
+
+%LICENSE%
+MIT OR Apache-2.0
+
+%ARCH%
+${asset.arch}
+
+%BUILDDATE%
+${timestamp}
+
+%PACKAGER%
+ArtCraft Maintainers <hello@storyteller.ai>
+
+%CONFLICTS%
+${app.name}
+${app.name}-bin
+${app.name}-git
+
+%PROVIDES%
+${provides}
+
+%DEPENDS%
+glibc
+gcc-libs
+hicolor-icon-theme
+libxkbcommon
+vulkan-icd-loader
+
+${optdepends}`.trimEnd() + "\n";
+}
+
+export function generatePacmanDb(
+  arch: string,
+  timestamp: number = PACMAN_REPO_TIMESTAMP,
+): Buffer {
+  const entries: Array<{ name: string; type: "file" | "dir"; content?: string; mtime?: number }> = [];
+  const apps = getLinuxRepoApps();
+
+  for (const app of apps) {
+    const asset = app.archAssets.find((a) => a.arch === arch);
+    if (!asset) continue;
+
+    const dirName = `ai.storyteller.${app.name}-${app.version}-1`;
+    entries.push({
+      name: `${dirName}/`,
+      type: "dir",
+      mtime: timestamp,
+    });
+    entries.push({
+      name: `${dirName}/desc`,
+      type: "file",
+      content: generatePacmanDesc(app, asset, timestamp),
+      mtime: timestamp,
+    });
+  }
+
+  const tarBuffer = buildTar(entries);
+  return gzipSync(tarBuffer);
+}
+
+export function generatePacmanRepoConfig(baseUrl: string): string {
+  return `[artcraft]
+SigLevel = Optional TrustAll
+Server = ${baseUrl}/arch/$arch
 `;
 }

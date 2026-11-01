@@ -7,6 +7,8 @@ import {
   generateRpmPrimaryXml,
   generateRpmRepomdXml,
   generateRpmRepoConfig,
+  generatePacmanDb,
+  generatePacmanRepoConfig,
   getRpmPrimaryXml,
   getRpmPrimaryGz,
   getRpmRepomdXml,
@@ -17,12 +19,13 @@ import {
   VALID_APT_COMPONENTS,
   VALID_APT_ARCHES,
   VALID_RPM_ARCHES,
+  VALID_PACMAN_ARCHES,
   escapeXml,
   getRequestBaseUrl,
 } from "../src/lib/linux-repos";
 import { createHash } from "node:crypto";
 
-test.describe("Linux Package Repositories (APT & RPM)", () => {
+test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
   test("resolves release download URLs only for catalogued package assets", () => {
     const debUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.deb");
     expect(debUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.deb");
@@ -32,6 +35,12 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
 
     const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-riscv64.deb");
     expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-riscv64.deb");
+
+    const archUrl = resolvePackageDownloadUrl("pdfcraft-0.16.1-linux-x86_64.pkg.tar.zst");
+    expect(archUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.16.1/pdfcraft-0.16.1-linux-x86_64.pkg.tar.zst");
+
+    const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
+    expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.11.1/artcraft-launcher-0.11.1-linux-aarch64.pkg.tar.zst");
 
     // Uncatalogued versions or files must return null so route returns 404
     expect(resolvePackageDownloadUrl("pdfcraft-9.9.9-linux-x86_64.deb")).toBeNull();
@@ -136,6 +145,9 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(VALID_RPM_ARCHES.has("aarch64")).toBe(true);
     expect(VALID_RPM_ARCHES.has("riscv64")).toBe(true);
     expect(VALID_RPM_ARCHES.has("mips")).toBe(false);
+    expect(VALID_PACMAN_ARCHES.has("x86_64")).toBe(true);
+    expect(VALID_PACMAN_ARCHES.has("aarch64")).toBe(true);
+    expect(VALID_PACMAN_ARCHES.has("riscv64")).toBe(false);
   });
 
   test("escapes XML entities safely", () => {
@@ -168,11 +180,26 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.debAssets).toHaveLength(3);
     expect(pdfcraft?.rpmAssets).toHaveLength(3);
+    expect(pdfcraft?.archAssets).toHaveLength(2);
 
     const launcher = LINUX_REPO_APPS.find((app) => app.slug === "artcraft-launcher");
     expect(launcher).toBeDefined();
     expect(launcher?.debAssets).toHaveLength(3);
     expect(launcher?.rpmAssets).toHaveLength(3);
+    expect(launcher?.archAssets).toHaveLength(2);
+  });
+
+  test("generates valid pacman sync database and repo config", () => {
+    const repoConfig = generatePacmanRepoConfig("https://getartcraft.com");
+    expect(repoConfig).toContain("[artcraft]");
+    expect(repoConfig).toContain("Server = https://getartcraft.com/arch/$arch");
+    expect(repoConfig).toContain("SigLevel = Optional TrustAll");
+
+    const x86Db = generatePacmanDb("x86_64");
+    expect(x86Db.length).toBeGreaterThan(100);
+
+    const armDb = generatePacmanDb("aarch64");
+    expect(armDb.length).toBeGreaterThan(100);
   });
 
   test("verifies download URLs and digests for all manifest package assets", () => {
@@ -194,6 +221,15 @@ test.describe("Linux Package Repositories (APT & RPM)", () => {
         expect(url).not.toBeNull();
         expect(url).toContain(app.version);
         expect(url).toContain(rpm.filename);
+      }
+      for (const arch of app.archAssets) {
+        expect(arch.size).toBeGreaterThan(5_000_000);
+        expect(arch.sha256).toMatch(/^[0-9a-f]{64}$/);
+        expect(arch.filename).toMatch(/\.pkg\.tar\.zst$/);
+        const url = resolvePackageDownloadUrl(arch.filename);
+        expect(url).not.toBeNull();
+        expect(url).toContain(app.version);
+        expect(url).toContain(arch.filename);
       }
     }
   });

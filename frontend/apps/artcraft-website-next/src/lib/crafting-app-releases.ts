@@ -191,6 +191,20 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     recommended,
   })),
   {
+    file: "{slug}-{version}-linux-x86_64.pkg.tar.zst",
+    group: "Linux",
+    label: "Arch package (x86_64)",
+    description: "Arch Linux, Manjaro, and derivatives.",
+    arch: "x86_64",
+  },
+  {
+    file: "{slug}-{version}-linux-aarch64.pkg.tar.zst",
+    group: "Linux",
+    label: "Arch package (ARM64)",
+    description: "Arch Linux ARM and derivatives on 64-bit ARM.",
+    arch: "aarch64",
+  },
+  {
     file: "{slug}-web-{version}.zip",
     group: "Other",
     label: "Web build",
