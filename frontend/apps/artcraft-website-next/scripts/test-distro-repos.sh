@@ -98,10 +98,11 @@ class P(http.server.BaseHTTPRequestHandler):
         else:
             conn = http.client.HTTPConnection(host)
         headers = {
-            "Host": f"127.0.0.1:{port}",
-            "x-forwarded-host": f"127.0.0.1:{port}",
+            "Host": host,
             "User-Agent": self.headers.get("User-Agent", "artcraft-proxy")
         }
+        if not is_ssl and ("127.0.0.1" in host or "localhost" in host):
+            headers["x-forwarded-host"] = f"127.0.0.1:{port}"
         for h in ("Accept", "Accept-Encoding"):
             if h in self.headers:
                 headers[h] = self.headers[h]
