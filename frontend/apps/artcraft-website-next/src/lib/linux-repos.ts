@@ -403,6 +403,8 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
 
     // Crafting Apps
     for (const app of CRAFTING_APPS) {
+      // Craft Anything is handled above with its available package architectures.
+      if (app.slug === "craft-anything") continue;
       const release = craftAppRelease(app);
       if (!release) continue;
 
