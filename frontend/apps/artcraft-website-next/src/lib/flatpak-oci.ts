@@ -1,10 +1,8 @@
 import { createHash } from "node:crypto";
 import {
   CRAFTING_APPS,
-  craftAppName,
   craftAppRelease,
 } from "./crafting-apps";
-import { CRAFT_LAUNCHER_NAME } from "./craft-launcher";
 import {
   CRAFT_LAUNCHER_RELEASE,
   type CraftRelease,
@@ -19,7 +17,8 @@ export type FlatpakOciImage = {
   Digest: string;
   MediaType: string;
   Size?: number;
-  Architecture: "x86_64" | "aarch64";
+  /** GOARCH value, per the registry index spec. Flatpak matches these against `amd64`/`arm64`. */
+  Architecture: "amd64" | "arm64";
   OS: "linux";
   Labels: Record<string, string>;
   Annotations?: Record<string, string>;
@@ -46,29 +45,33 @@ const MANIFEST_ACCEPT = [
   "application/vnd.docker.distribution.manifest.list.v2+json",
 ].join(", ");
 
-const digestCache = new Map<string, { digest: string; expiresAt: number }>();
-const digestRequests = new Map<string, Promise<string>>();
+/** What the index publishes for one registry image: its manifest digest and config labels. */
+type ResolvedImage = { digest: string; labels: Record<string, string> };
+
+const imageCache = new Map<string, { image: ResolvedImage; expiresAt: number }>();
+const imageRequests = new Map<string, Promise<ResolvedImage>>();
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 const tokenRequests = new Map<string, Promise<string>>();
-const DIGEST_CACHE_MS = 5 * 60 * 1000;
+const IMAGE_CACHE_MS = 5 * 60 * 1000;
+const MANIFEST_MAX_BYTES = 2 * 1024 * 1024;
+// Image configs carry the AppStream data and base64 icons, so allow more than a manifest.
+const CONFIG_MAX_BYTES = 8 * 1024 * 1024;
 const TOKEN_CACHE_MS = 5 * 60 * 1000;
 
-/** Normalize container architecture names to Flatpak conventions. */
+/** Flatpak architecture names to the GOARCH names the registry index protocol uses. */
+const OCI_ARCHITECTURES = { x86_64: "amd64", aarch64: "arm64" } as const;
+
+/** Normalize architecture names to the GOARCH values used in index responses. */
 function normalizeArch(arch: string | null): string | null {
   if (!arch) return null;
   const lower = arch.toLowerCase();
-  if (lower === "amd64" || lower === "x86_64" || lower === "x64") return "x86_64";
-  if (lower === "arm64" || lower === "aarch64") return "aarch64";
+  if (lower === "amd64" || lower === "x86_64" || lower === "x64") return "amd64";
+  if (lower === "arm64" || lower === "aarch64") return "arm64";
   return lower;
 }
 
-function buildImagesForTarget(
-  appId: string,
-  appName: string,
-  release: CraftRelease,
-): FlatpakOciImage[] {
+function buildImagesForTarget(appId: string, release: CraftRelease): FlatpakOciImage[] {
   const version = release.version;
-  const binaryName = appId.replace("ai.storyteller.", "");
 
   return ARCHITECTURES.map((arch) => {
     const ref = `app/${appId}/${arch}/stable`;
@@ -77,19 +80,14 @@ function buildImagesForTarget(
 
     return {
       // flatpak-oci.sh publishes a version-architecture tag and stable-architecture tag.
-      // These names must match the actual registry tags, and Digest is filled from GHCR below.
+      // These names must match the actual registry tags. Digest and Labels are filled from GHCR
+      // below; the ref label here only selects images before the registry is queried.
       Tags: [versionTag, stableTag],
       Digest: "",
       MediaType: "application/vnd.oci.image.manifest.v1+json",
-      Architecture: arch,
+      Architecture: OCI_ARCHITECTURES[arch],
       OS: "linux",
-      Labels: {
-        "org.flatpak.ref": ref,
-        "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/23.08\nsdk=org.freedesktop.Sdk/${arch}/23.08\ncommand=${binaryName}\n`,
-        "org.opencontainers.image.version": version,
-        "org.opencontainers.image.title": appName,
-        "org.opencontainers.image.vendor": "Storytold",
-      },
+      Labels: { "org.flatpak.ref": ref },
     };
   });
 }
@@ -104,28 +102,30 @@ function registryUrl(): URL {
 }
 
 /**
- * Resolve a real OCI manifest digest from the target registry. Never synthesize a digest: Flatpak
- * asks the registry for this exact content-addressed manifest before it can install the app.
+ * Resolve an image's manifest digest and config labels from the target registry. Never synthesize
+ * either: Flatpak asks the registry for this exact content-addressed manifest, and resolves the
+ * runtime, metadata and AppStream catalog from the labels. `flatpak build-bundle --oci` writes
+ * those labels into the image config, so the index repeats them as published.
  *
  * GHCR packages must be public for end-user Flatpak installs. FLATPAK_OCI_READ_TOKEN and the
  * optional FLATPAK_OCI_READ_USERNAME are server-side fallbacks for
  * resolving the index while package visibility is being configured; they do not grant visitors
  * access to private images.
  */
-async function fetchManifestDigest(repoName: string, tag: string): Promise<string> {
+async function fetchImage(repoName: string, tag: string, ref: string): Promise<ResolvedImage> {
   const registry = registryUrl();
   const key = `${registry.origin}/${repoName}:${tag}`;
-  const cached = digestCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.digest;
-  const existingRequest = digestRequests.get(key);
+  const cached = imageCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.image;
+  const existingRequest = imageRequests.get(key);
   if (existingRequest) return existingRequest;
 
-  const request = resolveManifestDigest(repoName, tag, registry, key);
-  digestRequests.set(key, request);
+  const request = resolveImage(repoName, tag, ref, registry, key);
+  imageRequests.set(key, request);
   try {
     return await request;
   } finally {
-    digestRequests.delete(key);
+    imageRequests.delete(key);
   }
 }
 
@@ -192,15 +192,33 @@ async function getRegistryPullToken(registry: URL, repoName: string, tag: string
   }
 }
 
-async function resolveManifestDigest(repoName: string, tag: string, registry: URL, key: string): Promise<string> {
+function sha256Digest(body: ArrayBuffer): string {
+  return `sha256:${createHash("sha256").update(Buffer.from(body)).digest("hex")}`;
+}
+
+async function readLimited(response: Response, limit: number, what: string): Promise<ArrayBuffer> {
+  const body = await response.arrayBuffer();
+  if (body.byteLength > limit) {
+    throw new Error(`${what} exceeded the ${limit / (1024 * 1024)} MiB safety limit`);
+  }
+  return body;
+}
+
+async function resolveImage(
+  repoName: string,
+  tag: string,
+  ref: string,
+  registry: URL,
+  key: string,
+): Promise<ResolvedImage> {
   const token = await getRegistryPullToken(registry, repoName, tag);
+  const headers = { Authorization: `Bearer ${token}` };
 
   const manifestUrl = new URL(`/v2/${repoName}/manifests/${encodeURIComponent(tag)}`, registry);
   let manifestResponse: Response;
   try {
     manifestResponse = await fetch(manifestUrl, {
-      method: "HEAD",
-      headers: { Accept: MANIFEST_ACCEPT, Authorization: `Bearer ${token}` },
+      headers: { ...headers, Accept: MANIFEST_ACCEPT },
       cache: "no-store",
     });
   } catch (error) {
@@ -215,30 +233,47 @@ async function resolveManifestDigest(repoName: string, tag: string, registry: UR
         `(HTTP ${manifestResponse.status}). ${message}`,
     );
   }
-
-  let digest = manifestResponse.headers.get("docker-content-digest");
-  if (!digest && manifestResponse.status === 200) {
-    // Some registries omit Docker-Content-Digest on HEAD. Fetch the small manifest document and
-    // calculate its OCI content digest from the exact response bytes.
-    const getResponse = await fetch(manifestUrl, {
-      headers: { Accept: MANIFEST_ACCEPT, Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (!getResponse.ok) {
-      throw new Error(`Could not read OCI manifest ${repoName}:${tag} (HTTP ${getResponse.status})`);
-    }
-    const body = await getResponse.arrayBuffer();
-    if (body.byteLength > 2 * 1024 * 1024) {
-      throw new Error(`OCI manifest ${repoName}:${tag} exceeded the 2 MiB safety limit`);
-    }
-    digest = `sha256:${createHash("sha256").update(Buffer.from(body)).digest("hex")}`;
-  }
-  if (!digest || !/^sha256:[a-f0-9]{64}$/.test(digest)) {
-    throw new Error(`Registry returned an invalid manifest digest for ${repoName}:${tag}`);
+  // The digest of the exact response bytes is the manifest's content address.
+  const manifestBody = await readLimited(manifestResponse, MANIFEST_MAX_BYTES, `OCI manifest ${repoName}:${tag}`);
+  const digest = sha256Digest(manifestBody);
+  const headerDigest = manifestResponse.headers.get("docker-content-digest");
+  if (headerDigest && headerDigest !== digest) {
+    throw new Error(`Registry returned a manifest for ${repoName}:${tag} that does not match its digest`);
   }
 
-  digestCache.set(key, { digest, expiresAt: Date.now() + DIGEST_CACHE_MS });
-  return digest;
+  const manifest: unknown = JSON.parse(Buffer.from(manifestBody).toString("utf8"));
+  const configDigest = (manifest as { config?: { digest?: unknown } })?.config?.digest;
+  if (typeof configDigest !== "string" || !/^sha256:[a-f0-9]{64}$/.test(configDigest)) {
+    throw new Error(`OCI manifest ${repoName}:${tag} is not a single-image manifest with a config`);
+  }
+
+  // GHCR redirects blobs to signed storage; fetch drops Authorization on that cross-origin hop.
+  const configResponse = await fetch(new URL(`/v2/${repoName}/blobs/${configDigest}`, registry), {
+    headers,
+    cache: "no-store",
+  });
+  if (!configResponse.ok) {
+    throw new Error(`Could not read the OCI image config for ${repoName}:${tag} (HTTP ${configResponse.status})`);
+  }
+  const configBody = await readLimited(configResponse, CONFIG_MAX_BYTES, `OCI image config ${repoName}:${tag}`);
+  if (sha256Digest(configBody) !== configDigest) {
+    throw new Error(`The OCI image config for ${repoName}:${tag} does not match its digest`);
+  }
+  const config: unknown = JSON.parse(Buffer.from(configBody).toString("utf8"));
+  const labels = (config as { config?: { Labels?: unknown } })?.config?.Labels;
+  if (!labels || typeof labels !== "object" || Object.values(labels).some((value) => typeof value !== "string")) {
+    throw new Error(`The OCI image config for ${repoName}:${tag} has no Flatpak labels`);
+  }
+  const imageLabels = labels as Record<string, string>;
+  if (imageLabels["org.flatpak.ref"] !== ref) {
+    throw new Error(
+      `OCI image ${repoName}:${tag} is labelled ${imageLabels["org.flatpak.ref"] ?? "without a ref"}, not ${ref}`,
+    );
+  }
+
+  const image = { digest, labels: imageLabels };
+  imageCache.set(key, { image, expiresAt: Date.now() + IMAGE_CACHE_MS });
+  return image;
 }
 
 type OciFilterCriteria = {
@@ -256,7 +291,11 @@ function filterImages(images: FlatpakOciImage[], criteria: OciFilterCriteria): F
     // Flatpak asks for the ref's branch tag (usually `stable`), while per-architecture GHCR
     // images are physically published as e.g. `stable-x86_64`.
     const refTag = img.Labels["org.flatpak.ref"]?.split("/").at(-1);
-    if (criteria.tag && !img.Tags.includes(criteria.tag) && refTag !== criteria.tag) return false;
+    // Flatpak asks for `latest` when the remote URL has no `#tag` fragment, which is how
+    // artcraft-oci.flatpakrepo is written. Every image here is the current release.
+    if (criteria.tag && criteria.tag !== "latest" && !img.Tags.includes(criteria.tag) && refTag !== criteria.tag) {
+      return false;
+    }
     return true;
   });
 }
@@ -264,11 +303,10 @@ function filterImages(images: FlatpakOciImage[], criteria: OciFilterCriteria): F
 function createRepoEntry(
   repoName: string,
   appId: string,
-  appName: string,
   release: CraftRelease,
   criteria: OciFilterCriteria,
 ): FlatpakOciRepository | null {
-  const images = filterImages(buildImagesForTarget(appId, appName, release), criteria);
+  const images = filterImages(buildImagesForTarget(appId, release), criteria);
   if (images.length === 0) return null;
   return { Name: repoName, Repository: repoName, Images: images };
 }
@@ -276,7 +314,6 @@ function createRepoEntry(
 interface FlatpakCatalogItem {
   repoName: string;
   appId: string;
-  displayName: string;
   release: CraftRelease | null;
 }
 
@@ -288,7 +325,6 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
       // The shared release workflow overrides the script's local default with github.repository.
       repoName: "storytold/craft-launcher",
       appId: "ai.storyteller.artcraft-launcher",
-      displayName: CRAFT_LAUNCHER_NAME,
       release: CRAFT_LAUNCHER_RELEASE,
     });
   }
@@ -301,7 +337,6 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
       items.push({
         repoName: `storytold/${app.slug}`,
         appId: `ai.storyteller.${app.slug}`,
-        displayName: craftAppName(app),
         release,
       });
     }
@@ -334,18 +369,13 @@ export async function getFlatpakOciIndex(searchParams?: URLSearchParams): Promis
   const selectedItems = items.filter((item) => !reqRepo || reqRepo === item.repoName);
   const entries = await Promise.all(selectedItems.map(async (item) => {
     if (!item.release) return null;
-    const entry = createRepoEntry(
-      item.repoName,
-      item.appId,
-      item.displayName,
-      item.release,
-      criteria,
-    );
+    const entry = createRepoEntry(item.repoName, item.appId, item.release, criteria);
     if (!entry) return null;
 
     await Promise.all(entry.Images.map(async (image) => {
-      const versionTag = image.Tags[0];
-      image.Digest = await fetchManifestDigest(item.repoName, versionTag);
+      const resolved = await fetchImage(item.repoName, image.Tags[0], image.Labels["org.flatpak.ref"]);
+      image.Digest = resolved.digest;
+      image.Labels = resolved.labels;
     }));
     return entry;
   }));
