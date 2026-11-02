@@ -24,6 +24,7 @@ use tokens::tokens::mcp_sessions::McpSessionToken;
 use tokens::tokens::users::UserToken;
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
 use crate::http_server::user_lookup::user_session::session_utils::session_checker::SessionChecker;
 use crate::http_server::web_utils::get_authorization_header_api_key::get_authorization_header_api_key;
 
@@ -247,6 +248,33 @@ fn into_session_rejecting_banned(
   })
 }
 
+/// The user whose own rows a library read may return.
+///
+/// An `Authorization` header is an API key or an MCP session. A bad header is 401 and does not
+/// fall through to the website cookie. With no header, the website session is required through
+/// the same checker those lists already use, so the polling path stays cached.
+pub async fn require_library_user_token<'e, 'c : 'e, E>(
+  http_request: &HttpRequest,
+  session_checker: &SessionChecker,
+  avt_cookie_manager: &AvtCookieManager,
+  mysql_executor: E,
+) -> Result<UserToken, CommonWebError>
+  where E: 'e + Executor<'c, Database = MySql>
+{
+  if http_request.headers().contains_key(header::AUTHORIZATION) {
+    let session = require_any_session_or_key(
+      http_request,
+      session_checker,
+      avt_cookie_manager,
+      mysql_executor,
+    ).await?;
+    return Ok(session.user_token);
+  }
+
+  let user_session = require_user_session(http_request, session_checker, mysql_executor).await?;
+  Ok(user_session.get_user_token().clone())
+}
+
 #[cfg(test)]
 mod tests {
   //! DATABASE TESTS: these connect to the guarded MySQL test database (see the `mysql_testing`
@@ -337,6 +365,49 @@ mod tests {
 
       let request = request_with_bearer("artcraft_api_no_such_key_0000000000000000");
       let result = harness.require(&request).await;
+
+      assert!(matches!(result, Err(CommonWebError::NotAuthorized)));
+    }
+
+    #[tokio::test]
+    #[cfg_attr(feature = "skip_database_tests", ignore)]
+    async fn library_read_uses_the_api_key_owner() {
+      let harness = LookupHarness::create().await;
+      let user = harness.create_user().await;
+      let api_key = harness.create_api_key(&user).await;
+
+      let request = request_with_bearer(api_key.as_str_be_careful());
+      let mut connection = harness.pool.acquire().await.expect("acquire for library read");
+      let token = require_library_user_token(
+        &request,
+        &harness.session_checker,
+        &harness.avt_cookie_manager,
+        &mut *connection,
+      )
+      .await
+      .expect("API key should identify the library owner");
+
+      assert_eq!(token, user.user_token);
+    }
+
+    #[tokio::test]
+    #[cfg_attr(feature = "skip_database_tests", ignore)]
+    async fn library_read_rejects_a_bad_key_even_with_a_valid_cookie() {
+      let harness = LookupHarness::create().await;
+      let user = harness.create_user().await;
+      let request = harness.request_with_session_cookie_and_bearer(
+        &user,
+        "artcraft_api_no_such_key_0000000000000000",
+      );
+
+      let mut connection = harness.pool.acquire().await.expect("acquire for library read");
+      let result = require_library_user_token(
+        &request,
+        &harness.session_checker,
+        &harness.avt_cookie_manager,
+        &mut *connection,
+      )
+      .await;
 
       assert!(matches!(result, Err(CommonWebError::NotAuthorized)));
     }
@@ -480,16 +551,27 @@ mod tests {
       .await
     }
 
+    /// A dummy HTTP request carrying the user's session cookie and a Bearer credential.
+    fn request_with_session_cookie_and_bearer(&self, user: &TestUser, credential: &str) -> HttpRequest {
+      let cookie = self.session_cookie_for(user);
+      TestRequest::default()
+        .cookie(cookie)
+        .insert_header(("Authorization", format!("Bearer {credential}")))
+        .to_http_request()
+    }
+
     /// A dummy HTTP request carrying the user's session cookie and no Authorization header.
     fn request_with_session_cookie(&self, user: &TestUser) -> HttpRequest {
+      TestRequest::default().cookie(self.session_cookie_for(user)).to_http_request()
+    }
+
+    fn session_cookie_for(&self, user: &TestUser) -> Cookie<'static> {
       let cookie = self
         .session_cookie_manager
         .create_cookie(&user.session_token, &user.user_token)
         .expect("create session cookie");
       // TestRequest wants an owned cookie with a 'static-compatible lifetime.
-      let cookie = Cookie::new("session", cookie.value().to_string());
-
-      TestRequest::default().cookie(cookie).to_http_request()
+      Cookie::new("session", cookie.value().to_string())
     }
   }
 
