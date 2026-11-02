@@ -31,4 +31,6 @@ mod webhook_routes;
 mod weights_routes;
 pub (super) mod add_application_routes;
 #[cfg(test)]
+mod user_bookmarks_endpoint_tests;
+#[cfg(test)]
 mod user_media_endpoint_tests;

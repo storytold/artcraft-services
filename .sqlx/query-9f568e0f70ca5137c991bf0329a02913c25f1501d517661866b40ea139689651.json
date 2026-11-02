@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "\n  SELECT\n      b2.token as `token: tokens::tokens::user_bookmarks::UserBookmarkToken`,\n\n      b2.entity_type as `entity_type: enums::by_table::user_bookmarks::user_bookmark_entity_type::UserBookmarkEntityType`,\n      b2.entity_token,\n\n      b2.user_token as `user_token: tokens::tokens::users::UserToken`,\n\n      es.bookmark_count as unused_bookmark_count,\n\n      b2.created_at,\n      b2.updated_at,\n      b2.deleted_at\n\n  FROM\n      user_bookmarks AS b1\n\n  JOIN user_bookmarks as b2\n      ON b1.entity_type = b2.entity_type\n      AND b1.entity_token = b2.entity_token\n\n  LEFT OUTER JOIN entity_stats AS es\n      ON b1.entity_type = es.entity_type\n      AND b1.entity_token = es.entity_token\n\n  WHERE\n      b1.token = ?\n\n  FOR UPDATE\n          ",
+  "query": "\n  SELECT\n      b1.token as `token: tokens::tokens::user_bookmarks::UserBookmarkToken`,\n\n      b1.entity_type as `entity_type: enums::by_table::user_bookmarks::user_bookmark_entity_type::UserBookmarkEntityType`,\n      b1.entity_token,\n\n      b1.user_token as `user_token: tokens::tokens::users::UserToken`,\n\n      es.bookmark_count as unused_bookmark_count,\n\n      b1.created_at,\n      b1.updated_at,\n      b1.deleted_at\n\n  FROM\n      user_bookmarks AS b1\n\n  JOIN user_bookmarks as b2\n      ON b1.entity_type = b2.entity_type\n      AND b1.entity_token = b2.entity_token\n\n  LEFT OUTER JOIN entity_stats AS es\n      ON b1.entity_type = es.entity_type\n      AND b1.entity_token = es.entity_token\n\n  WHERE\n      b1.token = ?\n\n  FOR UPDATE\n          ",
   "describe": {
     "columns": [
       {
@@ -98,5 +98,5 @@
       true
     ]
   },
-  "hash": "706f0fd898ec367a7e2851e51c4d00dc63c89521238e55281737758ac87cfb01"
+  "hash": "9f568e0f70ca5137c991bf0329a02913c25f1501d517661866b40ea139689651"
 }
