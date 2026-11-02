@@ -10,9 +10,11 @@ use crate::http_server::endpoints::inference_job::utils::extractors::extract_lip
 use crate::http_server::endpoints::inference_job::utils::extractors::extract_live_portrait_details::extract_live_portrait_details;
 use crate::http_server::endpoints::inference_job::utils::extractors::extract_polymorphic_inference_args::extract_polymorphic_inference_args;
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+use crate::http_server::user_lookup::api_or_web_session::require_any_session_or_key::require_any_session_or_key;
 use crate::http_server::web_utils::filter_model_name::maybe_filter_model_name;
 use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
 use crate::state::server_state::ServerState;
+use actix_web::http::header;
 use actix_web::web::Json;
 use actix_web::{web, HttpRequest};
 use actix_web_lab::extract::Query;
@@ -34,8 +36,12 @@ use utoipa::IntoParams;
 
 /// List job statuses for jobs that are associated with the user's session.
 ///
-/// The user must be logged in. This endpoint will only show the last 36 hours
-/// of jobs. Any jobs "dismissed" by the user will not be returned.
+/// The caller is the website session, or an `Authorization` header carrying an API key or an
+/// MCP session token. A bad header is rejected and does not fall through to the anonymous
+/// visitor cookie. With no header, an anonymous visitor cookie still lists that visitor's jobs.
+/// This endpoint will only show the last 36 hours of jobs. Any jobs "dismissed" by the user
+/// will not be returned. Send a descriptive `User-Agent`: Cloudflare answers 403 error 1010
+/// for a library's default agent before this handler runs.
 ///
 /// This returns jobs of all states: pending, started, attempt_failed,
 /// complete_success, dead, etc.
@@ -65,14 +71,33 @@ pub async fn list_session_jobs_handler(
 
   // ==================== USER SESSION ==================== //
 
+  // An Authorization header is an API key or an MCP session. It does not fall through to the
+  // cookie or the anonymous visitor, and the website polling path below stays on the cached
+  // session lookup.
+  let header_user = if http_request.headers().contains_key(header::AUTHORIZATION) {
+    let session = require_any_session_or_key(
+      &http_request,
+      &server_state.session_checker,
+      &server_state.avt_cookie_manager,
+      &mut *mysql_connection,
+    ).await?;
+    Some(session.user_token)
+  } else {
+    None
+  };
+
   // NB: SessionCheckerError → CommonWebError maps payload errors (bad cookie) to 401
   //     and DB / cache errors to 500.
   // NB: The plain (non-extended) lookup is Redis-cached with a short TTL, which matters here:
   //     this is the hottest polling endpoint in the app, and it only needs the user token.
-  let maybe_user_session = server_state
-      .session_checker
-      .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
-      .await?;
+  let maybe_user_session = if header_user.is_none() {
+    server_state
+        .session_checker
+        .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
+        .await?
+  } else {
+    None
+  };
 
   let include_states = query.include_states
       .as_deref()
@@ -86,12 +111,16 @@ pub async fn list_session_jobs_handler(
           .filter_map(|status| JobStatusPlus::from_str(status).ok())
           .collect::<HashSet<_>>());
 
-  let user = match (maybe_user_session.as_ref(), maybe_avt_token.as_ref()) {
-    (Some(session), _) => SessionUser::User(&session.user_token),
-    (None, Some(avt_token)) => SessionUser::Anonymous(avt_token),
-    (None, None) => {
-      // TODO(bt,2025-04-15): We should install an AVT cookie.
-      return Err(CommonWebError::NotAuthorized);
+  let user = if let Some(token) = header_user.as_ref() {
+    SessionUser::User(token)
+  } else {
+    match (maybe_user_session.as_ref(), maybe_avt_token.as_ref()) {
+      (Some(session), _) => SessionUser::User(&session.user_token),
+      (None, Some(avt_token)) => SessionUser::Anonymous(avt_token),
+      (None, None) => {
+        // TODO(bt,2025-04-15): We should install an AVT cookie.
+        return Err(CommonWebError::NotAuthorized);
+      }
     }
   };
 
