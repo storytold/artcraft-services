@@ -10,6 +10,8 @@ use crate::http_server::endpoints::inference_job::utils::extractors::extract_lip
 use crate::http_server::endpoints::inference_job::utils::extractors::extract_live_portrait_details::extract_live_portrait_details;
 use crate::http_server::endpoints::inference_job::utils::extractors::extract_polymorphic_inference_args::extract_polymorphic_inference_args;
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+use crate::http_server::endpoints::oauth::accept::oauth_user_for_scope;
+use crate::http_server::endpoints::oauth::scopes::Scope;
 use crate::http_server::web_utils::filter_model_name::maybe_filter_model_name;
 use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
 use crate::state::server_state::ServerState;
@@ -60,6 +62,12 @@ pub async fn list_session_jobs_handler(
 
   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
 
+  let oauth_user = oauth_user_for_scope(
+    &http_request,
+    Scope::LibraryRead,
+    &mut *mysql_connection,
+  ).await?;
+
   let maybe_avt_token = server_state.avt_cookie_manager
       .get_avt_token_from_request(&http_request);
 
@@ -69,10 +77,14 @@ pub async fn list_session_jobs_handler(
   //     and DB / cache errors to 500.
   // NB: The plain (non-extended) lookup is Redis-cached with a short TTL, which matters here:
   //     this is the hottest polling endpoint in the app, and it only needs the user token.
-  let maybe_user_session = server_state
-      .session_checker
-      .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
-      .await?;
+  let maybe_user_session = if oauth_user.is_some() {
+    None
+  } else {
+    server_state
+        .session_checker
+        .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
+        .await?
+  };
 
   let include_states = query.include_states
       .as_deref()
@@ -86,12 +98,16 @@ pub async fn list_session_jobs_handler(
           .filter_map(|status| JobStatusPlus::from_str(status).ok())
           .collect::<HashSet<_>>());
 
-  let user = match (maybe_user_session.as_ref(), maybe_avt_token.as_ref()) {
-    (Some(session), _) => SessionUser::User(&session.user_token),
-    (None, Some(avt_token)) => SessionUser::Anonymous(avt_token),
-    (None, None) => {
-      // TODO(bt,2025-04-15): We should install an AVT cookie.
-      return Err(CommonWebError::NotAuthorized);
+  let user = if let Some(token) = oauth_user.as_ref() {
+    SessionUser::User(token)
+  } else {
+    match (maybe_user_session.as_ref(), maybe_avt_token.as_ref()) {
+      (Some(session), _) => SessionUser::User(&session.user_token),
+      (None, Some(avt_token)) => SessionUser::Anonymous(avt_token),
+      (None, None) => {
+        // TODO(bt,2025-04-15): We should install an AVT cookie.
+        return Err(CommonWebError::NotAuthorized);
+      }
     }
   };
 

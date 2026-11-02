@@ -40,6 +40,11 @@ pub(crate) enum TokenPrefix {
   McpSession,
   McpSessionPrivate, // The private credential for an MCP session; carries more entropy.
   McpSessionRefresh, // The rotating refresh credential for an MCP session; carries more entropy.
+  OauthAccess,
+  OauthClient,
+  OauthCode,
+  OauthNonce,
+  OauthRefresh,
   MediaFile,
   MediaUpload,
   ModelWeight,
@@ -130,6 +135,11 @@ impl PrefixGenerator for TokenPrefix {
       Self::McpSession => "mcp_",
       Self::McpSessionPrivate => "mcp_session_",
       Self::McpSessionRefresh => "mcp_refresh_",
+      Self::OauthAccess => "oauth_access_",
+      Self::OauthClient => "oauth_client_",
+      Self::OauthCode => "oauth_code_",
+      Self::OauthNonce => "oauth_nonce_",
+      Self::OauthRefresh => "oauth_refresh_",
       Self::MediaFile => "m_",
       Self::MediaUpload => "mu_",
       Self::ModelWeight => "weight_",
