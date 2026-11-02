@@ -31,6 +31,7 @@ export type CraftAppSlug =
   | "designcraft"
   | "figcraft"
   | "texturecraft"
+  | "materialcraft"
   | "wordcraft"
   | "soundcraft"
   | "deckcraft"
@@ -778,6 +779,78 @@ export const CRAFTING_APPS: CraftApp[] = [
         },
       ],
     },
+  },
+  {
+    slug: "materialcraft",
+    prefix: "Material",
+    category: "Procedural materials",
+    status: "In development",
+    headline: ["Procedural materials, ", "node", " by node."],
+    pitch: "Open-source, node-based procedural materials, built in pure Rust.",
+    lede: "Build tileable PBR materials from noises, patterns and filters in a node graph, watch them update live in 2D and on a 3D model, and export the maps for any engine. Open source, offline, and yours.",
+    schemaCategory: "DesignApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.95",
+    features: [
+      {
+        title: "Familiar by design",
+        body: "A package explorer, a node library with previews, the graph with live thumbnails, 3D and 2D views and a properties panel, where material artists expect them.",
+      },
+      {
+        title: "Cooks as you drag",
+        body: "Every node cooks on every CPU core, and a content-addressed cache re-cooks only what lies downstream of an edit. The brick wall sample cooks in about 40 ms.",
+      },
+      {
+        title: "Tileable by design",
+        body: "Noises and patterns live on whole-number lattices, so every material tiles seamlessly at any resolution, from 16 px to 8K.",
+      },
+      {
+        title: "Open formats",
+        body: "Export base color, normal, roughness, metallic, height and ambient occlusion as PNG, JPEG, TGA, TIFF, EXR and more at 8, 16 or 32 bits.",
+      },
+      {
+        title: "Works with TextureCraft",
+        body: "Send a material to TextureCraft as a .mcmat fill layer. Its exposed inputs stay live sliders and colors there, re-cooked for each texture set.",
+      },
+      {
+        title: "Agent-ready",
+        body: "Every menu item is a command, so the CLI, a JSON control channel and an MCP server can build materials the way a person does.",
+      },
+    ],
+    // shortcut: no `source` while storytold/materialcraft is private, so "Full size" opens the site's copy; add them once it's public.
+    shots: [
+      {
+        file: "hero.webp",
+        caption: "The workspace — the brick wall sample",
+        alt: "The MaterialCraft workspace: the explorer and node library on the left, a brick wall material as a node graph with live thumbnails in the middle over a 3D view of a rounded cube in red brick and a 2D view of the base color, and the brick generator's parameters on the right",
+      },
+      {
+        file: "materials.webp",
+        caption: "Eight materials, all procedural",
+        alt: "Eight material spheres made in MaterialCraft: red brick, lava rock with glowing cracks, blue painted metal plates with rivets, wood planks, wicker weave, mossy ground, cracked stone tiles and polished white marble",
+        wide: true,
+      },
+      {
+        file: "lava.webp",
+        caption: "Lava rock with emissive cracks",
+        alt: "A lava rock graph in MaterialCraft: Voronoi plates with cracks and glowing seams, shown as dark rock with orange emissive cracks on the rounded cube",
+      },
+      {
+        file: "wood.webp",
+        caption: "Wood grain warped over planks",
+        alt: "A wood planks graph in MaterialCraft: anisotropic noise warped by Perlin noise and multiplied over a plank pattern, shown on the rounded cube and in the 2D view",
+      },
+      {
+        file: "ground.webp",
+        caption: "Mossy ground, height-blended",
+        alt: "A mossy ground graph in MaterialCraft: stones height-blended with dirt and moss grown in the crevices, on the rounded cube and in the 2D view",
+      },
+      {
+        file: "new-graph.webp",
+        caption: "New graph from twelve templates",
+        alt: "MaterialCraft's New graph dialog: template spheres for empty, PBR, brick wall, stone tiles, wood planks, painted metal plates, rusty metal, lava rock, polished marble, wicker weave, woven fabric and mossy ground, beside the graph name and size",
+      },
+    ],
   },
   {
     slug: "wordcraft",

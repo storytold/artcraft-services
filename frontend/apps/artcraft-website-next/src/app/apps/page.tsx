@@ -45,7 +45,7 @@ import { siteUrl } from "@/lib/links";
 
 const TITLE = "Crafting Apps: open-source creative tools";
 const COVERAGE =
-  "Image editing, vector illustration, video, photography, PDFs, motion graphics, page layout, interface design, 3D texture painting, word processing, audio, presentations, CAD and spreadsheets";
+  "Image editing, vector illustration, video, photography, PDFs, motion graphics, page layout, interface design, 3D texture painting, procedural materials, word processing, audio, presentations, CAD and spreadsheets";
 const DESCRIPTION = `${COVERAGE}: ${CRAFTING_APPS_COUNT_WORD.toLowerCase()} native, open-source apps from the ArtCraft team, built in Rust and free to use.`;
 
 export const metadata: Metadata = {
@@ -117,9 +117,9 @@ export default function CraftingAppsPage() {
             <nav
               aria-label="Crafting Apps"
               data-reveal
-              // Under the text: two even rows from sm up (7 + 7). Beside it from
-              // xl up: centered rows of five.
-              className="mt-12 grid w-fit grid-cols-4 gap-x-3 gap-y-6 sm:grid-cols-7 sm:gap-x-5 xl:mt-0 xl:flex xl:w-120 xl:shrink-0 xl:flex-wrap xl:justify-center"
+              // Sixteen apps in even rows. Under the text: four across, then two
+              // rows of eight from lg up. Beside it from xl up: four across.
+              className="mt-12 grid w-fit grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-5 lg:grid-cols-8 xl:mt-0 xl:shrink-0 xl:grid-cols-4"
             >
               {CRAFTING_APPS.map((app) => (
                 <Link
@@ -189,18 +189,23 @@ export default function CraftingAppsPage() {
           {CRAFTING_APPS.map((app) => (
             <AppCard key={app.slug} app={app} index={craftAppIndex(app)} />
           ))}
-          <div data-reveal className="flex flex-col bg-bg p-6 md:p-8">
-            <p className="hud-label text-faint">Next up</p>
-            <h3 className="mt-4 font-display text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-ink-strong">
-              More crafts <ColorAccent>on the way</ColorAccent>.
-            </h3>
-            <p className="mt-3 leading-relaxed text-muted">
-              Tell us what to rebuild next, test early builds and follow
-              development with the team in the ArtCraft Discord.
-            </p>
-            <div className="mt-auto pt-8">
-              <DiscordButton />
+          {/* Sixteen apps fill every row two and four across, so Next up
+              closes the grid as a full-width row of its own. */}
+          <div
+            data-reveal
+            className="flex flex-col gap-8 bg-bg p-6 sm:col-span-2 md:flex-row md:items-end md:justify-between md:p-8 xl:col-span-4"
+          >
+            <div>
+              <p className="hud-label text-faint">Next up</p>
+              <h3 className="mt-4 font-display text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-ink-strong">
+                More crafts <ColorAccent>on the way</ColorAccent>.
+              </h3>
+              <p className="mt-3 max-w-xl leading-relaxed text-muted">
+                Tell us what to rebuild next, test early builds and follow
+                development with the team in the ArtCraft Discord.
+              </p>
             </div>
+            <DiscordButton className="shrink-0 self-start md:self-auto" />
           </div>
         </div>
       </SectionShell>

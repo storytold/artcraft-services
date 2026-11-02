@@ -408,9 +408,10 @@ export function AppFamily({ app, index }: { app: CraftApp; index: string }) {
           <ArrowUpRightIcon aria-hidden className="h-3.5 w-3.5" />
         </Link>
       </div>
+      {/* Fifteen siblings: three across fills every row; two would strand one. */}
       <div
         data-reveal-group
-        className="grid gap-px border-t border-line bg-line sm:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-px border-t border-line bg-line md:grid-cols-3"
       >
         {siblings.map((sibling) => (
           <AppCard
