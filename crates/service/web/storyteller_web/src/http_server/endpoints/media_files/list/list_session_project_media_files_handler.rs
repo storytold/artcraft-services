@@ -16,6 +16,8 @@ use crate::http_server::common_responses::media::media_links_builder::MediaLinks
 use crate::http_server::common_responses::media::media_links_builder::VideoThumbnailInfo;
 use crate::http_server::common_responses::user_details_lite_builder::UserDetailsLightBuilder;
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+use crate::http_server::endpoints::oauth::accept::oauth_user_for_scope;
+use crate::http_server::endpoints::oauth::scopes::Scope;
 use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
 use crate::state::server_state::ServerState;
 
@@ -51,11 +53,21 @@ pub async fn list_session_project_media_files_handler(
         CommonWebError::from_error(err)
       })?;
 
-  let user_session = require_user_session(
+  let oauth_user = oauth_user_for_scope(
     &http_request,
-    &server_state.session_checker,
+    Scope::LibraryRead,
     &mut *mysql_connection,
   ).await?;
+  let user_token = if let Some(token) = oauth_user {
+    token
+  } else {
+    let user_session = require_user_session(
+      &http_request,
+      &server_state.session_checker,
+      &mut *mysql_connection,
+    ).await?;
+    user_session.get_user_token().clone()
+  };
 
   let limit = query.page_size
       .unwrap_or(DEFAULT_PAGE_SIZE)
@@ -71,7 +83,7 @@ pub async fn list_session_project_media_files_handler(
   };
 
   let results_page = list_session_project_media_files(ListSessionProjectMediaFilesArgs {
-    user_token: user_session.get_user_token(),
+    user_token: &user_token,
     maybe_filter_project_type: query.filter_project_type,
     limit,
     maybe_cursor_id,
