@@ -121,6 +121,7 @@ pub async fn seedance_1p5_pro_multi_function_video_gen_handler(
       &mut mysql_connection,
       server_state.server_environment,
       &query_media_tokens,
+      &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
     ).await?
   };
 

@@ -42,6 +42,13 @@ pub async fn get_character_handler(
 
   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
 
+  // NB: Characters are public, but the media they reference is not necessarily: a creator's upload
+  // can be Private, so the read scope decides which of its records may be resolved.
+  let maybe_user_session = server_state
+      .session_checker
+      .maybe_get_user_session(&http_request, &server_state.mysql_pool)
+      .await?;
+
   let character = get_character_by_token(&path.character_token, &mut mysql_connection)
       .await?
       .ok_or_else(|| {
@@ -61,7 +68,12 @@ pub async fn get_character_handler(
   let media_records = if media_tokens_to_lookup.is_empty() {
     vec![]
   } else {
-    batch_get_media_files_by_tokens_with_connection(&mut mysql_connection, &media_tokens_to_lookup, true)
+    batch_get_media_files_by_tokens_with_connection(
+          &mut mysql_connection,
+          &media_tokens_to_lookup,
+          true,
+          &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
+        )
         .await
         .unwrap_or_else(|err| {
           warn!("Failed to look up media files for character: {:?}", err);

@@ -122,6 +122,7 @@ pub async fn generate_worldlabs_marble_0p1_mini_splat_handler(
       &mut mysql_connection,
       server_state.server_environment,
       &[image_token.clone()],
+      &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
     ).await?;
 
     let cdn_url = image_urls.get(image_token)

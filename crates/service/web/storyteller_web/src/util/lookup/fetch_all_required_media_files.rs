@@ -1,6 +1,6 @@
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use log::{error, warn};
-use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens_with_connection, MediaFilesByTokensRecord};
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens_with_connection, MediaFilesByTokensRecord, MediaReadScope};
 use sqlx::pool::PoolConnection;
 use sqlx::MySql;
 use tokens::tokens::media_files::MediaFileToken;
@@ -11,11 +11,13 @@ const CAN_SEE_DELETED: bool = false;
 pub async fn fetch_all_required_media_files(
   mysql_connection: &mut PoolConnection<MySql>,
   media_file_tokens: &[MediaFileToken],
+  scope: &MediaReadScope<'_>,
 ) -> Result<Vec<MediaFilesByTokensRecord>, CommonWebError> {
   let result = batch_get_media_files_by_tokens_with_connection(
     mysql_connection,
     &media_file_tokens,
     CAN_SEE_DELETED,
+    scope,
   ).await;
 
   let media_files = match result {

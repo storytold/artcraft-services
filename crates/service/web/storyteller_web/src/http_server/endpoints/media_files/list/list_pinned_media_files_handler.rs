@@ -14,7 +14,7 @@ use enums::by_table::media_files::media_file_type::MediaFileType;
 use enums::no_table::style_transfer::style_transfer_name::StyleTransferName;
 use enums::by_table::media_files::media_file_origin_model_type::MediaFileOriginModelType;
 use log::{debug, error, warn};
-use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::batch_get_media_files_by_tokens;
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens, MediaReadScope};
 use redis::Commands;
 use tokens::tokens::media_files::MediaFileToken;
 use utoipa::ToSchema;
@@ -166,7 +166,12 @@ pub async fn list_pinned_media_files_handler(
 
   if !media_file_tokens.is_empty() {
     let query_results =
-        batch_get_media_files_by_tokens(&server_state.mysql_pool, &media_file_tokens, false).await;
+        batch_get_media_files_by_tokens(
+            &server_state.mysql_pool,
+            &media_file_tokens,
+            false,
+            &MediaReadScope::ANONYMOUS,
+        ).await;
 
     media_files = match query_results {
       Ok(media_files) => media_files,

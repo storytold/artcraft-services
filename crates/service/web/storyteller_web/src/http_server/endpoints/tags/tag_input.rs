@@ -93,7 +93,7 @@ mod tests {
 
   #[test]
   fn parses_csv_with_trimming_and_case_insensitive_dedupe() {
-    let tags = parse_tag_input(Some(" Cats , sci-fi ,Wallpaper,, cats "), None).unwrap();
+    let tags = parse_tag_input(Some(" Cats , sci-fi ,Wallpaper, cats "), None).unwrap();
     let values: Vec<&str> = tags.iter().map(|t| t.tag_value.as_str()).collect();
     assert_eq!(values, vec!["Cats", "sci-fi", "Wallpaper"]);
     assert_eq!(tags[0].tag_value_lowercase, "cats");

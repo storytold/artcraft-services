@@ -5,7 +5,7 @@ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_m
 use actix_web::HttpRequest;
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use log::{error, warn};
-use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::batch_get_media_files_by_tokens_with_connection;
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens_with_connection, MediaReadScope};
 use server_environment::ServerEnvironment;
 use sqlx::pool::PoolConnection;
 use sqlx::MySql;
@@ -19,6 +19,7 @@ pub async fn lookup_image_urls_as_optional_list(
   mysql_connection: &mut PoolConnection<MySql>,
   server_environment: ServerEnvironment,
   tokens: &[MediaFileToken],
+  scope: &MediaReadScope<'_>,
 ) -> Result<Option<Vec<String>>, CommonWebError> {
   const CAN_SEE_DELETED: bool = false;
 
@@ -26,6 +27,7 @@ pub async fn lookup_image_urls_as_optional_list(
     mysql_connection,
     tokens,
     CAN_SEE_DELETED,
+    scope,
   ).await;
 
   let media_files = match result {

@@ -40,7 +40,7 @@ use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path:
 use ffmpeg_utils::ffprobe::ffprobe_get_info::ffprobe_get_info;
 use kinovi_web_client::generate::video::generate_seedance_2p5::MAX_BILLED_INPUT_SECONDS;
 use log::{error, info, warn};
-use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::batch_get_media_files_by_tokens_with_connection;
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens_with_connection, MediaReadScope};
 use server_environment::ServerEnvironment;
 use sqlx::pool::PoolConnection;
 use sqlx::MySql;
@@ -101,6 +101,7 @@ pub async fn fetch_reference_video_sources(
   server_environment: ServerEnvironment,
   maybe_media_cdn_override_url: Option<&str>,
   mysql_connection: &mut PoolConnection<MySql>,
+  scope: &MediaReadScope<'_>,
 ) -> Result<Vec<ReferenceVideoSource>, CommonWebError> {
   const CAN_SEE_DELETED: bool = false;
 
@@ -119,6 +120,7 @@ pub async fn fetch_reference_video_sources(
     mysql_connection,
     &unique_tokens,
     CAN_SEE_DELETED,
+    scope,
   ).await.map_err(|err| {
     error!("Error getting reference video media files by tokens: {:?}", err);
     CommonWebError::from_anyhow_error(err)
