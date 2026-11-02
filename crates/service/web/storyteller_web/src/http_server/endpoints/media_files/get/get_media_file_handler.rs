@@ -221,11 +221,13 @@ pub async fn get_media_file_handler(
       .await?;
 
   let mut show_deleted_results = false;
+  let mut viewer_user_token: Option<String> = None;
 
   if let Some(user_session) = maybe_user_session {
     // NB: Moderators can see deleted results.
     // Original creators cannot see them (unless they're moderators!)
     show_deleted_results = user_session.can_delete_other_users_tts_results;
+    viewer_user_token = Some(user_session.user_token.as_str().to_string());
   }
 
   let media_domain = get_media_domain(&http_request);
@@ -245,6 +247,7 @@ pub async fn get_media_file_handler(
     modern_media_file_lookup(
       &media_file_token,
       show_deleted_results,
+      viewer_user_token.as_deref(),
       &server_state,
       media_domain
     ).await?
@@ -256,6 +259,7 @@ pub async fn get_media_file_handler(
 async fn modern_media_file_lookup(
   media_file_token: &MediaFileToken,
   show_deleted_results: bool,
+  viewer_user_token: Option<&str>,
   server_state: &ServerState,
   media_domain: MediaDomain,
 ) -> Result<GetMediaFileSuccessResponse, CommonWebError> {
@@ -276,6 +280,18 @@ async fn modern_media_file_lookup(
     Ok(None) => return Err(CommonWebError::NotFound),
     Ok(Some(result)) => result,
   };
+
+  // Private media is visible only to its creator and to moderators. Report absence rather than
+  // existence so a non-owner cannot probe for private tokens.
+  if result.creator_set_visibility == Visibility::Private && !is_mod {
+    let is_creator = match (viewer_user_token, result.maybe_creator_user_token.as_ref()) {
+      (Some(viewer), Some(creator)) => viewer == creator.as_str(),
+      _ => false,
+    };
+    if !is_creator {
+      return Err(CommonWebError::NotFound);
+    }
+  }
 
   let public_bucket_path = MediaFileBucketPath::from_object_hash(
     &result.public_bucket_directory_hash,
