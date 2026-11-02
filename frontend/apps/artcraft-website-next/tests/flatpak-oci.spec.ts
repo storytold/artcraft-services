@@ -85,6 +85,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     // `flatpak remote-ls` takes Version and Name from this AppStream label.
     const appdata = pdfcraftX86?.Labels["org.freedesktop.appstream.appdata"] ?? "";
     expect(appdata).toContain("<id>ai.storyteller.pdfcraft</id>");
+    expect(appdata).toMatch(/<summary>[^<]+<\/summary>/);
     expect(appdata).toContain('<bundle type="flatpak">app/ai.storyteller.pdfcraft/x86_64/stable</bundle>');
     expect(appdata).toContain(`<release version="${pdfcraftX86?.Labels["org.opencontainers.image.version"]}"/>`);
 

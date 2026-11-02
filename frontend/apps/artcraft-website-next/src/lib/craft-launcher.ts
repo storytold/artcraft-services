@@ -15,6 +15,8 @@ import {
 // hides every launcher download.
 
 export const CRAFT_LAUNCHER_NAME = "ArtCraft Launcher";
+/** AppStream summary; matches the launcher's metainfo `<summary>`. */
+export const CRAFT_LAUNCHER_SUMMARY = "Install, update and launch the Craft App Suite";
 export const CRAFT_LAUNCHER_REPO = `${CRAFTING_APPS_GITHUB_ORG}/craft-launcher`;
 
 /** Every launcher release file, or none while the release is null. */

@@ -4,7 +4,7 @@ import {
   craftAppName,
   craftAppRelease,
 } from "./crafting-apps";
-import { CRAFT_LAUNCHER_NAME } from "./craft-launcher";
+import { CRAFT_LAUNCHER_NAME, CRAFT_LAUNCHER_SUMMARY } from "./craft-launcher";
 import {
   CRAFT_LAUNCHER_RELEASE,
   type CraftRelease,
@@ -78,15 +78,17 @@ function escapeXml(value: string): string {
  * AppStream catalog data for one image. Flatpak builds a remote's AppStream catalog from this
  * label (`org.freedesktop.appstream.appdata`); `flatpak remote-ls` reads the Version and Name
  * columns from that catalog and never from `org.opencontainers.image.version`. The component
- * must carry a `flatpak` bundle for its ref or Flatpak cannot match it to the image.
+ * must carry a `flatpak` bundle for its ref or Flatpak cannot match it to the image. GNOME Software
+ * hides components without a summary from search.
  */
-function appstreamData(appId: string, appName: string, ref: string, version: string): string {
+function appstreamData(appId: string, appName: string, summary: string, ref: string, version: string): string {
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<components version="0.8" origin="flatpak">\n' +
     '  <component type="desktop-application">\n' +
     `    <id>${escapeXml(appId)}</id>\n` +
     `    <name>${escapeXml(appName)}</name>\n` +
+    `    <summary>${escapeXml(summary)}</summary>\n` +
     `    <bundle type="flatpak">${escapeXml(ref)}</bundle>\n` +
     `    <releases><release version="${escapeXml(version)}"/></releases>\n` +
     "  </component>\n" +
@@ -97,6 +99,7 @@ function appstreamData(appId: string, appName: string, ref: string, version: str
 function buildImagesForTarget(
   appId: string,
   appName: string,
+  summary: string,
   release: CraftRelease,
 ): FlatpakOciImage[] {
   const version = release.version;
@@ -118,7 +121,7 @@ function buildImagesForTarget(
       Labels: {
         "org.flatpak.ref": ref,
         "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/23.08\nsdk=org.freedesktop.Sdk/${arch}/23.08\ncommand=${binaryName}\n`,
-        "org.freedesktop.appstream.appdata": appstreamData(appId, appName, ref, version),
+        "org.freedesktop.appstream.appdata": appstreamData(appId, appName, summary, ref, version),
         "org.opencontainers.image.version": version,
         "org.opencontainers.image.title": appName,
         "org.opencontainers.image.vendor": "Storytold",
@@ -302,10 +305,11 @@ function createRepoEntry(
   repoName: string,
   appId: string,
   appName: string,
+  summary: string,
   release: CraftRelease,
   criteria: OciFilterCriteria,
 ): FlatpakOciRepository | null {
-  const images = filterImages(buildImagesForTarget(appId, appName, release), criteria);
+  const images = filterImages(buildImagesForTarget(appId, appName, summary, release), criteria);
   if (images.length === 0) return null;
   return { Name: repoName, Repository: repoName, Images: images };
 }
@@ -314,6 +318,7 @@ interface FlatpakCatalogItem {
   repoName: string;
   appId: string;
   displayName: string;
+  summary: string;
   release: CraftRelease | null;
 }
 
@@ -326,6 +331,7 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
       repoName: "storytold/craft-launcher",
       appId: "ai.storyteller.artcraft-launcher",
       displayName: CRAFT_LAUNCHER_NAME,
+      summary: CRAFT_LAUNCHER_SUMMARY,
       release: CRAFT_LAUNCHER_RELEASE,
     });
   }
@@ -339,6 +345,7 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
         repoName: `storytold/${app.slug}`,
         appId: `ai.storyteller.${app.slug}`,
         displayName: craftAppName(app),
+        summary: app.pitch,
         release,
       });
     }
@@ -375,6 +382,7 @@ export async function getFlatpakOciIndex(searchParams?: URLSearchParams): Promis
       item.repoName,
       item.appId,
       item.displayName,
+      item.summary,
       item.release,
       criteria,
     );
