@@ -1,0 +1,25 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT client_name FROM oauth_clients WHERE token = ? AND maybe_deleted_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_name",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1dfe5d09810463f9de877180d5f028646b4664f5e487c727e59f097ce1d665ad"
+}

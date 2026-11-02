@@ -5,7 +5,12 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use log::warn;
 use tokens::tokens::oauth::OauthNonceToken;
 
-use mysql_queries::queries::oauth::{consume_oauth_nonce, insert_oauth_nonce, list_oauth_grants, revoke_oauth_grant, revoke_oauth_tokens_for_client, ConsumeNonceArgs, InsertNonceArgs, ListGrantsArgs, RevokeGrantArgs};
+use mysql_queries::queries::oauth_authorization_codes::consume_unused_oauth_codes::{consume_unused_oauth_codes, ConsumeUnusedOauthCodesArgs};
+use mysql_queries::queries::oauth_consent_nonces::consume_oauth_nonce::{consume_oauth_nonce, ConsumeNonceArgs};
+use mysql_queries::queries::oauth_consent_nonces::insert_oauth_nonce::{insert_oauth_nonce, InsertNonceArgs};
+use mysql_queries::queries::oauth_consents::list_oauth_grants::{list_oauth_grants, ListGrantsArgs};
+use mysql_queries::queries::oauth_consents::revoke_oauth_grant::{revoke_oauth_grant, RevokeGrantArgs};
+use mysql_queries::queries::oauth_tokens::revoke_oauth_tokens_for_client::{revoke_oauth_tokens_for_client, RevokeOauthTokensForClientArgs};
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::oauth::crypto::token_hash;
@@ -44,7 +49,7 @@ pub async fn oauth_grants_get(http_request: HttpRequest, server_state: web::Data
     rows.push_str(&format!("<li>{}<br>{}<form method=\"post\" action=\"/v1/oauth/grants/{}/revoke\">{}<button type=\"submit\">Revoke</button></form></li>", html_escape(&grant.client_name), html_escape(&grant.scopes), html_escape(&grant.client_token), hidden_input("nonce", nonce.as_str()),));
   }
 
-  Ok(HttpResponse::Ok().content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).body(grants_page(&rows)))
+  Ok(framed(HttpResponse::Ok(), grants_page(&rows)))
 }
 
 pub async fn oauth_grant_revoke(http_request: HttpRequest, path: web::Path<String>, body: web::Bytes, server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError> {
@@ -86,8 +91,12 @@ pub async fn oauth_grant_revoke(http_request: HttpRequest, path: web::Path<Strin
     warn!("OAuth grant revoke failed");
     CommonWebError::from_error(err)
   })?;
-  revoke_oauth_tokens_for_client(RevokeGrantArgs { user_token: user_session.get_user_token().as_str(), client_token: &client_token, mysql_executor: &mut *tx }).await.map_err(|err| {
+  revoke_oauth_tokens_for_client(RevokeOauthTokensForClientArgs { user_token: user_session.get_user_token().as_str(), client_token: &client_token, mysql_executor: &mut *tx }).await.map_err(|err| {
     warn!("OAuth token revoke failed");
+    CommonWebError::from_error(err)
+  })?;
+  consume_unused_oauth_codes(ConsumeUnusedOauthCodesArgs { user_token: user_session.get_user_token().as_str(), client_token: &client_token, mysql_executor: &mut *tx }).await.map_err(|err| {
+    warn!("OAuth code revoke failed");
     CommonWebError::from_error(err)
   })?;
   tx.commit().await.map_err(CommonWebError::from_error)?;
@@ -96,9 +105,14 @@ pub async fn oauth_grant_revoke(http_request: HttpRequest, path: web::Path<Strin
 }
 
 fn sign_in_required() -> HttpResponse {
-  HttpResponse::Unauthorized().content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).body(sign_in_page())
+  framed(HttpResponse::Unauthorized(), sign_in_page())
 }
 
 fn html_message(message: &str) -> HttpResponse {
-  HttpResponse::BadRequest().content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).body(crate::http_server::endpoints::oauth::html::error_page(message))
+  framed(HttpResponse::BadRequest(), crate::http_server::endpoints::oauth::html::error_page(message))
+}
+
+fn framed(mut builder: actix_web::HttpResponseBuilder, body: String) -> HttpResponse {
+  builder.content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).insert_header(("x-frame-options", "DENY")).insert_header(("content-security-policy", "frame-ancestors 'none'"));
+  builder.body(body)
 }

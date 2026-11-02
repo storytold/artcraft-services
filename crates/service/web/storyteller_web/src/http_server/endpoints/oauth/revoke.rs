@@ -4,7 +4,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use log::warn;
 use serde_json::json;
 
-use mysql_queries::queries::oauth::{revoke_oauth_token_hash, RevokePresentedArgs};
+use mysql_queries::queries::oauth_tokens::revoke_oauth_token_hash::{revoke_oauth_token_hash, RevokePresentedArgs};
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::oauth::crypto::token_hash;

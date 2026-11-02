@@ -1,0 +1,58 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT client_token, user_token, scopes, audience FROM oauth_tokens WHERE refresh_hash = ? AND maybe_revoked_at IS NULL AND refresh_expires_at > UTC_TIMESTAMP()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_token",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_token",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "scopes",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "audience",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "337a3cc0e6c90deafce526659d9ad5df06c3e79154bc0f739621fa59cd782883"
+}

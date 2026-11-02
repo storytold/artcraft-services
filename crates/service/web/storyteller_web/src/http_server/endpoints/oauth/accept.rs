@@ -3,7 +3,8 @@ use log::warn;
 use sqlx::MySqlConnection;
 use tokens::tokens::users::UserToken;
 
-use mysql_queries::queries::oauth::{get_live_oauth_access, oauth_owner_is_banned, GetAccessArgs, OwnerBannedArgs};
+use mysql_queries::queries::oauth_tokens::get_live_oauth_access::{get_live_oauth_access, GetAccessArgs};
+use mysql_queries::queries::users::oauth_owner_is_banned::{oauth_owner_is_banned, OwnerBannedArgs};
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::oauth::crypto::token_hash;

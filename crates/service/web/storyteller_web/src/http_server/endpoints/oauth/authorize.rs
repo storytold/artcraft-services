@@ -7,7 +7,12 @@ use serde::Deserialize;
 use tokens::tokens::oauth::{OauthCodeToken, OauthNonceToken};
 
 use http_server_common::request::get_request_ip::get_request_ip;
-use mysql_queries::queries::oauth::{consume_oauth_nonce, get_oauth_client, insert_oauth_code, insert_oauth_nonce, redirect_matches, save_oauth_consent, ConsumeNonceArgs, GetOauthClientArgs, InsertCodeArgs, InsertNonceArgs, RedirectMatchesArgs, SaveConsentArgs};
+use mysql_queries::queries::oauth_authorization_codes::insert_oauth_code::{insert_oauth_code, InsertCodeArgs};
+use mysql_queries::queries::oauth_client_redirects::redirect_matches::{redirect_matches, RedirectMatchesArgs};
+use mysql_queries::queries::oauth_clients::get_oauth_client::{get_oauth_client, GetOauthClientArgs};
+use mysql_queries::queries::oauth_consent_nonces::consume_oauth_nonce::{consume_oauth_nonce, ConsumeNonceArgs};
+use mysql_queries::queries::oauth_consent_nonces::insert_oauth_nonce::{insert_oauth_nonce, InsertNonceArgs};
+use mysql_queries::queries::oauth_consents::save_oauth_consent::{save_oauth_consent, SaveConsentArgs};
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::oauth::crypto::token_hash;
@@ -214,15 +219,20 @@ fn request_binding_hash(user_token: &str, request: &AuthorizeRequest) -> Result<
 }
 
 fn html_ok(body: String) -> HttpResponse {
-  HttpResponse::Ok().content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).body(body)
+  framed(HttpResponse::Ok(), body)
 }
 
 fn html_error(message: &str) -> HttpResponse {
-  HttpResponse::BadRequest().content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).body(error_page(message))
+  framed(HttpResponse::BadRequest(), error_page(message))
 }
 
 fn sign_in_required() -> HttpResponse {
-  HttpResponse::Unauthorized().content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).body(sign_in_page())
+  framed(HttpResponse::Unauthorized(), sign_in_page())
+}
+
+fn framed(mut builder: actix_web::HttpResponseBuilder, body: String) -> HttpResponse {
+  builder.content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).insert_header(("x-frame-options", "DENY")).insert_header(("content-security-policy", "frame-ancestors 'none'"));
+  builder.body(body)
 }
 
 fn redirect_response(location: &str) -> HttpResponse {

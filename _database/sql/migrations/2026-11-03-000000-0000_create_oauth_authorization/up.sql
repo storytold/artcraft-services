@@ -1,3 +1,7 @@
+-- noinspection SqlDialectInspectionForFile
+-- noinspection SqlNoDataSourceInspectionForFile
+-- noinspection SqlResolveForFile
+
 -- Authorization-code clients, consent, one-time codes, and hashed tokens.
 -- Secrets (codes, access tokens, refresh tokens, consent nonces) are stored as SHA-256 hex only.
 

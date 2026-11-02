@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE oauth_consent_nonces SET maybe_used_at = UTC_TIMESTAMP() WHERE nonce_hash = ? AND user_token = ? AND client_token = ? AND request_hash = ? AND maybe_used_at IS NULL AND expires_at > UTC_TIMESTAMP()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "5d23132ad68dca4994d1a6ad6f34176195f8be66cd628f577ea408c76da7ad0a"
+}

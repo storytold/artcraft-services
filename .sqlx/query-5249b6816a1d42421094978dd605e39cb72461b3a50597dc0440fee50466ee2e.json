@@ -1,0 +1,80 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT client_token, user_token, redirect_uri, scopes, code_challenge, audience FROM oauth_authorization_codes WHERE code_hash = ? AND maybe_used_at IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_token",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_token",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "redirect_uri",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "scopes",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "code_challenge",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "audience",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5249b6816a1d42421094978dd605e39cb72461b3a50597dc0440fee50466ee2e"
+}
