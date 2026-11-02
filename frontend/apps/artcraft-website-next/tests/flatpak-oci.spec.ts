@@ -76,11 +76,17 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const pdfcraft = index.Results.find((r) => r.Name === "storytold/pdfcraft");
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.Repository).toBe("storytold/pdfcraft");
-    const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "x86_64");
+    const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "amd64");
     expect(pdfcraftX86?.Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.pdfcraft/x86_64/stable");
     expect(pdfcraftX86?.Digest).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("[Application]");
     expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("ai.storyteller.pdfcraft");
+
+    // `flatpak remote-ls` takes Version and Name from this AppStream label.
+    const appdata = pdfcraftX86?.Labels["org.freedesktop.appstream.appdata"] ?? "";
+    expect(appdata).toContain("<id>ai.storyteller.pdfcraft</id>");
+    expect(appdata).toContain('<bundle type="flatpak">app/ai.storyteller.pdfcraft/x86_64/stable</bundle>');
+    expect(appdata).toContain(`<release version="${pdfcraftX86?.Labels["org.opencontainers.image.version"]}"/>`);
 
     // The website's catalog owns release versions; no OCI build exists for Craft Anything yet.
     expect(index.Results.find((r) => r.Repository === "storytold/craft-anything")).toBeUndefined();
@@ -92,7 +98,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
 
     expect(index.Results).toHaveLength(1);
     expect(index.Results[0].Images).toHaveLength(1);
-    expect(index.Results[0].Images[0].Architecture).toBe("x86_64");
+    expect(index.Results[0].Images[0].Architecture).toBe("amd64");
   });
 
   test("filters by org.flatpak.ref label", async () => {
@@ -104,7 +110,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     expect(index.Results).toHaveLength(1);
     expect(index.Results[0].Repository).toBe("storytold/pdfcraft");
     expect(index.Results[0].Images).toHaveLength(1);
-    expect(index.Results[0].Images[0].Architecture).toBe("x86_64");
+    expect(index.Results[0].Images[0].Architecture).toBe("amd64");
   });
 
   test("matches Flatpak's stable query to the architecture-specific GHCR tag", async () => {
@@ -119,6 +125,19 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     expect(index.Results.every((repo) => repo.Images.every((image) =>
       image.Labels["org.flatpak.ref"].endsWith("/stable"),
     ))).toBe(true);
+  });
+
+  test("answers Flatpak's default `latest` tag query for a remote URL without a fragment", async () => {
+    const params = new URLSearchParams({
+      architecture: "amd64",
+      os: "linux",
+      tag: "latest",
+      "label:org.flatpak.ref:exists": "1",
+    });
+    const index = await getFlatpakOciIndex(params);
+
+    expect(index.Results.length).toBeGreaterThan(0);
+    expect(index.Results.every((repo) => repo.Images.every((image) => image.Architecture === "amd64"))).toBe(true);
   });
 
   test("reports missing registry tags rather than returning synthetic digests", async () => {
@@ -152,7 +171,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const staticIndex = await staticResponse.json();
     const staticImages = staticIndex.Results.flatMap((repo: { Images: { Architecture: string }[] }) => repo.Images);
     expect(staticImages.length).toBeGreaterThan(0);
-    expect(staticImages.every((image: { Architecture: string }) => image.Architecture === "aarch64")).toBe(true);
+    expect(staticImages.every((image: { Architecture: string }) => image.Architecture === "arm64")).toBe(true);
 
     const dynamicResponse = await getDynamicIndex(
       new Request("https://getartcraft.com/index/dynamic?architecture=amd64"),
@@ -162,6 +181,6 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const dynamicIndex = await dynamicResponse.json();
     const dynamicImages = dynamicIndex.Results.flatMap((repo: { Images: { Architecture: string }[] }) => repo.Images);
     expect(dynamicImages.length).toBeGreaterThan(0);
-    expect(dynamicImages.every((image: { Architecture: string }) => image.Architecture === "x86_64")).toBe(true);
+    expect(dynamicImages.every((image: { Architecture: string }) => image.Architecture === "amd64")).toBe(true);
   });
 });

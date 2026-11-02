@@ -19,7 +19,8 @@ export type FlatpakOciImage = {
   Digest: string;
   MediaType: string;
   Size?: number;
-  Architecture: "x86_64" | "aarch64";
+  /** GOARCH value, per the registry index spec. Flatpak matches these against `amd64`/`arm64`. */
+  Architecture: "amd64" | "arm64";
   OS: "linux";
   Labels: Record<string, string>;
   Annotations?: Record<string, string>;
@@ -53,13 +54,44 @@ const tokenRequests = new Map<string, Promise<string>>();
 const DIGEST_CACHE_MS = 5 * 60 * 1000;
 const TOKEN_CACHE_MS = 5 * 60 * 1000;
 
-/** Normalize container architecture names to Flatpak conventions. */
+/** Flatpak architecture names to the GOARCH names the registry index protocol uses. */
+const OCI_ARCHITECTURES = { x86_64: "amd64", aarch64: "arm64" } as const;
+
+/** Normalize architecture names to the GOARCH values used in index responses. */
 function normalizeArch(arch: string | null): string | null {
   if (!arch) return null;
   const lower = arch.toLowerCase();
-  if (lower === "amd64" || lower === "x86_64" || lower === "x64") return "x86_64";
-  if (lower === "arm64" || lower === "aarch64") return "aarch64";
+  if (lower === "amd64" || lower === "x86_64" || lower === "x64") return "amd64";
+  if (lower === "arm64" || lower === "aarch64") return "arm64";
   return lower;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+/**
+ * AppStream catalog data for one image. Flatpak builds a remote's AppStream catalog from this
+ * label (`org.freedesktop.appstream.appdata`); `flatpak remote-ls` reads the Version and Name
+ * columns from that catalog and never from `org.opencontainers.image.version`. The component
+ * must carry a `flatpak` bundle for its ref or Flatpak cannot match it to the image.
+ */
+function appstreamData(appId: string, appName: string, ref: string, version: string): string {
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<components version="0.8" origin="flatpak">\n' +
+    '  <component type="desktop-application">\n' +
+    `    <id>${escapeXml(appId)}</id>\n` +
+    `    <name>${escapeXml(appName)}</name>\n` +
+    `    <bundle type="flatpak">${escapeXml(ref)}</bundle>\n` +
+    `    <releases><release version="${escapeXml(version)}"/></releases>\n` +
+    "  </component>\n" +
+    "</components>\n"
+  );
 }
 
 function buildImagesForTarget(
@@ -81,11 +113,12 @@ function buildImagesForTarget(
       Tags: [versionTag, stableTag],
       Digest: "",
       MediaType: "application/vnd.oci.image.manifest.v1+json",
-      Architecture: arch,
+      Architecture: OCI_ARCHITECTURES[arch],
       OS: "linux",
       Labels: {
         "org.flatpak.ref": ref,
         "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/23.08\nsdk=org.freedesktop.Sdk/${arch}/23.08\ncommand=${binaryName}\n`,
+        "org.freedesktop.appstream.appdata": appstreamData(appId, appName, ref, version),
         "org.opencontainers.image.version": version,
         "org.opencontainers.image.title": appName,
         "org.opencontainers.image.vendor": "Storytold",
@@ -256,7 +289,11 @@ function filterImages(images: FlatpakOciImage[], criteria: OciFilterCriteria): F
     // Flatpak asks for the ref's branch tag (usually `stable`), while per-architecture GHCR
     // images are physically published as e.g. `stable-x86_64`.
     const refTag = img.Labels["org.flatpak.ref"]?.split("/").at(-1);
-    if (criteria.tag && !img.Tags.includes(criteria.tag) && refTag !== criteria.tag) return false;
+    // Flatpak asks for `latest` when the remote URL has no `#tag` fragment, which is how
+    // artcraft-oci.flatpakrepo is written. Every image here is the current release.
+    if (criteria.tag && criteria.tag !== "latest" && !img.Tags.includes(criteria.tag) && refTag !== criteria.tag) {
+      return false;
+    }
     return true;
   });
 }
