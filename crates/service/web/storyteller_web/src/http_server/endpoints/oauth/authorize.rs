@@ -44,7 +44,7 @@ struct AuthorizeRequest {
 }
 
 pub async fn oauth_authorize_get(http_request: HttpRequest, query: web::Query<AuthorizeQuery>, server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError> {
-  let request = match authorize_request_from_parts(query.response_type.as_deref(), query.client_id.as_deref(), query.redirect_uri.as_deref(), query.scope.as_deref(), query.state.as_deref(), query.code_challenge.as_deref(), query.code_challenge_method.as_deref(), query.audience.as_deref()) {
+  let request = match authorize_request_from_parts(parts_from_query(&query)) {
     Some(request) => request,
     None => return Ok(html_error("This authorization link is not valid.")),
   };
@@ -60,7 +60,7 @@ pub async fn oauth_authorize_post(http_request: HttpRequest, body: web::Bytes, s
   if decision != "approve" && decision != "deny" {
     return Ok(html_error("This authorization form is not valid."));
   }
-  let Some(request) = authorize_request_from_parts(form_value(&pairs, "response_type"), form_value(&pairs, "client_id"), form_value(&pairs, "redirect_uri"), form_value(&pairs, "scope"), form_value(&pairs, "state"), form_value(&pairs, "code_challenge"), form_value(&pairs, "code_challenge_method"), form_value(&pairs, "audience")) else {
+  let Some(request) = authorize_request_from_parts(AuthorizeParts { response_type: form_value(&pairs, "response_type"), client_id: form_value(&pairs, "client_id"), redirect_uri: form_value(&pairs, "redirect_uri"), scope: form_value(&pairs, "scope"), state: form_value(&pairs, "state"), code_challenge: form_value(&pairs, "code_challenge"), code_challenge_method: form_value(&pairs, "code_challenge_method"), audience: form_value(&pairs, "audience") }) else {
     return Ok(html_error("This authorization form is not valid."));
   };
   let Some(nonce) = form_value(&pairs, "nonce") else {
@@ -162,31 +162,46 @@ async fn render_consent(http_request: &HttpRequest, server_state: &ServerState, 
   Ok(html_ok(consent_page(&client.client_name, &items, &fields)))
 }
 
-fn authorize_request_from_parts(response_type: Option<&str>, client_id: Option<&str>, redirect_uri: Option<&str>, scope: Option<&str>, state: Option<&str>, code_challenge: Option<&str>, code_challenge_method: Option<&str>, audience: Option<&str>) -> Option<AuthorizeRequest> {
-  if response_type != Some("code") {
+struct AuthorizeParts<'a> {
+  response_type: Option<&'a str>,
+  client_id: Option<&'a str>,
+  redirect_uri: Option<&'a str>,
+  scope: Option<&'a str>,
+  state: Option<&'a str>,
+  code_challenge: Option<&'a str>,
+  code_challenge_method: Option<&'a str>,
+  audience: Option<&'a str>,
+}
+
+fn parts_from_query(query: &AuthorizeQuery) -> AuthorizeParts<'_> {
+  AuthorizeParts { response_type: query.response_type.as_deref(), client_id: query.client_id.as_deref(), redirect_uri: query.redirect_uri.as_deref(), scope: query.scope.as_deref(), state: query.state.as_deref(), code_challenge: query.code_challenge.as_deref(), code_challenge_method: query.code_challenge_method.as_deref(), audience: query.audience.as_deref() }
+}
+
+fn authorize_request_from_parts(parts: AuthorizeParts<'_>) -> Option<AuthorizeRequest> {
+  if parts.response_type != Some("code") {
     return None;
   }
-  let client_id = client_id?;
+  let client_id = parts.client_id?;
   if !client_id.starts_with("oauth_client_") || client_id.len() > 64 {
     return None;
   }
-  let redirect_uri = redirect_uri?;
+  let redirect_uri = parts.redirect_uri?;
   if !redirect_uri_is_allowed(redirect_uri) {
     return None;
   }
-  let state = state?;
+  let state = parts.state?;
   if !state_is_valid(state) {
     return None;
   }
-  if code_challenge_method != Some("S256") {
+  if parts.code_challenge_method != Some("S256") {
     return None;
   }
-  let code_challenge = code_challenge?;
+  let code_challenge = parts.code_challenge?;
   if !code_challenge_is_valid(code_challenge) {
     return None;
   }
-  let audience = audience?;
-  let scopes = canonicalize_scopes(scope?, audience)?;
+  let audience = parts.audience?;
+  let scopes = canonicalize_scopes(parts.scope?, audience)?;
   Some(AuthorizeRequest { client_id: client_id.to_string(), redirect_uri: redirect_uri.to_string(), scopes, state: state.to_string(), code_challenge: code_challenge.to_string(), audience: audience.to_string() })
 }
 
@@ -220,7 +235,7 @@ mod tests {
 
   #[test]
   fn plain_pkce_and_a_missing_state_are_rejected() {
-    assert!(authorize_request_from_parts(Some("code"), Some("oauth_client_example"), Some("https://example.com/callback"), Some("generate"), Some("state"), Some("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), Some("plain"), Some("https://api.storyteller.ai"),).is_none());
-    assert!(authorize_request_from_parts(Some("code"), Some("oauth_client_example"), Some("https://example.com/callback"), Some("generate"), None, Some("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), Some("S256"), Some("https://api.storyteller.ai"),).is_none());
+    assert!(authorize_request_from_parts(AuthorizeParts { response_type: Some("code"), client_id: Some("oauth_client_example"), redirect_uri: Some("https://example.com/callback"), scope: Some("generate"), state: Some("state"), code_challenge: Some("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), code_challenge_method: Some("plain"), audience: Some("https://api.storyteller.ai") }).is_none());
+    assert!(authorize_request_from_parts(AuthorizeParts { response_type: Some("code"), client_id: Some("oauth_client_example"), redirect_uri: Some("https://example.com/callback"), scope: Some("generate"), state: None, code_challenge: Some("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), code_challenge_method: Some("S256"), audience: Some("https://api.storyteller.ai") }).is_none());
   }
 }
