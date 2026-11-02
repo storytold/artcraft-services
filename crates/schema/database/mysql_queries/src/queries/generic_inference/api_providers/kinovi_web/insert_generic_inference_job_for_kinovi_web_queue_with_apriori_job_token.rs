@@ -96,33 +96,7 @@ pub async fn insert_generic_inference_job_for_kinovi_web_queue_with_apriori_job_
     job_type,
     external_third_party,
     mut product_category
-  ) = match (args.kinovi_version, is_image_model) {
-    (KinoviVersion::Volcengine, true) => (
-      InferenceJobType::Seedance2ProQueue,
-      InferenceJobExternalThirdParty::Seedance2Pro,
-      InferenceJobProductCategory::Seedance2ProVideo,
-    ),
-    (KinoviVersion::Volcengine, false) => (
-      InferenceJobType::Seedance2ProQueue,
-      InferenceJobExternalThirdParty::Seedance2Pro,
-      InferenceJobProductCategory::Seedance2ProImage,
-    ),
-    (KinoviVersion::BytePlus, _) => (
-      InferenceJobType::Seedance2ProAltQueue,
-      InferenceJobExternalThirdParty::Seedance2ProAlt,
-      InferenceJobProductCategory::Seedance2ProVideoAlt,
-    ),
-    (KinoviVersion::BytePlusUltra, true) => (
-      InferenceJobType::Seedance2ProBytePlusUltraQueue,
-      InferenceJobExternalThirdParty::Seedance2ProBytePlusUltra,
-      InferenceJobProductCategory::Seedance2ProImageBytePlusUltra,
-    ),
-    (KinoviVersion::BytePlusUltra, false) => (
-      InferenceJobType::Seedance2ProBytePlusUltraQueue,
-      InferenceJobExternalThirdParty::Seedance2ProBytePlusUltra,
-      InferenceJobProductCategory::Seedance2ProVideoBytePlusUltra,
-    ),
-  };
+  ) = job_queue_and_category(args.kinovi_version, is_image_model);
 
   if is_audio_model {
     product_category = InferenceJobProductCategory::Seedance2ProAudio;
@@ -165,4 +139,91 @@ pub async fn insert_generic_inference_job_for_kinovi_web_queue_with_apriori_job_
   info!("Insert generic inference job for Seedance 2 Pro queue: {} with record ID {}", args.apriori_job_token, record_id);
 
   Ok(args.apriori_job_token.clone())
+}
+
+fn job_queue_and_category(
+  kinovi_version: KinoviVersion,
+  is_image_model: bool,
+) -> (InferenceJobType, InferenceJobExternalThirdParty, InferenceJobProductCategory) {
+  match (kinovi_version, is_image_model) {
+    (KinoviVersion::Volcengine, true) => (
+      InferenceJobType::Seedance2ProQueue,
+      InferenceJobExternalThirdParty::Seedance2Pro,
+      InferenceJobProductCategory::Seedance2ProImage,
+    ),
+    (KinoviVersion::Volcengine, false) => (
+      InferenceJobType::Seedance2ProQueue,
+      InferenceJobExternalThirdParty::Seedance2Pro,
+      InferenceJobProductCategory::Seedance2ProVideo,
+    ),
+    (KinoviVersion::BytePlus, _) => (
+      InferenceJobType::Seedance2ProAltQueue,
+      InferenceJobExternalThirdParty::Seedance2ProAlt,
+      InferenceJobProductCategory::Seedance2ProVideoAlt,
+    ),
+    (KinoviVersion::BytePlusUltra, true) => (
+      InferenceJobType::Seedance2ProBytePlusUltraQueue,
+      InferenceJobExternalThirdParty::Seedance2ProBytePlusUltra,
+      InferenceJobProductCategory::Seedance2ProImageBytePlusUltra,
+    ),
+    (KinoviVersion::BytePlusUltra, false) => (
+      InferenceJobType::Seedance2ProBytePlusUltraQueue,
+      InferenceJobExternalThirdParty::Seedance2ProBytePlusUltra,
+      InferenceJobProductCategory::Seedance2ProVideoBytePlusUltra,
+    ),
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use enums::by_table::generic_inference_jobs::inference_job_external_third_party::InferenceJobExternalThirdParty;
+  use enums::by_table::generic_inference_jobs::inference_job_product_category::InferenceJobProductCategory;
+  use enums::by_table::generic_inference_jobs::inference_job_type::InferenceJobType;
+
+  use super::{job_queue_and_category, KinoviVersion};
+
+  #[test]
+  fn volcengine_image_job() {
+    assert_eq!(job_queue_and_category(KinoviVersion::Volcengine, true), (
+      InferenceJobType::Seedance2ProQueue,
+      InferenceJobExternalThirdParty::Seedance2Pro,
+      InferenceJobProductCategory::Seedance2ProImage,
+    ));
+  }
+
+  #[test]
+  fn volcengine_video_job() {
+    assert_eq!(job_queue_and_category(KinoviVersion::Volcengine, false), (
+      InferenceJobType::Seedance2ProQueue,
+      InferenceJobExternalThirdParty::Seedance2Pro,
+      InferenceJobProductCategory::Seedance2ProVideo,
+    ));
+  }
+
+  #[test]
+  fn byteplus_video_job() {
+    assert_eq!(job_queue_and_category(KinoviVersion::BytePlus, false), (
+      InferenceJobType::Seedance2ProAltQueue,
+      InferenceJobExternalThirdParty::Seedance2ProAlt,
+      InferenceJobProductCategory::Seedance2ProVideoAlt,
+    ));
+  }
+
+  #[test]
+  fn byteplus_ultra_image_job() {
+    assert_eq!(job_queue_and_category(KinoviVersion::BytePlusUltra, true), (
+      InferenceJobType::Seedance2ProBytePlusUltraQueue,
+      InferenceJobExternalThirdParty::Seedance2ProBytePlusUltra,
+      InferenceJobProductCategory::Seedance2ProImageBytePlusUltra,
+    ));
+  }
+
+  #[test]
+  fn byteplus_ultra_video_job() {
+    assert_eq!(job_queue_and_category(KinoviVersion::BytePlusUltra, false), (
+      InferenceJobType::Seedance2ProBytePlusUltraQueue,
+      InferenceJobExternalThirdParty::Seedance2ProBytePlusUltra,
+      InferenceJobProductCategory::Seedance2ProVideoBytePlusUltra,
+    ));
+  }
 }
