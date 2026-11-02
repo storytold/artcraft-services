@@ -38,7 +38,11 @@ pub async fn get_user_bookmark_transactional_locking<'e, 'c, E>(
 {
   let maybe_results = match bookmark_identifier {
     BookmarkIdentifier::UserAndEntity(user_token, bookmark_entity_token) => {
-      query_by_user_and_entity(mysql_executor, user_token, bookmark_entity_token).await
+      query_by_user_and_entity(QueryByUserAndEntityArgs {
+        user_token,
+        bookmark_entity_token,
+        mysql_executor,
+      }).await
     }
     BookmarkIdentifier::BookmarkToken(bookmark_token) => {
       query_by_bookmark_token(mysql_executor, bookmark_token).await
@@ -62,19 +66,19 @@ pub async fn get_user_bookmark_transactional_locking<'e, 'c, E>(
   }
 }
 
-async fn query_by_user_and_entity<'e, 'c, E>(
-  mysql_executor: E,
-  user_token: &UserToken,
-  bookmark_entity_token: &UserBookmarkEntityToken,
-) -> Result<RawUserBookmark, Error> where E: 'e + Executor<'c, Database=MySql>
+async fn query_by_user_and_entity<'c, E>(args: QueryByUserAndEntityArgs<'_, E>)
+  -> Result<RawUserBookmark, Error> where E: Executor<'c, Database=MySql>
 {
+  let QueryByUserAndEntityArgs { user_token, bookmark_entity_token, mysql_executor } = args;
   let (entity_type, entity_token) = bookmark_entity_token.get_composite_keys();
 
   // NB(1): LEFT OUTER JOIN does not require entity_stats to be present, but will lock it under
   // SELECT...FOR UPDATE if the row exists.
-  // NB(2): This selects (and locks) every user's bookmark of the entity, so that bookmark changes
-  // to the same entity stay serialized. Only the requesting user's bookmark is returned.
-  let bookmarks = sqlx::query_as!(
+  // NB(2): This locks every user's bookmark of the entity, so that bookmark changes to the same
+  // entity stay serialized. Sorting on an expression makes MySQL read (and lock) all of them
+  // before LIMIT 1 returns the requesting user's bookmark first. If the user has no bookmark,
+  // the row returned belongs to someone else and is discarded below.
+  let maybe_bookmark = sqlx::query_as!(
         RawUserBookmark,
           r#"
   SELECT
@@ -100,16 +104,20 @@ async fn query_by_user_and_entity<'e, 'c, E>(
   WHERE
       b.entity_type = ?
       AND b.entity_token = ?
+  ORDER BY
+      (b.user_token = ?) DESC
+  LIMIT 1
   FOR UPDATE
           "#,
         entity_type.to_str(),
-        entity_token
+        entity_token,
+        user_token
       )
-      .fetch_all(mysql_executor)
+      .fetch_optional(mysql_executor)
       .await?;
 
-  bookmarks.into_iter()
-      .find(|bookmark| bookmark.user_token == *user_token)
+  maybe_bookmark
+      .filter(|bookmark| bookmark.user_token == *user_token)
       .ok_or(Error::RowNotFound)
 }
 
@@ -158,6 +166,12 @@ async fn query_by_bookmark_token<'e, 'c, E>(mysql_executor: E, bookmark_token: &
       )
       .fetch_one(mysql_executor)
       .await
+}
+
+struct QueryByUserAndEntityArgs<'a, E> {
+  user_token: &'a UserToken,
+  bookmark_entity_token: &'a UserBookmarkEntityToken,
+  mysql_executor: E,
 }
 
 pub struct RawUserBookmark {
