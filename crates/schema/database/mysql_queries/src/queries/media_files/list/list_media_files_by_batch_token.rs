@@ -52,6 +52,9 @@ pub struct MediaFileListItem {
   pub maybe_thumbnail_version: Option<u8>,
 
   pub creator_set_visibility: Visibility,
+  /// The token of the user who created the file, when they were logged in. Used to decide whether
+  /// a private record may be shown to the requester.
+  pub maybe_creator_user_token: Option<String>,
 
   pub is_user_upload: bool,
   pub is_intermediate_system_file: bool,
@@ -132,6 +135,7 @@ pub async fn list_media_files_by_batch_token(args: ListMediaFileByBatchArgs<'_>)
           maybe_public_bucket_extension: record.maybe_public_bucket_extension,
           maybe_thumbnail_version: record.maybe_thumbnail_version,
           creator_set_visibility: record.creator_set_visibility,
+          maybe_creator_user_token: record.maybe_creator_user_token,
           is_user_upload: i8_to_bool(record.is_user_upload),
           is_intermediate_system_file: i8_to_bool(record.is_intermediate_system_file),
           maybe_title: record.maybe_title,
@@ -185,6 +189,7 @@ fn select_result_fields() -> String {
     m.maybe_thumbnail_version,
 
     m.creator_set_visibility,
+    m.maybe_creator_user_token,
 
     m.is_user_upload,
     m.is_intermediate_system_file,
@@ -296,6 +301,7 @@ struct MediaFileListItemInternal {
   maybe_thumbnail_version: Option<u8>,
 
   creator_set_visibility: Visibility,
+  maybe_creator_user_token: Option<String>,
 
   is_user_upload: i8,
   is_intermediate_system_file: i8,
@@ -346,6 +352,7 @@ impl FromRow<'_, MySqlRow> for MediaFileListItemInternal {
       maybe_public_bucket_extension: row.try_get("maybe_public_bucket_extension")?,
       maybe_thumbnail_version: row.try_get("maybe_thumbnail_version")?,
       creator_set_visibility: Visibility::try_from_mysql_row(row, "creator_set_visibility")?,
+      maybe_creator_user_token: row.try_get("maybe_creator_user_token")?,
       is_user_upload: row.try_get("is_user_upload")?,
       is_intermediate_system_file: row.try_get("is_intermediate_system_file")?,
       maybe_title: row.try_get("maybe_title")?,

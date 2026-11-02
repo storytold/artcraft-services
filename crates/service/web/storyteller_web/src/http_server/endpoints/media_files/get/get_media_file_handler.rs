@@ -240,6 +240,7 @@ pub async fn get_media_file_handler(
     emulate_media_file_with_legacy_tts_result_lookup(
       &media_file_token,
       show_deleted_results,
+      viewer_user_token.as_deref(),
       &server_state,
       media_domain,
     ).await?
@@ -254,6 +255,24 @@ pub async fn get_media_file_handler(
   };
 
   Ok(Json(response))
+}
+
+/// Private media is readable only by its creator and by moderators. `NotFound` is returned rather
+/// than `NotAuthorized` so a non-owner cannot confirm that a private token exists.
+fn ensure_may_read_media(
+  visibility: &Visibility,
+  maybe_creator_user_token: Option<&str>,
+  viewer_user_token: Option<&str>,
+  is_mod: bool,
+) -> Result<(), CommonWebError> {
+  if *visibility != Visibility::Private || is_mod {
+    return Ok(());
+  }
+
+  match (viewer_user_token, maybe_creator_user_token) {
+    (Some(viewer), Some(creator)) if viewer == creator => Ok(()),
+    _ => Err(CommonWebError::NotFound),
+  }
 }
 
 async fn modern_media_file_lookup(
@@ -281,17 +300,12 @@ async fn modern_media_file_lookup(
     Ok(Some(result)) => result,
   };
 
-  // Private media is visible only to its creator and to moderators. Report absence rather than
-  // existence so a non-owner cannot probe for private tokens.
-  if result.creator_set_visibility == Visibility::Private && !is_mod {
-    let is_creator = match (viewer_user_token, result.maybe_creator_user_token.as_ref()) {
-      (Some(viewer), Some(creator)) => viewer == creator.as_str(),
-      _ => false,
-    };
-    if !is_creator {
-      return Err(CommonWebError::NotFound);
-    }
-  }
+  ensure_may_read_media(
+    &result.creator_set_visibility,
+    result.maybe_creator_user_token.as_ref().map(|token| token.as_str()),
+    viewer_user_token,
+    is_mod,
+  )?;
 
   let public_bucket_path = MediaFileBucketPath::from_object_hash(
     &result.public_bucket_directory_hash,
@@ -422,9 +436,12 @@ async fn modern_media_file_lookup(
 async fn emulate_media_file_with_legacy_tts_result_lookup(
   media_file_token: &MediaFileToken,
   show_deleted_results: bool,
+  viewer_user_token: Option<&str>,
   server_state: &ServerState,
   media_domain: MediaDomain,
 ) -> Result<GetMediaFileSuccessResponse, CommonWebError> {
+
+  let is_mod = show_deleted_results;
 
   let result = select_tts_result_by_token(
     &media_file_token.as_str(),
@@ -440,6 +457,13 @@ async fn emulate_media_file_with_legacy_tts_result_lookup(
     Ok(None) => return Err(CommonWebError::NotFound),
     Ok(Some(result)) => result,
   };
+
+  ensure_may_read_media(
+    &result.creator_set_visibility,
+    result.maybe_creator_user_token.as_ref().map(|token| token.as_str()),
+    viewer_user_token,
+    is_mod,
+  )?;
 
   //if let Some(moderator_fields) = result.maybe_moderator_fields.as_ref() {
   //  // NB: The moderator fields will always be present before removal

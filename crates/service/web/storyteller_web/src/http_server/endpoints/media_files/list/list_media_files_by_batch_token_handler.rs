@@ -167,6 +167,16 @@ pub async fn list_media_files_by_batch_token_handler(
       .maybe_get_user_session(&http_request, &server_state.mysql_pool)
       .await?;
 
+  // NB: Moderators can see deleted results; other creators cannot (unless they're moderators!).
+  let is_mod = maybe_user_session
+      .as_ref()
+      .map(|session| session.can_delete_other_users_tts_results)
+      .unwrap_or(false);
+
+  let viewer_user_token = maybe_user_session
+      .as_ref()
+      .map(|session| session.user_token.as_str().to_string());
+
   // NB: Temporary rollout flag for certain file types (BVH, etc).
   let mut is_allowed_studio_access = allowed_studio_access(
     maybe_user_session.as_ref(),
@@ -178,8 +188,15 @@ pub async fn list_media_files_by_batch_token_handler(
   let page_size = query.page_size.unwrap_or_else(|| 25);
   let page_index = query.page_index.unwrap_or_else(|| 0);
 
-  // TODO(bt, 2024-02-18): This is wrong, but gotta go fast.
-  let view_as= ViewAs::Author;
+  // NB: Read scope comes from the requester, never from the batch token: knowing a batch token
+  // must not be enough to read another user's private records.
+  let view_as = if is_mod {
+    ViewAs::Moderator
+  } else if viewer_user_token.is_some() {
+    ViewAs::Author
+  } else {
+    ViewAs::AnotherUser
+  };
 
   let query_results = list_media_files_by_batch_token(ListMediaFileByBatchArgs {
     batch_token: &path.token,
@@ -202,6 +219,16 @@ pub async fn list_media_files_by_batch_token_handler(
 
   let results = results_page.records.into_iter()
       .filter(|record| {
+        // Private records are readable only by their creator and by moderators.
+        if record.creator_set_visibility == Visibility::Private && !is_mod {
+          let is_creator = match (viewer_user_token.as_deref(), record.maybe_creator_user_token.as_deref()) {
+            (Some(viewer), Some(creator)) => viewer == creator,
+            _ => false,
+          };
+          if !is_creator {
+            return false;
+          }
+        }
         if is_allowed_studio_access {
           return true;
         }
