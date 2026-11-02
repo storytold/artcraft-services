@@ -1,0 +1,25 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT client_token FROM oauth_client_redirects WHERE client_token = ? AND redirect_uri = ? LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_token",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1e2d5e516004c1f2eaa05d59c74886024f25c3e545d9e3495d9a3c944e8ddf77"
+}

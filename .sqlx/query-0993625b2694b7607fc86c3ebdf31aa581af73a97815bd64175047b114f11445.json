@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO oauth_authorization_codes SET code_hash = ?, client_token = ?, user_token = ?, redirect_uri = ?, scopes = ?, code_challenge = ?, audience = ?, expires_at = TIMESTAMPADD(SECOND, ?, UTC_TIMESTAMP())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "0993625b2694b7607fc86c3ebdf31aa581af73a97815bd64175047b114f11445"
+}

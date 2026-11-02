@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO oauth_client_redirects SET client_token = ?, redirect_uri = ?, redirect_hash = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "126b2b5060a113cce312a58b58ddaa62f96c6fbde848599baa42dc09a43666f1"
+}

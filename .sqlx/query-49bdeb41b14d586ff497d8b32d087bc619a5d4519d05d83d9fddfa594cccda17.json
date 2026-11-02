@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO oauth_tokens SET access_hash = ?, refresh_hash = ?, client_token = ?, user_token = ?, scopes = ?, audience = ?, access_expires_at = TIMESTAMPADD(SECOND, ?, UTC_TIMESTAMP()), refresh_expires_at = TIMESTAMPADD(SECOND, ?, UTC_TIMESTAMP())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "49bdeb41b14d586ff497d8b32d087bc619a5d4519d05d83d9fddfa594cccda17"
+}

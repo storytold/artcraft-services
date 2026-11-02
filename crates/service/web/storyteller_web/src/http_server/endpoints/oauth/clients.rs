@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use tokens::tokens::oauth::OauthClientToken;
 
 use http_server_common::request::get_request_ip::get_request_ip;
-use mysql_queries::queries::oauth::{insert_oauth_client, insert_oauth_redirect, InsertOauthClientArgs, InsertOauthRedirectArgs};
+use mysql_queries::queries::oauth_client_redirects::insert_oauth_redirect::{insert_oauth_redirect, InsertOauthRedirectArgs};
+use mysql_queries::queries::oauth_clients::insert_oauth_client::{insert_oauth_client, InsertOauthClientArgs};
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::oauth::crypto::token_hash;

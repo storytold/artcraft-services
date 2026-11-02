@@ -6,7 +6,13 @@ use log::warn;
 use serde_json::json;
 use tokens::tokens::oauth::{OauthAccessToken, OauthRefreshToken};
 
-use mysql_queries::queries::oauth::{consume_oauth_code, get_oauth_client, insert_oauth_token, read_used_oauth_code, revoke_reused_refresh, rotate_oauth_refresh, take_oauth_refresh, ConsumeCodeArgs, GetOauthClientArgs, InsertTokenArgs, ReadCodeArgs, ReusedRefreshArgs, RotateRefreshArgs, TakeRefreshArgs};
+use mysql_queries::queries::oauth_authorization_codes::consume_oauth_code::{consume_oauth_code, ConsumeCodeArgs};
+use mysql_queries::queries::oauth_authorization_codes::read_used_oauth_code::{read_used_oauth_code, ReadCodeArgs};
+use mysql_queries::queries::oauth_clients::get_oauth_client::{get_oauth_client, GetOauthClientArgs};
+use mysql_queries::queries::oauth_tokens::insert_oauth_token::{insert_oauth_token, InsertTokenArgs};
+use mysql_queries::queries::oauth_tokens::revoke_reused_refresh::{revoke_reused_refresh, ReusedRefreshArgs};
+use mysql_queries::queries::oauth_tokens::rotate_oauth_refresh::{rotate_oauth_refresh, RotateRefreshArgs};
+use mysql_queries::queries::oauth_tokens::take_oauth_refresh::{take_oauth_refresh, TakeRefreshArgs};
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::oauth::crypto::token_hash;
