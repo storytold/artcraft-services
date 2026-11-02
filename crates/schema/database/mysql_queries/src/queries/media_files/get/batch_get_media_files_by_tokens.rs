@@ -75,34 +75,51 @@ pub struct MediaFilesByTokensRecord {
   pub updated_at: DateTime<Utc>,
 }
 
+/// Who is asking, which decides whether private records are returned. `viewer_user_token` is the
+/// authenticated user (none for anonymous callers); `is_mod` grants moderator access.
+pub struct MediaReadScope<'a> {
+  pub viewer_user_token: Option<&'a str>,
+  pub is_mod: bool,
+}
+
+impl MediaReadScope<'_> {
+  /// An anonymous, unprivileged reader: only public, hidden and creator-less records are returned.
+  pub const ANONYMOUS: MediaReadScope<'static> = MediaReadScope { viewer_user_token: None, is_mod: false };
+}
+
 pub async fn batch_get_media_files_by_tokens(
   mysql_pool: &MySqlPool,
   media_file_tokens: &[MediaFileToken],
-  can_see_deleted: bool
+  can_see_deleted: bool,
+  scope: &MediaReadScope<'_>,
 ) -> AnyhowResult<Vec<MediaFilesByTokensRecord>> {
   batch_get_media_files_by_tokens_with_transactor(
     Transactor::Pool { pool: mysql_pool },
     media_file_tokens,
-    can_see_deleted
+    can_see_deleted,
+    scope,
   ).await
 }
 
 pub async fn batch_get_media_files_by_tokens_with_connection(
   mysql_connection: &mut PoolConnection<MySql>,
   media_file_tokens: &[MediaFileToken],
-  can_see_deleted: bool
+  can_see_deleted: bool,
+  scope: &MediaReadScope<'_>,
 ) -> AnyhowResult<Vec<MediaFilesByTokensRecord>> {
   batch_get_media_files_by_tokens_with_transactor(
     Transactor::Connection{ connection: mysql_connection },
     media_file_tokens,
-    can_see_deleted
+    can_see_deleted,
+    scope,
   ).await
 }
 
 pub async fn batch_get_media_files_by_tokens_with_transactor(
   transactor: Transactor<'_, '_>,
   media_file_tokens: &[MediaFileToken],
-  can_see_deleted: bool
+  can_see_deleted: bool,
+  scope: &MediaReadScope<'_>,
 ) -> AnyhowResult<Vec<MediaFilesByTokensRecord>> {
   if media_file_tokens.is_empty() {
     // NB: We should always eagerly return, but if we don't, the query builder will build an
@@ -110,7 +127,8 @@ pub async fn batch_get_media_files_by_tokens_with_transactor(
     return Ok(vec![]);
   }
 
-  let raw_media_files: Vec<RawMediaFileJoinUser> = get_raw_media_files_by_tokens(transactor, media_file_tokens, can_see_deleted).await?;
+  let raw_media_files: Vec<RawMediaFileJoinUser> =
+      get_raw_media_files_by_tokens(transactor, media_file_tokens, can_see_deleted, scope).await?;
 
   Ok(map_to_media_files(raw_media_files))
 }
@@ -118,7 +136,8 @@ pub async fn batch_get_media_files_by_tokens_with_transactor(
 async fn get_raw_media_files_by_tokens(
   mut transactor: Transactor<'_, '_>,
   media_file_tokens: &[MediaFileToken],
-  can_see_deleted: bool
+  can_see_deleted: bool,
+  scope: &MediaReadScope<'_>,
 ) -> AnyhowResult<Vec<RawMediaFileJoinUser>> {
 
   let mut query_builder : QueryBuilder<MySql> = if can_see_deleted {
@@ -261,6 +280,19 @@ async fn get_raw_media_files_by_tokens(
   query_builder.push(token_predicate(media_file_tokens));
 
   query_builder.push(")");
+
+  if !scope.is_mod {
+    // NB: A private record belongs to its creator. Records with no creator are system
+    // intermediates that generation depends on, not anyone's private media.
+    query_builder.push(" AND (m.creator_set_visibility <> ");
+    query_builder.push_bind(Visibility::Private.to_str());
+    query_builder.push(" OR m.maybe_creator_user_token IS NULL");
+    if let Some(viewer_user_token) = scope.viewer_user_token {
+      query_builder.push(" OR m.maybe_creator_user_token = ");
+      query_builder.push_bind(viewer_user_token);
+    }
+    query_builder.push(")");
+  }
 
   let query = query_builder.build_query_as::<RawMediaFileJoinUser>();
 

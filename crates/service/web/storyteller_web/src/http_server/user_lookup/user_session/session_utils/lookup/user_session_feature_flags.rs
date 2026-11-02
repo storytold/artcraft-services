@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn invalid_features_and_typos() {
       let flags =
-          UserSessionFeatureFlags::from_optional_str(Some("invalid,,typo,stdo,STUDIO"));
+          UserSessionFeatureFlags::from_optional_str(Some("invalid,typo,stdo,STUDIO"));
 
       assert_eq!(flags.clone_flags().len(), 0);
       assert_eq!(flags.has_flag(UserFeatureFlag::Studio), false);

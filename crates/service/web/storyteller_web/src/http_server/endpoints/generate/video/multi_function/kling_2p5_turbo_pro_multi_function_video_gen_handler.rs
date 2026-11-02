@@ -116,6 +116,7 @@ pub async fn kling_2p5_turbo_pro_multi_function_video_gen_handler(
         &mut mysql_connection,
         server_state.server_environment,
         &media_tokens,
+        &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
       ).await?
     }
   };

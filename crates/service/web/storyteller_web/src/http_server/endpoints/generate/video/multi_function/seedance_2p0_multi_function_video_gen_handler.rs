@@ -190,6 +190,7 @@ pub async fn seedance_2p0_multi_function_video_gen_handler(
       &mut mysql_connection,
       server_state.server_environment,
       &all_media_tokens,
+      &crate::util::lookup::media_read_policy::scope_for_session(Some(&user_session)),
     ).await?
   };
 

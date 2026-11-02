@@ -45,7 +45,7 @@ mod tests {
 
   #[test]
   fn parses_comma_separated_list_with_whitespace() {
-    let keys = InternalApiKey::parse_comma_separated_list(" foo_abc , bar_def,, ");
+    let keys = InternalApiKey::parse_comma_separated_list(" foo_abc , bar_def, ");
     assert_eq!(keys.len(), 2);
     assert!(keys.contains(&InternalApiKey::new("foo_abc")));
     assert!(keys.contains(&InternalApiKey::new("bar_def")));

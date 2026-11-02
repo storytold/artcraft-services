@@ -144,6 +144,7 @@ pub async fn run_authenticated_video_generation(
       server_state.server_environment,
 server_state.maybe_media_cdn_override_url.as_deref(),
       &all_tokens,
+      &crate::util::lookup::media_read_policy::scope_for_user_token(user_token, false),
     ).await?;
     Some(resolved.token_to_url_map)
   };
@@ -181,6 +182,7 @@ server_state.maybe_media_cdn_override_url.as_deref(),
         server_state.server_environment,
         server_state.maybe_media_cdn_override_url.as_deref(),
         &mut mysql_connection,
+        &crate::util::lookup::media_read_policy::scope_for_user_token(user_token, false),
       ).await?;
 
       // Downloads + ffprobe are slow — release the pool slot across them,

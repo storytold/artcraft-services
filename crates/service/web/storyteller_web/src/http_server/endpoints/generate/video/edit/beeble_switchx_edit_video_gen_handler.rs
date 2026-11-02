@@ -117,6 +117,7 @@ pub async fn beeble_switchx_edit_video_gen_handler(
     &mut mysql_connection,
     server_state.server_environment,
     &tokens_to_lookup,
+    &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
   ).await.map_err(|err| {
     warn!("Error looking up media files: {:?}", err);
     CommonWebError::from(err)
