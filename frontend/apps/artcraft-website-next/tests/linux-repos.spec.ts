@@ -24,26 +24,53 @@ import {
   getRequestBaseUrl,
 } from "../src/lib/linux-repos";
 import { createHash } from "node:crypto";
+import { CRAFTING_APPS, craftAppRelease, craftReleaseDownloads } from "../src/lib/crafting-apps";
+import { CRAFT_LAUNCHER_RELEASE } from "../src/lib/crafting-app-releases";
+
+// Read versions and assets from the release catalog so release bumps don't break these tests.
+function catalogRelease(slug: string) {
+  const app = CRAFTING_APPS.find((a) => a.slug === slug);
+  const release = app && craftAppRelease(app);
+  if (!app || !release) throw new Error(`No catalogued release for ${slug}`);
+  const downloads = craftReleaseDownloads(app, release);
+  const download = (fileName: string) => {
+    const match = downloads.find((d) => d.fileName === fileName);
+    if (!match) throw new Error(`${fileName} is not in the ${slug} ${release.version} release`);
+    return match.href;
+  };
+  const count = (suffix: string) => downloads.filter((d) => d.fileName.endsWith(suffix)).length;
+  return { version: release.version, download, count };
+}
+
+const pdfcraft = catalogRelease("pdfcraft");
+const craftAnything = catalogRelease("craft-anything");
+const launcherVersion = CRAFT_LAUNCHER_RELEASE!.version;
+const pdf = pdfcraft.version;
 
 test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
   test("resolves release download URLs only for catalogued package assets", () => {
-    const debUrl = resolvePackageDownloadUrl("pdfcraft-0.17.0-linux-x86_64.deb");
-    expect(debUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.17.0/pdfcraft-0.17.0-linux-x86_64.deb");
+    const pdfBase = `https://github.com/storytold/pdfcraft/releases/download/v${pdf}`;
+    const launcherBase = `https://github.com/storytold/craft-launcher/releases/download/v${launcherVersion}`;
 
-    const rpmUrl = resolvePackageDownloadUrl("pdfcraft-0.17.0-linux-x86_64.rpm");
-    expect(rpmUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.17.0/pdfcraft-0.17.0-linux-x86_64.rpm");
+    const debUrl = resolvePackageDownloadUrl(`pdfcraft-${pdf}-linux-x86_64.deb`);
+    expect(debUrl).toBe(`${pdfBase}/pdfcraft-${pdf}-linux-x86_64.deb`);
 
-    const launcherUrl = resolvePackageDownloadUrl("artcraft-launcher-0.13.0-linux-riscv64.deb");
-    expect(launcherUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.13.0/artcraft-launcher-0.13.0-linux-riscv64.deb");
+    const rpmUrl = resolvePackageDownloadUrl(`pdfcraft-${pdf}-linux-x86_64.rpm`);
+    expect(rpmUrl).toBe(`${pdfBase}/pdfcraft-${pdf}-linux-x86_64.rpm`);
 
-    const archUrl = resolvePackageDownloadUrl("pdfcraft-0.17.0-linux-x86_64.pkg.tar.zst");
-    expect(archUrl).toBe("https://github.com/storytold/pdfcraft/releases/download/v0.17.0/pdfcraft-0.17.0-linux-x86_64.pkg.tar.zst");
+    const launcherUrl = resolvePackageDownloadUrl(`artcraft-launcher-${launcherVersion}-linux-riscv64.deb`);
+    expect(launcherUrl).toBe(`${launcherBase}/artcraft-launcher-${launcherVersion}-linux-riscv64.deb`);
 
-    const archArmUrl = resolvePackageDownloadUrl("artcraft-launcher-0.13.0-linux-aarch64.pkg.tar.zst");
-    expect(archArmUrl).toBe("https://github.com/storytold/craft-launcher/releases/download/v0.13.0/artcraft-launcher-0.13.0-linux-aarch64.pkg.tar.zst");
+    const archUrl = resolvePackageDownloadUrl(`pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst`);
+    expect(archUrl).toBe(`${pdfBase}/pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst`);
 
-    const craftAnythingUrl = resolvePackageDownloadUrl("craft-anything-0.2.0-linux-x86_64.deb");
-    expect(craftAnythingUrl).toBe("https://github.com/storytold/craft-anything/releases/download/v0.2.0/craft-anything-0.2.0-linux-x86_64.deb");
+    const archArmUrl = resolvePackageDownloadUrl(`artcraft-launcher-${launcherVersion}-linux-aarch64.pkg.tar.zst`);
+    expect(archArmUrl).toBe(`${launcherBase}/artcraft-launcher-${launcherVersion}-linux-aarch64.pkg.tar.zst`);
+
+    const craftAnythingFile = `craft-anything-${craftAnything.version}-linux-x86_64.deb`;
+    expect(resolvePackageDownloadUrl(craftAnythingFile)).toBe(
+      `https://github.com/storytold/craft-anything/releases/download/v${craftAnything.version}/${craftAnythingFile}`,
+    );
 
     // Uncatalogued versions or files must return null so route returns 404
     expect(resolvePackageDownloadUrl("pdfcraft-9.9.9-linux-x86_64.deb")).toBeNull();
@@ -55,16 +82,19 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     const amd64Packages = await generateAptPackages("amd64");
     expect(amd64Packages).toContain("Package: pdfcraft");
     expect(amd64Packages).toContain("Architecture: amd64");
-    expect(amd64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.17.0-linux-x86_64.deb");
-    expect(amd64Packages).toContain("SHA256: 5500ec5693f2e2ec73cdc6e2b7c2b4aa897149c0b2d7465a4ce40e665b41db46");
+    expect(amd64Packages).toContain(`Filename: pool/main/pdfcraft/pdfcraft-${pdf}-linux-x86_64.deb`);
+    const sums = await (await fetch(pdfcraft.download("SHA256SUMS.txt"))).text();
+    const debSha = sums.match(new RegExp(`^([0-9a-f]{64})\\s+\\*?pdfcraft-${pdf}-linux-x86_64\\.deb$`, "m"))?.[1];
+    expect(debSha).toBeDefined();
+    expect(amd64Packages).toContain(`SHA256: ${debSha}`);
 
     const arm64Packages = await generateAptPackages("arm64");
     expect(arm64Packages).toContain("Architecture: arm64");
-    expect(arm64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.17.0-linux-aarch64.deb");
+    expect(arm64Packages).toContain(`Filename: pool/main/pdfcraft/pdfcraft-${pdf}-linux-aarch64.deb`);
 
     const riscv64Packages = await generateAptPackages("riscv64");
     expect(riscv64Packages).toContain("Architecture: riscv64");
-    expect(riscv64Packages).toContain("Filename: pool/main/pdfcraft/pdfcraft-0.17.0-linux-riscv64.deb");
+    expect(riscv64Packages).toContain(`Filename: pool/main/pdfcraft/pdfcraft-${pdf}-linux-riscv64.deb`);
     expect(riscv64Packages).toContain("Package: artcraft-launcher");
   });
 
@@ -93,7 +123,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(primaryXml).toContain('<metadata xmlns="http://linux.duke.edu/metadata/common"');
     expect(primaryXml).toContain("<name>pdfcraft</name>");
     expect(primaryXml).toContain("<arch>x86_64</arch>");
-    expect(primaryXml).toContain('<location href="packages/pdfcraft-0.17.0-linux-x86_64.rpm"/>');
+    expect(primaryXml).toContain(`<location href="packages/pdfcraft-${pdf}-linux-x86_64.rpm"/>`);
     expect(primaryXml).toContain("<arch>aarch64</arch>");
     expect(primaryXml).toContain("<arch>riscv64</arch>");
     expect(primaryXml).toContain("<name>artcraft-launcher</name>");
@@ -184,11 +214,12 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
   test("provides metadata and catalog for /linux setup page", async () => {
     const apps = await getLinuxRepoApps();
     expect(apps).toHaveLength(16);
-    const pdfcraft = apps.find((app) => app.slug === "pdfcraft");
-    expect(pdfcraft).toBeDefined();
-    expect(pdfcraft?.debAssets).toHaveLength(3);
-    expect(pdfcraft?.rpmAssets).toHaveLength(3);
-    expect(pdfcraft?.archAssets).toHaveLength(2);
+    const pdfcraftApp = apps.find((app) => app.slug === "pdfcraft");
+    expect(pdfcraftApp).toBeDefined();
+    expect(pdfcraftApp?.version).toBe(pdf);
+    expect(pdfcraftApp?.debAssets).toHaveLength(pdfcraft.count(".deb"));
+    expect(pdfcraftApp?.rpmAssets).toHaveLength(pdfcraft.count(".rpm"));
+    expect(pdfcraftApp?.archAssets).toHaveLength(pdfcraft.count(".pkg.tar.zst"));
 
     const launcher = apps.find((app) => app.slug === "artcraft-launcher");
     expect(launcher).toBeDefined();
@@ -198,13 +229,13 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
 
     const texturecraft = apps.find((app) => app.slug === "texturecraft");
     expect(texturecraft).toBeDefined();
-    expect(texturecraft?.version).toBe("0.2.0");
+    expect(texturecraft?.version).toBe(catalogRelease("texturecraft").version);
 
-    const craftAnything = apps.find((app) => app.slug === "craft-anything");
-    expect(craftAnything).toBeDefined();
-    expect(craftAnything?.debAssets).toHaveLength(3);
-    expect(craftAnything?.rpmAssets).toHaveLength(3);
-    expect(craftAnything?.archAssets).toHaveLength(2);
+    const craftAnythingApp = apps.find((app) => app.slug === "craft-anything");
+    expect(craftAnythingApp).toBeDefined();
+    expect(craftAnythingApp?.debAssets).toHaveLength(craftAnything.count(".deb"));
+    expect(craftAnythingApp?.rpmAssets).toHaveLength(craftAnything.count(".rpm"));
+    expect(craftAnythingApp?.archAssets).toHaveLength(craftAnything.count(".pkg.tar.zst"));
   });
 
   test("generates valid pacman sync database and repo config", async () => {
