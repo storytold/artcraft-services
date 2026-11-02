@@ -5,8 +5,44 @@ import { GET as getDynamicIndex } from "../src/app/index/dynamic/route";
 import { GET as getStaticIndex } from "../src/app/index/static/route";
 import { getFlatpakOciAppIds, getFlatpakOciIndex } from "../src/lib/flatpak-oci";
 
-const manifestDigest = (tag: string) =>
-  `sha256:${createHash("sha256").update(`manifest:${tag}`).digest("hex")}`;
+const sha256 = (body: string) => `sha256:${createHash("sha256").update(body).digest("hex")}`;
+
+/** Labels as `flatpak build-bundle --oci` writes them into an image config. */
+function imageLabels(repo: string, tag: string): Record<string, string> {
+  const slug = repo.split("/")[1];
+  const appId = `ai.storyteller.${slug === "craft-launcher" ? "artcraft-launcher" : slug}`;
+  const arch = tag.endsWith("-aarch64") ? "aarch64" : "x86_64";
+  return {
+    "org.flatpak.ref": `app/${appId}/${arch}/stable`,
+    "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/25.08\n`,
+    "org.freedesktop.appstream.appdata": `<components><component><id>${appId}</id></component></components>`,
+  };
+}
+
+/** A registry serving one image per tag, with labels from `labelsFor`. */
+function fakeRegistry(labelsFor = imageLabels): typeof fetch {
+  const configs = new Map<string, string>();
+  return async (input) => {
+    const url = new URL(input instanceof Request ? input.url : input.toString());
+    if (url.pathname === "/token") return Response.json({ token: "test-pull-token" });
+    const manifest = url.pathname.match(/^\/v2\/(.+)\/manifests\/(.+)$/);
+    if (manifest) {
+      const tag = decodeURIComponent(manifest[2]);
+      const config = JSON.stringify({ config: { Labels: labelsFor(manifest[1], tag) } });
+      configs.set(sha256(config), config);
+      const body = JSON.stringify({
+        schemaVersion: 2,
+        mediaType: "application/vnd.oci.image.manifest.v1+json",
+        config: { mediaType: "application/vnd.oci.image.config.v1+json", digest: sha256(config) },
+      });
+      return new Response(body, { headers: { "docker-content-digest": sha256(body) } });
+    }
+    const blob = url.pathname.match(/\/blobs\/(sha256:[a-f0-9]{64})$/);
+    const config = blob && configs.get(blob[1]);
+    if (config) return new Response(config);
+    return new Response("not found", { status: 404 });
+  };
+}
 const originalFetch = globalThis.fetch;
 const originalRegistryUrl = process.env.FLATPAK_OCI_REGISTRY_URL;
 const originalReadToken = process.env.FLATPAK_OCI_READ_TOKEN;
@@ -36,20 +72,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
   test.beforeEach(() => {
     process.env.FLATPAK_OCI_REGISTRY_URL = "https://registry.test";
     delete process.env.FLATPAK_OCI_READ_TOKEN;
-    globalThis.fetch = async (input, init) => {
-      const url = new URL(input instanceof Request ? input.url : input.toString());
-      if (url.pathname === "/token") {
-        return Response.json({ token: "test-pull-token" });
-      }
-      if (init?.method === "HEAD") {
-        const tag = decodeURIComponent(url.pathname.split("/").at(-1) ?? "");
-        return new Response(null, {
-          status: 200,
-          headers: { "docker-content-digest": manifestDigest(tag) },
-        });
-      }
-      return new Response("not found", { status: 404 });
-    };
+    globalThis.fetch = fakeRegistry();
   });
 
   test.afterEach(() => {
@@ -60,7 +83,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     else process.env.FLATPAK_OCI_READ_TOKEN = originalReadToken;
   });
 
-  test("generates valid registry index response using real OCI manifest digests", async () => {
+  test("publishes each image's real manifest digest and config labels", async () => {
     const index = await getFlatpakOciIndex();
     expect(index.Registry).toBe("https://registry.test");
     expect(index.Results.length).toBeGreaterThan(0);
@@ -76,11 +99,12 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const pdfcraft = index.Results.find((r) => r.Name === "storytold/pdfcraft");
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.Repository).toBe("storytold/pdfcraft");
-    const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "x86_64");
+    const pdfcraftX86 = pdfcraft?.Images.find((img) => img.Architecture === "amd64");
     expect(pdfcraftX86?.Labels["org.flatpak.ref"]).toBe("app/ai.storyteller.pdfcraft/x86_64/stable");
     expect(pdfcraftX86?.Digest).toMatch(/^sha256:[a-f0-9]{64}$/);
-    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("[Application]");
-    expect(pdfcraftX86?.Labels["org.flatpak.metadata"]).toContain("ai.storyteller.pdfcraft");
+    // Flatpak resolves the runtime and AppStream catalog from these labels, so they must be the
+    // image's own rather than a guess.
+    expect(pdfcraftX86?.Labels).toEqual(imageLabels("storytold/pdfcraft", pdfcraftX86?.Tags[0] ?? ""));
 
     // The website's catalog owns release versions; no OCI build exists for Craft Anything yet.
     expect(index.Results.find((r) => r.Repository === "storytold/craft-anything")).toBeUndefined();
@@ -92,7 +116,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
 
     expect(index.Results).toHaveLength(1);
     expect(index.Results[0].Images).toHaveLength(1);
-    expect(index.Results[0].Images[0].Architecture).toBe("x86_64");
+    expect(index.Results[0].Images[0].Architecture).toBe("amd64");
   });
 
   test("filters by org.flatpak.ref label", async () => {
@@ -104,7 +128,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     expect(index.Results).toHaveLength(1);
     expect(index.Results[0].Repository).toBe("storytold/pdfcraft");
     expect(index.Results[0].Images).toHaveLength(1);
-    expect(index.Results[0].Images[0].Architecture).toBe("x86_64");
+    expect(index.Results[0].Images[0].Architecture).toBe("amd64");
   });
 
   test("matches Flatpak's stable query to the architecture-specific GHCR tag", async () => {
@@ -121,17 +145,54 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     ))).toBe(true);
   });
 
+  test("answers Flatpak's default `latest` tag query for a remote URL without a fragment", async () => {
+    const params = new URLSearchParams({
+      architecture: "amd64",
+      os: "linux",
+      tag: "latest",
+      "label:org.flatpak.ref:exists": "1",
+    });
+    const index = await getFlatpakOciIndex(params);
+
+    expect(index.Results.length).toBeGreaterThan(0);
+    expect(index.Results.every((repo) => repo.Images.every((image) => image.Architecture === "amd64"))).toBe(true);
+  });
+
   test("reports missing registry tags rather than returning synthetic digests", async () => {
     process.env.FLATPAK_OCI_REGISTRY_URL = "https://missing.registry.test";
-    globalThis.fetch = async (input, init) => {
+    globalThis.fetch = async (input) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
       if (url.pathname === "/token") return Response.json({ token: "test-pull-token" });
-      if (init?.method === "HEAD") return new Response(null, { status: 404 });
       return new Response("not found", { status: 404 });
     };
 
     await expect(getFlatpakOciIndex(new URLSearchParams({ repository: "storytold/pdfcraft" })))
       .rejects.toThrow(/release workflow pushed it/);
+  });
+
+  test("rejects an image published for a different ref", async () => {
+    // A separate registry keeps the index's image cache from answering.
+    process.env.FLATPAK_OCI_REGISTRY_URL = "https://wrong-ref.registry.test";
+    globalThis.fetch = fakeRegistry((repo, tag) => ({
+      ...imageLabels(repo, tag),
+      "org.flatpak.ref": "app/ai.storyteller.photocraft/x86_64/stable",
+    }));
+
+    await expect(getFlatpakOciIndex(new URLSearchParams({ repository: "storytold/pdfcraft" })))
+      .rejects.toThrow(/not app\/ai\.storyteller\.pdfcraft/);
+  });
+
+  test("rejects an image config that does not match its digest", async () => {
+    process.env.FLATPAK_OCI_REGISTRY_URL = "https://corrupt.registry.test";
+    const registry = fakeRegistry();
+    globalThis.fetch = async (input, init) => {
+      const response = await registry(input, init);
+      const url = input instanceof Request ? input.url : input.toString();
+      return url.includes("/blobs/") ? new Response(`${await response.text()} `) : response;
+    };
+
+    await expect(getFlatpakOciIndex(new URLSearchParams({ repository: "storytold/pdfcraft" })))
+      .rejects.toThrow(/does not match its digest/);
   });
 
   test("lists expected app IDs from the catalog without querying GHCR", () => {
@@ -152,7 +213,7 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const staticIndex = await staticResponse.json();
     const staticImages = staticIndex.Results.flatMap((repo: { Images: { Architecture: string }[] }) => repo.Images);
     expect(staticImages.length).toBeGreaterThan(0);
-    expect(staticImages.every((image: { Architecture: string }) => image.Architecture === "aarch64")).toBe(true);
+    expect(staticImages.every((image: { Architecture: string }) => image.Architecture === "arm64")).toBe(true);
 
     const dynamicResponse = await getDynamicIndex(
       new Request("https://getartcraft.com/index/dynamic?architecture=amd64"),
@@ -162,6 +223,6 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const dynamicIndex = await dynamicResponse.json();
     const dynamicImages = dynamicIndex.Results.flatMap((repo: { Images: { Architecture: string }[] }) => repo.Images);
     expect(dynamicImages.length).toBeGreaterThan(0);
-    expect(dynamicImages.every((image: { Architecture: string }) => image.Architecture === "x86_64")).toBe(true);
+    expect(dynamicImages.every((image: { Architecture: string }) => image.Architecture === "amd64")).toBe(true);
   });
 });

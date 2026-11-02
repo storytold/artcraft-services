@@ -39,6 +39,7 @@ export type LinuxPackageAssetMeta = {
   size: number;
   sha256: string;
   installedSize: number;
+  depends?: string[];
 };
 
 export type LinuxRepoApp = {
@@ -70,6 +71,7 @@ export type LinuxRepoApp = {
     size: number;
     sha256: string;
     installedSize: number;
+    depends: string[];
   }[];
 };
 
@@ -212,20 +214,36 @@ async function fetchHeadPackageSize(downloadUrl: string, filename: string): Prom
   return size;
 }
 
-/**
- * Fallback installed size resolution for Arch packages where .PKGINFO is placed after usr/bin.
- */
-function resolveArchFallbackInstalledSize(filename: string, size: number): number {
-  if (filename.includes("designcraft-0.15.2")) {
-    return filename.includes("aarch64") ? 222699462 : 240682966;
-  }
-  return Math.round(size * 1.95);
-}
+type ArchPkgInfo = { size: number; installedSize: number; depends: string[] };
+
+const DEFAULT_PACMAN_DEPENDS = [
+  "glibc",
+  "gcc-libs",
+  "hicolor-icon-theme",
+  "libxkbcommon",
+  "libxkbcommon-x11",
+  "vulkan-icd-loader",
+];
 
 /**
- * Fast 128KB Range request to extract .PKGINFO uncompressed size from an Arch .pkg.tar.zst package.
+ * .PKGINFO values for Arch packages that place .PKGINFO after usr/bin, out of reach of the Range request.
+ * pacman rejects a package whose size or depends differ from its database entry, so these must match exactly.
  */
-async function extractArchPkgInfo(downloadUrl: string): Promise<{ size: number; installedSize: number }> {
+const ARCH_PKGINFO_FALLBACKS: Record<string, { installedSize: number; depends: string[] }> = {
+  "designcraft-0.16.0-linux-x86_64.pkg.tar.zst": {
+    installedSize: 241014985,
+    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
+  },
+  "designcraft-0.16.0-linux-aarch64.pkg.tar.zst": {
+    installedSize: 223128217,
+    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
+  },
+};
+
+/**
+ * Fast 128KB Range request to extract .PKGINFO installed size and depends from an Arch .pkg.tar.zst package.
+ */
+async function extractArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfo> {
   try {
     const { Decompress } = await import("fzstd");
     const rangeRes = await fetch(downloadUrl, {
@@ -247,35 +265,34 @@ async function extractArchPkgInfo(downloadUrl: string): Promise<{ size: number; 
       // Partial stream EOF expected
     }
     const text = Buffer.concat(chunks).toString("utf-8");
-    const isizeMatch = text.match(/size = (\d+)/);
+    const isizeMatch = text.match(/^size = (\d+)$/m);
     const installedSize = isizeMatch ? Number.parseInt(isizeMatch[1], 10) : 0;
+    const depends = installedSize ? [...text.matchAll(/^depend = (\S+)$/gm)].map((m) => m[1]) : [];
 
-    return { size, installedSize };
+    return { size, installedSize, depends };
   } catch {
-    return { size: 0, installedSize: 0 };
+    return { size: 0, installedSize: 0, depends: [] };
   }
 }
 
 /**
- * Computes size and installed uncompressed size for an Arch Linux (.pkg.tar.zst) package asset.
+ * Computes size, installed uncompressed size and depends for an Arch Linux (.pkg.tar.zst) package asset.
  */
-async function fetchArchPackageSizes(
-  downloadUrl: string,
-  filename: string,
-): Promise<{ size: number; installedSize: number }> {
+async function fetchArchPackageInfo(downloadUrl: string, filename: string): Promise<ArchPkgInfo> {
   const extracted = await extractArchPkgInfo(downloadUrl);
-  let size = extracted.size;
-  let installedSize = extracted.installedSize;
+  const size = extracted.size || await fetchHeadPackageSize(downloadUrl, filename);
 
-  if (!size) {
-    size = await fetchHeadPackageSize(downloadUrl, filename);
+  if (extracted.installedSize) {
+    return { size, installedSize: extracted.installedSize, depends: extracted.depends };
   }
 
-  if (!installedSize) {
-    installedSize = resolveArchFallbackInstalledSize(filename, size);
+  const fallback = ARCH_PKGINFO_FALLBACKS[filename];
+  if (fallback) {
+    return { size, ...fallback };
   }
 
-  return { size, installedSize };
+  console.warn(`Unable to read .PKGINFO for ${filename}; pacman will reject it if the estimated metadata is wrong`);
+  return { size, installedSize: Math.round(size * 1.95), depends: DEFAULT_PACMAN_DEPENDS };
 }
 
 /**
@@ -309,18 +326,14 @@ export async function getLinuxPackageMetadata(
 
       const sha256 = await fetchValidatedSha256(repo, version, filename);
 
-      let size = 0;
-      let installedSize = 0;
-
       if (filename.endsWith(".pkg.tar.zst")) {
-        const archSizes = await fetchArchPackageSizes(downloadUrl, filename);
-        size = archSizes.size;
-        installedSize = archSizes.installedSize;
-      } else {
-        size = await fetchHeadPackageSize(downloadUrl, filename);
-        const divisor = filename.endsWith(".deb") ? 1024 : 1;
-        installedSize = Math.round(size * 1.95 / divisor);
+        const archInfo = await fetchArchPackageInfo(downloadUrl, filename);
+        return { sha256, ...archInfo };
       }
+
+      const size = await fetchHeadPackageSize(downloadUrl, filename);
+      const divisor = filename.endsWith(".deb") ? 1024 : 1;
+      const installedSize = Math.round(size * 1.95 / divisor);
 
       return { size, sha256, installedSize };
     })();
@@ -445,6 +458,7 @@ async function buildArchAssets(
         size: meta.size,
         sha256: meta.sha256,
         installedSize: meta.installedSize,
+        depends: meta.depends ?? DEFAULT_PACMAN_DEPENDS,
       };
     })
   );
@@ -838,9 +852,6 @@ export function generatePacmanDesc(
 ): string {
   const pkgname = `ai.storyteller.${app.name}`;
   const provides = app.name === "designcraft" ? "designcraft" : `${app.name}=${app.version}-1`;
-  // These releases declare the X11 keyboard library in their package metadata.
-  const needsXkbcommonX11 = (app.name === "artcraft-launcher" && app.version === "0.13.0")
-    || (app.name === "texturecraft" && app.version === "0.2.0");
   const optdepends = app.name === "designcraft"
     ? ""
     : `%OPTDEPENDS%
@@ -907,11 +918,7 @@ ${app.name}-git
 ${provides}
 
 %DEPENDS%
-glibc
-gcc-libs
-hicolor-icon-theme
-libxkbcommon
-${needsXkbcommonX11 ? "libxkbcommon-x11\n" : ""}vulkan-icd-loader
+${asset.depends.join("\n")}
 
 ${optdepends}`.trimEnd() + "\n";
 }
