@@ -258,8 +258,7 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   designcraft: craftRelease("0.16.0"),
   figcraft: craftRelease("0.14.0"),
   texturecraft: craftRelease("0.2.0"),
-  // No FreeBSD build while the repo is private: its runners can't fit the FreeBSD VM.
-  materialcraft: craftRelease("0.1.0", CRAFT_RELEASE_ASSETS.filter((asset) => asset.group !== "FreeBSD")),
+  materialcraft: craftRelease("0.1.0"),
   wordcraft: craftRelease("0.14.0"),
   soundcraft: craftRelease("0.16.0"),
   deckcraft: craftRelease("0.14.1"),
