@@ -19,6 +19,10 @@ use http_server_common::request::get_request_ip::get_request_ip;
 use mysql_queries::payloads::generic_inference_args::generic_inference_args::{GenericInferenceArgs, InferenceCategoryAbbreviated, PolymorphicInferenceArgs};
 use mysql_queries::payloads::generic_inference_args::inner_payloads::lipsync_payload::{FaceEnhancer, LipsyncAnimationAudioSource, LipsyncAnimationImageSource, LipsyncArgs};
 use mysql_queries::queries::generic_inference::web::insert_generic_inference_job::{insert_generic_inference_job, InsertGenericInferenceArgs};
+use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
+use mysql_queries::queries::media_uploads::get_media_upload_access_info::get_media_upload_access_info;
+use sqlx::pool::PoolConnection;
+use sqlx::MySql;
 use tokens::tokens::generic_inference_jobs::InferenceJobToken;
 use tokens::tokens::media_files::MediaFileToken;
 use tokens::tokens::media_uploads::MediaUploadToken;
@@ -248,6 +252,24 @@ pub async fn enqueue_face_animation_handler(
     }
   };
 
+  // ==================== AUTHORIZE SOURCE MEDIA ==================== //
+
+  // The worker downloads whatever the tokens point at and attaches the
+  // result to this requester, so another user's private file must not be
+  // accepted as an input.
+  if let Some(ref token) = request.audio_source.maybe_media_file_token {
+    authorize_media_file_source(token, maybe_user_token.as_ref(), &server_state).await?;
+  }
+  if let Some(ref token) = request.audio_source.maybe_media_upload_token {
+    authorize_media_upload_source(token, maybe_user_token.as_ref(), &mut mysql_connection).await?;
+  }
+  if let Some(ref token) = request.image_source.maybe_media_file_token {
+    authorize_media_file_source(token, maybe_user_token.as_ref(), &server_state).await?;
+  }
+  if let Some(ref token) = request.image_source.maybe_media_upload_token {
+    authorize_media_upload_source(token, maybe_user_token.as_ref(), &mut mysql_connection).await?;
+  }
+
   let ip_address = get_request_ip(&http_request);
 
   let maybe_user_preferred_visibility : Option<Visibility> = maybe_user_session
@@ -357,4 +379,104 @@ pub async fn enqueue_face_animation_handler(
   Ok(HttpResponse::Ok()
       .content_type("application/json")
       .body(body))
+}
+
+const SOURCE_NOT_FOUND: &str = "source media not found";
+
+async fn authorize_media_file_source(
+  token: &MediaFileToken,
+  maybe_requester: Option<&UserToken>,
+  server_state: &ServerState,
+) -> Result<(), EnqueueFaceAnimationError> {
+  let media_file = get_media_file(token, false, &server_state.mysql_pool)
+      .await
+      .map_err(|err| {
+        warn!("Error looking up source media file: {:?}", err);
+        EnqueueFaceAnimationError::ServerError
+      })?
+      .ok_or_else(|| EnqueueFaceAnimationError::BadInput(SOURCE_NOT_FOUND.to_string()))?;
+
+  if requester_may_use_source(
+    media_file.creator_set_visibility,
+    media_file.maybe_creator_user_token.as_ref(),
+    maybe_requester,
+  ) {
+    Ok(())
+  } else {
+    // Same response as a missing file, so existence isn't revealed.
+    Err(EnqueueFaceAnimationError::BadInput(SOURCE_NOT_FOUND.to_string()))
+  }
+}
+
+async fn authorize_media_upload_source(
+  token: &MediaUploadToken,
+  maybe_requester: Option<&UserToken>,
+  mysql_connection: &mut PoolConnection<MySql>,
+) -> Result<(), EnqueueFaceAnimationError> {
+  let upload = get_media_upload_access_info(token, mysql_connection)
+      .await
+      .map_err(|err| {
+        warn!("Error looking up source media upload: {:?}", err);
+        EnqueueFaceAnimationError::ServerError
+      })?
+      .ok_or_else(|| EnqueueFaceAnimationError::BadInput(SOURCE_NOT_FOUND.to_string()))?;
+
+  if requester_may_use_source(
+    upload.creator_set_visibility,
+    upload.maybe_creator_user_token.as_ref(),
+    maybe_requester,
+  ) {
+    Ok(())
+  } else {
+    Err(EnqueueFaceAnimationError::BadInput(SOURCE_NOT_FOUND.to_string()))
+  }
+}
+
+/// Private sources are usable only by their creator. Sources without a
+/// creator (anonymous uploads) have no owner to protect and stay usable.
+fn requester_may_use_source(
+  visibility: Visibility,
+  maybe_creator: Option<&UserToken>,
+  maybe_requester: Option<&UserToken>,
+) -> bool {
+  if visibility != Visibility::Private {
+    return true;
+  }
+  match (maybe_creator, maybe_requester) {
+    (None, _) => true,
+    (Some(creator), Some(requester)) => creator.as_str() == requester.as_str(),
+    (Some(_), None) => false,
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use enums::common::visibility::Visibility;
+  use tokens::tokens::users::UserToken;
+
+  use super::requester_may_use_source;
+
+  #[test]
+  fn public_and_hidden_sources_are_usable_by_anyone() {
+    let owner = UserToken::new_from_str("U:OWNER");
+    for visibility in [Visibility::Public, Visibility::Hidden] {
+      assert!(requester_may_use_source(visibility, Some(&owner), None));
+    }
+  }
+
+  #[test]
+  fn private_source_is_usable_only_by_its_creator() {
+    let owner = UserToken::new_from_str("U:OWNER");
+    let other = UserToken::new_from_str("U:OTHER");
+    assert!(requester_may_use_source(Visibility::Private, Some(&owner), Some(&owner)));
+    assert!(!requester_may_use_source(Visibility::Private, Some(&owner), Some(&other)));
+    assert!(!requester_may_use_source(Visibility::Private, Some(&owner), None));
+  }
+
+  #[test]
+  fn private_source_without_creator_stays_usable() {
+    let other = UserToken::new_from_str("U:OTHER");
+    assert!(requester_may_use_source(Visibility::Private, None, Some(&other)));
+    assert!(requester_may_use_source(Visibility::Private, None, None));
+  }
 }
