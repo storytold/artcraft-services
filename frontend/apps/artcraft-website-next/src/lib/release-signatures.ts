@@ -7,6 +7,12 @@ import { createMessage, readKey, readSignature, verify } from "openpgp";
  */
 export const RELEASE_SIGNING_KEY = "";
 
+/** The binary public key, base64-encoded, as `.flatpakrepo` and `.flatpakref` files take it (`GPGKey=`). */
+export async function flatpakGpgKey(armoredKey: string): Promise<string> {
+  const key = await readKey({ armoredKey });
+  return Buffer.from(key.write()).toString("base64");
+}
+
 /** Does `armoredSignature` hold a detached signature over `data` by `armoredKey`? */
 export async function verifyDetachedSignature(
   data: Uint8Array,

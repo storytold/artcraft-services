@@ -1,16 +1,8 @@
 import { getRequestBaseUrl } from "@/lib/linux-repos";
+import { flatpakRepoDescriptor } from "@/lib/flatpak-oci";
 
-export function GET(request: Request) {
-  const baseUrl = getRequestBaseUrl(request);
-
-  const ini = `[Flatpak Repo]
-Title=ArtCraft OCI
-Url=oci+${baseUrl}
-Homepage=https://getartcraft.com/
-Comment=Official ArtCraft OCI Flatpak repository
-Description=Open-source creative apps for Linux distributed via GitHub Container Registry
-GPGVerify=false
-`;
+export async function GET(request: Request) {
+  const ini = await flatpakRepoDescriptor(getRequestBaseUrl(request));
 
   return new Response(ini, {
     headers: {
