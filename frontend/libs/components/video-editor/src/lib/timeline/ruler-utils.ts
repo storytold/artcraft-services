@@ -166,6 +166,44 @@ function getZoomedOutIntervalSeconds({
   return Math.max(1, hours) * largestMultiplier;
 }
 
+// Clamps the rendered tick index range to at most `maxTicks`. When the
+// range (viewport plus scroll buffer) is over budget, the ticks covering
+// the viewport are kept and the remaining budget is split across the
+// buffer on either side, so trimming never blanks the visible ruler.
+export function clampRenderedTickRange({
+  startTickIndex,
+  endTickIndex,
+  viewportStartTickIndex,
+  viewportEndTickIndex,
+  maxTicks,
+}: {
+  startTickIndex: number;
+  endTickIndex: number;
+  viewportStartTickIndex: number;
+  viewportEndTickIndex: number;
+  maxTicks: number;
+}): { startTickIndex: number; endTickIndex: number } {
+  if (endTickIndex - startTickIndex + 1 <= maxTicks) {
+    return { startTickIndex, endTickIndex };
+  }
+
+  const visibleStart = Math.min(
+    endTickIndex,
+    Math.max(startTickIndex, viewportStartTickIndex),
+  );
+  const visibleEnd = Math.min(
+    endTickIndex,
+    Math.max(visibleStart, viewportEndTickIndex),
+  );
+  const slack = Math.max(0, maxTicks - (visibleEnd - visibleStart + 1));
+  const start = Math.max(startTickIndex, visibleStart - Math.floor(slack / 2));
+  const end = Math.min(endTickIndex, start + maxTicks - 1);
+  return {
+    startTickIndex: Math.max(startTickIndex, end - maxTicks + 1),
+    endTickIndex: end,
+  };
+}
+
 export function shouldShowLabel({
   time,
   labelIntervalSeconds,

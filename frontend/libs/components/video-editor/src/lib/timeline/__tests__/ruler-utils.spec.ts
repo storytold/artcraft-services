@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { getRulerConfig } from "../ruler-utils";
+import { clampRenderedTickRange, getRulerConfig } from "../ruler-utils";
 import { BASE_TIMELINE_PIXELS_PER_SECOND } from "../scale";
 import { DEFAULT_FPS } from "../../fps/defaults";
 
@@ -42,5 +42,58 @@ describe("getRulerConfig", () => {
       fps: DEFAULT_FPS,
     });
     expect(tickIntervalSeconds).toBeLessThan(3600);
+  });
+});
+
+describe("clampRenderedTickRange", () => {
+  test("leaves a range within budget unchanged", () => {
+    expect(
+      clampRenderedTickRange({
+        startTickIndex: 10,
+        endTickIndex: 200,
+        viewportStartTickIndex: 50,
+        viewportEndTickIndex: 150,
+        maxTicks: 2000,
+      }),
+    ).toEqual({ startTickIndex: 10, endTickIndex: 200 });
+  });
+
+  test("keeps the viewport covered when the scroll buffer is over budget", () => {
+    // Scrolled far right: the buffer (15% of scrollLeft) spans many more
+    // ticks than the budget, on both sides of the viewport.
+    const { startTickIndex, endTickIndex } = clampRenderedTickRange({
+      startTickIndex: 40_000,
+      endTickIndex: 70_000,
+      viewportStartTickIndex: 55_000,
+      viewportEndTickIndex: 55_200,
+      maxTicks: 2000,
+    });
+    expect(endTickIndex - startTickIndex + 1).toBe(2000);
+    expect(startTickIndex).toBeLessThanOrEqual(55_000);
+    expect(endTickIndex).toBeGreaterThanOrEqual(55_200);
+  });
+
+  test("shifts the budget toward the buffer when the viewport is at the end", () => {
+    const { startTickIndex, endTickIndex } = clampRenderedTickRange({
+      startTickIndex: 0,
+      endTickIndex: 10_000,
+      viewportStartTickIndex: 9_950,
+      viewportEndTickIndex: 10_050,
+      maxTicks: 2000,
+    });
+    expect(endTickIndex).toBe(10_000);
+    expect(startTickIndex).toBe(8_001);
+  });
+
+  test("bounds the range when the viewport alone exceeds the budget", () => {
+    const { startTickIndex, endTickIndex } = clampRenderedTickRange({
+      startTickIndex: 0,
+      endTickIndex: Number.POSITIVE_INFINITY,
+      viewportStartTickIndex: 100,
+      viewportEndTickIndex: 1_000_000,
+      maxTicks: 2000,
+    });
+    expect(startTickIndex).toBe(100);
+    expect(endTickIndex).toBe(2_099);
   });
 });
