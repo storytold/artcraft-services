@@ -71,6 +71,8 @@ type CreateVideoState = {
   dismissBatch: (id: string) => void;
   clearCompleted: () => void;
   reset: () => void;
+  /** Drop the draft, pending batches and reference media (account change). */
+  resetAccountState: () => void;
 };
 
 const DEFAULT_UI: VideoUiState = {
@@ -186,6 +188,15 @@ export const useCreateVideoStore = create<CreateVideoState>()(
       },
 
       reset: () => set({ batches: [] }),
+      resetAccountState: () =>
+        set({
+          batches: [],
+          ui: { ...DEFAULT_UI },
+          refs: { ...DEFAULT_REFS },
+          pendingRecreate: null,
+          pendingRefImages: null,
+          pendingRefVideos: null,
+        }),
     }),
     {
       name: "artcraft-video-batches",
