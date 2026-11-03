@@ -11,6 +11,8 @@ What this does (in one transaction):
      (strips any prior renamed suffixes first, so re-running is safe).
   3. Copies the source email + password_hash onto the target user, sets
      is_without_password=false, and increments password_version.
+  4. Expires and deletes every live session of the source user, and refuses
+     to commit if any remains active.
 
 Requirements:
   pip install pymysql
@@ -223,7 +225,8 @@ def main():
         print(f"  target email_gravatar_hash → {new_gravatar_hash}")
         print(f"  target is_without_password → false")
         print(f"  target password_version → {target['password_version']} + 1 = {target['password_version'] + 1}")
-        print(f"  {len(source_sessions)} source session(s) → expires_at and deleted_at set to NOW() - 1 HOUR")
+        live_source_sessions = [s for s in source_sessions if s["deleted_at"] is None]
+        print(f"  {len(live_source_sessions)} live source session(s) → expires_at and deleted_at set to NOW() - 1 HOUR")
 
         print()
         answer = input("Proceed? [y/N] ").strip().lower()
@@ -269,18 +272,32 @@ def main():
             if cursor.rowcount != 1:
                 raise RuntimeError(f"Expected 1 row updated for target, got {cursor.rowcount}")
 
-            # Step 3: expire and delete all source sessions
+            # Step 3: expire and delete every live source session. No row limit:
+            # any session left alive would keep access to the source account.
             cursor.execute(
                 """
                 UPDATE user_sessions
                 SET expires_at = NOW() - INTERVAL 1 HOUR,
                     deleted_at = NOW() - INTERVAL 1 HOUR
                 WHERE user_token = %s
-                LIMIT 10
+                  AND deleted_at IS NULL
                 """,
                 (source_token,),
             )
             print(f"  Expired and deleted {cursor.rowcount} source session(s).")
+
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM user_sessions
+                WHERE user_token = %s
+                  AND deleted_at IS NULL
+                """,
+                (source_token,),
+            )
+            (remaining,) = cursor.fetchone()
+            if remaining != 0:
+                raise RuntimeError(f"{remaining} source session(s) still active after revocation")
 
         conn.commit()
         print("\nDone. Changes committed.")
