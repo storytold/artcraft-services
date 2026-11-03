@@ -67,6 +67,25 @@ LIMIT 1
     return Err(anyhow!("Error updating user password from password reset request: {err}"));
   }
 
+  // NB: Recovery must lock out whoever held the account before it, so revoke every existing session
+  // in the same transaction. The handler issues a fresh session after commit.
+  let query_result = sqlx::query(
+        r#"
+UPDATE user_sessions
+SET deleted_at = CURRENT_TIMESTAMP()
+WHERE
+  user_token = ?
+  AND deleted_at IS NULL
+        "#)
+      .bind(args.user_token.as_str())
+      .execute(&mut *args.mysql_transaction)
+      .await;
+
+  if let Err(err) = query_result {
+    let _r = args.mysql_transaction.rollback().await.ok();
+    return Err(anyhow!("Error revoking sessions during password reset: {err}"));
+  }
+
   match args.mysql_transaction.commit().await {
     Ok(_) => Ok(()),
     Err(err) => Err(anyhow!("Error committing password reset changes: {err}")),
