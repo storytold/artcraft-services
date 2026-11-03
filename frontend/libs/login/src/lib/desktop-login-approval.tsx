@@ -4,7 +4,7 @@ import { HttpApiError, LoginChallengesApi, type LoginChallengeResult, type Login
 import { captureLoginBridgeContext, clearLoginBridgeContext } from "./login-bridge-context";
 
 const EXPIRED_MESSAGE = "This login request expired. Start again in ArtCraft.";
-const FRAMED_MESSAGE = "Open this login link directly in your browser to approve it.";
+const FRAMED_MESSAGE = "Open this login link directly in your browser to approve it. The address of this embedded page does not contain the link.";
 
 /**
  * True when the page is rendered inside a frame. Another site could frame the
