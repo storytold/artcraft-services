@@ -145,6 +145,11 @@ pub async fn create_comment_handler(
     }
   };
 
+  if user_session.is_banned {
+    warn!("banned user cannot comment: {:?}", user_session.user_token.as_str());
+    return Err(CreateCommentError::NotAuthorized);
+  }
+
   let ip_address = get_request_ip(&http_request);
 
   let entity_token = CommentEntityToken::from_entity_type_and_token(
