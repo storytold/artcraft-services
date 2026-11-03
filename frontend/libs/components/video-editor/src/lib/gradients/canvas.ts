@@ -732,7 +732,14 @@ const parseColorToRgb = ({
   return null;
 };
 
-const fixTransparentStops = ({
+// Gives each transparent stop the RGB of its nearest opaque neighbour
+// (preferring the previous stop, then the next one) with alpha 0, so the
+// canvas fades the neighbouring colour instead of through black.
+//
+// Donors come from two linear passes. Searching outward from every
+// transparent stop separately was quadratic, so a long run of transparent
+// stops in a stored background could stall rendering.
+export const fixTransparentStops = ({
   stops,
 }: {
   stops: Array<{ color: string; offset: number | null }>;
@@ -742,40 +749,32 @@ const fixTransparentStops = ({
   }
 
   const result = stops.map((stop) => ({ ...stop }));
+  const transparent = result.map((stop) => isTransparent({ color: stop.color }));
+  if (transparent.every((isStopTransparent) => !isStopTransparent)) {
+    return result;
+  }
 
+  // Parse each opaque stop once; a null entry is not a usable donor.
+  const donors = result.map((stop, index) =>
+    transparent[index] ? null : parseColorToRgb({ color: stop.color }),
+  );
+
+  const nextDonor: Array<{ r: number; g: number; b: number } | null> =
+    new Array(result.length).fill(null);
+  for (let i = result.length - 2; i >= 0; i--) {
+    nextDonor[i] = donors[i + 1] ?? nextDonor[i + 1];
+  }
+
+  let previousDonor: { r: number; g: number; b: number } | null = null;
   for (let i = 0; i < result.length; i++) {
-    if (!isTransparent({ color: result[i].color })) {
-      continue;
-    }
-
-    let donorColor: { r: number; g: number; b: number } | null = null;
-
-    for (let j = i - 1; j >= 0; j--) {
-      if (!isTransparent({ color: result[j].color })) {
-        const parsed = parseColorToRgb({ color: result[j].color });
-        if (parsed) {
-          donorColor = parsed;
-          break;
-        }
+    if (transparent[i]) {
+      const donorColor = previousDonor ?? nextDonor[i];
+      if (donorColor) {
+        result[i].color =
+          `rgba(${donorColor.r},${donorColor.g},${donorColor.b},0)`;
       }
     }
-
-    if (!donorColor) {
-      for (let j = i + 1; j < result.length; j++) {
-        if (!isTransparent({ color: result[j].color })) {
-          const parsed = parseColorToRgb({ color: result[j].color });
-          if (parsed) {
-            donorColor = parsed;
-            break;
-          }
-        }
-      }
-    }
-
-    if (donorColor) {
-      result[i].color =
-        `rgba(${donorColor.r},${donorColor.g},${donorColor.b},0)`;
-    }
+    previousDonor = donors[i] ?? previousDonor;
   }
 
   return result;
