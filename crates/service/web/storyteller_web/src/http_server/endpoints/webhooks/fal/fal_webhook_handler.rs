@@ -34,7 +34,7 @@ pub async fn fal_webhook_handler(
         CommonWebError::from_error(err)
       })?;
 
-  info!("Received FAL webhook body: {}", raw_body);
+  info!("Received FAL webhook body: {:?}", raw_body);
 
   // Step 2: Parse into RawWebhookPayload.
   let webhook_payload = parse_raw_webhook_payload(&raw_body)
@@ -48,7 +48,7 @@ pub async fn fal_webhook_handler(
 
   let request_id = webhook_payload.request_id.as_str();
 
-  info!("FAL webhook request_id: {} (status: {:?})", request_id, webhook_payload.status);
+  info!("FAL webhook request_id: {:?} (status: {:?})", request_id, webhook_payload.status);
 
   // Step 3: Hydrate the webhook contents.
   let hydrated_contents = hydrate_webhook_contents(&webhook_payload);
