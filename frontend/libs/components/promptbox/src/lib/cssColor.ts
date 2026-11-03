@@ -4,11 +4,19 @@
 // (`red`, `currentcolor`), or an rgb()/rgba()/hsl()/hsla() function whose
 // arguments are numbers. Anything else (quotes, angle brackets, `;`, url(),
 // var(), ...) is rejected and returns undefined.
-const SAFE_CSS_COLOR =
-  /^(?:#[0-9a-f]{3,8}|[a-z]{3,30}|(?:rgba?|hsla?)\(\s*[-+0-9.%\s,/]+\))$/i;
+//
+// Kept as three small anchored patterns with no overlapping quantifiers so
+// matching stays linear-time.
+const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const KEYWORD_COLOR = /^[a-z]{3,30}$/i;
+const FUNCTION_COLOR = /^(?:rgb|hsl)a?\([-+0-9.%\s,/]{1,64}\)$/i;
 
 export function sanitizeCssColor(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
-  return SAFE_CSS_COLOR.test(trimmed) ? trimmed : undefined;
+  const ok =
+    HEX_COLOR.test(trimmed) ||
+    KEYWORD_COLOR.test(trimmed) ||
+    FUNCTION_COLOR.test(trimmed);
+  return ok ? trimmed : undefined;
 }
