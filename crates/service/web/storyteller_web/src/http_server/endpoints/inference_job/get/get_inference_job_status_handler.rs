@@ -27,6 +27,9 @@ use enums::no_table::style_transfer::style_transfer_name::StyleTransferName;
 use log::{error, warn};
 use mysql_queries::queries::generic_inference::web::get_inference_job_status::get_inference_job_status;
 use mysql_queries::queries::generic_inference::web::job_status::GenericInferenceJobStatus;
+use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
+use enums::common::visibility::Visibility;
+use tokens::tokens::media_files::MediaFileToken;
 use redis::{Commands, RedisResult};
 use redis_common::redis_keys::RedisKeys;
 use server_environment::ServerEnvironment;
@@ -161,7 +164,7 @@ pub async fn get_inference_job_status_handler(
     &server_state.mysql_pool
   ).await;
 
-  let record = match maybe_status {
+  let mut record = match maybe_status {
     Ok(Some(record)) => record,
     Ok(None) => return Err(CommonWebError::NotFound),
     Err(err) => {
@@ -169,6 +172,46 @@ pub async fn get_inference_job_status_handler(
       return Err(CommonWebError::from_anyhow_error(err));
     }
   };
+
+  // NB: Status stays public, but result locations are only for callers who may read the result
+  // right now: not deleted, and (if private) the creator or a moderator.
+  if let Some(result) = record.maybe_result_details.as_ref().filter(|r| r.entity_type == "media_file") {
+    let maybe_session = server_state.session_checker
+        .maybe_get_user_session(&http_request, &server_state.mysql_pool)
+        .await
+        .map_err(|e| {
+          warn!("Session checker error: {:?}", e);
+          CommonWebError::from_error(e)
+        })?;
+
+    let is_mod = maybe_session.as_ref().map_or(false, |s| s.can_delete_other_users_tts_results);
+
+    let media_file = get_media_file(
+      &MediaFileToken::new_from_str(&result.entity_token),
+      is_mod,
+      &server_state.mysql_pool,
+    ).await.map_err(CommonWebError::from_anyhow_error)?;
+
+    let maybe_avt_token = server_state.avt_cookie_manager.get_avt_token_from_request(&http_request);
+
+    let may_read = match media_file {
+      None => false,
+      Some(file) => file.creator_set_visibility != Visibility::Private
+          || is_mod
+          || match (&maybe_session, &file.maybe_creator_user_token) {
+            (Some(session), Some(creator)) => &session.user_token == creator,
+            _ => false,
+          }
+          || match (&maybe_avt_token, &file.maybe_creator_anonymous_visitor_token) {
+            (Some(avt), Some(creator_avt)) => avt == creator_avt,
+            _ => false,
+          },
+    };
+
+    if !may_read {
+      record.maybe_result_details = None;
+    }
+  }
 
   let mut redis = server_state.redis_pool
       .get()
