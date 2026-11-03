@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UsersApi } from "./UsersApi";
-import { getSignedSession, storeSignedSession } from "./ApiManager";
+import { UsersApi } from "./UsersApi.js";
+import { getSignedSession, storeSignedSession } from "./ApiManager.js";
 
 const { fetchProxy } = vi.hoisted(() => ({ fetchProxy: vi.fn() }));
 vi.mock("@storyteller/tauri-utils", () => ({ FetchProxy: fetchProxy }));
