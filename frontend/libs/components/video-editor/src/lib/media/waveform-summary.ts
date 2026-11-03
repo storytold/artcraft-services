@@ -186,6 +186,13 @@ export function sampleSourceWaveformSummary({
   });
 }
 
+// Bucket endpoints come from callers (and persisted projects), so every scan
+// is intersected with the buffer before touching sample data.
+export function clampSampleIndex(value: number, length: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(length, Math.max(0, Math.floor(value)));
+}
+
 export function computeRmsBuckets({
   buffer,
   buckets,
@@ -207,7 +214,8 @@ export function computeRmsBuckets({
   const result = new Array<number>(buckets.length);
 
   for (let i = 0; i < buckets.length; i++) {
-    const { bucketStart, bucketEnd } = buckets[i];
+    const bucketStart = clampSampleIndex(buckets[i].bucketStart, buffer.length);
+    const bucketEnd = clampSampleIndex(buckets[i].bucketEnd, buffer.length);
     const bucketLength = bucketEnd - bucketStart;
     if (bucketLength <= 0) {
       result[i] = 0;
