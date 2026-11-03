@@ -260,7 +260,28 @@ export function getScalarChannelValueAtTime({
     return fallbackValue;
   }
 
-  const normalizedChannel = normalizeScalarChannel({ channel });
+  return getNormalizedScalarChannelValueAtTime({
+    normalizedChannel: normalizeScalarChannel({ channel }),
+    time,
+    fallbackValue,
+  });
+}
+
+/**
+ * getScalarChannelValueAtTime for a channel already passed through
+ * normalizeScalarChannel. Callers evaluating one channel at many times
+ * normalize once and use this: normalizing per query re-copies and re-sorts
+ * every key, which made keyframe listings quadratic in the key count.
+ */
+export function getNormalizedScalarChannelValueAtTime({
+  normalizedChannel,
+  time,
+  fallbackValue,
+}: {
+  normalizedChannel: ScalarAnimationChannel;
+  time: number;
+  fallbackValue: number;
+}): number {
   const firstKey = normalizedChannel.keys[0];
   const lastKey = normalizedChannel.keys[normalizedChannel.keys.length - 1];
   if (!firstKey || !lastKey) {
@@ -293,8 +314,13 @@ export function getScalarChannelValueAtTime({
     return lastKey.value;
   }
 
+  // Keys are sorted: start at the pair ending at the first key at or after
+  // `time` instead of scanning from the beginning.
   for (
-    let keyIndex = 0;
+    let keyIndex = Math.max(
+      0,
+      lowerBoundByTime({ keys: normalizedChannel.keys, time }) - 1,
+    );
     keyIndex < normalizedChannel.keys.length - 1;
     keyIndex++
   ) {
@@ -370,15 +396,62 @@ export function getDiscreteChannelValueAtTime({
     return fallbackValue;
   }
 
-  const normalizedChannel = normalizeDiscreteChannel({ channel });
-  let currentValue = fallbackValue;
-  for (const key of normalizedChannel.keys) {
-    if (time < key.time) {
-      break;
-    }
-    currentValue = key.value;
+  return getNormalizedDiscreteChannelValueAtTime({
+    normalizedChannel: normalizeDiscreteChannel({ channel }),
+    time,
+    fallbackValue,
+  });
+}
+
+/** getDiscreteChannelValueAtTime for an already-normalized channel. */
+export function getNormalizedDiscreteChannelValueAtTime({
+  normalizedChannel,
+  time,
+  fallbackValue,
+}: {
+  normalizedChannel: Channel<DiscreteValue>;
+  time: number;
+  fallbackValue: DiscreteValue;
+}): DiscreteValue {
+  // Last key with key.time <= time (keys are sorted by time).
+  const index = upperBoundByTime({ keys: normalizedChannel.keys, time }) - 1;
+  return index >= 0 ? normalizedChannel.keys[index].value : fallbackValue;
+}
+
+// First index whose key time is >= `time`; keys.length if none.
+function lowerBoundByTime({
+  keys,
+  time,
+}: {
+  keys: ReadonlyArray<{ time: number }>;
+  time: number;
+}): number {
+  let low = 0;
+  let high = keys.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (keys[mid].time < time) low = mid + 1;
+    else high = mid;
   }
-  return currentValue;
+  return low;
+}
+
+// First index whose key time is > `time`; keys.length if none.
+function upperBoundByTime({
+  keys,
+  time,
+}: {
+  keys: ReadonlyArray<{ time: number }>;
+  time: number;
+}): number {
+  let low = 0;
+  let high = keys.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (keys[mid].time <= time) low = mid + 1;
+    else high = mid;
+  }
+  return low;
 }
 
 export function getChannelValueAtTime({
