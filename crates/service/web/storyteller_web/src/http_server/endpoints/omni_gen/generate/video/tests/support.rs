@@ -498,8 +498,11 @@ fn extract_fixture_duration_millis(request_line: &str) -> Option<u64> {
   let idx = request_line.find("dur")?;
   let rest = &request_line[idx + 3..];
   let end = rest.find("ms")?;
-  rest[..end].parse().ok()
+  // Bound the ffmpeg work a request line can demand.
+  rest[..end].parse().ok().filter(|millis| *millis <= MAX_FIXTURE_DURATION_MILLIS)
 }
+
+const MAX_FIXTURE_DURATION_MILLIS: u64 = 60_000;
 
 /// A real MP4 of the requested duration, generated with ffmpeg once per
 /// duration and cached on disk for the life of the machine's temp dir.
@@ -509,8 +512,12 @@ fn fixture_video_bytes(duration_millis: u64) -> Vec<u8> {
   // files with an atomic rename so a reader can never see a partial write.
   static GENERATION_LOCK: Mutex<()> = Mutex::new(());
 
-  let cache_dir = std::env::temp_dir().join("artcraft_mysql_testing_fixture_videos");
-  std::fs::create_dir_all(&cache_dir).expect("create fixture video cache dir");
+  // Private (0700, unpredictable name) dir owned by this process: a predictable shared
+  // /tmp cache let another local user plant symlinks that this server would then serve.
+  static CACHE_DIR: std::sync::OnceLock<tempfile::TempDir> = std::sync::OnceLock::new();
+  let cache_dir = CACHE_DIR
+    .get_or_init(|| tempfile::tempdir().expect("create fixture video cache dir"))
+    .path();
   let cache_path = cache_dir.join(format!("fixture_{duration_millis}.mp4"));
 
   if !cache_path.exists() {
