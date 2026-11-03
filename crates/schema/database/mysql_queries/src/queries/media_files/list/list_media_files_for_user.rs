@@ -81,6 +81,9 @@ where
 JOIN media_files m ON m.id = page.id
 LEFT JOIN model_weights w ON m.maybe_origin_model_token = w.token
 LEFT JOIN media_files media_file_cover_image ON media_file_cover_image.token = m.maybe_cover_image_media_file_token
+  AND media_file_cover_image.user_deleted_at IS NULL
+  AND media_file_cover_image.mod_deleted_at IS NULL
+  AND (media_file_cover_image.creator_set_visibility <> 'private' OR media_file_cover_image.maybe_creator_user_token = m.maybe_creator_user_token)
 LEFT JOIN entity_stats ON entity_stats.entity_type = "#,
   );
   query.push_bind(StatsEntityType::MediaFile.to_str());
