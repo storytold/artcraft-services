@@ -7,6 +7,7 @@ use log::{info, warn};
 use utoipa::ToSchema;
 
 use enums::by_table::media_files::media_file_type::MediaFileType;
+use enums::common::visibility::Visibility;
 use mysql_queries::queries::media_files::edit::set_media_file_cover_image::{set_media_file_cover_image, UpdateArgs};
 use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
 use tokens::tokens::media_files::MediaFileToken;
@@ -128,6 +129,17 @@ pub async fn set_media_file_cover_image_handler(
 
       //let can_use_image = media_file.creator_set_visibility == Visibility::Public
       //    && media_file.media_type == MediaFileType::Image;
+
+      // NB: A private image belongs to its creator. Pointing a cover at someone else's private
+      // image would publish its URL through the media file and any folder using it as a cover.
+      let is_cover_image_creator = media_file.maybe_creator_user_token
+          .as_ref()
+          .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
+
+      if media_file.creator_set_visibility == Visibility::Private && !is_cover_image_creator && !is_mod {
+        warn!("user cannot use private media file as cover image: {:?}", media_file_token);
+        return Err(CommonWebError::NotFound);
+      }
 
       let can_use_image = media_file.media_type.is_image();
 
