@@ -143,7 +143,27 @@ function findOptimalInterval({
     }
   }
 
-  return 60;
+  return getZoomedOutIntervalSeconds({ pixelsPerSecond, minSpacingPx });
+}
+
+// Zoomed out past the largest multiplier (a very long timeline fitted to
+// the viewport): keep the minimum pixel spacing with whole-hour intervals.
+// A fixed fallback interval let the tick count grow without bound as zoom
+// shrank, rendering one React element per tick.
+function getZoomedOutIntervalSeconds({
+  pixelsPerSecond,
+  minSpacingPx,
+}: {
+  pixelsPerSecond: number;
+  minSpacingPx: number;
+}): number {
+  const largestMultiplier = SECOND_MULTIPLIERS[SECOND_MULTIPLIERS.length - 1];
+  if (!Number.isFinite(pixelsPerSecond) || pixelsPerSecond <= 0) {
+    return largestMultiplier;
+  }
+
+  const hours = Math.ceil(minSpacingPx / pixelsPerSecond / largestMultiplier);
+  return Math.max(1, hours) * largestMultiplier;
 }
 
 export function shouldShowLabel({

@@ -9,6 +9,11 @@ import { getRulerConfig, shouldShowLabel } from "../ruler-utils";
 import { useScrollPosition } from "../hooks/use-scroll-position";
 import { TimelineTick } from "./timeline-tick";
 
+// Upper bound on ticks rendered at once. Tick spacing is at least 18px, so
+// this covers any realistic viewport; it only bites for degenerate zoom or
+// timing values.
+const MAX_RENDERED_RULER_TICKS = 2000;
+
 interface TimelineRulerProps {
   zoomLevel: number;
   dynamicTimelineWidth: number;
@@ -69,6 +74,7 @@ export function TimelineRuler({
   const endTickIndex = Math.min(
     tickCount - 1,
     Math.ceil(visibleEndTimeSeconds / tickIntervalSeconds),
+    startTickIndex + MAX_RENDERED_RULER_TICKS - 1,
   );
 
   const timelineTicks: Array<JSX.Element> = [];
