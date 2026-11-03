@@ -33,6 +33,24 @@ describe("fixTransparentStops", () => {
     expect(result[2].color).toBe("rgba(0,255,0,0)");
   });
 
+  test("carries an opaque donor across a run of transparent stops", () => {
+    const result = fixTransparentStops({
+      stops: [
+        stop("#ff0000"),
+        stop("transparent"),
+        stop("transparent"),
+        stop("transparent"),
+      ],
+    });
+
+    expect(result.map((s) => s.color)).toEqual([
+      "#ff0000",
+      "rgba(255,0,0,0)",
+      "rgba(255,0,0,0)",
+      "rgba(255,0,0,0)",
+    ]);
+  });
+
   test("leaves an all-transparent list unchanged without stalling", () => {
     const stops = Array.from({ length: 200_000 }, () => stop("transparent"));
 
