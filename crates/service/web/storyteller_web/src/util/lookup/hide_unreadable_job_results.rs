@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use enums::common::visibility::Visibility;
 use errors::AnyhowResult;
 use mysql_queries::queries::generic_inference::web::job_status::GenericInferenceJobStatus;
+use log::warn;
 use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::batch_get_media_files_by_tokens;
 use sqlx::MySqlPool;
 use tokens::tokens::media_files::MediaFileToken;
@@ -28,8 +29,18 @@ pub async fn hide_unreadable_job_results(
   }
 
   // NB: Soft-deleted media is not returned unless the viewer is a moderator.
-  let media_by_token = batch_get_media_files_by_tokens(mysql_pool, &media_tokens, is_moderator)
-      .await?
+  let media = match batch_get_media_files_by_tokens(mysql_pool, &media_tokens, is_moderator).await {
+    Ok(media) => media,
+    Err(err) => {
+      // Fail closed: the status stays, the results go.
+      warn!("Error looking up media for job results: {:?}", err);
+      for record in records.iter_mut() {
+        record.maybe_result_details = None;
+      }
+      return Ok(());
+    }
+  };
+  let media_by_token = media
       .into_iter()
       .map(|media| (media.token.as_str().to_string(), (media.creator_set_visibility, media.maybe_creator_user_token)))
       .collect::<HashMap<_, _>>();

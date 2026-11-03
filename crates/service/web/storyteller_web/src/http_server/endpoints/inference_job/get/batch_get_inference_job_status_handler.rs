@@ -187,13 +187,17 @@ pub async fn batch_get_inference_job_status_handler(
       })?;
 
   // NB: Status stays public, but result locations only go to callers who may read the result.
-  let maybe_session = server_state.session_checker
+  // A failed session lookup is treated as anonymous, which hides private results.
+  let maybe_session = match server_state.session_checker
       .maybe_get_user_session(&http_request, &server_state.mysql_pool)
       .await
-      .map_err(|e| {
-        warn!("Session checker error: {:?}", e);
-        CommonWebError::from_error(e)
-      })?;
+  {
+    Ok(session) => session,
+    Err(e) => {
+      warn!("Session checker error: {:?}", e);
+      None
+    }
+  };
 
   hide_unreadable_job_results(
     &mut records,
