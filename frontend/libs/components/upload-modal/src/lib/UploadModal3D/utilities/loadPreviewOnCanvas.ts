@@ -312,13 +312,7 @@ const glbLoader = ({
       // so a bones-only fallback found nothing for exactly the models that
       // need it. Only the re-parented GLB roots are sampled; the preview
       // lights would wildly inflate the box.
-      const box = new THREE.Box3();
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.geometry.computeBoundingBox();
-          box.expandByObject(object);
-        }
-      });
+      const box = computeMeshBounds(scene);
       if (box.isEmpty()) {
         scene.updateMatrixWorld(true);
         const point = new THREE.Vector3();
@@ -463,3 +457,41 @@ const imagePlaneLoader = ({
     message: "Preview should be available",
   });
 };
+
+// World-space bounds of every mesh under `root`, in one pass. Each distinct
+// geometry's local bounds are computed once and reused by every mesh that
+// shares it, and each mesh is visited once: Box3.expandByObject recurses
+// into children, so calling it per mesh inside a traversal re-walked whole
+// subtrees, and recomputing shared geometry bounds per instance rescanned
+// the same vertices over and over.
+export function computeMeshBounds(root: THREE.Object3D): THREE.Box3 {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  const local = new THREE.Box3();
+  const computed = new Set<THREE.BufferGeometry>();
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const mesh = object as THREE.Mesh & {
+      boundingBox?: THREE.Box3 | null;
+      computeBoundingBox?: () => void;
+    };
+    if (mesh.boundingBox !== undefined && mesh.computeBoundingBox) {
+      // Skinned/instanced meshes keep an object-level box (per object).
+      if (mesh.boundingBox === null) mesh.computeBoundingBox();
+      if (!mesh.boundingBox) return;
+      local.copy(mesh.boundingBox);
+    } else {
+      const geometry = mesh.geometry as THREE.BufferGeometry | undefined;
+      if (!geometry) return;
+      if (!computed.has(geometry)) {
+        geometry.computeBoundingBox();
+        computed.add(geometry);
+      }
+      if (!geometry.boundingBox) return;
+      local.copy(geometry.boundingBox);
+    }
+    local.applyMatrix4(mesh.matrixWorld);
+    box.union(local);
+  });
+  return box;
+}
