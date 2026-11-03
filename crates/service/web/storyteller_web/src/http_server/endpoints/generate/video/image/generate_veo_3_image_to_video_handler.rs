@@ -93,12 +93,6 @@ pub async fn generate_veo_3_image_to_video_handler(
     return Err(CommonWebError::BadInputWithSimpleMessage(reason));
   }
 
-  insert_idempotency_token(&request.uuid_idempotency_token, &mut *mysql_connection)
-      .await
-      .map_err(|err| {
-        error!("Error inserting idempotency token: {:?}", err);
-        CommonWebError::BadInputWithSimpleMessage("invalid idempotency token".to_string())
-      })?;
   const IS_MOD : bool = false;
   
   let media_file_lookup_result = get_media_file_with_connection(
@@ -194,6 +188,13 @@ pub async fn generate_veo_3_image_to_video_handler(
     api_key: &server_state.inference_providers.fal.api_key,
   };
 
+  // after the source checks, so denied requests do not consume the token
+  insert_idempotency_token(&request.uuid_idempotency_token, &mut *mysql_connection)
+      .await
+      .map_err(|err| {
+        error!("Error inserting idempotency token: {:?}", err);
+        CommonWebError::BadInputWithSimpleMessage("invalid idempotency token".to_string())
+      })?;
   info!("Charging wallet: {}", cost);
 
   attempt_wallet_deduction_else_common_web_error(
