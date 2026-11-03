@@ -310,8 +310,12 @@ test.describe("Flatpak OCI signature lookaside", () => {
     const unsigned = await flatpakRepoDescriptor("https://getartcraft.com", "");
     expect(unsigned).toContain("GPGVerify=false\n");
     expect(unsigned).not.toContain("SignatureLookaside");
-    // RELEASE_SIGNING_KEY is still empty, so the served descriptor is the unsigned one.
-    expect(await (await getRepoDescriptor(new Request("https://getartcraft.com/artcraft-oci.flatpakrepo"))).text()).toBe(unsigned);
+    // The served descriptor carries the ArtCraft release key.
+    const served = await (await getRepoDescriptor(new Request("https://getartcraft.com/artcraft-oci.flatpakrepo"))).text();
+    expect(served).toContain("GPGVerify=true\n");
+    expect(served).toContain("SignatureLookaside=https://getartcraft.com/signatures\n");
+    const servedKey = await readKey({ binaryKey: new Uint8Array(Buffer.from(served.match(/^GPGKey=(.+)$/m)![1], "base64")) });
+    expect(servedKey.getFingerprint()).toBe("2b76741b414aad6cd33e631213a005c0b9d7c3ed");
 
     const armoredKey = readFileSync(join(__dirname, "fixtures/signed-release/release-signing-key.asc"), "utf8");
     const signed = await flatpakRepoDescriptor("https://getartcraft.com", armoredKey);
