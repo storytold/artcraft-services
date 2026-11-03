@@ -3,6 +3,14 @@ import { onAccountChange, reconcileAccountOwner } from "./session";
 
 vi.mock("@storyteller/api", () => ({ UsersApi: class {} }));
 
+// Isolated in-memory storage so the test does not depend on the runner's DOM.
+const store = new Map<string, string>();
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, v),
+  clear: () => store.clear(),
+});
+
 describe("reconcileAccountOwner", () => {
   beforeEach(() => localStorage.clear());
 
