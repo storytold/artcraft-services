@@ -1,17 +1,14 @@
 use crate::creds::fal_api_key::FalApiKey;
 use crate::error::api_generic_error::FalGenericApiError;
 use crate::error::api_specific_error::FalSpecificApiError;
-use crate::error::client_error::FalClientError;
 use crate::error::fal_error_plus::FalErrorPlus;
+use crate::polling::queue_url::{queue_http_client, validate_queue_url};
 use crate::polling::poll_job_response::raw_response::RawIncompleteJobResponse;
 use crate::polling::poll_job_response::success_case_extractors::{
   extract_contents_from_response, PollResponseExtractedContents,
 };
 use log::info;
 use serde_json::Value;
-use url::Url;
-
-const EXPECTED_HOST: &str = "queue.fal.run";
 
 pub struct PollJobResponseArgs<'a> {
   /// This is the "response" URL (not the "status" URL).
@@ -38,27 +35,16 @@ pub struct PollJobResponse {
 
 /// Fetch the results of a completed FAL job.
 ///
-/// The `response_url` must point to `queue.fal.run`.
+/// The `response_url` must be an `https://queue.fal.run` URL.
 ///
 /// Returns `FalErrorPlus::ApiSpecific(IncompleteJob)` if the job is still
 /// in progress (FAL returns HTTP 400 with `"detail": "Request is still in progress"`).
 pub async fn poll_job_response(args: PollJobResponseArgs<'_>) -> Result<PollJobResponse, FalErrorPlus> {
-  let parsed = Url::parse(args.response_url)?;
-
-  let host = parsed.host_str().unwrap_or("");
-
-  if host != EXPECTED_HOST {
-    return Err(FalErrorPlus::ClientError(FalClientError::InvalidUrl(format!(
-      "Expected host '{}' but got '{}' in response URL: {}",
-      EXPECTED_HOST,
-      host,
-      args.response_url,
-    ))));
-  }
+  validate_queue_url(args.response_url, "response")?;
 
   info!("Polling FAL job response: {}", args.response_url);
 
-  let response = reqwest::Client::new()
+  let response = queue_http_client()?
     .get(args.response_url)
     .header("Authorization", format!("Key {}", args.api_key.0))
     .send()
@@ -142,6 +128,18 @@ mod tests {
     };
     let result = poll_job_response(args).await;
     assert!(result.is_err());
+  }
+
+  #[tokio::test]
+  async fn rejects_plain_http() {
+    let api_key = FalApiKey::from_str("test-key");
+    let args = PollJobResponseArgs {
+      response_url: "http://queue.fal.run/fal-ai/flux/requests/abc123",
+      api_key: &api_key,
+    };
+    let result = poll_job_response(args).await;
+    let err = format!("{}", result.unwrap_err());
+    assert!(err.contains("scheme"), "error should mention the scheme: {}", err);
   }
 
   mod classify_error {
