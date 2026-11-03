@@ -9,6 +9,9 @@ type GetSessionTokenForUploadStuioShotResult =
   | { success: true; data?: string }
   | { success: false; errorMessage?: any };
 
+// Upload methods send `maybe_visibility` only when the caller passes one.
+// Leaving it out lets the server apply the account's preferred visibility;
+// defaulting it to public here would override a private preference.
 export class MediaUploadApi extends ApiManager {
   private sessionToken = "";
 
@@ -155,7 +158,7 @@ export class MediaUploadApi extends ApiManager {
     fileName,
     uuid,
     maybe_title,
-    maybe_visibility = Visibility.Public,
+    maybe_visibility,
   }: {
     blob: Blob;
     fileName: string;
@@ -176,7 +179,7 @@ export class MediaUploadApi extends ApiManager {
     fileName,
     uuid,
     maybe_title,
-    maybe_visibility = Visibility.Public,
+    maybe_visibility,
     is_intermediate_system_file = EIntermediateFile.true
   }: {
     blob: Blob;
@@ -203,7 +206,7 @@ export class MediaUploadApi extends ApiManager {
     maybe_animation_type,
     maybe_duration_millis,
     maybe_title,
-    maybe_visibility = Visibility.Public,
+    maybe_visibility,
   }: {
     file: File;
     fileName: string;
@@ -230,7 +233,7 @@ export class MediaUploadApi extends ApiManager {
     fileName,
     uuid,
     maybe_title,
-    maybe_visibility = Visibility.Public,
+    maybe_visibility,
   }: {
     file: File;
     fileName: string;
@@ -251,7 +254,7 @@ export class MediaUploadApi extends ApiManager {
     fileName,
     uuid,
     maybe_title,
-    maybe_visibility = Visibility.Public,
+    maybe_visibility,
   }: {
     blob: Blob;
     fileName: string;
@@ -272,7 +275,7 @@ export class MediaUploadApi extends ApiManager {
     fileName,
     uuid,
     maybe_title,
-    maybe_visibility = Visibility.Public,
+    maybe_visibility,
     maybe_style_name,
     maybe_scene_source_media_file_token,
     is_intermediate_system_file = EIntermediateFile.true,
@@ -305,7 +308,7 @@ export class MediaUploadApi extends ApiManager {
     maybe_animation_type,
     maybe_duration_millis,
     maybe_title,
-    maybe_visibility = Visibility.Public,
+    maybe_visibility,
   }: {
     file: File;
     fileName: string;
