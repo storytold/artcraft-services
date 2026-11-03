@@ -1,7 +1,10 @@
 import { PitchShifter } from "soundtouchjs";
 import { clampRetimeRate, shouldMaintainPitch } from "./rate";
 import type { RetimeConfig } from "../timeline/types";
-import { getSourceTimeAtClipTime } from "./resolve";
+import {
+  getSourceTimeAtClipTime,
+  getTimelineDurationForSourceSpan,
+} from "./resolve";
 
 // Audio retime renderer. Two paths:
 //   - Simple resampling (buildResampledBuffer): walk the output samples
@@ -16,6 +19,44 @@ import { getSourceTimeAtClipTime } from "./resolve";
 // buffer's native sample rate, hence the explicit resample-first step.
 
 const RATE_EPSILON = 1e-6;
+
+// Longest single clip rendered into a prepared buffer (one hour; ~1.3 GB of
+// stereo float samples at 48 kHz). Clip timing comes from the project
+// document, so without a cap a tiny project could request an arbitrarily
+// large buffer and fill it synchronously.
+export const MAX_RETIMED_CLIP_SECONDS = 60 * 60;
+
+/**
+ * Clip-time length worth rendering: the requested clip duration, cut off
+ * where the source audio runs out (everything after that is silence) and at
+ * MAX_RETIMED_CLIP_SECONDS. Non-finite or negative inputs yield 0.
+ */
+export function getRenderableClipDuration({
+  sourceDuration,
+  trimStart,
+  clipDuration,
+  retime,
+}: {
+  sourceDuration: number;
+  trimStart: number;
+  clipDuration: number;
+  retime?: RetimeConfig;
+}): number {
+  if (!Number.isFinite(clipDuration) || clipDuration <= 0) {
+    return 0;
+  }
+
+  const sourceRemaining = Math.max(0, sourceDuration - trimStart);
+  const sourceLimited = getTimelineDurationForSourceSpan({
+    sourceSpan: sourceRemaining,
+    retime,
+  });
+  return Math.min(clipDuration, sourceLimited, MAX_RETIMED_CLIP_SECONDS);
+}
+
+function sanitizeTrimStart({ trimStart }: { trimStart: number }): number {
+  return Number.isFinite(trimStart) ? Math.max(0, trimStart) : 0;
+}
 
 function sampleLinear({
   channelData,
@@ -169,6 +210,13 @@ export async function renderRetimedBuffer({
 }): Promise<AudioBuffer> {
   const targetSampleRate = audioContext.sampleRate;
   const rate = clampRetimeRate({ rate: retime?.rate ?? 1 });
+  const safeTrimStart = sanitizeTrimStart({ trimStart });
+  const renderDuration = getRenderableClipDuration({
+    sourceDuration: sourceBuffer.duration,
+    trimStart: safeTrimStart,
+    clipDuration,
+    retime,
+  });
   const usePitchPreservation =
     shouldMaintainPitch({ rate, maintainPitch }) &&
     Math.abs(rate - 1) > RATE_EPSILON;
@@ -176,8 +224,8 @@ export async function renderRetimedBuffer({
   if (usePitchPreservation) {
     return buildPitchPreservedBuffer({
       sourceBuffer,
-      trimStart,
-      clipDuration,
+      trimStart: safeTrimStart,
+      clipDuration: renderDuration,
       rate,
       targetSampleRate,
     });
@@ -186,8 +234,8 @@ export async function renderRetimedBuffer({
   return buildResampledBuffer({
     audioContext,
     sourceBuffer,
-    trimStart,
-    clipDuration,
+    trimStart: safeTrimStart,
+    clipDuration: renderDuration,
     targetSampleRate,
     retime,
   });
