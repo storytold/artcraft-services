@@ -10,6 +10,7 @@ describe("sanitizeCssColor", () => {
     expect(sanitizeCssColor("red")).toBe("red");
     expect(sanitizeCssColor("#abc")).toBe("#abc");
     expect(sanitizeCssColor("  #11223344 ")).toBe("#11223344");
+    expect(sanitizeCssColor("rgb(1e2, 2.5E-1, 0)")).toBe("rgb(1e2, 2.5E-1, 0)");
   });
 
   it("rejects values that could break out of a style attribute", () => {

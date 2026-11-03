@@ -9,7 +9,7 @@
 // matching stays linear-time.
 const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const KEYWORD_COLOR = /^[a-z]{3,30}$/i;
-const FUNCTION_COLOR = /^(?:rgb|hsl)a?\([-+0-9.%\s,/]{1,64}\)$/i;
+const FUNCTION_COLOR = /^(?:rgb|hsl)a?\([-+0-9.e%\s,/]{1,64}\)$/i;
 
 export function sanitizeCssColor(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
