@@ -273,6 +273,10 @@ describe("EditorCore smoke", () => {
         expect.objectContaining({ id: STORED_ID, name: "Renamed" }),
       ]);
       expect(editor.project.getActive()).toBeNull();
+
+      const reopened = await editor.project.loadProject({ id: STORED_ID });
+      expect(reopened?.metadata.name).toBe("Renamed");
+      expect(reopened?.metadata.id).toBe(STORED_ID);
     });
   });
 
