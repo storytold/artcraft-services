@@ -7,7 +7,6 @@ import {
   CpuIcon,
   ExternalLinkIcon,
   FolderDownIcon,
-  InfoIcon,
   ShieldCheckIcon,
   TerminalIcon,
 } from "lucide-react";
@@ -244,20 +243,12 @@ export function LinuxRepoGuide() {
             </h3>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted">
-            Package managers verify all downloaded `.deb` and `.rpm` files against exact SHA-256
-            checksums published in the repository index. Downloads are streamed directly from official
-            GitHub Releases via HTTP 302 redirects, verifying binary integrity against the repository catalog.
+            Every release signs its `.deb`, `.rpm` and Arch packages, AppImages, tarballs and Flatpak bundles
+            with the ArtCraft release key, and publishes a signed `SHA256SUMS.txt`. This site checks that
+            signature before listing a release in the repository indexes, and package managers verify each
+            download against the indexed SHA-256 checksum. Downloads are streamed directly from official GitHub
+            Releases via HTTP 302 redirects.
           </p>
-          <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
-            <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
-            <span>
-              {"During public repository preview, repositories use unsigned preview settings ("}
-              <code className="font-mono text-ink">[trusted=yes]</code>
-              {" for APT and "}
-              <code className="font-mono text-ink">gpgcheck=0</code>
-              {" for RPM/DNF). Downloads are verified against repository index digests; cryptographic index signing will be enabled when official release GPG keys are published."}
-            </span>
-          </div>
         </div>
 
         <div className="flex flex-col bg-bg p-6 md:p-10">

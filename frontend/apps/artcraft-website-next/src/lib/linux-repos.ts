@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
+import { parseSignedShaSums } from "./release-signatures";
 import {
   CRAFTING_APPS,
   craftAppName,
@@ -138,6 +139,16 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
   return null;
 }
 
+/**
+ * Resolve `<package>.sig` (the detached signature pacman fetches) to the same release's signature
+ * asset, for catalogued packages only.
+ */
+export function resolvePackageSignatureUrl(filename: string): string | null {
+  if (!filename.endsWith(".sig")) return null;
+  const packageUrl = resolvePackageDownloadUrl(filename.slice(0, -".sig".length));
+  return packageUrl ? `${packageUrl}.sig` : null;
+}
+
 export function handlePackageDownloadRedirect(pathSegments: string[] | undefined): Response {
   const filename = pathSegments?.at(-1);
   if (!filename) {
@@ -167,17 +178,16 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
   if (!promise) {
     promise = (async () => {
       const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      const [res, sigRes] = await Promise.all([
+        fetch(url, { signal: AbortSignal.timeout(10_000) }),
+        fetch(`${url}.asc`, { signal: AbortSignal.timeout(10_000) }),
+      ]);
       if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
-      const text = await res.text();
-      const map = new Map<string, string>();
-      for (const line of text.split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const [sha, fname] = trimmed.split(/\s+/);
-        if (sha && fname) map.set(fname.replace(/^\*/, ""), sha);
+      // A release from before signing has no SHA256SUMS.txt.asc; any other failure is an error.
+      if (!sigRes.ok && sigRes.status !== 404) {
+        throw new Error(`Unable to fetch the checksum signature for ${repo} ${version}: ${sigRes.status}`);
       }
-      return map;
+      return parseSignedShaSums(new Uint8Array(await res.arrayBuffer()), sigRes.ok ? await sigRes.text() : null);
     })();
     shaSumsCache.set(key, promise);
     promise.catch(() => shaSumsCache.delete(key));
