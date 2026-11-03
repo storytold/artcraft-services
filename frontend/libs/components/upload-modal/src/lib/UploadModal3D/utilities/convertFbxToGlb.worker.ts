@@ -1,5 +1,6 @@
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+import { assertFbxWithinBudget } from "./fbxBudget";
 
 // Runs the CPU-heavy FBX parse + GLTF export off the main thread so big
 // files can't freeze the UI. One message in ({ id, buffer }) → one message
@@ -26,6 +27,8 @@ const scope = self as unknown as {
 scope.onmessage = async (event) => {
   const { id, buffer } = event.data;
   try {
+    // Reject decompression bombs before FBXLoader's unbounded inflate.
+    await assertFbxWithinBudget(buffer);
     const group = new FBXLoader().parse(buffer, "");
     const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
       new GLTFExporter().parse(
