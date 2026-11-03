@@ -177,7 +177,7 @@ function setChannelInData({
 // over every component of a property must use this: chaining
 // setChannelInData copies and re-counts the whole component record on each
 // step, which is quadratic in the number of stored components.
-function setChannelsInData({
+export function setChannelsInData({
   data,
   updates,
 }: {
@@ -1315,23 +1315,13 @@ export function splitAnimationsAtTime({
     const leftBoundaryId = generateUUID();
     const rightBoundaryId = generateUUID();
 
-    const leftUpdates: Array<[string, AnimationChannel]> = [];
-    const rightUpdates: Array<[string, AnimationChannel]> = [];
-    for (const [componentKey, channel] of getChannelDataEntries({ data })) {
-      const splitResult = splitChannelAtTime({
-        channel,
-        splitTime,
-        leftBoundaryId,
-        rightBoundaryId,
-        shouldIncludeSplitBoundary,
-      });
-      if (splitResult.leftChannel) {
-        leftUpdates.push([componentKey, splitResult.leftChannel]);
-      }
-      if (splitResult.rightChannel) {
-        rightUpdates.push([componentKey, splitResult.rightChannel]);
-      }
-    }
+    const { leftUpdates, rightUpdates } = splitChannelDataAtTime({
+      data,
+      splitTime,
+      leftBoundaryId,
+      rightBoundaryId,
+      shouldIncludeSplitBoundary,
+    });
     if (leftUpdates.length > 0) {
       leftAnimations[propertyPath] = setChannelsInData({
         data: leftAnimations[propertyPath],
@@ -1350,6 +1340,45 @@ export function splitAnimationsAtTime({
     leftAnimations: toAnimation({ animations: leftAnimations }),
     rightAnimations: toAnimation({ animations: rightAnimations }),
   };
+}
+
+// Splits every component of a property's channel data, returning the
+// component updates for each side (only components that have a channel on
+// that side), in component order.
+function splitChannelDataAtTime({
+  data,
+  splitTime,
+  leftBoundaryId,
+  rightBoundaryId,
+  shouldIncludeSplitBoundary,
+}: {
+  data: ChannelData;
+  splitTime: MediaTime;
+  leftBoundaryId: string;
+  rightBoundaryId: string;
+  shouldIncludeSplitBoundary: boolean;
+}): {
+  leftUpdates: Array<[string, AnimationChannel]>;
+  rightUpdates: Array<[string, AnimationChannel]>;
+} {
+  const leftUpdates: Array<[string, AnimationChannel]> = [];
+  const rightUpdates: Array<[string, AnimationChannel]> = [];
+  for (const [componentKey, channel] of getChannelDataEntries({ data })) {
+    const splitResult = splitChannelAtTime({
+      channel,
+      splitTime,
+      leftBoundaryId,
+      rightBoundaryId,
+      shouldIncludeSplitBoundary,
+    });
+    if (splitResult.leftChannel) {
+      leftUpdates.push([componentKey, splitResult.leftChannel]);
+    }
+    if (splitResult.rightChannel) {
+      rightUpdates.push([componentKey, splitResult.rightChannel]);
+    }
+  }
+  return { leftUpdates, rightUpdates };
 }
 
 export function removeElementKeyframe({
