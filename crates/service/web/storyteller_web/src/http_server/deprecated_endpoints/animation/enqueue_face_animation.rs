@@ -31,6 +31,7 @@ use crate::http_server::requests::request_headers::has_debug_header::has_debug_h
 use crate::http_server::user_lookup::user_session::session_utils::lookup::user_session_extended::UserSessionExtended;
 use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::state::server_state::ServerState;
+use crate::util::job_input_access::{can_use_media_file_input, can_use_media_upload_input, can_use_voice_conversion_result_input, JobInputRequester};
 
 #[derive(Deserialize)]
 pub struct EnqueueFaceAnimationRequest {
@@ -247,6 +248,49 @@ pub async fn enqueue_face_animation_handler(
       return Err(EnqueueFaceAnimationError::BadInput("image source not fully specified".to_string()));
     }
   };
+
+  // ==================== INPUT ACCESS ==================== //
+
+  // NB: The worker downloads these with the service's credentials and publishes the result under
+  // this job, so the requester must be allowed to use each source. Checked in the same order the
+  // sources are chosen above. (TTS results are not implemented by the worker.)
+  let requester = JobInputRequester::from_session(maybe_user_session.as_ref());
+
+  let pool = &server_state.mysql_pool;
+
+  let can_use_audio = if let Some(ref token) = request.audio_source.maybe_media_file_token {
+    can_use_media_file_input(token, requester, pool).await
+  } else if let Some(ref token) = request.audio_source.maybe_media_upload_token {
+    can_use_media_upload_input(token, requester, pool).await
+  } else if request.audio_source.maybe_tts_result_token.is_some() {
+    Ok(true)
+  } else if let Some(ref token) = request.audio_source.maybe_voice_conversion_result_token {
+    can_use_voice_conversion_result_input(token, requester, pool).await
+  } else {
+    Ok(false)
+  };
+
+  let can_use_image = if let Some(ref token) = request.image_source.maybe_media_file_token {
+    can_use_media_file_input(token, requester, pool).await
+  } else if let Some(ref token) = request.image_source.maybe_media_upload_token {
+    can_use_media_upload_input(token, requester, pool).await
+  } else {
+    Ok(false)
+  };
+
+  for (label, can_use) in [("audio", can_use_audio), ("image", can_use_image)] {
+    match can_use {
+      Ok(true) => {},
+      Ok(false) => {
+        warn!("Face animation {} source not usable by requester", label);
+        return Err(EnqueueFaceAnimationError::BadInput(format!("{} source not found", label)));
+      }
+      Err(err) => {
+        warn!("Error checking face animation {} source access: {:?}", label, err);
+        return Err(EnqueueFaceAnimationError::ServerError);
+      }
+    }
+  }
 
   let ip_address = get_request_ip(&http_request);
 
