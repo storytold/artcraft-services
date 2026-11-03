@@ -3,7 +3,12 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 import { SplatFileType, SplatMesh } from "@sparkjsdev/spark";
-import { NodeHierarchyHelper, disposeObject3D } from "@storyteller/ui-viewer-3d";
+import {
+  NodeHierarchyHelper,
+  applyGltfBudget,
+  assertSpzWithinBudget,
+  disposeObject3D,
+} from "@storyteller/ui-viewer-3d";
 
 interface LoaderInterface {
   file: File;
@@ -210,7 +215,9 @@ export const loadPreviewOnCanvas = ({
   } else if (file.name.endsWith(".spz")) {
     file
       .arrayBuffer()
-      .then((arrayBuffer) => {
+      .then(async (arrayBuffer) => {
+        // The SPZ decoder sizes its storage from the header's splat count.
+        await assertSpzWithinBudget(arrayBuffer);
         if (cancelled) return;
         splatMesh = new SplatMesh({
           fileBytes: arrayBuffer,
@@ -281,7 +288,9 @@ const glbLoader = ({
   onModelInfo,
   isCancelled,
 }: LoaderInterface) => {
-  const loader = new GLTFLoader();
+  // Rejects accessor counts that would decode past the memory budget before
+  // GLTFLoader allocates for them.
+  const loader = applyGltfBudget(new GLTFLoader());
   loader.load(
     fileUrl,
     (data) => {
