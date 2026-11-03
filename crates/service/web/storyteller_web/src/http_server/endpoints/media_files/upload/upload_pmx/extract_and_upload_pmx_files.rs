@@ -264,12 +264,16 @@ fn remove_useless_leading_directories(mut entries: Vec<PmxZipEntryDetail>) -> Re
     if remove_parent {
       entries = entries.into_iter()
           .map(|entry| {
-            let new_path = entry.enclosed_name.strip_prefix(&parent)
-                .map(|path| path.to_path_buf())
-                .unwrap_or_else(|_err| entry.enclosed_name.clone());
+            // NB: `enclosed_name` may hold inner `..` (e.g. `a/../b`), which stripping `a` turns into
+            // `../b`. Only keep a stripped name made of plain components, else the storage path
+            // could leave the asset's directory.
+            let maybe_new_path = entry.enclosed_name.strip_prefix(&parent)
+                .ok()
+                .filter(|path| path.components().all(|c| matches!(c, std::path::Component::Normal(_))))
+                .map(|path| path.to_path_buf());
             PmxZipEntryDetail {
               enclosed_name: entry.enclosed_name,
-              maybe_better_alternative_output_name: Some(new_path),
+              maybe_better_alternative_output_name: maybe_new_path,
               file_size: entry.file_size,
               is_pmx: entry.is_pmx,
             }
