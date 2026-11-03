@@ -27,8 +27,17 @@ describe("gridDotLayout", () => {
     expect((grid?.cols ?? 0) * (grid?.rows ?? 0)).toBeLessThan(MAX_GRID_DOTS);
   });
 
-  it("refuses an oversized viewport", () => {
-    expect(gridDotLayout({ x: 0, y: 0, width: 1e9, height: 1e9 }, 1)).toBeNull();
+  it("coarsens the step instead of drawing nothing for a large viewport", () => {
+    // A 4K screen at zoom 0.5: 7680 × 4320 stage units, 32,776 dots at step 32.
+    const grid = gridDotLayout({ x: 0, y: 0, width: 7680, height: 4320 }, 32);
+    expect(grid?.step).toBe(64);
+    expect((grid?.cols ?? 0) * (grid?.rows ?? 0)).toBeLessThanOrEqual(MAX_GRID_DOTS);
+  });
+
+  it("keeps the dot count bounded for an oversized viewport, or refuses it", () => {
+    const grid = gridDotLayout({ x: 0, y: 0, width: 1e9, height: 1e9 }, 1);
+    expect((grid?.cols ?? 0) * (grid?.rows ?? 0)).toBeLessThanOrEqual(MAX_GRID_DOTS);
+    expect(gridDotLayout({ x: 0, y: 0, width: 1e300, height: 1e300 }, 1)).toBeNull();
   });
 
   it("refuses non-finite input", () => {

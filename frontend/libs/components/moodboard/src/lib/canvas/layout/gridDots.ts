@@ -27,6 +27,9 @@ export function effectiveGridSpacing(spacing: number, zoom: number): number | nu
 }
 
 export interface GridDotLayout {
+  // The step the dots are laid at: the requested one, or a power-of-2 multiple
+  // of it when the viewport would otherwise need more than MAX_GRID_DOTS.
+  step: number;
   startX: number;
   startY: number;
   cols: number;
@@ -36,17 +39,23 @@ export interface GridDotLayout {
 // Dot positions covering `viewport` at `step`, as a first dot plus a column
 // and row count, so the caller iterates by index rather than accumulating
 // floats (at very large pan offsets `x += step` can stop changing `x`).
-// Returns null when the viewport is not finite or would need more than
-// MAX_GRID_DOTS dots.
+// When the viewport would need more than MAX_GRID_DOTS dots at `step`, the
+// step doubles until it fits (a large canvas at modest zoom still gets a grid).
+// Returns null when the viewport is not finite or no step within reach fits.
 export function gridDotLayout(viewport: Rect, step: number): GridDotLayout | null {
   const { x, y, width, height } = viewport;
   if (![x, y, width, height, step].every(Number.isFinite) || step <= 0) return null;
-  if (width < 0 || height < 0) return { startX: 0, startY: 0, cols: 0, rows: 0 };
-  const firstCol = Math.floor(x / step);
-  const firstRow = Math.floor(y / step);
-  const cols = Math.floor((x + width) / step) - firstCol + 1;
-  const rows = Math.floor((y + height) / step) - firstRow + 1;
-  if (!Number.isFinite(cols) || !Number.isFinite(rows)) return null;
-  if (cols * rows > MAX_GRID_DOTS) return null;
-  return { startX: firstCol * step, startY: firstRow * step, cols, rows };
+  if (width < 0 || height < 0) return { step, startX: 0, startY: 0, cols: 0, rows: 0 };
+  // 64 doublings reach past any finite double's useful range; a bound, not a tuning knob.
+  for (let doublings = 0; doublings < 64 && Number.isFinite(step); doublings++, step *= 2) {
+    const firstCol = Math.floor(x / step);
+    const firstRow = Math.floor(y / step);
+    const cols = Math.floor((x + width) / step) - firstCol + 1;
+    const rows = Math.floor((y + height) / step) - firstRow + 1;
+    if (!Number.isFinite(cols) || !Number.isFinite(rows)) return null;
+    if (cols * rows <= MAX_GRID_DOTS) {
+      return { step, startX: firstCol * step, startY: firstRow * step, cols, rows };
+    }
+  }
+  return null;
 }

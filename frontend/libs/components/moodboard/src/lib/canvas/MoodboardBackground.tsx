@@ -41,9 +41,9 @@ const MoodboardBackgroundInner = ({
         ctx.fillStyle = dotColor;
         ctx.beginPath();
         for (let i = 0; i < grid.cols; i++) {
-          const x = grid.startX + i * effectiveSpacing;
+          const x = grid.startX + i * grid.step;
           for (let j = 0; j < grid.rows; j++) {
-            const y = grid.startY + j * effectiveSpacing;
+            const y = grid.startY + j * grid.step;
             ctx.moveTo(x + radius, y);
             ctx.arc(x, y, radius, 0, Math.PI * 2);
           }

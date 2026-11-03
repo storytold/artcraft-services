@@ -41,15 +41,15 @@ export function captureCanvasDocument(): MoodboardCanvasDocument {
 }
 
 // Stored documents are untrusted input: a zero, negative, or non-finite
-// spacing would stall the background grid's draw loop.
+// spacing would stall the background grid's draw loop. Large spacing is
+// valid (the grid, snapping and fit-to-grid take it); the background caps its
+// own dot count.
 const MIN_GRID_SPACING = 1;
-const MAX_GRID_SPACING = 4096;
 
 export function sanitizeGridSpacing(spacing: unknown): number {
   return typeof spacing === "number" &&
     Number.isFinite(spacing) &&
-    spacing >= MIN_GRID_SPACING &&
-    spacing <= MAX_GRID_SPACING
+    spacing >= MIN_GRID_SPACING
     ? spacing
     : EMPTY_CANVAS_DOCUMENT.gridSpacing;
 }
