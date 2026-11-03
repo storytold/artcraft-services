@@ -89,6 +89,19 @@ let restoredLiveCanvas = false;
 const setStatus = (status: MoodboardSaveStatus) =>
   useMoodboardSyncStore.getState().setStatus(status);
 
+// A board stamped with an account may only be changed (pushed, deleted
+// remotely) from that account's session. localStorage is machine-shared, so
+// a signed-out visitor or another account can see the replica, but their
+// edits must never become a pending push the owner's next session uploads.
+export function isOwnedByCurrentAccount(
+  board: Pick<Board, "ownerId">,
+  userId: string | null,
+): boolean {
+  return !board.ownerId || board.ownerId === userId;
+}
+
+const currentUserId = (): string | null => persistenceRef?.getUserId() ?? null;
+
 // ---------- public surface ----------
 
 export function useMoodboardSync(adapter: MoodboardAdapter): {
@@ -204,11 +217,16 @@ export function flushNow(): void {
 // the server on the next hydration — the delete is retried then instead.
 export async function deleteBoardEverywhere(boardId: string): Promise<void> {
   const store = useBoardLibraryStore.getState();
-  const token = store.boards[boardId]?.remoteToken;
+  const board = store.boards[boardId];
+  const token = board?.remoteToken;
+  // Only the owning account may delete the server copy; anyone else just
+  // drops the local replica.
+  const canDeleteRemote =
+    Boolean(token) && board && isOwnedByCurrentAccount(board, currentUserId());
   store.deleteBoard(boardId);
   dropCanvasForBoard(boardId);
   dirtyBoardIds.delete(boardId);
-  if (!token) return;
+  if (!token || !canDeleteRemote) return;
 
   addTombstone(token);
   if (persistenceRef?.deleteBoard) {
@@ -224,6 +242,8 @@ export async function deleteBoardEverywhere(boardId: string): Promise<void> {
 // ---------- dirty tracking + scheduling ----------
 
 function markBoardDirty(boardId: string): void {
+  const board = useBoardLibraryStore.getState().boards[boardId];
+  if (board && !isOwnedByCurrentAccount(board, currentUserId())) return;
   dirtyBoardIds.add(boardId);
   // Durable flag: survives reload, and tells hydration that local wins.
   withDirtySuppressed(() => {
@@ -301,6 +321,12 @@ async function flush(): Promise<void> {
 
   try {
     for (const id of ids) {
+      // The session can change while earlier saves are in flight; a board
+      // must not be uploaded with another account's credentials.
+      if (persistence.getUserId() !== userId) {
+        failed.push(id);
+        continue;
+      }
       const ok = await saveBoard(persistence, userId, id);
       if (!ok) failed.push(id);
     }
