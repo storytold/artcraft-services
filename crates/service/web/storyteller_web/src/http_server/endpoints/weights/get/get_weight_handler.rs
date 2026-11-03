@@ -93,6 +93,7 @@ pub struct GetWeightPathInfo {
         (status = 200, description = "Success Update", body = GetWeightResponse),
         (status = 400, description = "Bad input", body = CommonWebError),
         (status = 401, description = "Not authorized", body = CommonWebError),
+        (status = 404, description = "Weight not found, or not visible to the caller", body = CommonWebError),
         (status = 500, description = "Server error", body = CommonWebError),
     ),
     params(
