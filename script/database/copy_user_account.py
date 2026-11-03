@@ -286,14 +286,25 @@ def main():
             )
             print(f"  Expired and deleted {cursor.rowcount} source session(s).")
 
+            # MCP sessions are a separate table and also grant access to the source account.
             cursor.execute(
                 """
-                SELECT COUNT(*)
-                FROM user_sessions
+                UPDATE mcp_sessions
+                SET maybe_deleted_at = NOW()
                 WHERE user_token = %s
-                  AND deleted_at IS NULL
+                  AND maybe_deleted_at IS NULL
                 """,
                 (source_token,),
+            )
+            print(f"  Revoked {cursor.rowcount} source MCP session(s).")
+
+            cursor.execute(
+                """
+                SELECT
+                  (SELECT COUNT(*) FROM user_sessions WHERE user_token = %s AND deleted_at IS NULL)
+                  + (SELECT COUNT(*) FROM mcp_sessions WHERE user_token = %s AND maybe_deleted_at IS NULL)
+                """,
+                (source_token, source_token),
             )
             (remaining,) = cursor.fetchone()
             if remaining != 0:
