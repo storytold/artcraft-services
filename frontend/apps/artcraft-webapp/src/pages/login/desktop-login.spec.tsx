@@ -127,6 +127,19 @@ describe("webapp login approval integration", () => {
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses to load or approve the request when rendered inside a frame", async () => {
+    const topDescriptor = Object.getOwnPropertyDescriptor(window, "top");
+    Object.defineProperty(window, "top", { configurable: true, get: () => ({}) });
+    try {
+      renderPage();
+      await screen.findByText(/Open this login link directly in your browser/);
+      expect(screen.queryByRole("button", { name: "Approve desktop login" })).toBeNull();
+      expect(transport).not.toHaveBeenCalled();
+    } finally {
+      if (topDescriptor) Object.defineProperty(window, "top", topDescriptor);
+    }
+  });
+
   it("rejects external or protocol-relative authentication return URLs", () => {
     for (const path of ["https://evil.example", "//evil.example", "/\\evil.example", "/\nevil.example"]) {
       expect(safeAuthReturnPath(path)).toBe("/");
