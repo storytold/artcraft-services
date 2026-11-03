@@ -37,7 +37,8 @@ pub(crate) fn plan_veo_3p1_duration(
   strategy: RequestMismatchMitigationStrategy,
 ) -> Result<Option<u16>, ArtcraftRouterError> {
   match duration_seconds {
-    None => Ok(None),
+    // Resolve the default here so billing (cost.rs, 6s) and the Fal call (whose own default is 8s) agree.
+    None => Ok(Some(6)),
     Some(4) | Some(6) | Some(8) => Ok(duration_seconds),
     Some(other) => match strategy {
       RequestMismatchMitigationStrategy::ErrorOut => {
