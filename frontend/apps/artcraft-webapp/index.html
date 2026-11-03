@@ -11,7 +11,18 @@
       // password reset links) must not load analytics, which records the full
       // page URL including the query string.
       const credentialBearingPaths = ["/login/desktop", "/forgot-password/verify"];
-      const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
+      // React Router matches paths case-insensitively and after percent-decoding,
+      // so normalize the same way before comparing.
+      let currentPath = window.location.pathname;
+      try {
+        currentPath = decodeURIComponent(currentPath);
+      } catch (e) {
+        // Malformed escape sequence: React Router would not match it either.
+      }
+      currentPath = currentPath.toLowerCase();
+      while (currentPath.length > 1 && currentPath.endsWith("/")) {
+        currentPath = currentPath.slice(0, -1);
+      }
       if (credentialBearingPaths.includes(currentPath)) {
         const policy = document.createElement("meta");
         policy.name = "referrer";
