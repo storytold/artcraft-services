@@ -193,6 +193,22 @@ pub async fn list_user_bookmarks_for_user_handler(
   let page_size = query.page_size.unwrap_or(25);
   let page_index = query.page_index.unwrap_or(0);
 
+  let maybe_user_session = server_state
+      .session_checker
+      .maybe_get_user_session(&http_request, &server_state.mysql_pool)
+      .await
+      .map_err(|e| {
+        warn!("Session checker error: {:?}", e);
+        ListUserBookmarksForUserError::ServerError
+      })?;
+
+  let maybe_viewer_user_token = maybe_user_session.as_ref()
+      .map(|session| session.user_token.as_str());
+
+  let viewer_is_moderator = maybe_user_session.as_ref()
+      .map(|session| session.can_delete_other_users_tts_results)
+      .unwrap_or(false);
+
   let query_results =
       list_user_bookmarks_by_maybe_entity_type(ListUserBookmarksForUserArgs{
         username: path.username.as_ref(),
@@ -203,6 +219,8 @@ pub async fn list_user_bookmarks_for_user_handler(
         sort_ascending,
         page_size,
         page_index,
+        maybe_viewer_user_token,
+        viewer_is_moderator,
         mysql_pool: &server_state.mysql_pool,
       }).await;
 
