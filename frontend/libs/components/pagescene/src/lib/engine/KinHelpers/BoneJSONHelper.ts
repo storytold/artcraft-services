@@ -12,7 +12,9 @@ export interface BonePoseNode {
   position: Vector3;
   quaternion: Quaternion;
   scale: Vector3;
-  children: BonePoseNode[];
+  // One slot per saved child, so siblings keep their index; a slot is
+  // undefined when that child was unreadable or past the budget.
+  children: (BonePoseNode | undefined)[];
 }
 
 const isFiniteNumberArray = (value: unknown, length: number): value is number[] =>
@@ -29,7 +31,13 @@ function readTransform(data: any): Pick<BonePoseNode, "position" | "quaternion" 
   const scale = new Vector3(1, 1, 1);
   if (isFiniteNumberArray(data.matrix, 16)) {
     new Matrix4().fromArray(data.matrix).decompose(position, quaternion, scale);
-    return { position, quaternion, scale };
+    // A degenerate matrix (e.g. a zero scale column) decomposes to NaN.
+    const finite = [...position.toArray(), ...quaternion.toArray(), ...scale.toArray()]
+      .every(Number.isFinite);
+    if (finite) {
+      return { position, quaternion, scale };
+    }
+    return { position: new Vector3(), quaternion: new Quaternion(), scale: new Vector3(1, 1, 1) };
   }
   if (isFiniteNumberArray(data.position, 3)) position.fromArray(data.position);
   if (isFiniteNumberArray(data.quaternion, 4)) quaternion.fromArray(data.quaternion);
@@ -46,18 +54,21 @@ export function parseBonePose(boneJSON: any): BonePoseNode | undefined {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const readNode = (data: any, depth: number): BonePoseNode | undefined => {
-    if (!data || typeof data !== "object" || depth > MAX_POSE_DEPTH || remaining <= 0) {
+    if (depth > MAX_POSE_DEPTH || remaining <= 0) {
       return undefined;
     }
+    // Every visited slot counts against the budget, readable or not.
     remaining--;
+    if (!data || typeof data !== "object") {
+      return undefined;
+    }
 
     const { position, quaternion, scale } = readTransform(data);
-    const children: BonePoseNode[] = [];
+    const children: (BonePoseNode | undefined)[] = [];
     if (Array.isArray(data.children)) {
       for (const child of data.children) {
         if (remaining <= 0) break;
-        const node = readNode(child, depth + 1);
-        if (node) children.push(node);
+        children.push(readNode(child, depth + 1));
       }
     }
     return { position, quaternion, scale, children };

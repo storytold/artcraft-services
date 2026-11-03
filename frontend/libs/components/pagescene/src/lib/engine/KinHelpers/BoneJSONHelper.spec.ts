@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Bone, Group, Object3D } from "three";
-import { BoneJSONHelper, MAX_POSE_BONES, parseBonePose } from "./BoneJSONHelper";
+import { BoneJSONHelper, MAX_POSE_BONES, MAX_POSE_DEPTH, parseBonePose } from "./BoneJSONHelper";
 
 function makeCharacter(): { model: Object3D; hip: Bone; spine: Bone } {
   const model = new Group();
@@ -21,6 +21,7 @@ describe("BoneJSONHelper", () => {
     const source = makeCharacter();
     source.hip.position.set(1, 2, 3);
     source.spine.rotation.set(0.1, 0.2, 0.3);
+    source.spine.scale.set(1, 2, 0.5);
     source.hip.updateMatrixWorld(true);
     const json = JSON.parse(JSON.stringify(new BoneJSONHelper(source.model).toJSON()));
 
@@ -29,6 +30,7 @@ describe("BoneJSONHelper", () => {
 
     expect(target.hip.position.toArray()).toEqual([1, 2, 3]);
     expect(target.spine.quaternion.angleTo(source.spine.quaternion)).toBeLessThan(1e-6);
+    expect(target.spine.scale.distanceTo(source.spine.scale)).toBeLessThan(1e-6);
   });
 
   it("ignores non-bone sections such as procedural geometry", () => {
@@ -62,6 +64,30 @@ describe("BoneJSONHelper", () => {
     let deep: unknown = { children: [] };
     for (let i = 0; i < 10_000; i++) deep = { children: [deep] };
     expect(() => parseBonePose({ object: deep })).not.toThrow();
+
+    let chain: unknown = { children: [] };
+    for (let i = 0; i < MAX_POSE_DEPTH + 10; i++) chain = { children: [chain] };
+    let levels = 0;
+    for (let node = parseBonePose({ object: chain }); node; node = node.children[0]) levels++;
+    expect(levels).toBe(MAX_POSE_DEPTH + 1);
+  });
+
+  it("keeps sibling indexes when a child entry is unreadable", () => {
+    const tree = parseBonePose({
+      object: { children: [null, { position: [7, 8, 9], children: [] }] },
+    });
+    expect(tree?.children.length).toBe(2);
+    expect(tree?.children[0]).toBeUndefined();
+    expect(tree?.children[1]?.position.toArray()).toEqual([7, 8, 9]);
+  });
+
+  it("falls back to identity for a degenerate matrix", () => {
+    const tree = parseBonePose({
+      object: { matrix: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1], children: [] },
+    });
+    expect(tree?.position.toArray()).toEqual([0, 0, 0]);
+    expect(tree?.quaternion.toArray()).toEqual([0, 0, 0, 1]);
+    expect(tree?.scale.toArray()).toEqual([1, 1, 1]);
   });
 
   it("returns nothing for documents without an object root", () => {
