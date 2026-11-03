@@ -5,6 +5,15 @@ import { Input } from "@storyteller/ui-input";
 import { CircleCheckIcon, InfoIcon, LoaderCircleIcon } from "lucide-react";
 import Seo from "../../components/seo";
 import { UsersApi, BillingApi } from "@storyteller/api";
+import { safeAuthReturnPath } from "../../lib/login-bridge-context";
+
+const tryDecode = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
 
 interface OnboardingData {
   email_not_set: boolean;
@@ -16,7 +25,12 @@ interface OnboardingData {
 const Onboarding = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get("redirect_to") || "/checkout/success";
+  const rawRedirect = searchParams.get("redirect_to");
+  // Decode once and keep only same-origin paths (no "//host", no schemes) so a
+  // crafted onboarding link cannot send the user off-site after completion.
+  const redirectTo = rawRedirect
+    ? safeAuthReturnPath(tryDecode(rawRedirect))
+    : "/checkout/success";
 
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(
     null,
@@ -41,7 +55,7 @@ const Onboarding = () => {
 
   const getSuccessUrl = (afterUsernameStep = false) => {
     // If redirecting to success, append parameter
-    const decodedRedirect = decodeURIComponent(redirectTo);
+    const decodedRedirect = redirectTo;
     if (decodedRedirect.includes("/checkout/success")) {
       const separator = decodedRedirect.includes("?") ? "&" : "?";
       return `${decodedRedirect}${separator}onboarding_complete=true`;
@@ -55,7 +69,7 @@ const Onboarding = () => {
   };
 
   const getRedirectMessage = () => {
-    const decodedRedirect = decodeURIComponent(redirectTo);
+    const decodedRedirect = redirectTo;
     if (decodedRedirect === "/") return "Redirecting you to the home page...";
     if (decodedRedirect === "/pricing")
       return "Redirecting you to view plans...";
