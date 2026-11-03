@@ -20,6 +20,23 @@ const isFiniteNumberArray = (value: unknown, length: number): value is number[] 
   value.length === length &&
   value.every((n) => typeof n === "number" && Number.isFinite(n));
 
+// Reads a node's local transform from either its packed matrix or its
+// separate position/quaternion/scale fields, defaulting to identity.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readTransform(data: any): Pick<BonePoseNode, "position" | "quaternion" | "scale"> {
+  const position = new Vector3();
+  const quaternion = new Quaternion();
+  const scale = new Vector3(1, 1, 1);
+  if (isFiniteNumberArray(data.matrix, 16)) {
+    new Matrix4().fromArray(data.matrix).decompose(position, quaternion, scale);
+    return { position, quaternion, scale };
+  }
+  if (isFiniteNumberArray(data.position, 3)) position.fromArray(data.position);
+  if (isFiniteNumberArray(data.quaternion, 4)) quaternion.fromArray(data.quaternion);
+  if (isFiniteNumberArray(data.scale, 3)) scale.fromArray(data.scale);
+  return { position, quaternion, scale };
+}
+
 // Reads the bone-transform subset of an Object3D.toJSON() document into a
 // plain tree. Returns undefined when the document has no usable root; nodes
 // past the bone or depth budget are dropped.
@@ -34,17 +51,7 @@ export function parseBonePose(boneJSON: any): BonePoseNode | undefined {
     }
     remaining--;
 
-    const position = new Vector3();
-    const quaternion = new Quaternion();
-    const scale = new Vector3(1, 1, 1);
-    if (isFiniteNumberArray(data.matrix, 16)) {
-      new Matrix4().fromArray(data.matrix).decompose(position, quaternion, scale);
-    } else {
-      if (isFiniteNumberArray(data.position, 3)) position.fromArray(data.position);
-      if (isFiniteNumberArray(data.quaternion, 4)) quaternion.fromArray(data.quaternion);
-      if (isFiniteNumberArray(data.scale, 3)) scale.fromArray(data.scale);
-    }
-
+    const { position, quaternion, scale } = readTransform(data);
     const children: BonePoseNode[] = [];
     if (Array.isArray(data.children)) {
       for (const child of data.children) {
