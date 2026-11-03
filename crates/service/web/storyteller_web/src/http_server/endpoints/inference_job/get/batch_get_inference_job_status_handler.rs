@@ -12,6 +12,7 @@ use crate::http_server::endpoints::inference_job::utils::extractors::extract_pol
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
 use crate::http_server::web_utils::filter_model_name::maybe_filter_model_name;
 use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
+use crate::util::lookup::hide_unreadable_job_results::hide_unreadable_job_results;
 use crate::state::server_state::ServerState;
 use actix_web::web::Json;
 use actix_web::{web, HttpRequest};
@@ -176,7 +177,7 @@ pub async fn batch_get_inference_job_status_handler(
   }
 
   // NB: Since this is publicly exposed, we don't query sensitive data.
-  let records = batch_get_inference_job_status(
+  let mut records = batch_get_inference_job_status(
     &tokens,
     &server_state.mysql_pool
   ).await
@@ -184,6 +185,22 @@ pub async fn batch_get_inference_job_status_handler(
         warn!("Batch job query error: {:?}", err);
         CommonWebError::from_anyhow_error(err)
       })?;
+
+  // NB: Status stays public, but result locations only go to callers who may read the result.
+  let maybe_session = server_state.session_checker
+      .maybe_get_user_session(&http_request, &server_state.mysql_pool)
+      .await
+      .map_err(|e| {
+        warn!("Session checker error: {:?}", e);
+        CommonWebError::from_error(e)
+      })?;
+
+  hide_unreadable_job_results(
+    &mut records,
+    maybe_session.as_ref().map(|session| &session.user_token),
+    maybe_session.as_ref().map_or(false, |session| session.can_delete_other_users_tts_results),
+    &server_state.mysql_pool,
+  ).await.map_err(CommonWebError::from_anyhow_error)?;
 
   // TODO(bt,2024-04-22): Look up the extra redis statuses per item.
 
