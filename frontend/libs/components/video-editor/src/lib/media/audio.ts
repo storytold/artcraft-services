@@ -38,7 +38,7 @@ import type {
 } from "../timeline/types";
 import type { AudioCapableElement } from "../timeline/audio-state";
 import {
-  hasAnimatedVolume,
+  createAudioGainResolver,
   isElementMuted,
   resolveEffectiveAudioGain,
 } from "../timeline/audio-state";
@@ -49,6 +49,12 @@ import { TICKS_PER_SECOND } from "../wasm";
 
 const MAX_AUDIO_CHANNELS = 2;
 const EXPORT_SAMPLE_RATE = 44100;
+
+// Longest timeline the export mixer will allocate a master buffer for (one
+// hour; ~1.3 GB of stereo float samples at 44.1 kHz). The duration comes from
+// element timing in the project document, so it is checked before any
+// decoding or allocation.
+export const MAX_TIMELINE_AUDIO_SECONDS = 60 * 60;
 
 export interface CollectedAudioElement {
   timelineElement: AudioCapableElement;
@@ -192,15 +198,39 @@ export async function collectAudioElements({
     mediaAssets.map((media) => [media.id, media]),
   );
   const pendingElements: Array<Promise<CollectedAudioElement | null>> = [];
+  // One decode per source: many clips can reference the same upload or
+  // library URL, and decoding (and retaining) a full copy per clip multiplied
+  // memory and work by the clip count.
+  const decodedSources = new Map<string, Promise<AudioBuffer | null>>();
+  const decodeOnce = (
+    key: string,
+    decode: () => Promise<AudioBuffer | null>,
+  ): Promise<AudioBuffer | null> => {
+    let pending = decodedSources.get(key);
+    if (!pending) {
+      pending = decode();
+      decodedSources.set(key, pending);
+    }
+    return pending;
+  };
 
   for (const { element, mediaAsset } of candidates) {
     if (element.type === "audio") {
-      pendingElements.push(
+      const sourceKey =
+        element.sourceType === "upload"
+          ? `asset:${element.mediaId}`
+          : `url:${element.sourceUrl}`;
+      const decode = () =>
         resolveAudioBufferForElement({
           element,
           mediaMap,
           audioContext,
-        }).then((audioBuffer) => {
+        });
+      pendingElements.push(
+        (element.sourceType !== "upload" && element.buffer
+          ? decode()
+          : decodeOnce(sourceKey, decode)
+        ).then((audioBuffer) => {
           if (!audioBuffer) return null;
           return {
             timelineElement: element,
@@ -226,10 +256,12 @@ export async function collectAudioElements({
       if (!mediaAsset || !mediaSupportsAudio({ media: mediaAsset })) continue;
 
       pendingElements.push(
-        resolveAudioBufferForAsset({
-          asset: mediaAsset,
-          audioContext,
-        }).then((audioBuffer) => {
+        decodeOnce(`asset:${mediaAsset.id}`, () =>
+          resolveAudioBufferForAsset({
+            asset: mediaAsset,
+            audioContext,
+          }),
+        ).then((audioBuffer) => {
           if (!audioBuffer) return null;
           return {
             timelineElement: element,
@@ -411,6 +443,16 @@ export async function createTimelineAudioBuffer({
   sampleRate?: number;
   audioContext?: AudioContext;
 }): Promise<AudioBuffer | null> {
+  const durationSeconds = duration / TICKS_PER_SECOND;
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 0) {
+    throw new Error("Invalid timeline duration for audio export");
+  }
+  if (durationSeconds > MAX_TIMELINE_AUDIO_SECONDS) {
+    throw new Error(
+      `Timeline is too long to export audio (limit ${MAX_TIMELINE_AUDIO_SECONDS / 60} minutes)`,
+    );
+  }
+
   const context = audioContext ?? createAudioContext({ sampleRate });
 
   const audioElements = await collectAudioElements({
@@ -422,8 +464,7 @@ export async function createTimelineAudioBuffer({
   if (audioElements.length === 0) return null;
 
   const outputChannels = 2;
-  const durationSeconds = duration / TICKS_PER_SECOND;
-  const outputLength = Math.ceil(durationSeconds * sampleRate);
+  const outputLength = Math.max(1, Math.ceil(durationSeconds * sampleRate));
   const outputBuffer = context.createBuffer(
     outputChannels,
     outputLength,
@@ -730,10 +771,12 @@ async function fetchLibraryAudioClip({
       id: element.id,
       sourceKey: element.id,
       file,
-      startTime: element.startTime,
-      duration: element.duration,
-      trimStart: element.trimStart,
-      trimEnd: element.trimEnd,
+      // Playback works in seconds, like collectMediaAudioClip. Passing raw
+      // ticks here made prepared buffers TICKS_PER_SECOND times too long.
+      startTime: element.startTime / TICKS_PER_SECOND,
+      duration: element.duration / TICKS_PER_SECOND,
+      trimStart: element.trimStart / TICKS_PER_SECOND,
+      trimEnd: element.trimEnd / TICKS_PER_SECOND,
       volume,
       muted,
       retime: element.retime,
@@ -842,38 +885,55 @@ function mixAudioChannels({
   sampleRate: number;
 }): void {
   const { startTime, duration: elementDuration } = element;
+  if (
+    !Number.isFinite(startTime) ||
+    !Number.isFinite(elementDuration) ||
+    elementDuration <= 0
+  ) {
+    return;
+  }
+  const safeTrimStart = Number.isFinite(trimStart) ? Math.max(0, trimStart) : 0;
 
   const outputStartSample = Math.floor(startTime * sampleRate);
   const renderedLength = Math.ceil(elementDuration * sampleRate);
 
+  // Only walk the part of the clip that lands inside the output buffer. A
+  // clip starting far before 0 (restored from a project document) used to
+  // iterate every leading sample just to discard it.
+  const firstSample = Math.max(0, -outputStartSample);
+  const endSample = Math.min(renderedLength, outputLength - outputStartSample);
+  if (firstSample >= endSample) return;
+
   const outputChannels = 2;
-  for (let channel = 0; channel < outputChannels; channel++) {
-    const outputData = outputBuffer.getChannelData(channel);
-    const sourceChannel = Math.min(channel, buffer.numberOfChannels - 1);
-    const sourceData = buffer.getChannelData(sourceChannel);
+  const outputData = Array.from({ length: outputChannels }, (_, channel) =>
+    outputBuffer.getChannelData(channel),
+  );
+  const sourceData = Array.from({ length: outputChannels }, (_, channel) =>
+    buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1)),
+  );
+  const sourceLength = sourceData[0].length;
+  // Volume keyframes are normalized once, and the gain is evaluated once per
+  // sample for both channels.
+  const resolveGain = createAudioGainResolver({
+    element: element.timelineElement,
+  });
 
-    for (let i = 0; i < renderedLength; i++) {
-      const outputIndex = outputStartSample + i;
-      if (outputIndex >= outputLength) break;
+  for (let i = firstSample; i < endSample; i++) {
+    const clipTime = i / sampleRate;
+    const sourceTime =
+      safeTrimStart + getSourceTimeAtClipTime({ clipTime, retime });
+    const sourceIndex = sourceTime * buffer.sampleRate;
+    if (sourceIndex >= sourceLength) break;
 
-      const clipTime = i / sampleRate;
-      const sourceTime =
-        trimStart + getSourceTimeAtClipTime({ clipTime, retime });
-      const sourceIndex = sourceTime * buffer.sampleRate;
-      if (sourceIndex >= sourceData.length) break;
-
-      const lowerIndex = Math.floor(sourceIndex);
-      const upperIndex = Math.min(sourceData.length - 1, lowerIndex + 1);
-      const fraction = sourceIndex - lowerIndex;
-      const gain = hasAnimatedVolume({ element: element.timelineElement })
-        ? resolveEffectiveAudioGain({
-            element: element.timelineElement,
-            localTime: clipTime,
-          })
-        : element.volume;
-      outputData[outputIndex] +=
-        (sourceData[lowerIndex] * (1 - fraction) +
-          sourceData[upperIndex] * fraction) *
+    const lowerIndex = Math.floor(sourceIndex);
+    const upperIndex = Math.min(sourceLength - 1, lowerIndex + 1);
+    const fraction = sourceIndex - lowerIndex;
+    const gain = resolveGain(clipTime);
+    const outputIndex = outputStartSample + i;
+    for (let channel = 0; channel < outputChannels; channel++) {
+      const source = sourceData[channel];
+      outputData[channel][outputIndex] +=
+        (source[lowerIndex] * (1 - fraction) + source[upperIndex] * fraction) *
         gain;
     }
   }
