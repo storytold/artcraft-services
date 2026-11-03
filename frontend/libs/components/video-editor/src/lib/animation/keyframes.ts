@@ -165,7 +165,8 @@ function setChannelInData({
   }
   const components = isCompositeChannelData(data) ? { ...data } : {};
   if (channel && hasChannelKeys({ channel })) {
-    components[componentKey] = channel;
+    // defineProperty, not assignment: a "__proto__" key must not set the prototype.
+    Object.defineProperty(components, componentKey, { value: channel, enumerable: true, writable: true, configurable: true });
   } else {
     delete components[componentKey];
   }
@@ -205,7 +206,8 @@ export function setChannelsInData({
       components = {};
     }
     if (channel && hasChannelKeys({ channel })) {
-      components[componentKey] = channel;
+      // defineProperty, not assignment: a "__proto__" key must not set the prototype.
+      Object.defineProperty(components, componentKey, { value: channel, enumerable: true, writable: true, configurable: true });
     } else {
       delete components[componentKey];
     }

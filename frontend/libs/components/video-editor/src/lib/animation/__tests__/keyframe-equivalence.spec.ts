@@ -427,5 +427,5 @@ function queryTimes(random: Random): number[] {
 
 function expectSameValue(actual: unknown, expected: unknown) {
   // Object.is so NaN results and -0/+0 must match exactly too.
-  expect(Object.is(actual, expected) || actual === expected).toBe(true);
+  expect(Object.is(actual, expected)).toBe(true);
 }
