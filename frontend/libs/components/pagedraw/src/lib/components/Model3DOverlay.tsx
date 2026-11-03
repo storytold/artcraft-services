@@ -25,6 +25,19 @@ interface Model3DOverlayProps {
 }
 
 /** Returns viewport-relative rect for the Konva node, suitable for `position:fixed` overlays. */
+// Imported nativeWidth/nativeHeight size the WebGL framebuffer directly, so a
+// scene file must not be able to request an arbitrarily large surface.
+export const MAX_NATIVE_DIMENSION = 4096;
+
+export function clampNativeSize(
+  imported: number | undefined,
+  fallback: number,
+): number {
+  const value = Number.isFinite(imported) ? (imported as number) : fallback;
+  const rounded = Number.isFinite(value) ? Math.round(value) : 1;
+  return Math.min(MAX_NATIVE_DIMENSION, Math.max(1, rounded));
+}
+
 function buildNodeScreenRect(
   node: Node,
   stageRef: React.MutableRefObject<Konva.Stage>,
@@ -106,8 +119,8 @@ export const Model3DOverlay = React.forwardRef<Model3DOverlayHandle, Model3DOver
       // Render at native (undistorted) dimensions. Konva will stretch the committed
       // PNG to fill the node's current frame, preserving any user-applied stretch.
       const baseParams = node.model3dParams ?? DEFAULT_MODEL3D_PARAMS;
-      const nativeW = baseParams.nativeWidth ?? Math.round(node.width * (node.scaleX ?? 1));
-      const nativeH = baseParams.nativeHeight ?? Math.round(node.height * (node.scaleY ?? 1));
+      const nativeW = clampNativeSize(baseParams.nativeWidth, node.width * (node.scaleX ?? 1));
+      const nativeH = clampNativeSize(baseParams.nativeHeight, node.height * (node.scaleY ?? 1));
       renderer.setSize(nativeW, nativeH);
       camera.aspect = nativeW / nativeH;
       camera.updateProjectionMatrix();
@@ -171,8 +184,8 @@ export const Model3DOverlay = React.forwardRef<Model3DOverlayHandle, Model3DOver
       // Render Three.js at native (undistorted) dimensions. The canvas element
       // uses h-full w-full so the browser CSS-stretches the framebuffer to fill
       // the overlay div, giving a live preview of how the stretch will look.
-      const nativeW = params.nativeWidth ?? Math.round(screenRect.width);
-      const nativeH = params.nativeHeight ?? Math.round(screenRect.height);
+      const nativeW = clampNativeSize(params.nativeWidth, screenRect.width);
+      const nativeH = clampNativeSize(params.nativeHeight, screenRect.height);
 
       const scene = new THREE.Scene();
       scene.background = null;
