@@ -60,6 +60,7 @@ pub async fn get_folder_handler(
 
   let thumbnails = build_folder_thumbnails_lookup(
     std::slice::from_ref(&row),
+    &user_session.user_token,
     &mut *conn,
     media_domain,
     server_environment,
