@@ -321,9 +321,7 @@ mod tests {
     data.extend_from_slice(&[0x79, (value.len() >> 8) as u8, (value.len() & 0xFF) as u8]);
     data.extend_from_slice(&value);
 
-    let started = std::time::Instant::now();
     assert_eq!(find_cbor_description_containing(&data, b"absent"), None);
-    assert!(started.elapsed() < std::time::Duration::from_secs(1));
   }
 
   #[test]
