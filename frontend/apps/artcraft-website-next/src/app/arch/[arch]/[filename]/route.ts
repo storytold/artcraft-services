@@ -1,4 +1,4 @@
-import { handlePackageDownloadRedirect, VALID_PACMAN_ARCHES } from "@/lib/linux-repos";
+import { handlePackageDownloadRedirect, resolvePackageSignatureUrl, VALID_PACMAN_ARCHES } from "@/lib/linux-repos";
 
 type RouteProps = {
   params: Promise<{
@@ -14,7 +14,8 @@ export async function GET(_request: Request, props: RouteProps) {
   }
 
   if (filename.endsWith(".sig")) {
-    return new Response("Signature not found", { status: 404 });
+    const signatureUrl = resolvePackageSignatureUrl(filename);
+    return signatureUrl ? Response.redirect(signatureUrl, 302) : new Response("Signature not found", { status: 404 });
   }
 
   return handlePackageDownloadRedirect([filename]);

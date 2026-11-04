@@ -3,7 +3,17 @@ import { expect, test } from "@playwright/test";
 import { GET as getFlatpakRef } from "../src/app/apps/[slug]/[filename]/route";
 import { GET as getDynamicIndex } from "../src/app/index/dynamic/route";
 import { GET as getStaticIndex } from "../src/app/index/static/route";
-import { getFlatpakOciAppIds, getFlatpakOciIndex } from "../src/lib/flatpak-oci";
+import { GET as getSignature } from "../src/app/signatures/[...path]/route";
+import { GET as getRepoDescriptor } from "../src/app/artcraft-oci.flatpakrepo/route";
+import {
+  flatpakRepoDescriptor,
+  getFlatpakOciAppIds,
+  getFlatpakOciIndex,
+  resolveOciSignatureUrl,
+} from "../src/lib/flatpak-oci";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { readKey } from "openpgp";
 
 const sha256 = (body: string) => `sha256:${createHash("sha256").update(body).digest("hex")}`;
 
@@ -224,5 +234,97 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const dynamicImages = dynamicIndex.Results.flatMap((repo: { Images: { Architecture: string }[] }) => repo.Images);
     expect(dynamicImages.length).toBeGreaterThan(0);
     expect(dynamicImages.every((image: { Architecture: string }) => image.Architecture === "amd64")).toBe(true);
+  });
+});
+
+test.describe("Flatpak OCI signature lookaside", () => {
+  test.beforeEach(() => {
+    process.env.FLATPAK_OCI_REGISTRY_URL = "https://registry.test";
+    delete process.env.FLATPAK_OCI_READ_TOKEN;
+    globalThis.fetch = fakeRegistry();
+  });
+
+  test.afterEach(() => {
+    globalThis.fetch = originalFetch;
+    if (originalRegistryUrl === undefined) delete process.env.FLATPAK_OCI_REGISTRY_URL;
+    else process.env.FLATPAK_OCI_REGISTRY_URL = originalRegistryUrl;
+    if (originalReadToken === undefined) delete process.env.FLATPAK_OCI_READ_TOKEN;
+    else process.env.FLATPAK_OCI_READ_TOKEN = originalReadToken;
+  });
+
+  /** The index's current digest for one repository and architecture. */
+  async function digestOf(repository: string, arch: "x86_64" | "aarch64"): Promise<string> {
+    const index = await getFlatpakOciIndex(new URLSearchParams({ repository }));
+    const image = index.Results[0].Images.find((i) => i.Labels["org.flatpak.ref"].split("/")[2] === arch);
+    return image!.Digest.replace("sha256:", "");
+  }
+
+  test("an image's signature path redirects to its release's .oci.sig asset", async () => {
+    for (const arch of ["x86_64", "aarch64"] as const) {
+      const hex = await digestOf("storytold/pdfcraft", arch);
+      const url = await resolveOciSignatureUrl(`storytold/pdfcraft@sha256=${hex}/signature-1`);
+      expect(url).toMatch(new RegExp(`^https://github\\.com/storytold/pdfcraft/releases/download/v[^/]+/pdfcraft-[^/]+-linux-${arch}\\.oci\\.sig$`));
+    }
+    // The launcher's files carry its package name, not the repository's.
+    const hex = await digestOf("storytold/craft-launcher", "x86_64");
+    expect(await resolveOciSignatureUrl(`storytold/craft-launcher@sha256=${hex}/signature-1`)).toMatch(
+      /\/artcraft-launcher-[^/]+-linux-x86_64\.oci\.sig$/,
+    );
+
+    const response = await getSignature(new Request("https://getartcraft.com/signatures/x"), {
+      params: Promise.resolve({ path: ["storytold", `pdfcraft@sha256=${await digestOf("storytold/pdfcraft", "x86_64")}`, "signature-1"] }),
+    });
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toMatch(/-linux-x86_64\.oci\.sig$/);
+  });
+
+  test("only a catalogued image's current digest has a signature", async () => {
+    const hex = await digestOf("storytold/pdfcraft", "x86_64");
+    for (const path of [
+      `storytold/pdfcraft@sha256=${"0".repeat(64)}/signature-1`, // another digest (an older release)
+      `storytold/pdfcraft@sha256=${hex}/signature-2`, // Flatpak asks for the next one until a 404
+      `storytold/not-an-app@sha256=${hex}/signature-1`,
+      `other/pdfcraft@sha256=${hex}/signature-1`,
+      `storytold/pdfcraft@sha256=${hex}/../signature-1`,
+      "storytold/pdfcraft",
+    ]) {
+      expect(await resolveOciSignatureUrl(path), path).toBeNull();
+    }
+    const response = await getSignature(new Request("https://getartcraft.com/signatures/x"), {
+      params: Promise.resolve({ path: ["storytold", `pdfcraft@sha256=${"0".repeat(64)}`, "signature-1"] }),
+    });
+    expect(response.status).toBe(404);
+  });
+
+  test("a registry outage is a 503, not a missing signature", async () => {
+    process.env.FLATPAK_OCI_REGISTRY_URL = "https://down.test";
+    globalThis.fetch = async () => new Response("unavailable", { status: 500 });
+    const response = await getSignature(new Request("https://getartcraft.com/signatures/x"), {
+      params: Promise.resolve({ path: ["storytold", `pdfcraft@sha256=${"a".repeat(64)}`, "signature-1"] }),
+    });
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  test("the repo descriptor turns on verification only with the release key", async () => {
+    const unsigned = await flatpakRepoDescriptor("https://getartcraft.com", "");
+    expect(unsigned).toContain("GPGVerify=false\n");
+    expect(unsigned).not.toContain("SignatureLookaside");
+    // The served descriptor carries the ArtCraft release key.
+    const served = await (await getRepoDescriptor(new Request("https://getartcraft.com/artcraft-oci.flatpakrepo"))).text();
+    expect(served).toContain("GPGVerify=true\n");
+    expect(served).toContain("SignatureLookaside=https://getartcraft.com/signatures\n");
+    const servedKey = await readKey({ binaryKey: new Uint8Array(Buffer.from(served.match(/^GPGKey=(.+)$/m)![1], "base64")) });
+    expect(servedKey.getFingerprint()).toBe("2b76741b414aad6cd33e631213a005c0b9d7c3ed");
+
+    const armoredKey = readFileSync(join(__dirname, "fixtures/signed-release/release-signing-key.asc"), "utf8");
+    const signed = await flatpakRepoDescriptor("https://getartcraft.com", armoredKey);
+    expect(signed).toContain("Url=oci+https://getartcraft.com\n");
+    expect(signed).toContain("GPGVerify=true\n");
+    expect(signed).toContain("SignatureLookaside=https://getartcraft.com/signatures\n");
+    const gpgKey = signed.match(/^GPGKey=(.+)$/m)![1];
+    // The base64 is the binary form of the same key.
+    const key = await readKey({ binaryKey: new Uint8Array(Buffer.from(gpgKey, "base64")) });
+    expect(key.getFingerprint()).toBe((await readKey({ armoredKey })).getFingerprint());
   });
 });

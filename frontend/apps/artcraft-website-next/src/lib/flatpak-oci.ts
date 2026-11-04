@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
+import { craftLauncherDownloads } from "./craft-launcher";
+import { RELEASE_SIGNING_KEY, flatpakGpgKey } from "./release-signatures";
 import {
   CRAFTING_APPS,
   craftAppRelease,
+  craftReleaseDownloads,
 } from "./crafting-apps";
 import {
   CRAFT_LAUNCHER_RELEASE,
@@ -344,6 +347,48 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
   }
 
   return items;
+}
+
+/**
+ * Where Flatpak's signature lookaside (`<lookaside>/<repository>@sha256=<hex>/signature-1`) finds
+ * an image's signature: the `.oci.sig` asset craft-common-actions attaches to the release whose
+ * image has that manifest digest. Null for any other path, repository, digest or architecture.
+ * Throws when the registry can't be asked for the current digests.
+ */
+export async function resolveOciSignatureUrl(path: string): Promise<string | null> {
+  // Each image has one signature, so `signature-2` (Flatpak asks for it next) is a 404.
+  const match = path.match(/^(storytold\/[a-z0-9-]+)@sha256=([a-f0-9]{64})\/signature-1$/);
+  if (!match) return null;
+  const [, repoName, hex] = match;
+  const item = getFlatpakCatalogItems().find((entry) => entry.repoName === repoName);
+  if (!item?.release) return null;
+  const release = item.release;
+  const app = CRAFTING_APPS.find((entry) => `storytold/${entry.slug}` === repoName);
+  const downloads = app ? craftReleaseDownloads(app, release) : craftLauncherDownloads();
+  for (const image of buildImagesForTarget(item.appId, release)) {
+    const ref = image.Labels["org.flatpak.ref"];
+    const resolved = await fetchImage(repoName, image.Tags[0], ref);
+    if (resolved.digest !== `sha256:${hex}`) continue;
+    const arch = ref.split("/")[2];
+    const bundle = downloads.find((d) => d.fileName.endsWith(`-${release.version}-linux-${arch}.flatpak`));
+    return bundle ? bundle.href.replace(/\.flatpak$/, ".oci.sig") : null;
+  }
+  return null;
+}
+
+/** The repo descriptor; with the release key set, Flatpak checks every image's signature. */
+export async function flatpakRepoDescriptor(baseUrl: string, armoredKey: string = RELEASE_SIGNING_KEY): Promise<string> {
+  // Signatures come from /signatures, which redirects to each release's .oci.sig asset.
+  const verification = armoredKey
+    ? `GPGVerify=true\nGPGKey=${await flatpakGpgKey(armoredKey)}\nSignatureLookaside=${baseUrl}/signatures\n`
+    : "GPGVerify=false\n";
+  return `[Flatpak Repo]
+Title=ArtCraft OCI
+Url=oci+${baseUrl}
+Homepage=https://getartcraft.com/
+Comment=Official ArtCraft OCI Flatpak repository
+Description=Open-source creative apps for Linux distributed via GitHub Container Registry
+${verification}`;
 }
 
 /** Return the catalogued Flatpak app IDs without contacting the OCI registry. */

@@ -1,0 +1,3 @@
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  demo-1.0-linux-x86_64.deb
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  demo-1.0-linux-x86_64.rpm
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  demo-1.0-linux-x86_64.pkg.tar.zst
