@@ -221,32 +221,8 @@ const DEFAULT_PACMAN_DEPENDS = [
   "gcc-libs",
   "hicolor-icon-theme",
   "libxkbcommon",
-  "libxkbcommon-x11",
   "vulkan-icd-loader",
 ];
-
-/**
- * .PKGINFO values for Arch packages that place .PKGINFO after usr/bin, out of reach of the Range request.
- * pacman rejects a package whose size or depends differ from its database entry, so these must match exactly.
- */
-const ARCH_PKGINFO_FALLBACKS: Record<string, { installedSize: number; depends: string[] }> = {
-  "designcraft-0.16.0-linux-x86_64.pkg.tar.zst": {
-    installedSize: 241014985,
-    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
-  },
-  "designcraft-0.16.0-linux-aarch64.pkg.tar.zst": {
-    installedSize: 223128217,
-    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
-  },
-  "designcraft-0.17.0-linux-x86_64.pkg.tar.zst": {
-    installedSize: 241103068,
-    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
-  },
-  "designcraft-0.17.0-linux-aarch64.pkg.tar.zst": {
-    installedSize: 223548844,
-    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
-  },
-};
 
 /**
  * Fast 128KB Range request to extract .PKGINFO installed size and depends from an Arch .pkg.tar.zst package.
@@ -283,10 +259,159 @@ async function extractArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfo> {
   }
 }
 
+type ArchPkgInfoFields = { installedSize: number; depends: string[] };
+
+function parsePkgInfoText(text: string): ArchPkgInfoFields | null {
+  const isizeMatch = text.match(/^size = (\d+)$/m);
+  const installedSize = isizeMatch ? Number.parseInt(isizeMatch[1], 10) : 0;
+  if (!installedSize) {
+    return null;
+  }
+  const depends = [...text.matchAll(/^depend = (\S+)$/gm)].map((m) => m[1]);
+  return { installedSize, depends };
+}
+
+/**
+ * Walks the tar archive inside a package to find .PKGINFO when it is not in the first 128KB.
+ * Some packages put their binaries before .PKGINFO, so the Range probe cannot see it.
+ * Exported so tests can feed a tar archive without a network round trip.
+ */
+export function createPkgInfoScanner() {
+  let buffer: Buffer = Buffer.alloc(0);
+  let mode: "header" | "data" | "pad" = "header";
+  let remaining = 0;
+  let padBytes = 0;
+  let entrySize = 0;
+  let capture: Buffer[] | null = null;
+
+  function finishEntry(): ArchPkgInfoFields | null {
+    mode = "header";
+    if (!capture) {
+      return null;
+    }
+    const text = Buffer.concat(capture).toString("utf-8");
+    capture = null;
+    return parsePkgInfoText(text);
+  }
+
+  return {
+    push(chunk: Buffer): ArchPkgInfoFields | null {
+      buffer = buffer.length ? Buffer.concat([buffer, chunk]) : chunk;
+
+      for (;;) {
+        if (mode === "pad") {
+          const take = Math.min(padBytes, buffer.length);
+          buffer = buffer.subarray(take);
+          padBytes -= take;
+          if (padBytes > 0) {
+            return null;
+          }
+          mode = "header";
+          continue;
+        }
+
+        if (mode === "data") {
+          const take = Math.min(remaining, buffer.length);
+          if (capture) {
+            capture.push(buffer.subarray(0, take));
+          }
+          buffer = buffer.subarray(take);
+          remaining -= take;
+          if (remaining > 0) {
+            return null;
+          }
+          padBytes = (512 - (entrySize % 512)) % 512;
+          const finished = finishEntry();
+          if (finished) {
+            return finished;
+          }
+          mode = padBytes > 0 ? "pad" : "header";
+          continue;
+        }
+
+        if (buffer.length < 512) {
+          return null;
+        }
+        const header = buffer.subarray(0, 512);
+        buffer = buffer.subarray(512);
+        const name = header.toString("utf-8", 0, 100).replace(/\0[\s\S]*$/, "");
+        if (!name) {
+          return null; // end of archive
+        }
+        const sizeText = header.toString("utf-8", 124, 136).replace(/[\0 ]+$/, "").trim();
+        entrySize = Number.parseInt(sizeText, 8) || 0;
+        if (name.replace(/^\.\//, "") === ".PKGINFO") {
+          capture = [];
+        }
+        remaining = entrySize;
+        if (remaining === 0) {
+          const finished = finishEntry();
+          if (finished) {
+            return finished;
+          }
+          padBytes = 0;
+          continue;
+        }
+        mode = "data";
+      }
+    },
+  };
+}
+
+/**
+ * Reads .PKGINFO from a package tar stream, walking entries until it is found.
+ */
+export async function readArchPkgInfoFromStream(
+  stream: ReadableStream<Uint8Array>,
+): Promise<ArchPkgInfoFields | null> {
+  const { Decompress } = await import("fzstd");
+  const scanner = createPkgInfoScanner();
+  const reader = stream.getReader();
+  let result: ArchPkgInfoFields | null = null;
+
+  const decoder = new Decompress((chunk) => {
+    if (!result) {
+      result = scanner.push(Buffer.from(chunk));
+    }
+  });
+
+  try {
+    while (!result) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      decoder.push(value, false);
+    }
+  } catch {
+    // The download is cancelled once .PKGINFO has been read, which rejects the reader.
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+
+  return result;
+}
+
+/**
+ * Downloads a package until .PKGINFO is read. Only used when the Range probe cannot see it.
+ */
+async function downloadArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfoFields | null> {
+  try {
+    const res = await fetch(downloadUrl, { signal: AbortSignal.timeout(60_000) });
+    if (!res.ok || !res.body) {
+      return null;
+    }
+    return await readArchPkgInfoFromStream(res.body);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Computes size, installed uncompressed size and depends for an Arch Linux (.pkg.tar.zst) package asset.
  */
-export async function fetchArchPackageInfo(downloadUrl: string, filename: string): Promise<ArchPkgInfo> {
+async function fetchArchPackageInfo(downloadUrl: string, filename: string): Promise<ArchPkgInfo> {
   const extracted = await extractArchPkgInfo(downloadUrl);
   const size = extracted.size || await fetchHeadPackageSize(downloadUrl, filename);
 
@@ -294,11 +419,12 @@ export async function fetchArchPackageInfo(downloadUrl: string, filename: string
     return { size, installedSize: extracted.installedSize, depends: extracted.depends };
   }
 
-  const fallback = ARCH_PKGINFO_FALLBACKS[filename];
-  if (fallback) {
-    return { size, ...fallback };
+  const downloaded = await downloadArchPkgInfo(downloadUrl);
+  if (downloaded) {
+    return { size, ...downloaded };
   }
 
+  // Last resort: pacman 7 compares these values against the package and refuses to install on a mismatch.
   console.warn(`Unable to read .PKGINFO for ${filename}; pacman will reject it if the estimated metadata is wrong`);
   return { size, installedSize: Math.round(size * 1.95), depends: DEFAULT_PACMAN_DEPENDS };
 }
