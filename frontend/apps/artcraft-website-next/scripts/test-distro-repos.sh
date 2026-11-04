@@ -390,7 +390,7 @@ test_flatpak() {
     dbus-run-session -- flatpak install --user --noninteractive --no-deps test-artcraft '"$flatpak_ids"'
 
     echo "--- Verifying every manifest app is installed ---"
-    flatpak list --user --app --columns=application,version,branch,commit,size | tee /tmp/installed-apps.txt
+    flatpak list --user --app --columns=application,version,branch,arch,size | tee /tmp/installed-apps.txt
     cut -f1 /tmp/installed-apps.txt > /tmp/installed-ids.txt
     missing=0
     for app in '"$flatpak_apps"'; do
