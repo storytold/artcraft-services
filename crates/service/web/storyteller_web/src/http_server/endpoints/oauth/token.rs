@@ -114,7 +114,7 @@ async fn refresh_token(server_state: &ServerState, client_id: &str, pairs: &[(St
   let refresh_hash = token_hash(refresh).map_err(CommonWebError::from_anyhow_error)?;
   let row = take_oauth_refresh(TakeRefreshArgs { refresh_hash: &refresh_hash, mysql_executor: &mut *tx }).await.map_err(query_error)?;
   let Some(row) = row else {
-    let reused = revoke_reused_refresh(ReusedRefreshArgs { spent_refresh_hash: &refresh_hash, mysql_executor: &mut *tx }).await.map_err(query_error)?;
+    let reused = revoke_reused_refresh(ReusedRefreshArgs { spent_refresh_hash: &refresh_hash, client_token: client_id, mysql_executor: &mut *tx }).await.map_err(query_error)?;
     if reused {
       tx.commit().await.map_err(CommonWebError::from_error)?;
       warn!("OAuth refresh token reuse revoked the grant");
@@ -129,7 +129,7 @@ async fn refresh_token(server_state: &ServerState, client_id: &str, pairs: &[(St
   let next_refresh = OauthRefreshToken::generate();
   let new_access_hash = token_hash(access.as_str()).map_err(CommonWebError::from_anyhow_error)?;
   let new_refresh_hash = token_hash(next_refresh.as_str()).map_err(CommonWebError::from_anyhow_error)?;
-  let spent = insert_spent_refresh(InsertSpentRefreshArgs { refresh_hash: &refresh_hash, mysql_executor: &mut *tx }).await.map_err(query_error)?;
+  let spent = insert_spent_refresh(InsertSpentRefreshArgs { refresh_hash: &refresh_hash, access_ttl_seconds: ACCESS_TTL_SECONDS, mysql_executor: &mut *tx }).await.map_err(query_error)?;
   if !spent {
     return Ok(oauth_error(StatusCode::BAD_REQUEST, "invalid_grant"));
   }

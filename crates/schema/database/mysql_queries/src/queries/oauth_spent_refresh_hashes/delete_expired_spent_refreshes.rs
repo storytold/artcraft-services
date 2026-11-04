@@ -5,7 +5,7 @@ pub struct DeleteExpiredSpentRefreshesArgs<T> {
   pub mysql_executor: T,
 }
 
-/// Deletes spent hashes past the grant's refresh expiry. A token that old is refused anyway.
+/// Deletes spent hashes once no access token issued from their grant's rotations can still be live.
 pub async fn delete_expired_spent_refreshes<'c, T>(args: DeleteExpiredSpentRefreshesArgs<T>) -> Result<u64, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,
