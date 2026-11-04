@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
+import { unstable_cache } from "next/cache";
 import {
   CRAFTING_APPS,
   craftAppName,
@@ -504,8 +505,48 @@ async function fetchValidatedSha256(repo: string, version: string, filename: str
 }
 
 /**
+ * Reads metadata (size, SHA-256 digest, installed size) for a package asset straight from
+ * GitHub: its SHA256SUMS.txt entry, plus a Range probe into the package for .PKGINFO.
+ */
+async function computePackageMetadata(
+  filename: string,
+  repo: string,
+  version: string,
+): Promise<LinuxPackageAssetMeta> {
+  const downloadUrl = resolvePackageDownloadUrl(filename);
+  if (!downloadUrl) {
+    throw new Error(`Package asset not found in release catalog: ${filename}`);
+  }
+
+  const sha256 = await fetchValidatedSha256(repo, version, filename);
+
+  if (filename.endsWith(".pkg.tar.zst")) {
+    const archInfo = await fetchArchPackageInfo(downloadUrl, filename);
+    return { sha256, ...archInfo };
+  }
+
+  const size = await fetchHeadPackageSize(downloadUrl, filename);
+  const divisor = filename.endsWith(".deb") ? 1024 : 1;
+  const installedSize = Math.round(size * 1.95 / divisor);
+
+  return { size, sha256, installedSize };
+}
+
+/**
+ * Keeps that metadata in Next's data cache, so it survives the process: a fresh instance (or a
+ * new deploy) serves the DB without re-reading every package's .PKGINFO. Cache keys include the
+ * filename, which carries the version, so a new release is always a miss; a day of staleness only
+ * matters for assets re-uploaded under an existing name.
+ */
+const durablePackageMetadata = unstable_cache(
+  computePackageMetadata,
+  ["linux-package-metadata"],
+  { revalidate: 60 * 60 * 24 },
+);
+
+/**
  * Dynamically computes metadata (size, SHA-256 digest, installed size) for a package asset.
- * Fetches SHA256SUMS.txt and HTTP metadata on demand and caches in memory.
+ * Fetches SHA256SUMS.txt and HTTP metadata on demand and caches in memory and in the data cache.
  */
 export async function getLinuxPackageMetadata(
   filename: string,
@@ -515,23 +556,12 @@ export async function getLinuxPackageMetadata(
   let promise = packageMetaCache.get(filename);
   if (!promise) {
     promise = (async () => {
-      const downloadUrl = resolvePackageDownloadUrl(filename);
-      if (!downloadUrl) {
-        throw new Error(`Package asset not found in release catalog: ${filename}`);
+      try {
+        return await durablePackageMetadata(filename, repo, version);
+      } catch {
+        // The data cache can be unavailable (no cache handler, disabled in preview); read directly.
+        return computePackageMetadata(filename, repo, version);
       }
-
-      const sha256 = await fetchValidatedSha256(repo, version, filename);
-
-      if (filename.endsWith(".pkg.tar.zst")) {
-        const archInfo = await fetchArchPackageInfo(downloadUrl, filename);
-        return { sha256, ...archInfo };
-      }
-
-      const size = await fetchHeadPackageSize(downloadUrl, filename);
-      const divisor = filename.endsWith(".deb") ? 1024 : 1;
-      const installedSize = Math.round(size * 1.95 / divisor);
-
-      return { size, sha256, installedSize };
     })();
     packageMetaCache.set(filename, promise);
     promise.catch(() => packageMetaCache.delete(filename));
