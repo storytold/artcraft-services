@@ -8,6 +8,7 @@ import {
   generateRpmRepomdXml,
   generateRpmRepoConfig,
   generatePacmanDb,
+  generatePacmanDesc,
   generatePacmanRepoConfig,
   getRpmPrimaryXml,
   getRpmPrimaryGz,
@@ -221,6 +222,39 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
       headers: { "x-forwarded-host": "attacker.example" },
     });
     expect(getRequestBaseUrl(preview)).toBe("https://deploy-preview-204--artcraft-website-next.netlify.app");
+  });
+
+  test("mirrors the package's .PKGINFO provides and optdepends in the pacman database", () => {
+    const app = {
+      slug: "examplecraft",
+      name: "examplecraft",
+      version: "1.2.3",
+      description: "Example",
+      section: "graphics",
+      debAssets: [],
+      rpmAssets: [],
+      archAssets: [],
+    };
+    const asset = {
+      arch: "x86_64" as const,
+      filename: "examplecraft-1.2.3-linux-x86_64.pkg.tar.zst",
+      size: 10,
+      sha256: "a".repeat(64),
+      installedSize: 20,
+      depends: ["glibc"],
+      provides: ["examplecraft=1.2.3-1"],
+      optdepends: ["cups: printing support"],
+    };
+
+    const mirrored = generatePacmanDesc(app, asset);
+    expect(mirrored).toContain("%PROVIDES%\nexamplecraft=1.2.3-1\n");
+    expect(mirrored).toContain("%OPTDEPENDS%\ncups: printing support\n");
+    expect(mirrored).not.toContain("alsa-lib");
+
+    // Only when .PKGINFO could not be read does the shared builder's list stand in.
+    const fallback = generatePacmanDesc(app, { ...asset, provides: [], optdepends: [] });
+    expect(fallback).toContain("%PROVIDES%\nexamplecraft=1.2.3-1\n");
+    expect(fallback).toContain("alsa-lib: sound support");
   });
 
   test("provides metadata and catalog for /linux setup page", async () => {
