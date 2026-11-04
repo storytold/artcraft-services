@@ -42,6 +42,7 @@ jobs:
               "designcraft",
               "figcraft",
               "texturecraft",
+              "materialcraft",
               "wordcraft",
               "soundcraft",
               "deckcraft",
@@ -219,13 +220,14 @@ jobs:
                 "\\$&"
               );
 
+              // Slugs with a hyphen ("craft-anything") are quoted keys in the catalog.
               const disabledPattern = new RegExp(
-                `(^\\s*${escaped}:\\s*)null\\s*,`,
+                `(^\\s*"?${escaped}"?\\s*:\\s*)null\\s*,`,
                 "m"
               );
 
               const pattern = new RegExp(
-                `(^\\s*${escaped}:\\s*craftRelease\\()"[^"]+"`,
+                `(^\\s*"?${escaped}"?\\s*:\\s*craftRelease\\()"[^"]+"`,
                 "m"
               );
 
