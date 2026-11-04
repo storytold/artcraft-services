@@ -355,6 +355,11 @@ test_flatpak() {
   local flatpak_apps
   flatpak_apps="$(manifest_info flatpak-apps)"
 
+  local flatpak_ids=""
+  for app in $flatpak_apps; do
+    flatpak_ids+=" ai.storyteller.$app"
+  done
+
   # Use Ubuntu (glibc-based standard Linux container) for Flatpak tests
   $CONTAINER_TOOL run --rm --network host "$UBUNTU_IMAGE" bash -c '
     set -euo pipefail
@@ -367,22 +372,38 @@ test_flatpak() {
     flatpak remote-add --user --if-not-exists test-artcraft "'"$flatpak_url"'/artcraft-oci.flatpakrepo"
 
     echo "--- Listing remote packages from OCI registry ---"
-    OUTPUT="$(flatpak remote-ls --user -d test-artcraft)"
-    echo "$OUTPUT"
+    flatpak remote-ls --user --app --columns=application,version,branch | tee /tmp/remote-apps.txt
+    cut -f1 /tmp/remote-apps.txt > /tmp/remote-ids.txt
 
     echo "--- Verifying presence of all published apps in manifest ---"
     for app in '"$flatpak_apps"'; do
-      if ! echo "$OUTPUT" | grep -q "ai.storyteller.$app"; then
+      if ! grep -qxF "ai.storyteller.$app" /tmp/remote-ids.txt; then
         echo "Error: Application ai.storyteller.$app not found in Flatpak remote!" >&2
         exit 1
       fi
-      echo "  ✓ ai.storyteller.$app verified"
+      echo "  ✓ ai.storyteller.$app verified in remote"
     done
 
-    echo "--- Testing app installation from repository ---"
-    dbus-run-session -- flatpak install --user --noninteractive --no-deps test-artcraft ai.storyteller.artcraft-launcher
+    echo "--- Installing every published app from the OCI remote ---"
+    # --no-deps: the OCI remote publishes apps only; runtimes come from Flathub. A single
+    # transaction still pulls every app ref, manifest and blob, which is what this serves.
+    dbus-run-session -- flatpak install --user --noninteractive --no-deps test-artcraft '"$flatpak_ids"'
 
-    echo "=== Flatpak (OCI Remote) verification passed! All apps verified. ==="
+    echo "--- Verifying every manifest app is installed ---"
+    flatpak list --user --app --columns=application,version,branch,arch,size | tee /tmp/installed-apps.txt
+    cut -f1 /tmp/installed-apps.txt > /tmp/installed-ids.txt
+    missing=0
+    for app in '"$flatpak_apps"'; do
+      if grep -qxF "ai.storyteller.$app" /tmp/installed-ids.txt; then
+        echo "  ✓ ai.storyteller.$app installed"
+      else
+        echo "Error: ai.storyteller.$app is not installed after the OCI install." >&2
+        missing=1
+      fi
+    done
+    [[ "$missing" -eq 0 ]] || exit 1
+
+    echo "=== Flatpak (OCI Remote) verified: every published app installed from the registry. ==="
   '
 
   if [[ -n "$PROXY_PID" ]]; then
