@@ -80,12 +80,21 @@ async fn create_database_if_missing(url: &str, database: &str) {
   }
 }
 
-/// `mysql://user:pass@host:port/db?params` → `mysql://user:pass@host:port`
+/// `mysql://user:pass@host:port/db?params` → `mysql://user:pass@host:port?params`
+/// (query options such as TLS settings must survive; only the database segment goes).
 fn strip_database_from_url(url: &str) -> String {
-  match url.rfind('/') {
+  let (base, query) = match url.split_once('?') {
+    Some((base, query)) => (base, Some(query)),
+    None => (url, None),
+  };
+  let base = match base.rfind('/') {
     // Position 7 is the end of "mysql://" — a URL with no database path.
-    Some(idx) if idx > "mysql://".len() => url[..idx].to_string(),
-    _ => url.to_string(),
+    Some(idx) if idx > "mysql://".len() => &base[..idx],
+    _ => base,
+  };
+  match query {
+    Some(query) => format!("{base}?{query}"),
+    None => base.to_string(),
   }
 }
 
@@ -98,6 +107,14 @@ mod tests {
     assert_eq!(
       strip_database_from_url("mysql://u:p@localhost:3306/artcraft_test"),
       "mysql://u:p@localhost:3306",
+    );
+  }
+
+  #[test]
+  fn keeps_query_options() {
+    assert_eq!(
+      strip_database_from_url("mysql://u:p@localhost:3306/artcraft_test?ssl-mode=required&ssl-ca=/etc/ca.pem"),
+      "mysql://u:p@localhost:3306?ssl-mode=required&ssl-ca=/etc/ca.pem",
     );
   }
 
