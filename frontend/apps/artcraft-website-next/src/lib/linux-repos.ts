@@ -13,6 +13,7 @@ import {
 import {
   CRAFT_LAUNCHER_RELEASE,
 } from "./crafting-app-releases";
+import { isRepoSigningConfigured } from "./repo-signing";
 
 export const RPM_REPO_TIMESTAMP = 1730000000;
 export const PACMAN_REPO_TIMESTAMP = 1730000000;
@@ -880,8 +881,14 @@ export async function generateAptRelease(date: Date = APT_REPO_DATE): Promise<st
   ].join("\n");
 }
 
+/** Keyring the apt sources point at; the guide installs it there before the first update. */
+export const APT_KEYRING_PATH = "/etc/apt/keyrings/artcraft.gpg";
+
 export function generateAptSourcesList(baseUrl: string): string {
-  return `deb [trusted=yes] ${baseUrl}/apt stable main\n`;
+  if (!isRepoSigningConfigured()) {
+    return `deb [trusted=yes] ${baseUrl}/apt stable main\n`;
+  }
+  return `deb [signed-by=${APT_KEYRING_PATH}] ${baseUrl}/apt stable main\n`;
 }
 
 export function generateAptSourcesDeb822(baseUrl: string): string {
@@ -891,7 +898,7 @@ export function generateAptSourcesDeb822(baseUrl: string): string {
     "Suites: stable",
     "Components: main",
     "Architectures: amd64 arm64 riscv64",
-    "Trusted: yes",
+    isRepoSigningConfigured() ? `Signed-By: ${APT_KEYRING_PATH}` : "Trusted: yes",
     "",
   ].join("\n");
 }
@@ -1012,12 +1019,24 @@ export async function getRpmRepomdXml(archFilter?: string): Promise<string> {
 }
 
 export function generateRpmRepoConfig(baseUrl: string): string {
-  return `[artcraft]
+  if (!isRepoSigningConfigured()) {
+    return `[artcraft]
 name=ArtCraft Linux Packages
 baseurl=${baseUrl}/rpm
 enabled=1
 gpgcheck=0
 repo_gpgcheck=0
+`;
+  }
+  return `[artcraft]
+name=ArtCraft Linux Packages
+baseurl=${baseUrl}/rpm
+enabled=1
+# repomd.xml is signed; the packages themselves carry a signature from the next release on, so
+# dnf still trusts the signed metadata's digests rather than a per-package signature.
+gpgcheck=0
+repo_gpgcheck=1
+gpgkey=${baseUrl}/keys/artcraft.asc
 `;
 }
 
@@ -1170,8 +1189,9 @@ export async function generatePacmanDb(
 }
 
 export function generatePacmanRepoConfig(baseUrl: string): string {
+  const sigLevel = isRepoSigningConfigured() ? "Optional DatabaseRequired" : "Optional TrustAll";
   return `[artcraft]
-SigLevel = Optional TrustAll
+SigLevel = ${sigLevel}
 Server = ${baseUrl}/arch/$arch
 `;
 }
