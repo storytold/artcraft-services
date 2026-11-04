@@ -57,3 +57,8 @@ a hypothesis under test, replaceable by a better experiment:
 - **Progressive enhancement is non-negotiable.** Reduced motion, coarse
   pointers, no-JS crawlers, and WebGL failure all receive a complete,
   legible page.
+- **Contain full-bleed decoration at the viewport edge.** The hero contrast
+  scrim and section crosshair ticks extend beyond the content rails; keep
+  horizontal clipping on their full-width sections so they cannot widen the
+  mobile document, including after scroll-driven reveals. Prefer
+  `overflow-x: clip` over `hidden` to preserve sticky section headers.
