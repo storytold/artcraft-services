@@ -2,13 +2,15 @@ use crate::http_server::endpoints::oauth::crypto::sha256;
 
 const VERIFIER_MIN: usize = 43;
 const VERIFIER_MAX: usize = 128;
+/// A SHA-256 digest in unpadded base64url. Anything else could never match a verifier.
+const S256_CHALLENGE_LEN: usize = 43;
 
 pub fn code_verifier_is_valid(verifier: &str) -> bool {
   (VERIFIER_MIN..=VERIFIER_MAX).contains(&verifier.len()) && verifier.bytes().all(unreserved)
 }
 
 pub fn code_challenge_is_valid(challenge: &str) -> bool {
-  (VERIFIER_MIN..=VERIFIER_MAX).contains(&challenge.len()) && challenge.bytes().all(unreserved)
+  challenge.len() == S256_CHALLENGE_LEN && challenge.bytes().all(base64url)
 }
 
 pub fn s256_challenge(verifier: &str) -> Result<String, anyhow::Error> {
@@ -26,6 +28,10 @@ pub fn verify_s256(verifier: &str, challenge: &str) -> Result<bool, anyhow::Erro
 
 fn unreserved(byte: u8) -> bool {
   matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~')
+}
+
+fn base64url(byte: u8) -> bool {
+  matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_')
 }
 
 fn base64url_nopad(input: &[u8]) -> String {
@@ -81,5 +87,14 @@ mod tests {
     let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     assert!(!verify_s256(verifier, verifier).expect("hash"));
     assert!(!verify_s256("short", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM").expect("hash"));
+  }
+
+  #[test]
+  fn only_a_full_s256_digest_is_a_valid_challenge() {
+    let challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+    assert!(code_challenge_is_valid(challenge));
+    assert!(!code_challenge_is_valid(&challenge[..42]));
+    assert!(!code_challenge_is_valid(&format!("{challenge}A")));
+    assert!(!code_challenge_is_valid("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw.cM"));
   }
 }
