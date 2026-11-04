@@ -40,6 +40,8 @@ export type LinuxPackageAssetMeta = {
   sha256: string;
   installedSize: number;
   depends?: string[];
+  provides?: string[];
+  optdepends?: string[];
 };
 
 export type LinuxRepoApp = {
@@ -72,6 +74,10 @@ export type LinuxRepoApp = {
     sha256: string;
     installedSize: number;
     depends: string[];
+    /** `provides` lines exactly as the package's .PKGINFO declares them. */
+    provides: string[];
+    /** `optdepend` lines exactly as the package's .PKGINFO declares them. */
+    optdepends: string[];
   }[];
 };
 
@@ -215,7 +221,13 @@ async function fetchHeadPackageSize(downloadUrl: string, filename: string): Prom
   return size;
 }
 
-type ArchPkgInfo = { size: number; installedSize: number; depends: string[] };
+type ArchPkgInfo = {
+  size: number;
+  installedSize: number;
+  depends: string[];
+  provides: string[];
+  optdepends: string[];
+};
 
 /**
  * Only used when a package ships no .PKGINFO at all; a guessed dependency pacman does not find in
@@ -232,10 +244,30 @@ const DEFAULT_PACMAN_DEPENDS = [
   "vulkan-icd-loader",
 ];
 
+/** Only used when a package's .PKGINFO could not be read; mirrors craft-common-actions' PKGBUILD. */
+const DEFAULT_PACMAN_OPTDEPENDS = [
+  "alsa-lib: sound support",
+  "pipewire-alsa: audio playback and recording via PipeWire",
+  "pulseaudio: audio playback and recording via PulseAudio",
+  "wayland: native Wayland display support",
+  "libx11: X11 and XWayland display support",
+  "libxcursor: X11 cursor handling",
+  "libxi: X11 input handling",
+  "libxrandr: X11 display resolution handling",
+  "libglvnd: GPU rendering through EGL",
+  "mesa: GPU rendering through EGL",
+  "vulkan-driver: GPU rendering through Vulkan",
+  "xdg-desktop-portal: native desktop integration and file dialogs",
+  "cups: printing support",
+];
+
 /**
- * Fast 128KB Range request to extract .PKGINFO installed size and depends from an Arch .pkg.tar.zst package.
+ * Fast 128KB Range request to extract .PKGINFO fields from an Arch .pkg.tar.zst package.
+ * The prefix is fed through the tar-aware scanner, so a .PKGINFO that straddles the 128KB mark
+ * (or sits behind the binaries) yields nothing rather than half its fields.
  */
 async function extractArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfo> {
+  const empty: ArchPkgInfo = { size: 0, installedSize: 0, depends: [], provides: [], optdepends: [] };
   try {
     const { Decompress } = await import("fzstd");
     const rangeRes = await fetch(downloadUrl, {
@@ -247,27 +279,32 @@ async function extractArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfo> {
     const size = sizeMatch ? Number.parseInt(sizeMatch[1], 10) : 0;
 
     const buf = new Uint8Array(await rangeRes.arrayBuffer());
-    const chunks: Buffer[] = [];
+    const scanner = createPkgInfoScanner();
+    let fields: ArchPkgInfoFields | null = null;
     const d = new Decompress((chunk) => {
-      chunks.push(Buffer.from(chunk));
+      if (!fields) {
+        fields = scanner.push(Buffer.from(chunk));
+      }
     });
     try {
       d.push(buf, false);
     } catch {
       // Partial stream EOF expected
     }
-    const text = Buffer.concat(chunks).toString("utf-8");
-    const isizeMatch = text.match(/^size = (\d+)$/m);
-    const installedSize = isizeMatch ? Number.parseInt(isizeMatch[1], 10) : 0;
-    const depends = installedSize ? [...text.matchAll(/^depend = (\S+)$/gm)].map((m) => m[1]) : [];
 
-    return { size, installedSize, depends };
+    const captured = fields as ArchPkgInfoFields | null;
+    return captured ? { size, ...captured } : { ...empty, size };
   } catch {
-    return { size: 0, installedSize: 0, depends: [] };
+    return empty;
   }
 }
 
-type ArchPkgInfoFields = { installedSize: number; depends: string[] };
+type ArchPkgInfoFields = {
+  installedSize: number;
+  depends: string[];
+  provides: string[];
+  optdepends: string[];
+};
 
 function parsePkgInfoText(text: string): ArchPkgInfoFields | null {
   const isizeMatch = text.match(/^size = (\d+)$/m);
@@ -275,8 +312,13 @@ function parsePkgInfoText(text: string): ArchPkgInfoFields | null {
   if (!installedSize) {
     return null;
   }
-  const depends = [...text.matchAll(/^depend = (\S+)$/gm)].map((m) => m[1]);
-  return { installedSize, depends };
+  const values = (key: string) => [...text.matchAll(new RegExp(`^${key} = (.+)$`, "gm"))].map((m) => m[1].trim());
+  return {
+    installedSize,
+    depends: values("depend"),
+    provides: values("provides"),
+    optdepends: values("optdepend"),
+  };
 }
 
 /**
@@ -424,7 +466,13 @@ async function fetchArchPackageInfo(downloadUrl: string, filename: string): Prom
   const size = extracted.size || await fetchHeadPackageSize(downloadUrl, filename);
 
   if (extracted.installedSize) {
-    return { size, installedSize: extracted.installedSize, depends: extracted.depends };
+    return {
+      size,
+      installedSize: extracted.installedSize,
+      depends: extracted.depends,
+      provides: extracted.provides,
+      optdepends: extracted.optdepends,
+    };
   }
 
   const downloaded = await downloadArchPkgInfo(downloadUrl);
@@ -434,7 +482,13 @@ async function fetchArchPackageInfo(downloadUrl: string, filename: string): Prom
 
   // Last resort: pacman 7 compares these values against the package and refuses to install on a mismatch.
   console.warn(`Unable to read .PKGINFO for ${filename}; pacman will reject it if the estimated metadata is wrong`);
-  return { size, installedSize: Math.round(size * 1.95), depends: DEFAULT_PACMAN_DEPENDS };
+  return {
+    size,
+    installedSize: Math.round(size * 1.95),
+    depends: DEFAULT_PACMAN_DEPENDS,
+    provides: [],
+    optdepends: [],
+  };
 }
 
 /**
@@ -601,6 +655,8 @@ async function buildArchAssets(
         sha256: meta.sha256,
         installedSize: meta.installedSize,
         depends: meta.depends ?? DEFAULT_PACMAN_DEPENDS,
+        provides: meta.provides ?? [],
+        optdepends: meta.optdepends ?? [],
       };
     })
   );
@@ -993,22 +1049,11 @@ export function generatePacmanDesc(
   timestamp: number = PACMAN_REPO_TIMESTAMP,
 ): string {
   const pkgname = `ai.storyteller.${app.name}`;
-  const provides = `${app.name}=${app.version}-1`;
-  const optdepends = `%OPTDEPENDS%
-alsa-lib: sound support
-pipewire-alsa: audio playback and recording via PipeWire
-pulseaudio: audio playback and recording via PulseAudio
-wayland: native Wayland display support
-libx11: X11 and XWayland display support
-libxcursor: X11 cursor handling
-libxi: X11 input handling
-libxrandr: X11 display resolution handling
-libglvnd: GPU rendering through EGL
-mesa: GPU rendering through EGL
-vulkan-driver: GPU rendering through Vulkan
-xdg-desktop-portal: native desktop integration and file dialogs
-cups: printing support
-`;
+  // pacman compares these against the package's own .PKGINFO, so mirror what the package declares
+  // and fall back to the shared builder's lists only when .PKGINFO could not be read.
+  const provides = asset.provides.length > 0 ? asset.provides : [`${app.name}=${app.version}-1`];
+  const optdepends = asset.optdepends.length > 0 ? asset.optdepends : DEFAULT_PACMAN_OPTDEPENDS;
+  const optdependsSection = optdepends.length > 0 ? `%OPTDEPENDS%\n${optdepends.join("\n")}\n` : "";
 
   return `%FILENAME%
 ${asset.filename}
@@ -1055,12 +1100,12 @@ ${app.name}-bin
 ${app.name}-git
 
 %PROVIDES%
-${provides}
+${provides.join("\n")}
 
 %DEPENDS%
 ${asset.depends.join("\n")}
 
-${optdepends}`.trimEnd() + "\n";
+${optdependsSection}`.trimEnd() + "\n";
 }
 
 export async function generatePacmanDb(
