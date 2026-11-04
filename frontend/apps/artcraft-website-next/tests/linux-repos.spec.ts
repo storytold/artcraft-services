@@ -201,6 +201,16 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     });
     expect(getRequestBaseUrl(proxiedReq)).toBe("http://localhost:3000");
 
+    // The local test proxy in scripts/test-distro-repos.sh forwards to the Next server; Flatpak
+    // must receive the proxy's own address, since the Next server drops cleartext HTTP/2.
+    const forwarderReq = new Request("http://localhost:4210/artcraft-oci.flatpakrepo", {
+      headers: {
+        "x-forwarded-host": "127.0.0.1:4214",
+        "x-forwarded-proto": "http",
+      },
+    });
+    expect(getRequestBaseUrl(forwarderReq)).toBe("http://127.0.0.1:4214");
+
     const hostHeaderReq = new Request("http://0.0.0.0:4210/artcraft-oci.flatpakrepo", {
       headers: {
         host: "artcraft.internal:4210",

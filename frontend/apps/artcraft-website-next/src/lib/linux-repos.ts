@@ -95,15 +95,8 @@ export function escapeXml(unsafe: string): string {
  */
 export function getRequestBaseUrl(request: Request): string {
   const url = new URL(request.url);
-  // Check the request URL hostname first (direct requests or Netlify edge URL)
-  if (url.protocol === "https:" && /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname)) {
-    return url.origin;
-  }
-  if ((url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.protocol === "http:") {
-    return url.origin;
-  }
-
-  // If running behind a reverse proxy (e.g. AWS Lambda / Netlify Function), inspect forwarded host
+  // A local reverse proxy (scripts/test-distro-repos.sh) forwards to the Next server, and Flatpak
+  // has to be given the proxy's URL: it speaks HTTP/2 cleartext, which the Next server drops.
   const fwdHost = request.headers.get("x-forwarded-host");
   if (fwdHost && /^deploy-preview-\d+--artcraft-website-next\.netlify\.app(?::\d+)?$/.test(fwdHost)) {
     return `https://${fwdHost}`;
@@ -111,6 +104,14 @@ export function getRequestBaseUrl(request: Request): string {
   if (fwdHost && /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(fwdHost)) {
     const proto = request.headers.get("x-forwarded-proto") || (url.protocol ? url.protocol.replace(":", "") : "http");
     return `${proto}://${fwdHost}`;
+  }
+
+  // Check the request URL hostname (direct requests or Netlify edge URL)
+  if (url.protocol === "https:" && /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname)) {
+    return url.origin;
+  }
+  if ((url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.protocol === "http:") {
+    return url.origin;
   }
 
   return "https://getartcraft.com";
@@ -219,9 +220,9 @@ type ArchPkgInfo = { size: number; installedSize: number; depends: string[] };
 /**
  * Only used when a package ships no .PKGINFO at all; a guessed dependency pacman does not find in
  * the package is enough to make it refuse the install, so keep this to what the packages declare.
- * libxkbcommon-x11 is deliberately absent: the app dlopens it on X11 but declares only
- * libxkbcommon, so that dependency has to come from the app's own packaging (designcraft's
- * nfpm.yaml), not from here.
+ * libxkbcommon-x11 is deliberately absent: every published package already declares it through
+ * craft-common-actions' Arch builder, and adding a dependency pacman cannot match would make it
+ * refuse the install.
  */
 const DEFAULT_PACMAN_DEPENDS = [
   "glibc",
@@ -992,10 +993,8 @@ export function generatePacmanDesc(
   timestamp: number = PACMAN_REPO_TIMESTAMP,
 ): string {
   const pkgname = `ai.storyteller.${app.name}`;
-  const provides = app.name === "designcraft" ? "designcraft" : `${app.name}=${app.version}-1`;
-  const optdepends = app.name === "designcraft"
-    ? ""
-    : `%OPTDEPENDS%
+  const provides = `${app.name}=${app.version}-1`;
+  const optdepends = `%OPTDEPENDS%
 alsa-lib: sound support
 pipewire-alsa: audio playback and recording via PipeWire
 pulseaudio: audio playback and recording via PulseAudio
