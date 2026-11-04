@@ -296,6 +296,9 @@ size = 241103068
 depend = glibc
 depend = gcc-libs
 depend = vulkan-icd-loader
+provides = designcraft=0.17.0-1
+optdepend = alsa-lib: sound support
+optdepend = cups: printing support
 
 `;
     const tar = buildTar([
@@ -315,6 +318,8 @@ depend = vulkan-icd-loader
     expect(info).toEqual({
       installedSize: 241103068,
       depends: ["glibc", "gcc-libs", "vulkan-icd-loader"],
+      provides: ["designcraft=0.17.0-1"],
+      optdepends: ["alsa-lib: sound support", "cups: printing support"],
     });
   });
 
