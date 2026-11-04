@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "SELECT client_token, user_token, scopes, audience FROM oauth_tokens WHERE refresh_hash = ? AND maybe_revoked_at IS NULL AND refresh_expires_at > UTC_TIMESTAMP()",
+  "query": "SELECT client_token, user_token, scopes, audience FROM oauth_tokens WHERE refresh_hash = ? AND maybe_revoked_at IS NULL AND refresh_expires_at > UTC_TIMESTAMP() FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -54,5 +54,5 @@
       false
     ]
   },
-  "hash": "337a3cc0e6c90deafce526659d9ad5df06c3e79154bc0f739621fa59cd782883"
+  "hash": "a20a9ba744d34ac6aa5cb143bd58aaffe61de495949e7c108bc2a421512ef9b6"
 }

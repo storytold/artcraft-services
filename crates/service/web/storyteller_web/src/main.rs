@@ -56,6 +56,7 @@ use crate::startup::setup_disabled_endpoints::read_disabled_endpoints;
 use crate::startup::setup_metrics::build_metrics;
 use crate::state::server_state::ServerState;
 use crate::threads::db_health_checker_thread::db_health_checker_thread::db_health_checker_thread;
+use crate::threads::delete_expired_oauth_rows::delete_expired_oauth_rows;
 use crate::threads::expire_login_challenges::expire_login_challenges;
 use crate::threads::poll_craft_app_releases_thread::config::CraftAppsPollConfig;
 use crate::threads::poll_craft_app_releases_thread::poll_craft_app_releases::poll_craft_app_releases;
@@ -114,6 +115,7 @@ async fn main() -> AnyhowResult<()> {
 
   let tokio_runtime = Runtime::new()?;
   tokio_runtime.spawn(expire_login_challenges(server_state.mysql_pool.clone()));
+  tokio_runtime.spawn(delete_expired_oauth_rows(server_state.mysql_pool.clone()));
 
   info!("Spawning pager worker thread.");
 
