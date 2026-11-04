@@ -539,6 +539,7 @@ function buildMaskArtifacts({
 // rendered at a reduced scale past this pixel budget and stretched back by
 // drawTransformedCanvas, so the output is unchanged for ordinary elements.
 const MAX_SCRATCH_SURFACE_PIXELS = 4096 * 4096;
+const MAX_SCRATCH_SURFACE_SIDE = 16384;
 
 export function createBoundedScratchSurface({
   width,
@@ -549,7 +550,14 @@ export function createBoundedScratchSurface({
 }): ReturnType<typeof createCanvasSurface> {
   const w = Number.isFinite(width) ? Math.max(1, Math.round(width)) : 1;
   const h = Number.isFinite(height) ? Math.max(1, Math.round(height)) : 1;
-  const scale = Math.min(1, Math.sqrt(MAX_SCRATCH_SURFACE_PIXELS / (w * h)));
+  // Separate divisions: w * h overflows to Infinity for absurd sizes. The side cap
+  // keeps a 1px-tall, enormously wide surface bounded too.
+  const scale = Math.min(
+    1,
+    Math.sqrt(MAX_SCRATCH_SURFACE_PIXELS / w) * Math.sqrt(1 / h),
+    MAX_SCRATCH_SURFACE_SIDE / w,
+    MAX_SCRATCH_SURFACE_SIDE / h,
+  );
   const surface = createCanvasSurface({
     width: Math.max(1, Math.round(w * scale)),
     height: Math.max(1, Math.round(h * scale)),

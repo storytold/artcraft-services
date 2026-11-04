@@ -241,6 +241,8 @@ export class ProjectManager {
 
   closeProject(): void {
     this.openGeneration += 1;
+    // A cancelled openProject() skips its own reset in `finally`.
+    this.isLoading = false;
     this.editor.save.stop();
     this.editor.command.clear();
     this.editor.scenes.clearScenes();
