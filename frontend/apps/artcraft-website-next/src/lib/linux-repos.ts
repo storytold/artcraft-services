@@ -216,6 +216,13 @@ async function fetchHeadPackageSize(downloadUrl: string, filename: string): Prom
 
 type ArchPkgInfo = { size: number; installedSize: number; depends: string[] };
 
+/**
+ * Only used when a package ships no .PKGINFO at all; a guessed dependency pacman does not find in
+ * the package is enough to make it refuse the install, so keep this to what the packages declare.
+ * libxkbcommon-x11 is deliberately absent: the app dlopens it on X11 but declares only
+ * libxkbcommon, so that dependency has to come from the app's own packaging (designcraft's
+ * nfpm.yaml), not from here.
+ */
 const DEFAULT_PACMAN_DEPENDS = [
   "glibc",
   "gcc-libs",
