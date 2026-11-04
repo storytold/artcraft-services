@@ -106,8 +106,13 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     // image's own rather than a guess.
     expect(pdfcraftX86?.Labels).toEqual(imageLabels("storytold/pdfcraft", pdfcraftX86?.Tags[0] ?? ""));
 
-    // The website's catalog owns release versions; no OCI build exists for Craft Anything yet.
-    expect(index.Results.find((r) => r.Repository === "storytold/craft-anything")).toBeUndefined();
+    for (const slug of ["craft-anything", "texturecraft", "materialcraft"]) {
+      const repo = index.Results.find((r) => r.Repository === `storytold/${slug}`);
+      expect(repo?.Images).toHaveLength(2);
+      for (const image of repo?.Images ?? []) {
+        expect(image.Labels).toEqual(imageLabels(`storytold/${slug}`, image.Tags[0]));
+      }
+    }
   });
 
   test("filters by architecture and repository before resolving manifests", async () => {

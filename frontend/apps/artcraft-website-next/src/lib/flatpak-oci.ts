@@ -331,8 +331,6 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
 
 
   for (const app of CRAFTING_APPS) {
-    // shortcut: MaterialCraft is left out like TextureCraft, since a missing image fails the whole index; add it once its Flatpak is on the registry.
-    if (app.slug === "craft-anything" || app.slug === "texturecraft" || app.slug === "materialcraft") continue;
     const release = craftAppRelease(app);
     if (release) {
       items.push({

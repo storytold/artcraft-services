@@ -238,6 +238,14 @@ const ARCH_PKGINFO_FALLBACKS: Record<string, { installedSize: number; depends: s
     installedSize: 223128217,
     depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
   },
+  "designcraft-0.17.0-linux-x86_64.pkg.tar.zst": {
+    installedSize: 241103068,
+    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
+  },
+  "designcraft-0.17.0-linux-aarch64.pkg.tar.zst": {
+    installedSize: 223548844,
+    depends: ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"],
+  },
 };
 
 /**
@@ -278,7 +286,7 @@ async function extractArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfo> {
 /**
  * Computes size, installed uncompressed size and depends for an Arch Linux (.pkg.tar.zst) package asset.
  */
-async function fetchArchPackageInfo(downloadUrl: string, filename: string): Promise<ArchPkgInfo> {
+export async function fetchArchPackageInfo(downloadUrl: string, filename: string): Promise<ArchPkgInfo> {
   const extracted = await extractArchPkgInfo(downloadUrl);
   const size = extracted.size || await fetchHeadPackageSize(downloadUrl, filename);
 

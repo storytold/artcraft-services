@@ -8,6 +8,7 @@ import {
   generateRpmRepomdXml,
   generateRpmRepoConfig,
   generatePacmanDb,
+  fetchArchPackageInfo,
   generatePacmanRepoConfig,
   getRpmPrimaryXml,
   getRpmPrimaryGz,
@@ -48,6 +49,25 @@ const launcherVersion = CRAFT_LAUNCHER_RELEASE!.version;
 const pdf = pdfcraft.version;
 
 test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
+  test("uses published DesignCraft metadata when PKGINFO is beyond the requested range", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => new Response(new Uint8Array(), {
+        status: 206,
+        headers: { "content-range": "bytes 0-131071/120072065" },
+      });
+      const depends = ["glibc", "gcc-libs", "hicolor-icon-theme", "libxkbcommon", "vulkan-icd-loader"];
+      for (const [arch, installedSize] of [["x86_64", 241103068], ["aarch64", 223548844]] as const) {
+        const name = `designcraft-0.17.0-linux-${arch}.pkg.tar.zst`;
+        const info = await fetchArchPackageInfo(`https://example.test/${name}`, name);
+        expect(info.installedSize).toBe(installedSize);
+        expect(info.depends).toEqual(depends);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("resolves release download URLs only for catalogued package assets", () => {
     const pdfBase = `https://github.com/storytold/pdfcraft/releases/download/v${pdf}`;
     const launcherBase = `https://github.com/storytold/craft-launcher/releases/download/v${launcherVersion}`;
