@@ -224,7 +224,7 @@ pub async fn upload_studio_shot_media_file_handler(
           ExtractFramesError::NoImageFiles => MediaFileUploadError::ServerErrorVerbose("no image files".to_string()),
           ExtractFramesError::TooFewImageFiles => MediaFileUploadError::ServerErrorVerbose("too few image files".to_string()),
           ExtractFramesError::TooManyFiles => MediaFileUploadError::ServerErrorVerbose("too many files".to_string()),
-          ExtractFramesError::TooLarge => MediaFileUploadError::ServerErrorVerbose("archive contents are too large".to_string()),
+          ExtractFramesError::TooLarge => MediaFileUploadError::BadInput("archive contents are too large".to_string()),
           ExtractFramesError::ExtractionError => MediaFileUploadError::ServerErrorVerbose("zip extraction error".to_string()),
           ExtractFramesError::UploadError => MediaFileUploadError::ServerErrorVerbose("upload error".to_string()),
           ExtractFramesError::FileError => MediaFileUploadError::ServerErrorVerbose("file error".to_string()),
