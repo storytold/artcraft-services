@@ -28,6 +28,7 @@ pub mod oauth_client_redirects;
 pub mod oauth_clients;
 pub mod oauth_consent_nonces;
 pub mod oauth_consents;
+pub mod oauth_spent_refresh_hashes;
 pub mod oauth_tokens;
 pub mod media_files;
 pub mod media_uploads;

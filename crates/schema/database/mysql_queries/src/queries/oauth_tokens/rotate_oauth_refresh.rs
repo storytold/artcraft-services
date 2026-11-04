@@ -13,6 +13,6 @@ pub async fn rotate_oauth_refresh<'c, T>(args: RotateRefreshArgs<'_, T>) -> Resu
 where
   T: Executor<'c, Database = MySql>,
 {
-  let result = sqlx::query!("UPDATE oauth_tokens SET maybe_previous_refresh_hash = refresh_hash, refresh_hash = ?, access_hash = ?, access_expires_at = TIMESTAMPADD(SECOND, ?, UTC_TIMESTAMP()) WHERE refresh_hash = ? AND client_token = ? AND maybe_revoked_at IS NULL AND refresh_expires_at > UTC_TIMESTAMP()", args.new_refresh_hash, args.new_access_hash, args.access_ttl_seconds, args.old_refresh_hash, args.client_token,).execute(args.mysql_executor).await?;
+  let result = sqlx::query!("UPDATE oauth_tokens SET refresh_hash = ?, access_hash = ?, access_expires_at = TIMESTAMPADD(SECOND, ?, UTC_TIMESTAMP()) WHERE refresh_hash = ? AND client_token = ? AND maybe_revoked_at IS NULL AND refresh_expires_at > UTC_TIMESTAMP()", args.new_refresh_hash, args.new_access_hash, args.access_ttl_seconds, args.old_refresh_hash, args.client_token,).execute(args.mysql_executor).await?;
   Ok(result.rows_affected() == 1)
 }
