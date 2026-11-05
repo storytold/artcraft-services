@@ -1,0 +1,127 @@
+name: Backend PR checks
+
+on:
+  pull_request:
+    # Match docker-publish-cpu.yml's build inputs, plus this workflow.
+    paths:
+      - '.github/workflows/backend-pr-checks.yml'
+      - '.github/workflows/docker-publish-cpu.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'build/service_cpu.Dockerfile'
+      - '.sqlx/**'
+      - '_database/**'
+      - 'crates/**'
+      - 'includes/**'
+      - 'test_data/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend compile and targeted tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: artcraft_test
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      SQLX_OFFLINE: 'true'
+      CARGO_TERM_COLOR: always
+      ARTCRAFT_TEST_DATABASE_URL: mysql://root:@127.0.0.1:3306/artcraft_test
+    steps:
+      - name: Check out the exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Record the checked-out source
+        run: |
+          echo "BACKEND_CHECKED_OUT_SHA=$(git rev-parse HEAD)"
+          echo "## Backend PR checks" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: \`$(git rev-parse HEAD)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Rust 1.93.0, rustfmt, and Clippy
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+        with:
+          toolchain: 1.93.0
+          components: rustfmt, clippy
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential cmake clang curl ffmpeg fontconfig git libclang-dev \
+            libfontconfig1-dev libssl-dev musl-tools perl pkg-config
+
+      # The existing backend baseline is not formatting/strict-Clippy clean.
+      # Keep the diagnostics visible without blocking compile/test validation;
+      # make these gates strict after the baseline has been cleaned up.
+      - name: Check backend formatting (advisory baseline)
+        id: fmt
+        continue-on-error: true
+        run: cargo fmt -p storyteller-web --check
+
+      - name: Check backend and test targets offline
+        run: cargo check -p storyteller-web --tests
+
+      - name: Run mesh resolver regression tests
+        run: |
+          set -euo pipefail
+          cargo test -p storyteller-web --features skip_database_tests resolve_mesh_file_metadata \
+            | tee "$RUNNER_TEMP/mesh-resolver-tests.log"
+          if ! grep -Eq '^test result: ok\. [1-9][0-9]* passed;' "$RUNNER_TEMP/mesh-resolver-tests.log"; then
+            echo '::warning::No mesh resolver tests executed on this head; a passing filter is not test coverage.'
+            echo '- Mesh resolver: **no matching tests executed** on this head.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Run mesh uploader integration test against MySQL
+        run: |
+          set -euo pipefail
+          cargo test -p storyteller-web zip_obj_upload_stores_raw_obj_and_consistent_metadata \
+            | tee "$RUNNER_TEMP/mesh-uploader-tests.log"
+          if ! grep -Eq '^test result: ok\. [1-9][0-9]* passed;' "$RUNNER_TEMP/mesh-uploader-tests.log"; then
+            echo '::warning::No mesh uploader integration test executed on this head; a passing filter is not test coverage.'
+            echo '- Mesh uploader: **no matching tests executed** on this head.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check backend with strict Clippy (advisory baseline)
+        id: clippy
+        continue-on-error: true
+        run: cargo clippy -p storyteller-web --tests -- -D warnings
+
+      - name: Confirm checks did not rewrite tracked source
+        run: git diff --exit-code
+
+      - name: Report advisory lint results
+        if: always()
+        env:
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          CLIPPY_OUTCOME: ${{ steps.clippy.outcome }}
+        run: |
+          {
+            echo '### Advisory lint baseline'
+            echo "- Formatting: $FMT_OUTCOME"
+            echo "- Strict Clippy: $CLIPPY_OUTCOME"
+            echo 'These lint steps are advisory until existing backend baseline issues are resolved; compilation and executed tests remain blocking.'
+          } >> "$GITHUB_STEP_SUMMARY"
