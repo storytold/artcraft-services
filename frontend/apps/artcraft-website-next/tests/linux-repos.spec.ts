@@ -26,7 +26,9 @@ import {
   buildTar,
   createPkgInfoScanner,
 } from "../src/lib/linux-repos";
+import * as openpgp from "openpgp";
 import { createHash } from "node:crypto";
+import { getSigningPublicKey, isRepoSigningConfigured, signCleartext, signDetachedArmored, signDetachedBinary } from "../src/lib/repo-signing";
 import { CRAFTING_APPS, craftAppRelease, craftReleaseDownloads } from "../src/lib/crafting-apps";
 import { CRAFT_LAUNCHER_RELEASE } from "../src/lib/crafting-app-releases";
 
@@ -391,5 +393,117 @@ optdepend = cups: printing support
         expect(url).toContain(arch.filename);
       }
     }
+  });
+});
+
+// With LINUX_SIGNING_KEY configured the repositories publish signed metadata and the client
+// configs stop trusting blindly. The signatures are checked with openpgp.js itself; the install
+// paths themselves were exercised against apt, dnf and pacman containers.
+test.describe("signed repositories", () => {
+  let secretKey: string;
+  let publicKeyArmored: string;
+
+  test.beforeAll(async () => {
+    const generated = await openpgp.generateKey({
+      type: "curve25519",
+      userIDs: [{ name: "ArtCraft Test", email: "test@example.com" }],
+      format: "armored",
+    });
+    secretKey = generated.privateKey;
+    publicKeyArmored = generated.publicKey;
+  });
+
+  test.beforeEach(() => {
+    process.env.LINUX_SIGNING_KEY = secretKey;
+  });
+
+  test.afterEach(() => {
+    delete process.env.LINUX_SIGNING_KEY;
+  });
+
+  test("points APT, DNF and pacman at the published key instead of trusting blindly", () => {
+    expect(generateAptSourcesList("https://getartcraft.com")).toBe(
+      "deb [signed-by=/etc/apt/keyrings/artcraft.gpg] https://getartcraft.com/apt stable main\n",
+    );
+
+    const sources = generateAptSourcesDeb822("https://getartcraft.com");
+    expect(sources).toContain("Signed-By: /etc/apt/keyrings/artcraft.gpg");
+    expect(sources).not.toContain("Trusted: yes");
+
+    const repo = generateRpmRepoConfig("https://getartcraft.com");
+    expect(repo).toContain("repo_gpgcheck=1");
+    expect(repo).toContain("gpgkey=https://getartcraft.com/keys/artcraft.asc");
+
+    const pacmanConfig = generatePacmanRepoConfig("https://getartcraft.com");
+    expect(pacmanConfig).toContain("SigLevel = Optional DatabaseRequired");
+    expect(pacmanConfig).not.toContain("TrustAll");
+  });
+
+  test("signs the apt Release so apt accepts both Release.gpg and InRelease", async () => {
+    const release = await generateAptRelease();
+    const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored });
+    const message = await openpgp.createMessage({ binary: Buffer.from(release, "utf-8") });
+
+    const detached = await signDetachedArmored(release);
+    expect(detached).toContain("-----BEGIN PGP SIGNATURE-----");
+    const detachedResult = await openpgp.verify({
+      message,
+      signature: await openpgp.readSignature({ armoredSignature: detached! }),
+      verificationKeys: publicKey,
+    });
+    await detachedResult.signatures[0].verified;
+
+    const cleartext = await signCleartext(release);
+    expect(cleartext).toContain("-----BEGIN PGP SIGNED MESSAGE-----");
+    const cleartextResult = await openpgp.verify({
+      message: await openpgp.readCleartextMessage({ cleartextMessage: cleartext! }),
+      verificationKeys: publicKey,
+    });
+    await cleartextResult.signatures[0].verified;
+  });
+
+  test("signs repomd.xml for dnf", async () => {
+    const repomd = await getRpmRepomdXml();
+    const signature = await signDetachedArmored(repomd);
+    const result = await openpgp.verify({
+      message: await openpgp.createMessage({ binary: Buffer.from(repomd, "utf-8") }),
+      signature: await openpgp.readSignature({ armoredSignature: signature! }),
+      verificationKeys: await openpgp.readKey({ armoredKey: publicKeyArmored }),
+    });
+    await result.signatures[0].verified;
+  });
+
+  test("signs the pacman database in binary form", async () => {
+    const db = await generatePacmanDb("x86_64");
+    const signature = await signDetachedBinary(new Uint8Array(db));
+    expect(signature).not.toBeNull();
+    // A binary signature starts with an OpenPGP packet, not with armor text.
+    const firstByte = Buffer.from(signature!).subarray(0, 1)[0];
+    expect(firstByte & 0x40).toBe(0x40); // new-format packet header
+    expect(firstByte & 0x3f).toBe(2); // signature packet
+
+
+    const result = await openpgp.verify({
+      message: await openpgp.createMessage({ binary: new Uint8Array(db) }),
+      signature: await openpgp.readSignature({ binarySignature: signature! }),
+      verificationKeys: await openpgp.readKey({ armoredKey: publicKeyArmored }),
+    });
+    await result.signatures[0].verified;
+  });
+
+  test("publishes the fingerprint with the public key", async () => {
+    const key = await getSigningPublicKey();
+    expect(key?.armored).toContain("-----BEGIN PGP PUBLIC KEY BLOCK-----");
+    expect(key?.binary.length).toBeGreaterThan(0);
+    const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored });
+    expect(key?.fingerprint).toBe(publicKey.getFingerprint().toUpperCase());
+  });
+
+  test("falls back to unsigned metadata when no key is configured", async () => {
+    delete process.env.LINUX_SIGNING_KEY;
+    expect(isRepoSigningConfigured()).toBe(false);
+    expect(await signDetachedArmored("Release")).toBeNull();
+    expect(await getSigningPublicKey()).toBeNull();
+    expect(generateAptSourcesDeb822("https://getartcraft.com")).toContain("Trusted: yes");
   });
 });
