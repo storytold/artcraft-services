@@ -291,6 +291,23 @@ jobs:
         if: steps.create-pr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          gh pr merge "${{ steps.create-pr.outputs.pull-request-number }}"
-          --squash --delete-branch
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
+              exit 0
+            fi
+
+            # A retry can race GitHub recording the first merge; treat that as success.
+            if [ "$(gh pr view "$PR_NUMBER" --json state --jq .state)" = "MERGED" ]; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 5 ]; then
+              echo "Merge attempt $attempt failed; retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+
+          echo "Unable to merge pull request $PR_NUMBER after 5 attempts." >&2
+          exit 1
