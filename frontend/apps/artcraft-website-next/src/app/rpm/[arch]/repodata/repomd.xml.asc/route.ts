@@ -1,5 +1,5 @@
 import { getRpmRepomdXml, VALID_RPM_ARCHES } from "@/lib/linux-repos";
-import { signDetachedArmored } from "@/lib/repo-signing";
+import { isRepoSigningConfigured, signDetachedArmored } from "@/lib/repo-signing";
 
 type RouteProps = {
   params: Promise<{
@@ -11,6 +11,10 @@ export async function GET(_request: Request, props: RouteProps) {
   const { arch } = await props.params;
   if (!VALID_RPM_ARCHES.has(arch)) {
     return new Response(`Architecture "${arch}" not supported`, { status: 404 });
+  }
+
+  if (!(await isRepoSigningConfigured())) {
+    return new Response("Repository signing is not configured", { status: 404 });
   }
 
   const signature = await signDetachedArmored(await getRpmRepomdXml(arch));

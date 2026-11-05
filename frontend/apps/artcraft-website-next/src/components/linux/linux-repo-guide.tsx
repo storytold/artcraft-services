@@ -147,6 +147,8 @@ function signedSetupCommand(id: string, fingerprint: string): string | null {
     return `# Import the ArtCraft signing key (fingerprint ${fingerprint})
 sudo install -d -m 755 /etc/apt/keyrings
 sudo curl -fsSL https://getartcraft.com/keys/artcraft.gpg -o /etc/apt/keyrings/artcraft.gpg
+# apt's _apt user must be able to read the keyring, whatever the current umask
+sudo chmod 644 /etc/apt/keyrings/artcraft.gpg
 
 # Add the ArtCraft repository source
 sudo curl -fsSL https://getartcraft.com/apt/artcraft.sources -o /etc/apt/sources.list.d/artcraft.sources
@@ -197,6 +199,8 @@ const SIGNED_RAW_FILES: Record<string, { name: string; href: string; description
 
 export function LinuxRepoGuide({ signing = null }: { readonly signing?: RepoSigning | null }) {
   const [activeTab, setActiveTab] = useState<string>("flatpak");
+  // The Flatpak OCI index is not signed, so only the package-manager tabs get this notice.
+  const signedIndex = Boolean(SIGNED_RAW_FILES[activeTab]);
   const config = useMemo(() => {
     const base = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.flatpak;
     if (!signing) {
@@ -314,32 +318,34 @@ export function LinuxRepoGuide({ signing = null }: { readonly signing?: RepoSign
             checksums published in the repository index. Downloads are streamed directly from official
             GitHub Releases via HTTP 302 redirects, verifying binary integrity against the repository catalog.
           </p>
-          <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
-            <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
-            <span>
-              {signing ? (
-                <>
-                  {"Every repository index is signed with the ArtCraft Linux Release Signing Key ("}
-                  <code className="font-mono text-ink">{signing.fingerprint}</code>
-                  {"): apt verifies "}
-                  <code className="font-mono text-ink">InRelease</code>
-                  {", dnf and zypper verify "}
-                  <code className="font-mono text-ink">repomd.xml.asc</code>
-                  {", and pacman verifies "}
-                  <code className="font-mono text-ink">artcraft.db.sig</code>
-                  {". Packages are authenticated through the digests inside the signed index."}
-                </>
-              ) : (
-                <>
-                  {"This deployment has no signing key configured, so it publishes unsigned preview metadata ("}
-                  <code className="font-mono text-ink">[trusted=yes]</code>
-                  {" for APT and "}
-                  <code className="font-mono text-ink">gpgcheck=0</code>
-                  {" for RPM/DNF). Downloads are still verified against repository index digests."}
-                </>
-              )}
-            </span>
-          </div>
+          {signedIndex && (
+            <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
+              <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+              <span>
+                {signing ? (
+                  <>
+                    {"The APT, RPM and pacman indexes are signed with the ArtCraft Linux Release Signing Key ("}
+                    <code className="font-mono text-ink">{signing.fingerprint}</code>
+                    {"): apt verifies "}
+                    <code className="font-mono text-ink">InRelease</code>
+                    {", dnf and zypper verify "}
+                    <code className="font-mono text-ink">repomd.xml.asc</code>
+                    {", and pacman verifies "}
+                    <code className="font-mono text-ink">artcraft.db.sig</code>
+                    {". Packages are authenticated through the digests inside the signed index."}
+                  </>
+                ) : (
+                  <>
+                    {"This deployment has no signing key configured, so it publishes unsigned preview metadata ("}
+                    <code className="font-mono text-ink">[trusted=yes]</code>
+                    {" for APT and "}
+                    <code className="font-mono text-ink">gpgcheck=0</code>
+                    {" for RPM/DNF). Downloads are still verified against repository index digests."}
+                  </>
+                )}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col bg-bg p-6 md:p-10">

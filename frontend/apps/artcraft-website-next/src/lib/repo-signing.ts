@@ -20,9 +20,12 @@ function signingKeyArmored(): string {
   return process.env.LINUX_SIGNING_KEY?.trim() ?? "";
 }
 
-/** Whether this deployment can sign repository metadata. */
-export function isRepoSigningConfigured(): boolean {
-  return signingKeyArmored().length > 0;
+/**
+ * Whether this deployment can sign repository metadata. Checks that the key actually loads, so a
+ * malformed LINUX_SIGNING_KEY does not leave clients requiring signatures that are never served.
+ */
+export async function isRepoSigningConfigured(): Promise<boolean> {
+  return (await loadSigningKey()) !== null;
 }
 
 let cachedKey: { armored: string; key: Promise<SigningKey | null> } | null = null;
