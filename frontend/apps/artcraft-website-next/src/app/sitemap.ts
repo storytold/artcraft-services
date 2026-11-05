@@ -7,6 +7,7 @@ type Entry = MetadataRoute.Sitemap[number];
 
 const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Entry["changeFrequency"] }[] = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
+  { path: "/studio", priority: 0.9, changeFrequency: "weekly" },
   { path: "/pricing", priority: 0.9, changeFrequency: "weekly" },
   { path: "/download", priority: 0.9, changeFrequency: "weekly" },
   { path: "/tutorials", priority: 0.7, changeFrequency: "weekly" },

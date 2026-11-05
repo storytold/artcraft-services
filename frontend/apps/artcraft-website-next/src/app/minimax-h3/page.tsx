@@ -168,7 +168,7 @@ export default function MinimaxH3Page() {
           <Button href={webappUrl("/create-video")} size="lg">
             Try more models
           </Button>
-          <Button href="/" variant="secondary" size="lg">
+          <Button href="/studio" variant="secondary" size="lg">
             Learn more about ArtCraft
           </Button>
         </div>

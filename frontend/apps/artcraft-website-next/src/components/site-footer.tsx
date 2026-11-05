@@ -9,6 +9,7 @@ const LINK_COLUMNS: {
   {
     heading: "ArtCraft Studio",
     links: [
+      { name: "Overview", href: "/studio" },
       { name: "Download", href: "/download" },
       { name: "Pricing", href: "/pricing" },
       { name: "Use on web", href: WEBAPP_URL, external: true },
@@ -60,8 +61,8 @@ export default function SiteFooter() {
               className="themed-logo h-8 w-auto"
             />
             <p className="mt-4 max-w-xs leading-relaxed text-muted">
-              Open-source tools for artists: the Craft Apps and ArtCraft
-              Studio, our AI image and video app.
+              Capable open source tools: the Craft Apps and ArtCraft Studio,
+              our AI image and video app.
             </p>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
@@ -106,7 +107,7 @@ export default function SiteFooter() {
           <p className="hud-label text-faint">
             © {new Date().getFullYear()} ArtCraft
           </p>
-          <p className="hud-label text-faint">Made by artists, for artists</p>
+          <p className="hud-label text-faint">Free and open source</p>
         </div>
       </div>
     </footer>
