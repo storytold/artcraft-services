@@ -129,15 +129,7 @@ export default function Hero() {
   return (
     <HeroPoster
       variant="apps"
-      title={
-        <>
-          Capable{" "}
-          <span className="font-serif italic font-normal text-muted">
-            open source
-          </span>{" "}
-          tools.
-        </>
-      }
+      title="Capable open source tools."
       lede="ArtCraft builds open source tools, free to use. We pride ourselves on freedom of control and expression."
       actions={
         hasLauncher ? (
