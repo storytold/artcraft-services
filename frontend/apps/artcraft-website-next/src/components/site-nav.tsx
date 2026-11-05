@@ -19,8 +19,15 @@ type NavEntry = NavLeaf | NavGroup;
 
 const NAV_ITEMS: NavEntry[] = [
   { name: "Home", href: "/" },
-  { name: "Image", href: webappUrl("/create-image") },
-  { name: "Video", href: webappUrl("/create-video") },
+  {
+    name: "Studio",
+    children: [
+      { name: "Overview", href: "/studio" },
+      { name: "Image", href: webappUrl("/create-image") },
+      { name: "Video", href: webappUrl("/create-video") },
+      { name: "Download", href: "/download" },
+    ],
+  },
   {
     name: "Resources",
     children: [
@@ -30,7 +37,6 @@ const NAV_ITEMS: NavEntry[] = [
       { name: "Press Kit", href: "/press-kit" },
     ],
   },
-  { name: "Download", href: "/download" },
   { name: "Support", href: "/support" },
   { name: "Craft Apps", href: "/apps", dividerBefore: true },
 ];
