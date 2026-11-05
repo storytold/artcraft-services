@@ -1,7 +1,11 @@
 import { getRpmRepomdXml } from "@/lib/linux-repos";
-import { signDetachedArmored } from "@/lib/repo-signing";
+import { isRepoSigningConfigured, signDetachedArmored } from "@/lib/repo-signing";
 
 export async function GET() {
+  if (!(await isRepoSigningConfigured())) {
+    return new Response("Repository signing is not configured", { status: 404 });
+  }
+
   const signature = await signDetachedArmored(await getRpmRepomdXml());
   if (!signature) {
     return new Response("Repository signing is not configured", { status: 404 });

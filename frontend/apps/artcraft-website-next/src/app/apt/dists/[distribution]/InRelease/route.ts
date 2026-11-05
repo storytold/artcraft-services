@@ -1,5 +1,5 @@
 import { generateAptRelease, VALID_APT_DISTRIBUTIONS } from "@/lib/linux-repos";
-import { signCleartext } from "@/lib/repo-signing";
+import { isRepoSigningConfigured, signCleartext } from "@/lib/repo-signing";
 
 type RouteProps = {
   params: Promise<{
@@ -12,6 +12,11 @@ export async function GET(_request: Request, props: RouteProps) {
 
   if (!VALID_APT_DISTRIBUTIONS.has(distribution)) {
     return new Response("Not found", { status: 404 });
+  }
+
+  // Check before generating: without a usable key this route is a 404, not a cold-cache fetch.
+  if (!(await isRepoSigningConfigured())) {
+    return new Response("Repository signing is not configured", { status: 404 });
   }
 
   const inRelease = await signCleartext(await generateAptRelease());

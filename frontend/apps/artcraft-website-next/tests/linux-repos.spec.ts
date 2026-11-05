@@ -31,6 +31,12 @@ import { createHash } from "node:crypto";
 import { getSigningPublicKey, isRepoSigningConfigured, signCleartext, signDetachedArmored, signDetachedBinary } from "../src/lib/repo-signing";
 import { CRAFTING_APPS, craftAppRelease, craftReleaseDownloads } from "../src/lib/crafting-apps";
 import { CRAFT_LAUNCHER_RELEASE } from "../src/lib/crafting-app-releases";
+import { GET as getInRelease } from "../src/app/apt/dists/[distribution]/InRelease/route";
+import { GET as getReleaseGpg } from "../src/app/apt/dists/[distribution]/Release.gpg/route";
+import { GET as getRpmSignature } from "../src/app/rpm/[arch]/repodata/repomd.xml.asc/route";
+import { GET as getArchSignature } from "../src/app/arch/[arch]/artcraft.db.sig/route";
+import { GET as getKeyAsc } from "../src/app/keys/artcraft.asc/route";
+import { GET as getKeyGpg } from "../src/app/keys/artcraft.gpg/route";
 
 // Read versions and assets from the release catalog so release bumps don't break these tests.
 function catalogRelease(slug: string) {
@@ -53,6 +59,11 @@ const launcherVersion = CRAFT_LAUNCHER_RELEASE!.version;
 const pdf = pdfcraft.version;
 
 test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
+  test.beforeEach(() => {
+    // These tests assert the unsigned output, even if the process inherited a signing key.
+    delete process.env.LINUX_SIGNING_KEY;
+  });
+
   test("resolves release download URLs only for catalogued package assets", () => {
     const pdfBase = `https://github.com/storytold/pdfcraft/releases/download/v${pdf}`;
     const launcherBase = `https://github.com/storytold/craft-launcher/releases/download/v${launcherVersion}`;
@@ -112,11 +123,11 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(release).toContain("main/binary-amd64/Packages.gz");
   });
 
-  test("generates APT sources configs with trusted=yes", () => {
-    const list = generateAptSourcesList("https://getartcraft.com");
+  test("generates APT sources configs with trusted=yes", async () => {
+    const list = await generateAptSourcesList("https://getartcraft.com");
     expect(list).toBe("deb [trusted=yes] https://getartcraft.com/apt stable main\n");
 
-    const sources = generateAptSourcesDeb822("https://getartcraft.com");
+    const sources = await generateAptSourcesDeb822("https://getartcraft.com");
     expect(sources).toContain("Types: deb");
     expect(sources).toContain("URIs: https://getartcraft.com/apt");
     expect(sources).toContain("Architectures: amd64 arm64 riscv64");
@@ -163,8 +174,8 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(repomd).toContain(`<open-checksum type="sha256">${openSha}</open-checksum>`);
   });
 
-  test("generates RPM repo config with gpgcheck=0", () => {
-    const repo = generateRpmRepoConfig("https://getartcraft.com");
+  test("generates RPM repo config with gpgcheck=0", async () => {
+    const repo = await generateRpmRepoConfig("https://getartcraft.com");
     expect(repo).toContain("[artcraft]");
     expect(repo).toContain("baseurl=https://getartcraft.com/rpm");
     expect(repo).toContain("gpgcheck=0");
@@ -326,7 +337,7 @@ optdepend = cups: printing support
   });
 
   test("generates valid pacman sync database and repo config", async () => {
-    const repoConfig = generatePacmanRepoConfig("https://getartcraft.com");
+    const repoConfig = await generatePacmanRepoConfig("https://getartcraft.com");
     expect(repoConfig).toContain("[artcraft]");
     expect(repoConfig).toContain("Server = https://getartcraft.com/arch/$arch");
     expect(repoConfig).toContain("SigLevel = Optional TrustAll");
@@ -421,20 +432,20 @@ test.describe("signed repositories", () => {
     delete process.env.LINUX_SIGNING_KEY;
   });
 
-  test("points APT, DNF and pacman at the published key instead of trusting blindly", () => {
-    expect(generateAptSourcesList("https://getartcraft.com")).toBe(
+  test("points APT, DNF and pacman at the published key instead of trusting blindly", async () => {
+    expect(await generateAptSourcesList("https://getartcraft.com")).toBe(
       "deb [signed-by=/etc/apt/keyrings/artcraft.gpg] https://getartcraft.com/apt stable main\n",
     );
 
-    const sources = generateAptSourcesDeb822("https://getartcraft.com");
+    const sources = await generateAptSourcesDeb822("https://getartcraft.com");
     expect(sources).toContain("Signed-By: /etc/apt/keyrings/artcraft.gpg");
     expect(sources).not.toContain("Trusted: yes");
 
-    const repo = generateRpmRepoConfig("https://getartcraft.com");
+    const repo = await generateRpmRepoConfig("https://getartcraft.com");
     expect(repo).toContain("repo_gpgcheck=1");
     expect(repo).toContain("gpgkey=https://getartcraft.com/keys/artcraft.asc");
 
-    const pacmanConfig = generatePacmanRepoConfig("https://getartcraft.com");
+    const pacmanConfig = await generatePacmanRepoConfig("https://getartcraft.com");
     expect(pacmanConfig).toContain("SigLevel = Optional DatabaseRequired");
     expect(pacmanConfig).not.toContain("TrustAll");
   });
@@ -494,16 +505,98 @@ test.describe("signed repositories", () => {
   test("publishes the fingerprint with the public key", async () => {
     const key = await getSigningPublicKey();
     expect(key?.armored).toContain("-----BEGIN PGP PUBLIC KEY BLOCK-----");
-    expect(key?.binary.length).toBeGreaterThan(0);
     const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored });
     expect(key?.fingerprint).toBe(publicKey.getFingerprint().toUpperCase());
+
+    // The binary route serves this directly, so it must be the public half, not the private key.
+    const binaryKey = await openpgp.readKey({ binaryKey: key!.binary });
+    expect(binaryKey.isPrivate()).toBe(false);
+    expect(binaryKey.getFingerprint().toUpperCase()).toBe(publicKey.getFingerprint().toUpperCase());
   });
 
   test("falls back to unsigned metadata when no key is configured", async () => {
     delete process.env.LINUX_SIGNING_KEY;
-    expect(isRepoSigningConfigured()).toBe(false);
+    expect(await isRepoSigningConfigured()).toBe(false);
     expect(await signDetachedArmored("Release")).toBeNull();
     expect(await getSigningPublicKey()).toBeNull();
-    expect(generateAptSourcesDeb822("https://getartcraft.com")).toContain("Trusted: yes");
+    expect(await generateAptSourcesDeb822("https://getartcraft.com")).toContain("Trusted: yes");
+  });
+
+  test("signature routes return 404 before generating metadata without a key", async () => {
+    delete process.env.LINUX_SIGNING_KEY;
+    const aptProps = { params: Promise.resolve({ distribution: "stable" }) };
+    const rpmProps = { params: Promise.resolve({ arch: "x86_64" }) };
+    const archProps = { params: Promise.resolve({ arch: "x86_64" }) };
+
+    expect((await getInRelease(new Request("https://getartcraft.com/apt/dists/stable/InRelease"), aptProps)).status).toBe(404);
+    expect((await getReleaseGpg(new Request("https://getartcraft.com/apt/dists/stable/Release.gpg"), aptProps)).status).toBe(404);
+    expect((await getRpmSignature(new Request("https://getartcraft.com/rpm/x86_64/repodata/repomd.xml.asc"), rpmProps)).status).toBe(404);
+    expect((await getArchSignature(new Request("https://getartcraft.com/arch/x86_64/artcraft.db.sig"), archProps)).status).toBe(404);
+  });
+
+  test("serves verifiable signatures and the public key from the routes", async () => {
+    const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored });
+    const fingerprint = publicKey.getFingerprint().toUpperCase();
+
+    const inRelease = await getInRelease(
+      new Request("https://getartcraft.com/apt/dists/stable/InRelease"),
+      { params: Promise.resolve({ distribution: "stable" }) },
+    );
+    expect(inRelease.status).toBe(200);
+    const cleartext = await openpgp.verify({
+      message: await openpgp.readCleartextMessage({ cleartextMessage: await inRelease.text() }),
+      verificationKeys: publicKey,
+    });
+    await cleartext.signatures[0].verified;
+
+    const release = await generateAptRelease();
+    const releaseGpg = await getReleaseGpg(
+      new Request("https://getartcraft.com/apt/dists/stable/Release.gpg"),
+      { params: Promise.resolve({ distribution: "stable" }) },
+    );
+    expect(releaseGpg.status).toBe(200);
+    const detached = await openpgp.verify({
+      message: await openpgp.createMessage({ binary: Buffer.from(release, "utf-8") }),
+      signature: await openpgp.readSignature({ armoredSignature: await releaseGpg.text() }),
+      verificationKeys: publicKey,
+    });
+    await detached.signatures[0].verified;
+
+    for (const arch of VALID_RPM_ARCHES) {
+      const response = await getRpmSignature(
+        new Request(`https://getartcraft.com/rpm/${arch}/repodata/repomd.xml.asc`),
+        { params: Promise.resolve({ arch }) },
+      );
+      expect(response.status).toBe(200);
+      const verified = await openpgp.verify({
+        message: await openpgp.createMessage({ binary: Buffer.from(await getRpmRepomdXml(arch), "utf-8") }),
+        signature: await openpgp.readSignature({ armoredSignature: await response.text() }),
+        verificationKeys: publicKey,
+      });
+      await verified.signatures[0].verified;
+    }
+
+    for (const arch of VALID_PACMAN_ARCHES) {
+      const response = await getArchSignature(
+        new Request(`https://getartcraft.com/arch/${arch}/artcraft.db.sig`),
+        { params: Promise.resolve({ arch }) },
+      );
+      expect(response.status).toBe(200);
+      const verified = await openpgp.verify({
+        message: await openpgp.createMessage({ binary: new Uint8Array(await generatePacmanDb(arch)) }),
+        signature: await openpgp.readSignature({ binarySignature: new Uint8Array(await response.arrayBuffer()) }),
+        verificationKeys: publicKey,
+      });
+      await verified.signatures[0].verified;
+    }
+
+    const armoredKey = await openpgp.readKey({ armoredKey: await (await getKeyAsc()).text() });
+    expect(armoredKey.getFingerprint().toUpperCase()).toBe(fingerprint);
+
+    const binaryKey = await openpgp.readKey({
+      binaryKey: new Uint8Array(await (await getKeyGpg()).arrayBuffer()),
+    });
+    expect(binaryKey.isPrivate()).toBe(false);
+    expect(binaryKey.getFingerprint().toUpperCase()).toBe(fingerprint);
   });
 });

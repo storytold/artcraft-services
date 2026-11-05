@@ -229,6 +229,8 @@ type ArchPkgInfo = {
   depends: string[];
   provides: string[];
   optdepends: string[];
+  /** True when .PKGINFO could not be read and these values are only estimates. */
+  estimated?: boolean;
 };
 
 /**
@@ -490,6 +492,7 @@ async function fetchArchPackageInfo(downloadUrl: string, filename: string): Prom
     depends: DEFAULT_PACMAN_DEPENDS,
     provides: [],
     optdepends: [],
+    estimated: true,
   };
 }
 
@@ -509,17 +512,20 @@ async function fetchValidatedSha256(repo: string, version: string, filename: str
  * Reads metadata (size, SHA-256 digest, installed size) for a package asset straight from
  * GitHub: its SHA256SUMS.txt entry, plus a Range probe into the package for .PKGINFO.
  */
+type ComputedPackageMetadata = LinuxPackageAssetMeta & { estimated?: boolean };
+
 async function computePackageMetadata(
   filename: string,
   repo: string,
   version: string,
-): Promise<LinuxPackageAssetMeta> {
+  knownSha256?: string,
+): Promise<ComputedPackageMetadata> {
   const downloadUrl = resolvePackageDownloadUrl(filename);
   if (!downloadUrl) {
     throw new Error(`Package asset not found in release catalog: ${filename}`);
   }
 
-  const sha256 = await fetchValidatedSha256(repo, version, filename);
+  const sha256 = knownSha256 ?? await fetchValidatedSha256(repo, version, filename);
 
   if (filename.endsWith(".pkg.tar.zst")) {
     const archInfo = await fetchArchPackageInfo(downloadUrl, filename);
@@ -534,13 +540,30 @@ async function computePackageMetadata(
 }
 
 /**
+ * Estimated Arch metadata must never reach the shared cache: pacman rejects a package whose
+ * database entry disagrees with it, and the estimate would outlive the GitHub outage that caused
+ * it. Throwing keeps unstable_cache from storing the value while still letting the caller serve it.
+ */
+class EstimatedArchMetadataError extends Error {
+  constructor(readonly metadata: ComputedPackageMetadata) {
+    super("Not caching estimated Arch package metadata");
+  }
+}
+
+/**
  * Keeps that metadata in Next's data cache, so it survives the process: a fresh instance (or a
  * new deploy) serves the DB without re-reading every package's .PKGINFO. Cache keys include the
- * filename, which carries the version, so a new release is always a miss; a day of staleness only
- * matters for assets re-uploaded under an existing name.
+ * filename and the SHA-256 digest from SHA256SUMS.txt, so a new release and a same-name re-upload
+ * are both misses.
  */
 const durablePackageMetadata = unstable_cache(
-  computePackageMetadata,
+  async (filename: string, repo: string, version: string, sha256: string) => {
+    const metadata = await computePackageMetadata(filename, repo, version, sha256);
+    if (metadata.estimated) {
+      throw new EstimatedArchMetadataError(metadata);
+    }
+    return metadata;
+  },
   ["linux-package-metadata"],
   { revalidate: 60 * 60 * 24 },
 );
@@ -554,18 +577,25 @@ export async function getLinuxPackageMetadata(
   repo: string,
   version: string,
 ): Promise<LinuxPackageAssetMeta> {
-  let promise = packageMetaCache.get(filename);
+  const sha256 = await fetchValidatedSha256(repo, version, filename);
+  // Include the digest so a same-name re-upload is a miss in the per-process cache too.
+  const cacheKey = `${filename}:${sha256}`;
+  let promise = packageMetaCache.get(cacheKey);
   if (!promise) {
     promise = (async () => {
       try {
-        return await durablePackageMetadata(filename, repo, version);
-      } catch {
+        return await durablePackageMetadata(filename, repo, version, sha256);
+      } catch (error) {
+        if (error instanceof EstimatedArchMetadataError) {
+          // Serve the estimate now, but leave it to the per-process cache rather than persisting it.
+          return error.metadata;
+        }
         // The data cache can be unavailable (no cache handler, disabled in preview); read directly.
-        return computePackageMetadata(filename, repo, version);
+        return computePackageMetadata(filename, repo, version, sha256);
       }
     })();
-    packageMetaCache.set(filename, promise);
-    promise.catch(() => packageMetaCache.delete(filename));
+    packageMetaCache.set(cacheKey, promise);
+    promise.catch(() => packageMetaCache.delete(cacheKey));
   }
   return promise;
 }
@@ -884,21 +914,21 @@ export async function generateAptRelease(date: Date = APT_REPO_DATE): Promise<st
 /** Keyring the apt sources point at; the guide installs it there before the first update. */
 export const APT_KEYRING_PATH = "/etc/apt/keyrings/artcraft.gpg";
 
-export function generateAptSourcesList(baseUrl: string): string {
-  if (!isRepoSigningConfigured()) {
+export async function generateAptSourcesList(baseUrl: string): Promise<string> {
+  if (!(await isRepoSigningConfigured())) {
     return `deb [trusted=yes] ${baseUrl}/apt stable main\n`;
   }
   return `deb [signed-by=${APT_KEYRING_PATH}] ${baseUrl}/apt stable main\n`;
 }
 
-export function generateAptSourcesDeb822(baseUrl: string): string {
+export async function generateAptSourcesDeb822(baseUrl: string): Promise<string> {
   return [
     "Types: deb",
     `URIs: ${baseUrl}/apt`,
     "Suites: stable",
     "Components: main",
     "Architectures: amd64 arm64 riscv64",
-    isRepoSigningConfigured() ? `Signed-By: ${APT_KEYRING_PATH}` : "Trusted: yes",
+    (await isRepoSigningConfigured()) ? `Signed-By: ${APT_KEYRING_PATH}` : "Trusted: yes",
     "",
   ].join("\n");
 }
@@ -1018,8 +1048,8 @@ export async function getRpmRepomdXml(archFilter?: string): Promise<string> {
   return generateRpmRepomdXml(primaryBuffer, primaryGzBuffer, RPM_REPO_TIMESTAMP);
 }
 
-export function generateRpmRepoConfig(baseUrl: string): string {
-  if (!isRepoSigningConfigured()) {
+export async function generateRpmRepoConfig(baseUrl: string): Promise<string> {
+  if (!(await isRepoSigningConfigured())) {
     return `[artcraft]
 name=ArtCraft Linux Packages
 baseurl=${baseUrl}/rpm
@@ -1188,8 +1218,8 @@ export async function generatePacmanDb(
   return gzipSync(tarBuffer);
 }
 
-export function generatePacmanRepoConfig(baseUrl: string): string {
-  const sigLevel = isRepoSigningConfigured() ? "Optional DatabaseRequired" : "Optional TrustAll";
+export async function generatePacmanRepoConfig(baseUrl: string): Promise<string> {
+  const sigLevel = (await isRepoSigningConfigured()) ? "Optional DatabaseRequired" : "Optional TrustAll";
   return `[artcraft]
 SigLevel = ${sigLevel}
 Server = ${baseUrl}/arch/$arch
