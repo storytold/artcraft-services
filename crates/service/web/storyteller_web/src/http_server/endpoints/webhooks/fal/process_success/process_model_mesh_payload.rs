@@ -1,9 +1,9 @@
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::endpoints::webhooks::fal::process_success::attach_cover_image::{attach_cover_image, AttachCoverImageArgs};
 use crate::http_server::endpoints::webhooks::fal::process_success::attach_prompt_imageref_cover::try_to_attach_prompt_imageref_cover;
+use crate::http_server::endpoints::webhooks::fal::process_success::download_mesh_file::download_mesh_file;
 use crate::http_server::endpoints::webhooks::fal::process_success::resolve_mesh_file_metadata::resolve_mesh_file_metadata;
 use crate::state::server_state::ServerState;
-use crate::util::http_download_url_to_bytes::http_download_url_to_bytes;
 use bytes::Bytes;
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use enums::by_table::media_files::media_file_class::MediaFileClass;
@@ -127,7 +127,7 @@ pub(crate) async fn upload_mesh_file(
   } = args;
 
   // Download with a retry if the first attempt returns suspiciously few bytes.
-  let mut file_bytes = http_download_url_to_bytes(mesh_url)
+  let mut file_bytes = download_mesh_file(mesh_url)
       .await
       .map_err(|err| {
         warn!("Failed to download mesh from {}: {:?}", mesh_url, err);
@@ -140,7 +140,7 @@ pub(crate) async fn upload_mesh_file(
       file_bytes.len(),
       mesh_url,
     );
-    file_bytes = http_download_url_to_bytes(mesh_url)
+    file_bytes = download_mesh_file(mesh_url)
         .await
         .map_err(|err| {
           warn!("Failed to download mesh on retry from {}: {:?}", mesh_url, err);
@@ -151,16 +151,15 @@ pub(crate) async fn upload_mesh_file(
   // Resolve mesh metadata. A validated OBJ ZIP package is unpacked to its OBJ.
   // Other files retain the magic bytes / fal content_type / file name order.
   let mut metadata = resolve_mesh_file_metadata(&file_bytes, maybe_content_type, maybe_file_name)
-      .ok_or_else(|| {
+      .map_err(|err| {
         warn!(
-          "Could not determine file type for mesh (bytes: {}, fal content_type: {:?}, file_name: {:?})",
+          "Could not resolve mesh metadata: {} (bytes: {}, fal content_type: {:?}, file_name: {:?})",
+          err,
           file_bytes.len(),
           maybe_content_type,
           maybe_file_name,
         );
-        CommonWebError::server_error_with_message(
-          &format!("Could not determine file type for mesh (bytes: {}, fal content_type: {:?})",
-            file_bytes.len(), maybe_content_type))
+        CommonWebError::server_error_with_message(&err.to_string())
       })?;
 
   // For a ZIP package, store the extracted raw OBJ (size, hash, and upload
@@ -174,6 +173,12 @@ pub(crate) async fn upload_mesh_file(
   let mime_type = metadata.mime_type.as_str();
 
   if extracted_from_zip {
+    if metadata.discarded_companion_files > 0 {
+      warn!(
+        "Discarding {} MTL/texture companion file(s) from OBJ ZIP package; only raw OBJ is stored, without materials or textures",
+        metadata.discarded_companion_files,
+      );
+    }
     // The mime type came from the fixed OBJ hint after extraction, not from the webhook.
     info!("Mime type of mesh: {}, extracted OBJ from ZIP package ({} bytes)", mime_type, file_bytes.len());
   } else {
@@ -281,7 +286,7 @@ async fn try_to_attach_preprocessed_image(
 // This test exercises the complete download -> ZIP extraction -> bucket write ->
 // media_files row path. It uses the guarded test database and the existing
 // in-process stub bucket from TestHarness; no real provider or storage is called.
-#[cfg(all(test, not(feature = "skip_database_tests")))]
+#[cfg(test)]
 mod uploader_integration_tests {
   use std::io::{Cursor, Read, Write};
   use std::marker::PhantomData;
@@ -300,6 +305,9 @@ mod uploader_integration_tests {
     insert_generic_inference_job_for_fal_queue, FalCategory, InsertGenericInferenceForFalArgs,
   };
   use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
+  use mysql_queries::queries::media_files::get::get_media_file_storage_metadata::{
+    get_media_file_storage_metadata, GetMediaFileStorageMetadataArgs,
+  };
   use tokens::tokens::generic_inference_jobs::InferenceJobToken;
   use zip::write::FileOptions;
   use zip::ZipWriter;
@@ -310,6 +318,7 @@ mod uploader_integration_tests {
   const OBJ_BYTES: &[u8] = b"v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n";
 
   #[tokio::test]
+  #[cfg_attr(feature = "skip_database_tests", ignore)]
   async fn zip_obj_upload_stores_raw_obj_and_consistent_metadata() {
     let harness = TestHarness::create().await;
 
@@ -373,15 +382,15 @@ mod uploader_integration_tests {
     assert_eq!(media.maybe_mime_type.as_deref(), Some("model/obj"));
     assert_eq!(media.maybe_public_bucket_extension.as_deref(), Some(".obj"));
 
-    let (file_size_bytes, checksum_sha2): (i32, String) =
-      sqlx::query_as("SELECT file_size_bytes, checksum_sha2 FROM media_files WHERE token = ?")
-        .bind(media_token.as_str())
-        .fetch_one(&harness.pool)
-        .await
-        .expect("read stored size and checksum");
+    let storage_metadata = get_media_file_storage_metadata(GetMediaFileStorageMetadataArgs {
+      media_file_token: &media_token,
+      mysql_executor: &harness.pool,
+    })
+    .await
+    .expect("read stored size and checksum");
 
-    assert_eq!(file_size_bytes, OBJ_BYTES.len() as i32);
-    assert_eq!(checksum_sha2, sha256_hash_bytes(OBJ_BYTES).expect("hash OBJ bytes"));
+    assert_eq!(storage_metadata.file_size_bytes, OBJ_BYTES.len() as i32);
+    assert_eq!(storage_metadata.checksum_sha2, sha256_hash_bytes(OBJ_BYTES).expect("hash OBJ bytes"));
 
     // Read the uploaded object back through the actual LegacyBucketClient.
     let object_path = MediaFileBucketPath::from_object_hash(
@@ -406,6 +415,8 @@ mod uploader_integration_tests {
       .start_file("model.obj", FileOptions::default())
       .expect("start OBJ entry");
     writer.write_all(OBJ_BYTES).expect("write OBJ entry");
+    writer.start_file("material.mtl", FileOptions::default()).expect("start MTL entry");
+    writer.write_all(b"newmtl material\n").expect("write MTL entry");
     writer.finish().expect("finish ZIP package").into_inner()
   }
 
