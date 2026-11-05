@@ -1,8 +1,8 @@
 import { generatePacmanRepoConfig, getRequestBaseUrl } from "@/lib/linux-repos";
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request);
-  const content = generatePacmanRepoConfig(baseUrl);
+  const content = await generatePacmanRepoConfig(baseUrl);
 
   return new Response(content, {
     headers: {

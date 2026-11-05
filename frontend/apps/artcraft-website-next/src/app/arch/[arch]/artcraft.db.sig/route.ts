@@ -1,5 +1,5 @@
 import { generatePacmanDb, VALID_PACMAN_ARCHES } from "@/lib/linux-repos";
-import { signDetachedBinary } from "@/lib/repo-signing";
+import { isRepoSigningConfigured, signDetachedBinary } from "@/lib/repo-signing";
 
 type RouteProps = {
   params: Promise<{
@@ -11,6 +11,10 @@ export async function GET(_request: Request, props: RouteProps) {
   const { arch } = await props.params;
   if (!VALID_PACMAN_ARCHES.has(arch)) {
     return new Response(`Architecture "${arch}" not supported`, { status: 404 });
+  }
+
+  if (!(await isRepoSigningConfigured())) {
+    return new Response("Repository signing is not configured", { status: 404 });
   }
 
   const dbBuffer = await generatePacmanDb(arch);
