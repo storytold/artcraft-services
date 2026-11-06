@@ -95,7 +95,7 @@ export default function DownloadPage({ aside }: { aside?: ReactNode }) {
         downloads={(["x86_64", "aarch64"] as const).flatMap((arch) => {
           const debArch = arch === "x86_64" ? "amd64" : "arm64";
           const version = "0.42.0";
-          const base = `https://github.com/storytold/artcraft/releases/download/artcraft-linux-v${version}`;
+          const base = `https://github.com/storytold/artcraft/releases/download/artcraft-v${version}`;
           return [
             { group: "Linux" as const, arch, description: "Portable AppImage", label: `AppImage (${arch})`, href: `${base}/ArtCraft_${version}_${debArch}.AppImage` },
             { group: "Linux" as const, arch, description: "Debian and Ubuntu package", label: `Debian / Ubuntu (${arch})`, href: `${base}/ArtCraft_${version}_${debArch}.deb` },
