@@ -369,13 +369,15 @@ test_rhel() {
 
     dnf --disablerepo="*" --enablerepo="artcraft" repoquery
     mkdir -p /tmp/pkg && cd /tmp/pkg
-    dnf --disablerepo="*" --enablerepo="artcraft" download --resolve '"$dnf_pkgs"'
+    # Download the manifest RPMs from ArtCraft alone; resolve their dependencies from
+    # AlmaLinux BaseOS, AppStream, and CRB repositories during installation below.
+    dnf --disablerepo="*" --enablerepo="artcraft" download '"$dnf_pkgs"'
     for rpm in *.rpm; do
       rpm -qip "$rpm" | grep -E "Name|Version|Release|Architecture|Size"
     done
     sha256sum -c /tmp/expected.sha256
 
-    dnf --disablerepo="*" --enablerepo="artcraft" install -y '"$dnf_install_pkgs"'
+    dnf --enablerepo="artcraft" install -y '"$dnf_install_pkgs"'
     for pkg in '"$dnf_install_pkgs"'; do
       [[ -x "/usr/bin/$pkg" ]] || { echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2; exit 1; }
       echo "  ✓ /usr/bin/$pkg verified executable"
