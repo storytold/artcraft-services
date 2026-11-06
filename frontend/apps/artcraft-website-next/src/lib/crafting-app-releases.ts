@@ -237,7 +237,7 @@ export function craftRelease(
 // every app above, and the /apps pages recommend it first. Its releases ship
 // the same file set minus the macOS CLI, named artcraft-launcher-*.
 export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
-  "0.14.1",
+  "0.15.0",
   CRAFT_RELEASE_ASSETS
     .filter((asset) => !asset.file.startsWith("{slug}-cli-"))
     // The launcher's RISC-V binary needs glibc 2.39, including in its tarball.
@@ -249,20 +249,20 @@ export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
 
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
-  photocraft: craftRelease("0.20.2"),
-  vectorcraft: craftRelease("0.21.1"),
-  filmcraft: craftRelease("0.17.1"),
-  lightcraft: craftRelease("0.18.1"),
-  pdfcraft: craftRelease("0.18.2"),
-  effectcraft: craftRelease("0.21.1"),
-  designcraft: craftRelease("0.17.2"),
-  figcraft: craftRelease("0.15.1"),
-  texturecraft: craftRelease("0.3.2"),
-  materialcraft: craftRelease("0.1.2"),
-  wordcraft: craftRelease("0.15.2"),
-  soundcraft: craftRelease("0.17.1"),
-  deckcraft: craftRelease("0.15.1"),
-  cadcraft: craftRelease("0.17.1"),
-  gridcraft: craftRelease("0.16.1"),
-  "craft-anything": craftRelease("0.4.0"),
+  photocraft: craftRelease("0.21.0"),
+  vectorcraft: craftRelease("0.22.0"),
+  filmcraft: craftRelease("0.18.0"),
+  lightcraft: craftRelease("0.19.0"),
+  pdfcraft: craftRelease("0.19.0"),
+  effectcraft: craftRelease("0.22.0"),
+  designcraft: craftRelease("0.18.0"),
+  figcraft: craftRelease("0.16.0"),
+  texturecraft: craftRelease("0.4.0"),
+  materialcraft: craftRelease("0.2.0"),
+  wordcraft: craftRelease("0.16.0"),
+  soundcraft: craftRelease("0.18.0"),
+  deckcraft: craftRelease("0.16.0"),
+  cadcraft: craftRelease("0.18.0"),
+  gridcraft: craftRelease("0.17.0"),
+  "craft-anything": craftRelease("0.5.0"),
 };
