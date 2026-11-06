@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Test ArtCraft Linux package repositories using real package manager tools
-# inside Ubuntu (APT), Fedora (DNF), openSUSE (Zypper), and Ubuntu (Flatpak glibc) containers.
+# inside Ubuntu and Debian (APT), Fedora and RHEL (DNF), openSUSE (Zypper), and Ubuntu
+# (Flatpak glibc) containers.
 #
 # Usage:
-#   ./scripts/test-distro-repos.sh [ubuntu|fedora|opensuse|flatpak|arch|all] BASE_URL
+#   ./scripts/test-distro-repos.sh [ubuntu|debian|fedora|rhel|opensuse|flatpak|arch|all] BASE_URL
 #
 # BASE_URL is the deployment to test (a Netlify preview, a branch deploy or production); the script
 # never serves the site itself, so what it verifies is what users download.
@@ -22,6 +23,8 @@ fi
 BANNER_SEP="=================================================="
 UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:26.04}"
 FEDORA_IMAGE="${FEDORA_IMAGE:-fedora:45}"
+DEBIAN_IMAGE="${DEBIAN_IMAGE:-debian:stable-slim}"
+RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi10/ubi:latest}"
 OPENSUSE_IMAGE="${OPENSUSE_IMAGE:-opensuse/tumbleweed:latest}"
 ARCH_IMAGE="${ARCH_IMAGE:-archlinux:latest}"
 
@@ -224,6 +227,53 @@ test_ubuntu() {
   '
 }
 
+test_debian() {
+  echo ""
+  echo "$BANNER_SEP"
+  echo ">>> Testing Debian (APT) with $DEBIAN_IMAGE against $BASE_URL"
+  echo "$BANNER_SEP"
+
+  local apt_pkgs apt_install_pkgs
+  apt_pkgs="$(manifest_info apt-packages)"
+  apt_install_pkgs="$(manifest_info apt-install-packages)"
+  manifest_info apt-checksums > /tmp/expected-apt.sha256
+
+  $CONTAINER_TOOL run --rm --network host --tmpfs /tmp/pkg:exec \
+    -v /tmp/expected-apt.sha256:/tmp/expected.sha256:ro \
+    "$DEBIAN_IMAGE" bash -c '
+    set -euo pipefail
+    cat /etc/os-release | grep PRETTY_NAME || true
+    apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null
+    dpkg --add-architecture arm64
+    dpkg --add-architecture riscv64
+
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      install -d -m 755 /etc/apt/keyrings
+      curl -fsSL "'"$BASE_URL"'/keys/artcraft.gpg" -o /etc/apt/keyrings/artcraft.gpg
+      chmod 644 /etc/apt/keyrings/artcraft.gpg
+      [[ -s /etc/apt/keyrings/artcraft.gpg ]] || { echo "Error: the ArtCraft keyring is empty" >&2; exit 1; }
+    fi
+
+    curl -fsSL "'"$BASE_URL"'/apt/artcraft.sources" -o /etc/apt/sources.list.d/artcraft.sources
+    apt-get update
+    apt-cache policy '"$apt_install_pkgs"'
+
+    mkdir -p /tmp/pkg && chmod 1777 /tmp/pkg && cd /tmp/pkg
+    apt-get download '"$apt_pkgs"'
+    for deb in *.deb; do
+      dpkg-deb -I "$deb" | grep -E "Package:|Version:|Architecture:|Installed-Size:"
+    done
+    sha256sum -c /tmp/expected.sha256
+
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends '"$apt_install_pkgs"'
+    for pkg in '"$apt_install_pkgs"'; do
+      [[ -x "/usr/bin/$pkg" ]] || { echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2; exit 1; }
+      echo "  ✓ /usr/bin/$pkg verified executable"
+    done
+    echo "=== Debian (APT) verification and installation passed! ==="
+  '
+}
+
 test_fedora() {
   echo ""
   echo "$BANNER_SEP"
@@ -289,6 +339,46 @@ test_fedora() {
     done
 
     echo "=== Fedora 45 (DNF) verification and installation passed! ==="
+  '
+}
+
+test_rhel() {
+  echo ""
+  echo "$BANNER_SEP"
+  echo ">>> Testing RHEL (DNF) with $RHEL_IMAGE against $BASE_URL"
+  echo "$BANNER_SEP"
+
+  local dnf_pkgs dnf_install_pkgs
+  dnf_pkgs="$(manifest_info dnf-packages)"
+  dnf_install_pkgs="$(manifest_info dnf-install-packages)"
+  manifest_info rpm-checksums > /tmp/expected-rpm.sha256
+
+  $CONTAINER_TOOL run --rm --network host --tmpfs /tmp/pkg:exec \
+    -v /tmp/expected-rpm.sha256:/tmp/expected.sha256:ro \
+    "$RHEL_IMAGE" bash -c '
+    set -euo pipefail
+    cat /etc/os-release | grep PRETTY_NAME || true
+    mkdir -p /etc/yum.repos.d
+    curl -fsSL "'"$BASE_URL"'/rpm/artcraft.repo" -o /etc/yum.repos.d/artcraft.repo
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      dnf -y --disablerepo="*" --enablerepo="artcraft" makecache
+      rpm --import "'"$BASE_URL"'/keys/artcraft.asc"
+    fi
+
+    dnf --disablerepo="*" --enablerepo="artcraft" repoquery
+    mkdir -p /tmp/pkg && cd /tmp/pkg
+    dnf --disablerepo="*" --enablerepo="artcraft" download --resolve '"$dnf_pkgs"'
+    for rpm in *.rpm; do
+      rpm -qip "$rpm" | grep -E "Name|Version|Release|Architecture|Size"
+    done
+    sha256sum -c /tmp/expected.sha256
+
+    dnf --disablerepo="*" --enablerepo="artcraft" install -y '"$dnf_install_pkgs"'
+    for pkg in '"$dnf_install_pkgs"'; do
+      [[ -x "/usr/bin/$pkg" ]] || { echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2; exit 1; }
+      echo "  ✓ /usr/bin/$pkg verified executable"
+    done
+    echo "=== RHEL (DNF) verification and installation passed! ==="
   '
 }
 
@@ -644,8 +734,14 @@ case "$TARGET" in
   ubuntu)
     test_ubuntu
     ;;
+  debian)
+    test_debian
+    ;;
   fedora)
     test_fedora
+    ;;
+  rhel)
+    test_rhel
     ;;
   opensuse)
     test_opensuse
@@ -658,13 +754,15 @@ case "$TARGET" in
     ;;
   all)
     test_ubuntu
+    test_debian
     test_fedora
+    test_rhel
     test_opensuse
     test_flatpak
     test_arch
     ;;
   *)
-    echo "Unknown target: $TARGET (expected: ubuntu, fedora, opensuse, flatpak, arch, all)" >&2
+    echo "Unknown target: $TARGET (expected: ubuntu, debian, fedora, rhel, opensuse, flatpak, arch, all)" >&2
     exit 1
     ;;
 esac
