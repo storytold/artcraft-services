@@ -51,10 +51,12 @@ pub fn redirect_uri_is_allowed(uri: &str) -> bool {
   true
 }
 
+/// Characters allowed in a redirect URI. Query, fragment, userinfo, and whitespace are excluded.
 fn redirect_byte_allowed(byte: u8) -> bool {
   matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b':' | b'/')
 }
 
+/// Percent-encode a query value. Unreserved characters are left as-is.
 pub fn query_encode(value: &str) -> String {
   let mut out = String::with_capacity(value.len());
   for byte in value.bytes() {
@@ -66,6 +68,7 @@ pub fn query_encode(value: &str) -> String {
   out
 }
 
+/// Append encoded query pairs. The redirect URI itself has no query string.
 pub fn redirect_with_query(uri: &str, pairs: &[(&str, &str)]) -> String {
   let mut out = String::from(uri);
   out.push('?');

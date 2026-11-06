@@ -6,6 +6,7 @@ pub struct RevokeOauthTokensForClientArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Revokes every live token this user issued to this client.
 pub async fn revoke_oauth_tokens_for_client<'c, T>(args: RevokeOauthTokensForClientArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

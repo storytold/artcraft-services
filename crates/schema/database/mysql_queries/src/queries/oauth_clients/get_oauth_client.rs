@@ -9,6 +9,7 @@ pub struct GetOauthClientArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Live client name, or `None` when the client is missing or deleted.
 pub async fn get_oauth_client<'c, T>(args: GetOauthClientArgs<'_, T>) -> Result<Option<OauthClientRow>, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

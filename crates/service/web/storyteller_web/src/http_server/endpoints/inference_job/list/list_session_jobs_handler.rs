@@ -36,7 +36,8 @@ use utoipa::IntoParams;
 
 /// List job statuses for jobs that are associated with the user's session.
 ///
-/// The user must be logged in. This endpoint will only show the last 36 hours
+/// The user must be logged in. An OAuth access token with `library:read` is accepted in place
+/// of a website session. This endpoint will only show the last 36 hours
 /// of jobs. Any jobs "dismissed" by the user will not be returned.
 ///
 /// This returns jobs of all states: pending, started, attempt_failed,
@@ -138,6 +139,7 @@ pub async fn list_session_jobs_handler(
   records_to_response(records, server_state.server_environment, media_domain)
 }
 
+/// Turn job rows into the list response. Audio successes are kept. Other successes are capped at three.
 fn records_to_response(
   records: Vec<GenericInferenceJobStatus>,
   server_environment: ServerEnvironment,
@@ -176,6 +178,7 @@ fn records_to_response(
   }))
 }
 
+/// Map one job row into the list item the client renders.
 fn db_record_to_response_payload(
   record: GenericInferenceJobStatus,
   maybe_extra_status_description: Option<String>,

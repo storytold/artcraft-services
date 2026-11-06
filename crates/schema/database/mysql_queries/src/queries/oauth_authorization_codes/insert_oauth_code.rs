@@ -12,6 +12,7 @@ pub struct InsertCodeArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Stores the hash of a new authorization code together with its PKCE challenge and audience.
 pub async fn insert_oauth_code<'c, T>(args: InsertCodeArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

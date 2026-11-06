@@ -5,6 +5,7 @@ pub struct RevokePresentedArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Revokes the row whose access or refresh hash matches. An unknown hash changes nothing.
 pub async fn revoke_oauth_token_hash<'c, T>(args: RevokePresentedArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

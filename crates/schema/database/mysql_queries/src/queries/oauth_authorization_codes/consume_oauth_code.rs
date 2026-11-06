@@ -5,6 +5,7 @@ pub struct ConsumeCodeArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Marks one unexpired, unused authorization code as used. `true` only for the first caller.
 pub async fn consume_oauth_code<'c, T>(args: ConsumeCodeArgs<'_, T>) -> Result<bool, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

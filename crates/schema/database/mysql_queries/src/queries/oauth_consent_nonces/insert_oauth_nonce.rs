@@ -9,6 +9,7 @@ pub struct InsertNonceArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Stores the hash of a consent or revoke nonce bound to one user, client, and request.
 pub async fn insert_oauth_nonce<'c, T>(args: InsertNonceArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

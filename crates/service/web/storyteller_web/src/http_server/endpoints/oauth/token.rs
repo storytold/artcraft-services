@@ -24,6 +24,7 @@ use crate::state::server_state::ServerState;
 const ACCESS_TTL_SECONDS: i64 = 3600;
 const REFRESH_TTL_SECONDS: i64 = 30 * 24 * 60 * 60;
 
+/// Exchange an authorization code or rotate a refresh token. The body is form-encoded.
 pub async fn oauth_token_handler(http_request: HttpRequest, body: web::Bytes, server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError> {
   if !form_content_type(&http_request) {
     return Ok(oauth_error(StatusCode::BAD_REQUEST, "invalid_request"));
@@ -49,6 +50,7 @@ pub async fn oauth_token_handler(http_request: HttpRequest, body: web::Bytes, se
   }
 }
 
+/// Consume a code once, check PKCE and the redirect binding, and issue an access and refresh token.
 async fn authorization_code(server_state: &ServerState, client_id: &str, pairs: &[(String, String)]) -> Result<HttpResponse, CommonWebError> {
   let Some(code) = form_value(pairs, "code") else {
     return Ok(oauth_error(StatusCode::BAD_REQUEST, "invalid_request"));
@@ -97,6 +99,7 @@ async fn authorization_code(server_state: &ServerState, client_id: &str, pairs: 
   Ok(token_response(access.as_str(), refresh.as_str(), &row.scopes))
 }
 
+/// Rotate a live refresh token. Presenting a spent one revokes every live token for that user and client.
 async fn refresh_token(server_state: &ServerState, client_id: &str, pairs: &[(String, String)]) -> Result<HttpResponse, CommonWebError> {
   let Some(refresh) = form_value(pairs, "refresh_token") else {
     return Ok(oauth_error(StatusCode::BAD_REQUEST, "invalid_request"));
@@ -141,10 +144,12 @@ async fn refresh_token(server_state: &ServerState, client_id: &str, pairs: &[(St
   Ok(token_response(access.as_str(), next_refresh.as_str(), &row.scopes))
 }
 
+/// The token endpoint only accepts `application/x-www-form-urlencoded`.
 fn form_content_type(http_request: &HttpRequest) -> bool {
   http_request.headers().get("content-type").and_then(|value| value.to_str().ok()).map(|value| value.split(';').next().unwrap_or("").trim().eq_ignore_ascii_case("application/x-www-form-urlencoded")).unwrap_or(false)
 }
 
+/// Successful token response. `expires_in` is the access-token lifetime in seconds, and the body is not cached.
 fn token_response(access: &str, refresh: &str, scopes: &str) -> HttpResponse {
   HttpResponse::Ok().insert_header(("cache-control", "no-store")).insert_header(("pragma", "no-cache")).json(json!({
     "access_token": access,
@@ -155,15 +160,18 @@ fn token_response(access: &str, refresh: &str, scopes: &str) -> HttpResponse {
   }))
 }
 
+/// OAuth error object. The body is not cached.
 fn oauth_error(status: StatusCode, error: &str) -> HttpResponse {
   HttpResponse::build(status).insert_header(("cache-control", "no-store")).json(json!({ "error": error }))
 }
 
+/// Map a pool failure to a logged server error.
 fn pool_error(err: sqlx::Error) -> CommonWebError {
   warn!("MySQL pool error");
   CommonWebError::from_error(err)
 }
 
+/// Map a token-query failure to a logged server error.
 fn query_error(err: sqlx::Error) -> CommonWebError {
   warn!("OAuth token query failed");
   CommonWebError::from_error(err)

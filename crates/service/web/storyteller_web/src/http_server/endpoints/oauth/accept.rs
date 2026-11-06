@@ -69,6 +69,7 @@ pub async fn oauth_user_for_scope(http_request: &HttpRequest, required: Scope, m
   Ok(Some(access.user_token))
 }
 
+/// `true` for an API-audience access token that includes `required`.
 pub fn oauth_access_satisfies(access: &PresentedOauthAccess, required: Scope) -> bool {
   access.audience == API_AUDIENCE && scope_granted(&access.scopes, required)
 }

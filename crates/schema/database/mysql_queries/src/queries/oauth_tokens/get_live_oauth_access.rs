@@ -11,6 +11,7 @@ pub struct GetAccessArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Live access-token row, or `None` when the token is missing, revoked, or past `access_expires_at`.
 pub async fn get_live_oauth_access<'c, T>(args: GetAccessArgs<'_, T>) -> Result<Option<OauthAccessRow>, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

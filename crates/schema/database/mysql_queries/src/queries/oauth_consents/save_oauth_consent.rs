@@ -7,6 +7,7 @@ pub struct SaveConsentArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Inserts or replaces this user's consent for the client and clears a previous revocation.
 pub async fn save_oauth_consent<'c, T>(args: SaveConsentArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

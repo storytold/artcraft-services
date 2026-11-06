@@ -111,10 +111,12 @@ enum RetiredTokenPrefix {
 }
 
 pub trait PrefixGenerator {
+  /// Stripe-style prefix for this token kind.
   fn prefix(self) -> &'static str;
 }
 
 impl PrefixGenerator for TokenPrefix {
+  /// Live token prefix, including the OAuth access, client, code, nonce, and refresh prefixes.
   fn prefix(self) -> &'static str {
     match self {
       Self::AnonymousVisitorTracking => "avt_",
@@ -171,6 +173,7 @@ impl PrefixGenerator for TokenPrefix {
 }
 
 impl PrefixGenerator for LegacyTokenPrefix {
+  /// Colon-style prefix kept for tokens that already exist. Do not use it for new tokens.
   fn prefix(self) -> &'static str {
     // NB: Old-style colon-suffixed prefixes. Do not use for future tokens!
     match self {
@@ -196,6 +199,7 @@ impl PrefixGenerator for LegacyTokenPrefix {
 }
 
 impl PrefixGenerator for RetiredTokenPrefix {
+  /// Prefix kept only so a new token cannot collide with a retired one.
   fn prefix(self) -> &'static str {
     match self {
       Self::_DownloadJobDeprecatedNotNotUse => "JGUP:", // NB: Download jobs changed roughly around 2022-12-16
@@ -344,6 +348,7 @@ mod tests {
       assert_eq!(entities.len(), ALL_TOKEN_PREFIX_COUNT);
     }
 
+    /// Every live, legacy, and retired prefix ends with `_` or `:`.
     #[test]
     fn test_all_prefixes_end_with_separator() {
       assert!(get_all_prefixes()
@@ -352,6 +357,7 @@ mod tests {
     }
 
     // TODO: Just kill this test
+    /// The separator is one trailing character, aside from prefixes that also use `_` internally.
     #[test]
     fn test_all_prefixes_end_with_separator_length_one() {
       for prefix in get_all_prefixes().iter().map(|s| *s) {
@@ -366,9 +372,13 @@ mod tests {
             || prefix == "app_session_"
             || prefix == "mcp_session_"
             || prefix == "mcp_refresh_"
+            || prefix == "oauth_access_"
+            || prefix == "oauth_client_"
+            || prefix == "oauth_code_"
+            || prefix == "oauth_nonce_"
+            || prefix == "oauth_refresh_"
         {
-          // TODO/FIXME: I'm too tired at 5AM to replacen from the left. Make this test valid.
-          //  These tokens are from the AIChatBot sidecar, so asserting their validity is less important.
+          // The assertion counts every separator. These prefixes also use `_` inside the name.
           continue;
         }
         assert_eq!(prefix.len() - 1, prefix.replace(":", "").replace("_", "").len());

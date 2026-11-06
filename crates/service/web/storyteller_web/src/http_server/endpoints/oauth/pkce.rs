@@ -5,19 +5,23 @@ const VERIFIER_MAX: usize = 128;
 /// A SHA-256 digest in unpadded base64url. Anything else could never match a verifier.
 const S256_CHALLENGE_LEN: usize = 43;
 
+/// RFC 7636 verifier: 43 to 128 unreserved characters.
 pub fn code_verifier_is_valid(verifier: &str) -> bool {
   (VERIFIER_MIN..=VERIFIER_MAX).contains(&verifier.len()) && verifier.bytes().all(unreserved)
 }
 
+/// S256 challenge: exactly 43 unpadded base64url characters.
 pub fn code_challenge_is_valid(challenge: &str) -> bool {
   challenge.len() == S256_CHALLENGE_LEN && challenge.bytes().all(base64url)
 }
 
+/// Unpadded base64url SHA-256 of `verifier`.
 pub fn s256_challenge(verifier: &str) -> Result<String, anyhow::Error> {
   let digest = sha256(verifier.as_bytes())?;
   Ok(base64url_nopad(&digest))
 }
 
+/// `true` when `verifier` is the S256 preimage of `challenge`.
 pub fn verify_s256(verifier: &str, challenge: &str) -> Result<bool, anyhow::Error> {
   if !code_verifier_is_valid(verifier) || !code_challenge_is_valid(challenge) {
     return Ok(false);
@@ -26,14 +30,17 @@ pub fn verify_s256(verifier: &str, challenge: &str) -> Result<bool, anyhow::Erro
   Ok(constant_time_eq(computed.as_bytes(), challenge.as_bytes()))
 }
 
+/// RFC 7636 unreserved character.
 fn unreserved(byte: u8) -> bool {
   matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~')
 }
 
+/// Unpadded base64url alphabet, which excludes `+`, `/`, and `=`.
 fn base64url(byte: u8) -> bool {
   matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_')
 }
 
+/// Unpadded base64url. A SHA-256 digest encodes to 43 characters.
 fn base64url_nopad(input: &[u8]) -> String {
   const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
   let mut out = String::new();
@@ -59,6 +66,7 @@ fn base64url_nopad(input: &[u8]) -> String {
   out
 }
 
+/// Bytewise equality that does not return on the first mismatch.
 fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
   if left.len() != right.len() {
     return false;

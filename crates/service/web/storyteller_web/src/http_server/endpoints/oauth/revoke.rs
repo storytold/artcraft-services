@@ -40,6 +40,7 @@ pub async fn oauth_revoke_handler(http_request: HttpRequest, body: web::Bytes, s
   Ok(revoked())
 }
 
+/// RFC 7009 success body. Unknown tokens get the same response, and it is not cached.
 fn revoked() -> HttpResponse {
   HttpResponse::Ok().insert_header(("cache-control", "no-store")).json(json!({}))
 }

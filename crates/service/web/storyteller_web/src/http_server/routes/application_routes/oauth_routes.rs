@@ -9,6 +9,7 @@ use crate::http_server::endpoints::oauth::grants::{oauth_grant_revoke, oauth_gra
 use crate::http_server::endpoints::oauth::revoke::oauth_revoke_handler;
 use crate::http_server::endpoints::oauth::token::oauth_token_handler;
 
+/// Mount `/v1/oauth` token, revoke, client, authorize, and grant routes.
 pub fn add_oauth_routes<T, B>(app: App<T>) -> App<T>
 where
   B: MessageBody,

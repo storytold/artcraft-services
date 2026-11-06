@@ -86,7 +86,8 @@ CREATE TABLE oauth_tokens (
   PRIMARY KEY (id),
   UNIQUE KEY (access_hash),
   UNIQUE KEY (refresh_hash),
-  KEY index_user_client (user_token, client_token)
+  KEY index_user_client (user_token, client_token),
+  KEY index_refresh_and_access_expiry (refresh_expires_at, access_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 -- Every refresh token a grant has rotated away from, so presenting any of them revokes the grant.

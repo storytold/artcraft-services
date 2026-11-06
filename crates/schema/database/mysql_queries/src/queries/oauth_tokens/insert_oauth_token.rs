@@ -12,6 +12,7 @@ pub struct InsertTokenArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Stores the hashes of a new access token and refresh token. The raw tokens are not stored.
 pub async fn insert_oauth_token<'c, T>(args: InsertTokenArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

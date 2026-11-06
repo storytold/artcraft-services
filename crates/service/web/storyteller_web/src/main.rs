@@ -78,6 +78,7 @@ pub mod util;
 const LOG_FORMAT: &str =
   "[%{HOSTNAME}e] IP=[%{X-Forwarded-For}i] %{CF-Ray}i %{trace_id}xi \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\" %T";
 
+/// Start the HTTP API, background workers, and the hourly OAuth expiry sweep.
 #[actix_web::main]
 async fn main() -> AnyhowResult<()> {
 
@@ -206,6 +207,7 @@ async fn main() -> AnyhowResult<()> {
   Ok(())
 }
 
+/// Bind the HTTP server and run it until shutdown.
 pub async fn serve(
   server_state: ServerState,
   metrics_collector: metrics::collector::MetricsCollector,
