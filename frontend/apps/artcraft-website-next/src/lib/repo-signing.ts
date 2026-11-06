@@ -54,6 +54,24 @@ function normalizeArmoredKey(raw: string): string {
   return value.replaceAll("\r\n", "\n");
 }
 
+/** TEMPORARY diagnostics: the value's shape, never its contents. */
+export function describeSigningKey(): Record<string, unknown> {
+  const raw = process.env.LINUX_SIGNING_KEY ?? "";
+  const trimmed = raw.trim();
+  return {
+    present: raw.length > 0,
+    length: raw.length,
+    first24: trimmed.slice(0, 24),
+    lineCount: raw.split("\n").length,
+    crlf: raw.includes("\r\n"),
+    hasBeginPrivate: raw.includes("-----BEGIN PGP PRIVATE KEY BLOCK-----"),
+    hasBeginPublic: raw.includes("-----BEGIN PGP PUBLIC KEY BLOCK-----"),
+    escapedNewlines: (raw.match(/\\n/g) ?? []).length,
+    base64DecodesToArmor: decodeBase64Key(trimmed) !== null,
+    normalizedHasBegin: normalizeArmoredKey(raw).includes("-----BEGIN PGP"),
+  };
+}
+
 /**
  * Whether this deployment can sign repository metadata. Checks that the key actually loads, so a
  * malformed LINUX_SIGNING_KEY does not leave clients requiring signatures that are never served.
