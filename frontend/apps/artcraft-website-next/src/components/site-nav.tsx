@@ -34,6 +34,7 @@ const NAV_ITEMS: NavEntry[] = [
       { name: "Tutorials", href: "/tutorials" },
       { name: "News", href: "/news" },
       { name: "FAQ", href: "/faq" },
+      { name: "Documentation", href: "/docs" },
       { name: "Press Kit", href: "/press-kit" },
     ],
   },

@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { CRAFTING_APPS, craftAppPath } from "@/lib/crafting-apps";
 import { getFaqItems, getNewsPosts, getTutorialItems } from "@/lib/content";
 import { SITE_URL } from "@/lib/links";
+import { docsSlugHref, getCraftDocs } from "@/lib/craft-docs";
 
 type Entry = MetadataRoute.Sitemap[number];
 
@@ -29,7 +30,10 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Entry["c
   })),
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export const revalidate = 300;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const docs = await getCraftDocs();
   const staticEntries: Entry[] = STATIC_ROUTES.map((route) => ({
     url: `${SITE_URL}${route.path}`,
     changeFrequency: route.changeFrequency,
@@ -40,6 +44,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...getFaqItems().map((item) => `/faq/${item.slug}`),
     ...getTutorialItems().map((item) => `/tutorials/${item.slug}`),
     ...getNewsPosts().map((post) => `/news/${post.slug}`),
+    ...docs.filter((doc) => doc.slug).map((doc) => docsSlugHref(doc.slug)),
   ].map((path) => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: "monthly" as const,
