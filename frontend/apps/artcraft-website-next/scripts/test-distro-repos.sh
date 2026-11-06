@@ -24,7 +24,9 @@ BANNER_SEP="=================================================="
 UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:26.04}"
 FEDORA_IMAGE="${FEDORA_IMAGE:-fedora:45}"
 DEBIAN_IMAGE="${DEBIAN_IMAGE:-debian:stable-slim}"
-RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi10/ubi:latest}"
+# UBI lacks some GUI runtime libraries in its enabled repositories; AlmaLinux exercises the
+# RHEL-compatible RPM/DNF package and dependency behavior with those libraries available.
+RHEL_IMAGE="${RHEL_IMAGE:-almalinux:10}"
 OPENSUSE_IMAGE="${OPENSUSE_IMAGE:-opensuse/tumbleweed:latest}"
 ARCH_IMAGE="${ARCH_IMAGE:-archlinux:latest}"
 
