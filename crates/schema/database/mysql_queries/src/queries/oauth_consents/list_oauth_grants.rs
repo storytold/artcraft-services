@@ -11,6 +11,7 @@ pub struct ListGrantsArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Live grants for a user, joined to the client name. Revoked consents and deleted clients are omitted.
 pub async fn list_oauth_grants<'c, T>(args: ListGrantsArgs<'_, T>) -> Result<Vec<OauthGrantRow>, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

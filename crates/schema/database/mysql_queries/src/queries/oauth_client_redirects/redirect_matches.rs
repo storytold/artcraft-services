@@ -6,6 +6,7 @@ pub struct RedirectMatchesArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// `true` when this client registered this exact redirect URI.
 pub async fn redirect_matches<'c, T>(args: RedirectMatchesArgs<'_, T>) -> Result<bool, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

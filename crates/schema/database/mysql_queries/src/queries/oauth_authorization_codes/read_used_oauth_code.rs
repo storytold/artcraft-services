@@ -14,6 +14,7 @@ pub struct ReadCodeArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Reads a code after `consume_oauth_code` marked it used, so the exchange can check the binding.
 pub async fn read_used_oauth_code<'c, T>(args: ReadCodeArgs<'_, T>) -> Result<Option<OauthCodeRow>, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

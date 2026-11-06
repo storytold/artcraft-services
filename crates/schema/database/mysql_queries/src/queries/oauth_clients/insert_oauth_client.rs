@@ -7,6 +7,7 @@ pub struct InsertOauthClientArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Stores a public client. There is no client secret; PKCE is required at authorization.
 pub async fn insert_oauth_client<'c, T>(args: InsertOauthClientArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

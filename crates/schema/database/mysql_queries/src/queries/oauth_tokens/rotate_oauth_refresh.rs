@@ -9,6 +9,7 @@ pub struct RotateRefreshArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Replaces a live refresh hash and extends the access expiry. `false` when the row was already rotated or revoked.
 pub async fn rotate_oauth_refresh<'c, T>(args: RotateRefreshArgs<'_, T>) -> Result<bool, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

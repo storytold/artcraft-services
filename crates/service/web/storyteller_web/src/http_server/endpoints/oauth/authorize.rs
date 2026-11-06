@@ -48,6 +48,7 @@ struct AuthorizeRequest {
   audience: String,
 }
 
+/// Render the consent page for a valid authorization-code request, or an error page when the request is not.
 pub async fn oauth_authorize_get(http_request: HttpRequest, query: web::Query<AuthorizeQuery>, server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError> {
   let request = match authorize_request_from_parts(parts_from_query(&query)) {
     Some(request) => request,
@@ -56,6 +57,7 @@ pub async fn oauth_authorize_get(http_request: HttpRequest, query: web::Query<Au
   render_consent(&http_request, &server_state, request).await
 }
 
+/// Approve or deny consent. Approval stores a one-time code and redirects to the client with it.
 pub async fn oauth_authorize_post(http_request: HttpRequest, body: web::Bytes, server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError> {
   let text = std::str::from_utf8(&body).unwrap_or("");
   let Some(pairs) = parse_form(text) else {
@@ -126,6 +128,7 @@ pub async fn oauth_authorize_post(http_request: HttpRequest, body: web::Bytes, s
   Ok(redirect_response(&redirect_with_query(&request.redirect_uri, &[("code", code.as_str()), ("state", &request.state)])))
 }
 
+/// Load the client, confirm the redirect is registered, and render consent for the signed-in user.
 async fn render_consent(http_request: &HttpRequest, server_state: &ServerState, request: AuthorizeRequest) -> Result<HttpResponse, CommonWebError> {
   let mut connection = server_state.mysql_pool.acquire().await.map_err(|err| {
     warn!("MySQL pool error");
@@ -178,10 +181,12 @@ struct AuthorizeParts<'a> {
   maybe_audience: Option<&'a str>,
 }
 
+/// Copy the authorization query into the shape shared with the consent form.
 fn parts_from_query(query: &AuthorizeQuery) -> AuthorizeParts<'_> {
   AuthorizeParts { maybe_response_type: query.response_type.as_deref(), maybe_client_id: query.client_id.as_deref(), maybe_redirect_uri: query.redirect_uri.as_deref(), maybe_scope: query.scope.as_deref(), maybe_state: query.state.as_deref(), maybe_code_challenge: query.code_challenge.as_deref(), maybe_code_challenge_method: query.code_challenge_method.as_deref(), maybe_audience: query.audience.as_deref() }
 }
 
+/// Accept only `response_type=code`, S256 PKCE, an allowlisted redirect, and a known audience.
 fn authorize_request_from_parts(parts: AuthorizeParts<'_>) -> Option<AuthorizeRequest> {
   if parts.maybe_response_type != Some("code") {
     return None;
@@ -210,31 +215,38 @@ fn authorize_request_from_parts(parts: AuthorizeParts<'_>) -> Option<AuthorizeRe
   Some(AuthorizeRequest { client_id: client_id.to_string(), redirect_uri: redirect_uri.to_string(), scopes, state: state.to_string(), code_challenge: code_challenge.to_string(), audience: audience.to_string() })
 }
 
+/// OAuth `state` is required, ASCII, and at most 512 characters.
 fn state_is_valid(state: &str) -> bool {
   (1..=512).contains(&state.len()) && state.chars().all(|character| character.is_ascii() && !character.is_control())
 }
 
+/// Bind a consent nonce to this user and the exact authorization request.
 fn request_binding_hash(user_token: &str, request: &AuthorizeRequest) -> Result<String, CommonWebError> {
   token_hash(&format!("{user_token}\n{}\n{}\n{}\n{}\n{}\n{}", request.client_id, request.redirect_uri, request.scopes, request.state, request.code_challenge, request.audience,)).map_err(CommonWebError::from_anyhow_error)
 }
 
+/// HTML 200 that refuses to be framed.
 fn html_ok(body: String) -> HttpResponse {
   framed(HttpResponse::Ok(), body)
 }
 
+/// HTML 400 that refuses to be framed.
 fn html_error(message: &str) -> HttpResponse {
   framed(HttpResponse::BadRequest(), error_page(message))
 }
 
+/// HTML 401 telling the user to sign in on the website and retry.
 fn sign_in_required() -> HttpResponse {
   framed(HttpResponse::Unauthorized(), sign_in_page())
 }
 
+/// Consent and error pages send `X-Frame-Options: DENY` and `frame-ancestors 'none'`.
 fn framed(mut builder: actix_web::HttpResponseBuilder, body: String) -> HttpResponse {
   builder.content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).insert_header(("x-frame-options", "DENY")).insert_header(("content-security-policy", "frame-ancestors 'none'"));
   builder.body(body)
 }
 
+/// 302 back to the client's redirect URI. The location is not cached.
 fn redirect_response(location: &str) -> HttpResponse {
   HttpResponse::Found().insert_header((LOCATION, location)).insert_header(("cache-control", "no-store")).finish()
 }
@@ -242,6 +254,11 @@ fn redirect_response(location: &str) -> HttpResponse {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn s256_request_with_a_state_is_accepted() {
+    assert!(authorize_request_from_parts(AuthorizeParts { maybe_response_type: Some("code"), maybe_client_id: Some("oauth_client_example"), maybe_redirect_uri: Some("https://example.com/callback"), maybe_scope: Some("generate"), maybe_state: Some("state"), maybe_code_challenge: Some("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), maybe_code_challenge_method: Some("S256"), maybe_audience: Some("https://api.storyteller.ai") }).is_some());
+  }
 
   #[test]
   fn plain_pkce_and_a_missing_state_are_rejected() {

@@ -30,6 +30,9 @@ pub struct UserApiSession {
 /// Authenticate a request using the API key in its `Authorization` header (see
 /// `get_authorization_header_api_key` for the accepted formats).
 ///
+/// An `oauth_access_` token for `https://api.storyteller.ai` with the `generate` scope is accepted
+/// and does not look up an API key. Any other `oauth_` header is 401.
+///
 /// Returns `CommonWebError::NotAuthorized` (401) when the header is missing/unparseable, when the
 /// key does not match a live (non-soft-deleted) API key whose owning user still exists, or when
 /// that owner is banned. `mysql_executor` can be any sqlx executor — pass `&mut *connection` to

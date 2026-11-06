@@ -6,6 +6,7 @@ pub struct RevokeGrantArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Marks the consent row revoked. A later approval can clear that timestamp.
 pub async fn revoke_oauth_grant<'c, T>(args: RevokeGrantArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

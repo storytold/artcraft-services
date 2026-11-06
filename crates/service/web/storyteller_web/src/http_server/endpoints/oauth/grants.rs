@@ -21,6 +21,7 @@ use crate::state::server_state::ServerState;
 
 const NONCE_TTL_SECONDS: i64 = 600;
 
+/// List the signed-in user's live grants. Each row carries a one-time revoke nonce.
 pub async fn oauth_grants_get(http_request: HttpRequest, server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError> {
   let mut connection = server_state.mysql_pool.acquire().await.map_err(|err| {
     warn!("MySQL pool error");
@@ -52,6 +53,7 @@ pub async fn oauth_grants_get(http_request: HttpRequest, server_state: web::Data
   Ok(framed(HttpResponse::Ok(), grants_page(&rows)))
 }
 
+/// Revoke one grant: the consent row, every live token, and any unused authorization code.
 pub async fn oauth_grant_revoke(http_request: HttpRequest, path: web::Path<String>, body: web::Bytes, server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError> {
   let client_token = path.into_inner();
   if !client_token.starts_with("oauth_client_") || client_token.len() > 64 {
@@ -104,14 +106,17 @@ pub async fn oauth_grant_revoke(http_request: HttpRequest, path: web::Path<Strin
   Ok(HttpResponse::Found().insert_header((LOCATION, "/v1/oauth/grants")).insert_header(("cache-control", "no-store")).finish())
 }
 
+/// HTML 401 telling the user to sign in on the website and retry.
 fn sign_in_required() -> HttpResponse {
   framed(HttpResponse::Unauthorized(), sign_in_page())
 }
 
+/// HTML 400 that refuses to be framed.
 fn html_message(message: &str) -> HttpResponse {
   framed(HttpResponse::BadRequest(), crate::http_server::endpoints::oauth::html::error_page(message))
 }
 
+/// Grant pages send `X-Frame-Options: DENY` and `frame-ancestors 'none'`.
 fn framed(mut builder: actix_web::HttpResponseBuilder, body: String) -> HttpResponse {
   builder.content_type("text/html; charset=utf-8").insert_header(("cache-control", "no-store")).insert_header(("x-frame-options", "DENY")).insert_header(("content-security-policy", "frame-ancestors 'none'"));
   builder.body(body)

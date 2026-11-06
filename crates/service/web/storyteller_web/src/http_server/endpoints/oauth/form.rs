@@ -1,3 +1,4 @@
+/// Parse `application/x-www-form-urlencoded`. Duplicate keys and bodies over 16 KiB are rejected.
 pub fn parse_form(body: &str) -> Option<Vec<(String, String)>> {
   if body.len() > 16 * 1024 {
     return None;
@@ -21,10 +22,12 @@ pub fn parse_form(body: &str) -> Option<Vec<(String, String)>> {
   Some(pairs)
 }
 
+/// First value for `key`, if the client sent it.
 pub fn form_value<'a>(pairs: &'a [(String, String)], key: &str) -> Option<&'a str> {
   pairs.iter().find(|(name, _)| name == key).map(|(_, value)| value.as_str())
 }
 
+/// Decode `+` and `%HH`. Non-ASCII bytes and truncated escapes are rejected.
 fn percent_decode(input: &str) -> Option<String> {
   let bytes = input.as_bytes();
   let mut out = Vec::with_capacity(bytes.len());
@@ -49,6 +52,7 @@ fn percent_decode(input: &str) -> Option<String> {
   String::from_utf8(out).ok()
 }
 
+/// One hex digit, or `None` when `byte` is not ASCII hex.
 fn hex_value(byte: u8) -> Option<u8> {
   match byte {
     b'0'..=b'9' => Some(byte - b'0'),

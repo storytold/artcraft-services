@@ -7,6 +7,7 @@ pub struct InsertOauthRedirectArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Stores one allowlisted redirect URI. The raw URI is what later requests must match exactly.
 pub async fn insert_oauth_redirect<'c, T>(args: InsertOauthRedirectArgs<'_, T>) -> Result<(), sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,

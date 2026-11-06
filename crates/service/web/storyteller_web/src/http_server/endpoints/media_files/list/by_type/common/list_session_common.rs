@@ -29,6 +29,7 @@ const MAX_PAGE_SIZE: usize = 1000;
 
 /// List the session user's media files of a single class (paginated).
 /// The shared core of the mesh and splat list handlers.
+/// An OAuth access token with `library:read` is accepted in place of a website session.
 pub async fn list_session_media_files_of_class(
   http_request: &HttpRequest,
   query: &ListSessionMediaFilesByTypeQueryParams,

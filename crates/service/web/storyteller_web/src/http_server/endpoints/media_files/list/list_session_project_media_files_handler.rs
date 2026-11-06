@@ -28,6 +28,7 @@ const MAX_PAGE_SIZE: usize = 1000;
 /// 3D scenes, mood boards, workflows, and video timelines (paginated).
 ///
 /// Use `filter_project_type` to scope the results to a single project type.
+/// An OAuth access token with `library:read` is accepted in place of a website session.
 #[utoipa::path(
   get,
   tag = "Media Files",

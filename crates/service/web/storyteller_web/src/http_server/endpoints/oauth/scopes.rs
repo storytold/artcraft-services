@@ -12,6 +12,7 @@ pub enum Scope {
 }
 
 impl Scope {
+  /// Wire value stored on the grant and returned from the token endpoint.
   pub fn as_str(self) -> &'static str {
     match self {
       Self::Generate => "generate",
@@ -21,6 +22,7 @@ impl Scope {
     }
   }
 
+  /// Sentence shown for this scope on the consent page.
   pub fn description(self) -> &'static str {
     match self {
       Self::Generate => "Generate media. This spends credits on your account.",
@@ -76,10 +78,12 @@ pub fn canonicalize_scopes(raw: &str, audience: &str) -> Option<String> {
   Some(scopes.iter().map(|scope| scope.as_str()).collect::<Vec<_>>().join(" "))
 }
 
+/// `true` when the stored scope list includes `required`.
 pub fn scope_granted(stored: &str, required: Scope) -> bool {
   stored.split(' ').any(|part| part == required.as_str())
 }
 
+/// Scopes named in a canonical string. Unknown parts are skipped.
 pub fn scopes_from_canonical(stored: &str) -> Vec<Scope> {
   stored
     .split(' ')
@@ -93,6 +97,7 @@ pub fn scopes_from_canonical(stored: &str) -> Vec<Scope> {
     .collect()
 }
 
+/// Stable order used when canonicalizing a scope list.
 fn scope_order(scope: Scope) -> u8 {
   match scope {
     Scope::Generate => 0,

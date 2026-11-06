@@ -1,6 +1,5 @@
 use sqlx::{Executor, MySql};
 
-/// Marks one live nonce used. `true` only for the first caller with that hash and request.
 pub struct ConsumeNonceArgs<'a, T> {
   pub nonce_hash: &'a str,
   pub user_token: &'a str,
@@ -9,6 +8,7 @@ pub struct ConsumeNonceArgs<'a, T> {
   pub mysql_executor: T,
 }
 
+/// Marks one live nonce used. `true` only for the first caller with that hash and request.
 pub async fn consume_oauth_nonce<'c, T>(args: ConsumeNonceArgs<'_, T>) -> Result<bool, sqlx::Error>
 where
   T: Executor<'c, Database = MySql>,
