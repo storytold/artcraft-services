@@ -7,6 +7,7 @@ import {
   MemoryStickIcon,
   MonitorIcon,
   AppleIcon,
+  SquareTerminalIcon,
 } from "lucide-react";
 import { WindowsIcon } from "@/components/icons";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
@@ -24,11 +25,11 @@ import {
   type Platform,
 } from "@/lib/use-platform";
 import DownloadModal from "./download-modal";
-import { artcraftStudioDownloads } from "@/lib/artcraft-studio";
-import { AppPlatformDownloads } from "@/components/apps/app-downloads";
+import { ARTCRAFT_STUDIO_RELEASE, artcraftStudioDownloads } from "@/lib/artcraft-studio";
+import { AppPlatformDownloads, useDetectedDesktop } from "@/components/apps/app-downloads";
 
 type System = {
-  id: Platform;
+  id: Platform | "linux";
   os: string;
   short: string;
   icon: ReactNode;
@@ -76,10 +77,18 @@ const STEPS = [
 // the server and passed in.
 export default function DownloadPage({ aside }: { aside?: ReactNode }) {
   const detected = useDetectedPlatform();
+  const desktop = useDetectedDesktop();
   const [modalOpen, setModalOpen] = useState(false);
 
-  const detectedSystem =
-    SYSTEMS.find((s) => s.id === detected?.platform) ?? SYSTEMS[0];
+  const linuxDownload = desktop?.platform === "Linux"
+    ? artcraftStudioDownloads().find((asset) => asset.recommended && asset.arch === desktop.arch)
+    : undefined;
+  const detectedSystem: System = linuxDownload ? {
+    id: "linux", os: "Linux", short: "Linux",
+    icon: <SquareTerminalIcon aria-hidden className="h-5 w-5" />,
+    link: linuxDownload.href, version: ARTCRAFT_STUDIO_RELEASE.version,
+    requirements: [],
+  } : SYSTEMS.find((s) => s.id === detected?.platform) ?? SYSTEMS[0];
   const isMobile = detected?.mobile ?? false;
 
   // Downloads start natively via the anchor; the modal only invites the
@@ -122,7 +131,6 @@ export default function DownloadPage({ aside }: { aside?: ReactNode }) {
         name="ArtCraft Studio"
         downloads={artcraftStudioDownloads()}
       />
-
 
       <SectionShell>
         <figure>
