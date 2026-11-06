@@ -264,5 +264,5 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   deckcraft: craftRelease("0.15.1"),
   cadcraft: craftRelease("0.17.1"),
   gridcraft: craftRelease("0.16.1"),
-  "craft-anything": craftRelease("0.3.0"),
+  "craft-anything": craftRelease("0.4.0"),
 };
