@@ -87,8 +87,12 @@ jobs:
         include:
           - name: "Ubuntu 26.04 (APT)"
             distro: ubuntu
+          - name: "Debian (APT)"
+            distro: debian
           - name: "Fedora 45 (DNF)"
             distro: fedora
+          - name: "RHEL (DNF)"
+            distro: rhel
           # libzypp rejects hostnames containing "--", so this leg reaches a deploy preview through
           # the script's forwarder while every other leg talks to the deployment directly.
           - name: "openSUSE Tumbleweed (Zypper)"
