@@ -1,3 +1,4 @@
+import { ARTCRAFT_STUDIO_RELEASE, artcraftStudioDownloads } from "./artcraft-studio";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { unstable_cache } from "next/cache";
@@ -134,6 +135,8 @@ export function getRequestBaseUrl(request: Request): string {
  * Uncatalogued filenames return null to preserve clean 404 behavior and block unauthorized redirects.
  */
 export function resolvePackageDownloadUrl(filename: string): string | null {
+  const studio = artcraftStudioDownloads().find((asset) => asset.fileName === filename);
+  if (studio) return studio.href;
   if (CRAFT_LAUNCHER_RELEASE) {
     const launcherDownloads = craftLauncherDownloads();
     const match = launcherDownloads.find((d) => d.fileName === filename);
@@ -172,7 +175,7 @@ export async function isPackageSignaturePublished(filename: string): Promise<boo
     return false;
   }
 
-  const releases: Array<{ repo: string; version: string }> = [];
+  const releases: Array<{ repo: string; version: string }> = [{ repo: "artcraft", version: ARTCRAFT_STUDIO_RELEASE.version }];
   if (CRAFT_LAUNCHER_RELEASE) {
     releases.push({ repo: "craft-launcher", version: CRAFT_LAUNCHER_RELEASE.version });
   }
@@ -225,7 +228,7 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
   let promise = shaSumsCache.get(key);
   if (!promise) {
     promise = (async () => {
-      const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
+      const url = `https://github.com/storytold/${repo}/releases/download/${repo === "artcraft" ? "artcraft-v" : "v"}${version}/SHA256SUMS.txt`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
       if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
       const text = await res.text();
@@ -698,7 +701,9 @@ async function buildDebAssets(
         filename,
         size: meta.size,
         sha256: meta.sha256,
-        depends: (name === "artcraft-launcher" && debArch === "riscv64")
+        depends: name === "artcraft"
+          ? `libc6 (>= ${debArch === "riscv64" ? "2.39" : "2.35"}), libgcc-s1, libgtk-3-0, libwebkit2gtk-4.1-0, libssl3`
+          : (name === "artcraft-launcher" && debArch === "riscv64")
           ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
           : defaultDepends,
         recommends: defaultRecommends,
@@ -750,13 +755,17 @@ async function buildRpmAssets(
     candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.rpm`;
       const meta = await getLinuxPackageMetadata(filename, repo, version);
-      const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
+      const glibcVer = (["artcraft-launcher", "artcraft"].includes(name) && arch === "riscv64") ? "2.39" : "2.35";
       const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
         ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
         : [];
       const requires: RpmRequire[] = [
         { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
-        ...COMMON_RPM_REQUIRES,
+        ...(name === "artcraft" ? [
+          { name: "libgtk-3.so.0()(64bit)" },
+          { name: "libwebkit2gtk-4.1.so.0()(64bit)" },
+          { name: "libssl.so.3()(64bit)" },
+        ] : COMMON_RPM_REQUIRES),
         ...audioRequires,
       ];
       return {
@@ -818,6 +827,20 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
 
   const compute = async (): Promise<LinuxRepoApp[]> => {
     const appPromises: Promise<LinuxRepoApp | null>[] = [];
+
+    // Studio uses the same signed package catalog as the native suite.
+    appPromises.push((async () => {
+      const version = ARTCRAFT_STUDIO_RELEASE.version;
+      const [debAssets, rpmAssets, archAssets] = await Promise.all([
+        includeDeb ? buildDebAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+        includeRpm ? buildRpmAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+        includeArch ? buildArchAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+      ]);
+      if (!debAssets.length && !rpmAssets.length && !archAssets.length) return null;
+      return { slug: "artcraft", name: "artcraft", version,
+        description: "ArtCraft Studio: AI image and video creation.", section: "graphics",
+        debAssets, rpmAssets, archAssets };
+    })());
 
     // Craft Launcher
     if (CRAFT_LAUNCHER_RELEASE) {

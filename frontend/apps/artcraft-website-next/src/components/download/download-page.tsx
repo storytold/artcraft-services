@@ -24,6 +24,7 @@ import {
   type Platform,
 } from "@/lib/use-platform";
 import DownloadModal from "./download-modal";
+import { artcraftStudioDownloads } from "@/lib/artcraft-studio";
 import { AppPlatformDownloads } from "@/components/apps/app-downloads";
 
 type System = {
@@ -90,24 +91,11 @@ export default function DownloadPage({ aside }: { aside?: ReactNode }) {
 
   return (
     <>
-      <AppPlatformDownloads
-        name="ArtCraft Studio"
-        downloads={(["x86_64", "aarch64"] as const).flatMap((arch) => {
-          const debArch = arch === "x86_64" ? "amd64" : "arm64";
-          const version = "0.42.0";
-          const base = `https://github.com/storytold/artcraft/releases/download/artcraft-v${version}`;
-          return [
-            { group: "Linux" as const, arch, description: "Portable AppImage", label: `AppImage (${arch})`, href: `${base}/ArtCraft_${version}_${debArch}.AppImage` },
-            { group: "Linux" as const, arch, description: "Debian and Ubuntu package", label: `Debian / Ubuntu (${arch})`, href: `${base}/ArtCraft_${version}_${debArch}.deb` },
-            { group: "Linux" as const, arch, description: "RPM package", label: `RPM (${arch})`, href: `${base}/ArtCraft-${version}-1.${arch}.rpm` },
-          ].map((file) => ({ ...file, fileName: file.href.split("/").pop()! }));
-        })}
-      />
       <PageHeader
         id="download"
         index="01"
         label="Download"
-        annotation="ArtCraft Studio · macOS · Windows · Web"
+        annotation="ArtCraft Studio · macOS · Windows · Linux · Web"
         title={
           <>
             Download ArtCraft <Accent>Studio</Accent>.
@@ -130,6 +118,11 @@ export default function DownloadPage({ aside }: { aside?: ReactNode }) {
           Free · Open source · v{detectedSystem.version}
         </p>
       </PageHeader>
+      <AppPlatformDownloads
+        name="ArtCraft Studio"
+        downloads={artcraftStudioDownloads()}
+      />
+
 
       <SectionShell>
         <figure>
