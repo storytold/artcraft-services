@@ -32,6 +32,7 @@ const NAV_ITEMS: NavEntry[] = [
     name: "Resources",
     children: [
       { name: "Tutorials", href: "/tutorials" },
+      { name: "Wiki", href: "https://craft.wiki" },
       { name: "News", href: "/news" },
       { name: "FAQ", href: "/faq" },
       { name: "Press Kit", href: "/press-kit" },
