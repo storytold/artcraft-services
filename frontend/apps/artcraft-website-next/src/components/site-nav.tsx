@@ -34,10 +34,10 @@ const NAV_ITEMS: NavEntry[] = [
       { name: "Tutorials", href: "/tutorials" },
       { name: "News", href: "/news" },
       { name: "FAQ", href: "/faq" },
-      { name: "Documentation", href: "/docs" },
       { name: "Press Kit", href: "/press-kit" },
     ],
   },
+  { name: "Wiki", href: "https://craft.wiki" },
   { name: "Support", href: "/support" },
   { name: "Craft Apps", href: "/apps", dividerBefore: true },
 ];

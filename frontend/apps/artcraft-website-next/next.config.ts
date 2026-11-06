@@ -65,18 +65,6 @@ const nextConfig: NextConfig = {
         destination: "/media/:token",
         permanent: true,
       },
-      // TileDocs publishes the static documentation site on its own host.
-      // Keep the old path as a stable entry point and send visitors there.
-      {
-        source: "/docs",
-        destination: "https://docs.getartcraft.com",
-        permanent: false,
-      },
-      {
-        source: "/docs/:path*",
-        destination: "https://docs.getartcraft.com/:path*",
-        permanent: false,
-      },
     ];
   },
 };
