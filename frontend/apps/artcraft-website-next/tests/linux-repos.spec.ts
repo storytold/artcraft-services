@@ -15,6 +15,7 @@ import {
   getRpmRepomdXml,
   getLinuxRepoApps,
   resolvePackageDownloadUrl,
+  withholdUnsignedPackages,
   RPM_REPO_TIMESTAMP,
   VALID_APT_DISTRIBUTIONS,
   VALID_APT_COMPONENTS,
@@ -28,13 +29,14 @@ import {
 } from "../src/lib/linux-repos";
 import * as openpgp from "openpgp";
 import { createHash } from "node:crypto";
-import { getSigningPublicKey, isRepoSigningConfigured, signCleartext, signDetachedArmored, signDetachedBinary } from "../src/lib/repo-signing";
+import { getSigningPublicKey, isRepoSigningConfigured, normalizeArmoredKey, signCleartext, signDetachedArmored, signDetachedBinary } from "../src/lib/repo-signing";
 import { CRAFTING_APPS, craftAppRelease, craftReleaseDownloads } from "../src/lib/crafting-apps";
 import { CRAFT_LAUNCHER_RELEASE } from "../src/lib/crafting-app-releases";
 import { GET as getInRelease } from "../src/app/apt/dists/[distribution]/InRelease/route";
 import { GET as getReleaseGpg } from "../src/app/apt/dists/[distribution]/Release.gpg/route";
 import { GET as getRpmSignature } from "../src/app/rpm/[arch]/repodata/repomd.xml.asc/route";
 import { GET as getArchSignature } from "../src/app/arch/[arch]/artcraft.db.sig/route";
+import { GET as getArchPackage } from "../src/app/arch/[arch]/[filename]/route";
 import { GET as getKeyAsc } from "../src/app/keys/artcraft.asc/route";
 import { GET as getKeyGpg } from "../src/app/keys/artcraft.gpg/route";
 
@@ -78,6 +80,14 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(launcherUrl).toBe(`${launcherBase}/artcraft-launcher-${launcherVersion}-linux-riscv64.deb`);
 
     const archUrl = resolvePackageDownloadUrl(`pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst`);
+    expect(resolvePackageDownloadUrl(`pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst.sig`)).toBe(
+      `${pdfBase}/pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst.sig`,
+    );
+    expect(resolvePackageDownloadUrl(`pdfcraft-${pdf}-linux-x86_64.rpm.asc`)).toBe(
+      `${pdfBase}/pdfcraft-${pdf}-linux-x86_64.rpm.asc`,
+    );
+    // Signatures are only served for packages the catalog publishes.
+    expect(resolvePackageDownloadUrl(`unknown-${pdf}-linux-x86_64.pkg.tar.zst.sig`)).toBeNull();
     expect(archUrl).toBe(`${pdfBase}/pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst`);
 
     const archArmUrl = resolvePackageDownloadUrl(`artcraft-launcher-${launcherVersion}-linux-aarch64.pkg.tar.zst`);
@@ -203,6 +213,50 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
     expect(escapeXml('foo & "bar" <baz>')).toBe("foo &amp; &quot;bar&quot; &lt;baz&gt;");
   });
 
+  test("keeps valid multiline armor intact and only unescapes single-line keys", () => {
+    // A `Comment:` header may contain backslashes; rewriting them would corrupt the armor and
+    // silently disable signing for an otherwise valid key.
+    const armored = [
+      "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+      "Comment: exported from the release host",
+      "",
+      "lQOYBGexampleKeyMaterial",
+      "-----END PGP PRIVATE KEY BLOCK-----",
+    ].join("\n");
+    expect(normalizeArmoredKey(armored)).toBe(armored);
+
+    const windowsPathComment = armored.replace(
+      "Comment: exported from the release host",
+      "Comment: keys live at C:\\Users\\release",
+    );
+    expect(normalizeArmoredKey(windowsPathComment)).toBe(windowsPathComment);
+
+    // The same block as one line of JSON / .env / `netlify env:set` escapes.
+    expect(normalizeArmoredKey(`"${armored.replaceAll("\n", "\\n")}"`)).toBe(armored);
+    // A JSON value stored inside another JSON value doubles every backslash.
+    expect(normalizeArmoredKey(`"${armored.replaceAll("\n", "\\\\n")}"`)).toBe(armored);
+
+    // Base64 travels as a single line, wrapped or not, and may lose its padding on the way.
+    const base64 = Buffer.from(armored, "utf-8").toString("base64");
+    expect(normalizeArmoredKey(base64)).toBe(armored);
+    expect(normalizeArmoredKey(base64.replace(/=+$/, ""))).toBe(armored);
+    expect(normalizeArmoredKey(base64.replace(/(.{76})/g, "$1\n"))).toBe(armored);
+    // Base64 of an escaped single line still needs the newlines put back after decoding.
+    const escapedThenEncoded = Buffer.from(armored.replaceAll("\n", "\\n"), "utf-8").toString("base64");
+    expect(normalizeArmoredKey(escapedThenEncoded)).toBe(armored);
+  });
+
+  test("withholds Arch package signatures when the deployment publishes no key", async () => {
+    // pacman has no key to verify against here, so serving the signature would only break the
+    // install; the config for this deployment does not ask for signatures either.
+    const filename = `pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst.sig`;
+    const response = await getArchPackage(
+      new Request(`https://getartcraft.com/arch/x86_64/${filename}`),
+      { params: Promise.resolve({ arch: "x86_64", filename }) },
+    );
+    expect(response.status).toBe(404);
+  });
+
   test("uses trusted origins for repository configuration", () => {
     const directReq = new Request("http://127.0.0.1:4210/rpm/artcraft.repo");
     expect(getRequestBaseUrl(directReq)).toBe("http://127.0.0.1:4210");
@@ -257,6 +311,7 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
       depends: ["glibc"],
       provides: ["examplecraft=1.2.3-1"],
       optdepends: ["cups: printing support"],
+      signed: true,
     };
 
     const mirrored = generatePacmanDesc(app, asset);
@@ -443,11 +498,54 @@ test.describe("signed repositories", () => {
 
     const repo = await generateRpmRepoConfig("https://getartcraft.com");
     expect(repo).toContain("repo_gpgcheck=1");
+    expect(repo).toContain("gpgcheck=1");
+    expect(repo).not.toContain("gpgcheck=0");
     expect(repo).toContain("gpgkey=https://getartcraft.com/keys/artcraft.asc");
 
     const pacmanConfig = await generatePacmanRepoConfig("https://getartcraft.com");
-    expect(pacmanConfig).toContain("SigLevel = Optional DatabaseRequired");
+    // Both the sync database and every downloaded package must be signed.
+    expect(pacmanConfig).toContain("SigLevel = Required DatabaseRequired");
     expect(pacmanConfig).not.toContain("TrustAll");
+  });
+
+  test("withholds packages whose release publishes no signature", async () => {
+    const apps = await getLinuxRepoApps({ rpm: true, arch: true });
+
+    // Everything the repository advertises has to be verifiable. A release that predates signing,
+    // like craft-anything 0.3.0, is left out until it publishes signatures with the next release.
+    for (const app of apps) {
+      expect(app.rpmAssets.every((asset) => asset.signed)).toBe(true);
+      expect(app.archAssets.every((asset) => asset.signed)).toBe(true);
+    }
+
+    const signed = { filename: "signedcraft-1.0.0-linux-x86_64.rpm", signed: true };
+    const unsigned = { filename: "unsignedcraft-1.0.0-linux-x86_64.rpm", signed: false };
+    expect(await withholdUnsignedPackages([signed, unsigned])).toEqual([signed]);
+
+    // With no key on the deployment there is nothing to verify against, so nothing is withheld.
+    delete process.env.LINUX_SIGNING_KEY;
+    expect(await withholdUnsignedPackages([signed, unsigned])).toEqual([signed, unsigned]);
+  });
+
+  test("redirects arch package signature downloads to the release asset", async () => {
+    const filename = `pdfcraft-${pdf}-linux-x86_64.pkg.tar.zst.sig`;
+    const response = await getArchPackage(
+      new Request(`https://getartcraft.com/arch/x86_64/${filename}`),
+      { params: Promise.resolve({ arch: "x86_64", filename }) },
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      `https://github.com/storytold/pdfcraft/releases/download/v${pdf}/${filename}`,
+    );
+
+    // Uncatalogued versions have no release asset to redirect to.
+    const unknown = "pdfcraft-9.9.9-linux-x86_64.pkg.tar.zst.sig";
+    const missing = await getArchPackage(
+      new Request(`https://getartcraft.com/arch/x86_64/${unknown}`),
+      { params: Promise.resolve({ arch: "x86_64", filename: unknown }) },
+    );
+    expect(missing.status).toBe(404);
   });
 
   test("signs the apt Release so apt accepts both Release.gpg and InRelease", async () => {

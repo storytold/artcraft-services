@@ -68,6 +68,8 @@ export type LinuxRepoApp = {
     sha256: string;
     requires: RpmRequire[];
     installedSize: number;
+    /** The release publishes a signature for this package, so dnf can verify it. */
+    signed: boolean;
   }[];
   archAssets: {
     arch: ArchPackageArch;
@@ -80,6 +82,8 @@ export type LinuxRepoApp = {
     provides: string[];
     /** `optdepend` lines exactly as the package's .PKGINFO declares them. */
     optdepends: string[];
+    /** The release publishes a .sig for this package, so pacman can verify it. */
+    signed: boolean;
   }[];
 };
 
@@ -144,7 +148,53 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
     if (match) return match.href;
   }
 
+  // Signature assets sit next to the package they cover and are not part of the download manifest,
+  // so derive them from the package they sign instead of listing every signature separately.
+  const signatureSuffix = PACKAGE_SIGNATURE_SUFFIXES.find((suffix) => filename.endsWith(suffix));
+  if (signatureSuffix) {
+    const signedUrl = resolvePackageDownloadUrl(filename.slice(0, -signatureSuffix.length));
+    if (signedUrl) return `${signedUrl}${signatureSuffix}`;
+  }
+
   return null;
+}
+
+/** Suffixes of the detached signatures release workflows publish beside their packages. */
+const PACKAGE_SIGNATURE_SUFFIXES = [".sig", ".asc"] as const;
+
+/**
+ * Whether the release actually publishes `filename` as a detached signature. The redirect would
+ * otherwise point clients at a release asset that does not exist, which pacman reports as a failed
+ * signature download.
+ */
+export async function isPackageSignaturePublished(filename: string): Promise<boolean> {
+  if (!PACKAGE_SIGNATURE_SUFFIXES.some((suffix) => filename.endsWith(suffix))) {
+    return false;
+  }
+
+  const releases: Array<{ repo: string; version: string }> = [];
+  if (CRAFT_LAUNCHER_RELEASE) {
+    releases.push({ repo: "craft-launcher", version: CRAFT_LAUNCHER_RELEASE.version });
+  }
+  for (const app of CRAFTING_APPS) {
+    const release = craftAppRelease(app);
+    if (release) {
+      releases.push({ repo: app.slug, version: release.version });
+    }
+  }
+
+  for (const release of releases) {
+    try {
+      const sums = await getShaSums(release.repo, release.version);
+      if (sums.has(filename)) {
+        return true;
+      }
+    } catch {
+      // A release whose checksums cannot be read publishes nothing verifiable.
+    }
+  }
+
+  return false;
 }
 
 export function handlePackageDownloadRedirect(pathSegments: string[] | undefined): Response {
@@ -660,6 +710,33 @@ async function buildDebAssets(
   return results;
 }
 
+/**
+ * Once the repository requires signatures, it must not advertise a package no client can verify:
+ * dnf and pacman reject it, and a client that skips verification installs it unverified. Releases
+ * list their detached signatures in SHA256SUMS.txt, so anything without one is withheld until the
+ * next signed release instead of breaking the whole repository.
+ */
+export async function withholdUnsignedPackages<T extends { filename: string; signed: boolean }>(
+  assets: T[],
+): Promise<T[]> {
+  if (!(await isRepoSigningConfigured())) {
+    return assets;
+  }
+  return assets.filter((asset) => {
+    if (asset.signed) return true;
+    if (!reportedUnsignedPackages.has(asset.filename)) {
+      reportedUnsignedPackages.add(asset.filename);
+      console.warn(
+        `Withholding ${asset.filename}: the repository requires signatures but the release publishes none for it`,
+      );
+    }
+    return false;
+  });
+}
+
+/** Each withheld package is worth reporting once; catalog builds repeat on every request. */
+const reportedUnsignedPackages = new Set<string>();
+
 async function buildRpmAssets(
   name: string,
   repo: string,
@@ -689,11 +766,13 @@ async function buildRpmAssets(
         sha256: meta.sha256,
         requires,
         installedSize: meta.installedSize,
+        // The release workflow signs each RPM and publishes the detached signature next to it.
+        signed: sums.has(`${filename}.asc`),
       };
     })
   );
 
-  return results;
+  return withholdUnsignedPackages(results);
 }
 
 async function buildArchAssets(
@@ -718,11 +797,13 @@ async function buildArchAssets(
         depends: meta.depends ?? DEFAULT_PACMAN_DEPENDS,
         provides: meta.provides ?? [],
         optdepends: meta.optdepends ?? [],
+        // pacman verifies the detached `.pkg.tar.zst.sig` beside each package.
+        signed: sums.has(`${filename}.sig`),
       };
     })
   );
 
-  return results;
+  return withholdUnsignedPackages(results);
 }
 let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
 
@@ -1059,12 +1140,12 @@ repo_gpgcheck=0
 `;
   }
   return `[artcraft]
+# Signed metadata and signed packages: dnf verifies repomd.xml against its signature, imports the
+# key below, and verifies the OpenPGP header signature inside every package it downloads.
 name=ArtCraft Linux Packages
 baseurl=${baseUrl}/rpm
 enabled=1
-# repomd.xml is signed; the packages themselves carry a signature from the next release on, so
-# dnf still trusts the signed metadata's digests rather than a per-package signature.
-gpgcheck=0
+gpgcheck=1
 repo_gpgcheck=1
 gpgkey=${baseUrl}/keys/artcraft.asc
 `;
@@ -1219,9 +1300,16 @@ export async function generatePacmanDb(
 }
 
 export async function generatePacmanRepoConfig(baseUrl: string): Promise<string> {
-  const sigLevel = (await isRepoSigningConfigured()) ? "Optional DatabaseRequired" : "Optional TrustAll";
+  if (!(await isRepoSigningConfigured())) {
+    return `[artcraft]
+SigLevel = Optional TrustAll
+Server = ${baseUrl}/arch/$arch
+`;
+  }
   return `[artcraft]
-SigLevel = ${sigLevel}
+# Import the key before syncing, otherwise pacman rejects the repository:
+#   sudo pacman-key --add /tmp/artcraft.asc && sudo pacman-key --lsign-key <fingerprint>
+SigLevel = Required DatabaseRequired
 Server = ${baseUrl}/arch/$arch
 `;
 }

@@ -3,15 +3,22 @@
 # inside Ubuntu (APT), Fedora (DNF), openSUSE (Zypper), and Ubuntu (Flatpak glibc) containers.
 #
 # Usage:
-#   ./scripts/test-distro-repos.sh [ubuntu|fedora|opensuse|flatpak|all] [BASE_URL]
+#   ./scripts/test-distro-repos.sh [ubuntu|fedora|opensuse|flatpak|arch|all] BASE_URL
 #
-# If BASE_URL is omitted, it defaults to http://127.0.0.1:4210 and launches
-# a local Next.js production server.
+# BASE_URL is the deployment to test (a Netlify preview, a branch deploy or production); the script
+# never serves the site itself, so what it verifies is what users download.
+#
+# Set REQUIRE_SIGNED=1 to fail instead of falling back to trusted repositories when the
+# deployment publishes no signing key. CI sets it so signature verification is always exercised.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-all}"
-BASE_URL="${2:-${NETLIFY_PREVIEW_URL:-http://127.0.0.1:4210}}"
+BASE_URL="${2:-${NETLIFY_PREVIEW_URL:-}}"
+if [[ -z "$BASE_URL" ]]; then
+  echo "Error: pass the deployment to test, e.g. ./scripts/test-distro-repos.sh arch https://getartcraft.com" >&2
+  exit 2
+fi
 BANNER_SEP="=================================================="
 UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:26.04}"
 FEDORA_IMAGE="${FEDORA_IMAGE:-fedora:45}"
@@ -32,39 +39,34 @@ else
   exit 1
 fi
 
-SERVER_PID=""
-PROXY_PID=""
+# A deployment with LINUX_SIGNING_KEY signs its repository metadata and advertises its key. The
+# package managers below then verify signatures against that key instead of bypassing verification.
+SIGNED_REPO=0
+if curl -fsS -o /dev/null "$BASE_URL/keys/artcraft.asc" 2>/dev/null; then
+  SIGNED_REPO=1
+  echo "Repository signing is enabled at $BASE_URL; every package manager below verifies signatures."
+elif [[ "${REQUIRE_SIGNED:-0}" == "1" ]]; then
+  echo "Error: $BASE_URL publishes no signing key, so these tests would only exercise trusted" \
+    "repositories instead of signature verification." >&2
+  exit 1
+else
+  echo "Warning: $BASE_URL publishes no signing key, so these tests cannot exercise signature" \
+    "verification and fall back to trusted repositories." >&2
+fi
 
-cleanup() {
-  if [[ -n "$PROXY_PID" ]]; then
-    kill "$PROXY_PID" >/dev/null 2>&1 || true
-    wait "$PROXY_PID" >/dev/null 2>&1 || true
+# libzypp reads the metadata key from repodata/repomd.xml.key rather than from the .repo file, and it
+# cannot address a Netlify preview at all, so every deployment gets that route checked here.
+if [[ "$SIGNED_REPO" == "1" ]]; then
+  if ! curl -fsSL "$BASE_URL/rpm/repodata/repomd.xml.key" -o /tmp/artcraft-repomd.key 2>/dev/null ||
+     ! grep -q "BEGIN PGP PUBLIC KEY BLOCK" /tmp/artcraft-repomd.key; then
+    echo "Error: $BASE_URL serves no metadata key at /rpm/repodata/repomd.xml.key!" >&2
+    exit 1
   fi
-  if [[ -n "$SERVER_PID" ]]; then
-    echo "Stopping test Next.js server (PID $SERVER_PID)..."
-    kill "$SERVER_PID" >/dev/null 2>&1 || true
-    wait "$SERVER_PID" >/dev/null 2>&1 || true
+  curl -fsSL "$BASE_URL/keys/artcraft.asc" -o /tmp/artcraft-keys.asc 2>/dev/null || true
+  if [[ -s /tmp/artcraft-keys.asc ]] && ! cmp -s /tmp/artcraft-repomd.key /tmp/artcraft-keys.asc; then
+    echo "Error: /rpm/repodata/repomd.xml.key does not match /keys/artcraft.asc!" >&2
+    exit 1
   fi
-}
-trap cleanup EXIT
-
-# If testing against default local port and nothing is listening, build & start Next.js
-if [[ "$BASE_URL" == "http://127.0.0.1:4210"* ]] && ! curl -sf -o /dev/null "$BASE_URL/apt/artcraft.sources" 2>/dev/null; then
-  echo "Building and starting local Next.js server on 127.0.0.1:4210..."
-  if [[ ! -d ".next" ]]; then
-    npm run build
-  fi
-  npm run start -- -H 127.0.0.1 -p 4210 &
-  SERVER_PID=$!
-  
-  # Wait for server to become ready
-  for i in {1..30}; do
-    if curl -sf -o /dev/null "$BASE_URL/apt/artcraft.sources" 2>/dev/null; then
-      echo "Local Next.js server ready."
-      break
-    fi
-    sleep 0.5
-  done
 fi
 
 # Ensure openSUSE Tumbleweed image is available
@@ -75,13 +77,24 @@ ensure_opensuse_image() {
   fi
 }
 
-# Start local HTTP forwarder using standard library http.client.
-# Preserves 302/307 redirects to GitHub Releases and works around libzypp consecutive hyphen (--) host bug
-# as well as flatpak cleartext h2c upgrade header drops.
+PROXY_PID=""
+
+cleanup() {
+  if [[ -n "$PROXY_PID" ]]; then
+    kill "$PROXY_PID" >/dev/null 2>&1 || true
+    wait "$PROXY_PID" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
+
+# libzypp rejects hostnames containing "--" ("Invalid host component") and every Netlify deploy
+# preview has them, so zypper alone reaches the preview through this forwarder. It streams from the
+# deployment — nothing is built or served from local files — and every other distro talks to
+# BASE_URL directly.
 start_local_forwarder() {
   local target_url="$1"
   local port="$2"
-  
+
   python3 -c '
 import http.server, http.client, socketserver, urllib.parse, sys
 
@@ -101,8 +114,6 @@ class P(http.server.BaseHTTPRequestHandler):
             "Host": host,
             "User-Agent": self.headers.get("User-Agent", "artcraft-proxy")
         }
-        if not is_ssl and ("127.0.0.1" in host or "localhost" in host):
-            headers["x-forwarded-host"] = f"127.0.0.1:{port}"
         for h in ("Accept", "Accept-Encoding"):
             if h in self.headers:
                 headers[h] = self.headers[h]
@@ -169,7 +180,17 @@ test_ubuntu() {
     dpkg --add-architecture arm64
     dpkg --add-architecture riscv64
 
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      echo "--- Installing the ArtCraft signing keyring ---"
+      install -d -m 755 /etc/apt/keyrings
+      curl -fsSL "'"$BASE_URL"'/keys/artcraft.gpg" -o /etc/apt/keyrings/artcraft.gpg
+      chmod 644 /etc/apt/keyrings/artcraft.gpg
+      [[ -s /etc/apt/keyrings/artcraft.gpg ]] || { echo "Error: the ArtCraft keyring is empty" >&2; exit 1; }
+    fi
+
     curl -fsSL "'"$BASE_URL"'/apt/artcraft.sources" -o /etc/apt/sources.list.d/artcraft.sources
+    # With Signed-By set, apt refuses metadata that is not signed by the imported key: a bad or
+    # missing signature fails this update instead of being downloaded as trusted.
     apt-get update
 
     echo "--- Querying APT policy ---"
@@ -220,6 +241,13 @@ test_fedora() {
     set -euo pipefail
     cat /etc/os-release | grep PRETTY_NAME || true
     curl -fsSL "'"$BASE_URL"'/rpm/artcraft.repo" -o /etc/yum.repos.d/artcraft.repo
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      # The repository requires signed metadata. Let dnf import its own gpgkey (-y answers the
+      # prompt); a manual rpm --import is not enough for that check. rpmkeys still reads the RPM
+      # database, so import there as well.
+      dnf -y --disablerepo="*" --enablerepo="artcraft" makecache
+      rpm --import "'"$BASE_URL"'/keys/artcraft.asc"
+    fi
 
     echo "--- DNF repoquery: listing all packages in repository ---"
     dnf --disablerepo="*" --enablerepo="artcraft" repoquery
@@ -237,7 +265,20 @@ test_fedora() {
     echo "--- Verifying SHA-256 integrity digests against manifest ---"
     sha256sum -c /tmp/expected.sha256
 
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      echo "--- Verifying the OpenPGP signature inside every downloaded RPM (key imported above) ---"
+      for rpm_file in *.rpm; do
+        if ! rpmkeys --checksig "$rpm_file" | grep -q "signatures OK"; then
+          echo "Error: $rpm_file is not signed by the ArtCraft key!" >&2
+          rpmkeys --checksig "$rpm_file" >&2
+          exit 1
+        fi
+        echo "  ✓ $rpm_file signature verified"
+      done
+    fi
+
     echo "--- Testing real installation of native packages ---"
+    # artcraft.repo enables gpgcheck, so dnf verifies each package against the imported key.
     dnf install -y --setopt=install_weak_deps=False '"$dnf_install_pkgs"'
     for pkg in '"$dnf_install_pkgs"'; do
       if [[ ! -x "/usr/bin/$pkg" ]]; then
@@ -260,7 +301,8 @@ test_opensuse() {
 
   local zypper_url="$BASE_URL"
   if [[ "$BASE_URL" == *"--"* ]]; then
-    echo "Deploy preview URL contains consecutive dashes (--). Starting local forwarder to bypass libzypp URI bug..."
+    echo "libzypp cannot parse a hostname containing '--'; forwarding $BASE_URL through the local" \
+      "forwarder for zypper only."
     start_local_forwarder "$BASE_URL" 4213
     zypper_url="http://127.0.0.1:4213"
   fi
@@ -282,6 +324,20 @@ test_opensuse() {
     # Disable remote mirrors to avoid downloading unrelated openSUSE package metadata
     zypper --non-interactive modifyrepo --all --disable 2>/dev/null || true
 
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      # zypper fetches the metadata signing key from <repo>/repodata/repomd.xml.key and imports it
+      # when auto-import is on. Nothing is pre-imported here, so a missing key route fails the
+      # refresh below instead of being masked by a key that is already trusted.
+      echo "--- Refreshing with --gpg-auto-import-keys; libzypp imports repomd.xml.key itself ---"
+      key_flags=(--gpg-auto-import-keys)
+      repo_flags=()
+      install_flags=()
+    else
+      key_flags=()
+      repo_flags=(--no-check --no-gpgcheck)
+      install_flags=(--allow-unsigned-rpm)
+    fi
+
     download_for_arch() {
       local arch="$1"
       shift
@@ -292,8 +348,8 @@ test_opensuse() {
 [main]
 arch = $arch
 EOF
-      zypper --non-interactive addrepo --no-check --no-gpgcheck "'"$zypper_url"'/rpm" "artcraft-$arch"
-      zypper --non-interactive refresh "artcraft-$arch"
+      zypper --non-interactive addrepo "${repo_flags[@]}" "'"$zypper_url"'/rpm" "artcraft-$arch"
+      zypper --non-interactive "${key_flags[@]}" refresh "artcraft-$arch"
       zypper --non-interactive search -r "artcraft-$arch" -s
       zypper --non-interactive download "${pkgs[@]}"
       cp /var/cache/zypp/packages/"artcraft-$arch"/packages/*.rpm /tmp/all_pkgs/
@@ -318,9 +374,9 @@ EOF
     echo "--- Testing real installation of native packages ---"
     rm -f /etc/zypp/zypp.conf
     zypper --non-interactive modifyrepo --enable repo-oss 2>/dev/null || true
-    zypper --non-interactive addrepo --no-check --no-gpgcheck "'"$zypper_url"'/rpm" artcraft
-    zypper --non-interactive refresh
-    zypper --non-interactive install --no-recommends --allow-unsigned-rpm '"$zypper_install_pkgs"'
+    zypper --non-interactive addrepo "${repo_flags[@]}" "'"$zypper_url"'/rpm" artcraft
+    zypper --non-interactive "${key_flags[@]}" refresh
+    zypper --non-interactive "${key_flags[@]}" install --no-recommends "${install_flags[@]}" '"$zypper_install_pkgs"'
     for pkg in $(echo "'"$zypper_install_pkgs"'" | tr " " "\n" | sed "s/^artcraft://"); do
       if [[ ! -x "/usr/bin/$pkg" ]]; then
         echo "Error: Binary /usr/bin/$pkg not found or not executable after installation!" >&2
@@ -332,6 +388,7 @@ EOF
     echo "=== openSUSE Tumbleweed (Zypper) verification and installation passed! ==="
   '
 
+  # Only the zypper leg uses the forwarder; stop it before the next distro runs.
   if [[ -n "$PROXY_PID" ]]; then
     kill "$PROXY_PID" >/dev/null 2>&1 || true
     wait "$PROXY_PID" >/dev/null 2>&1 || true
@@ -346,11 +403,6 @@ test_flatpak() {
   echo "$BANNER_SEP"
 
   local flatpak_url="$BASE_URL"
-  if [[ "$BASE_URL" == "http://"* ]]; then
-    echo "Cleartext HTTP detected. Starting local forwarder to handle Flatpak h2c upgrade..."
-    start_local_forwarder "$BASE_URL" 4214
-    flatpak_url="http://127.0.0.1:4214"
-  fi
 
   local flatpak_apps
   flatpak_apps="$(manifest_info flatpak-apps)"
@@ -359,6 +411,49 @@ test_flatpak() {
   for app in $flatpak_apps; do
     flatpak_ids+=" ai.storyteller.$app"
   done
+
+  # Flatpak honours GPGKey from the remote descriptor, but no released flatpak takes a lookaside:
+  # there is no --signature-lookaside option and a flatpakrepo file cannot carry one. So check the
+  # lookaside at its source here, outside the container, where the quoting stays readable.
+  if [[ "$SIGNED_REPO" == "1" ]]; then
+    local descriptor lookaside registry_token digest signature_status
+
+    echo "--- Confirming the published descriptor advertises signing ---"
+    descriptor="$(curl -fsSL "$flatpak_url/artcraft-oci.flatpakrepo")"
+    grep -q "^GPGKey=" <<< "$descriptor" || {
+      echo "Error: the Flatpak remote descriptor publishes no GPG key!" >&2
+      exit 1
+    }
+    lookaside="$(sed -n 's/^SignatureLookaside=//p' <<< "$descriptor")"
+    [[ "$lookaside" == "$flatpak_url/oci-signatures" ]] || {
+      echo "Error: the Flatpak remote descriptor has no signature lookaside (got '$lookaside')!" >&2
+      exit 1
+    }
+
+    # OCI tags are per architecture, so the digest flatpak pulls is <branch>-<arch>.
+    registry_token="$(curl -fsSL "https://ghcr.io/token?scope=repository:storytold/craft-anything:pull&service=ghcr.io" |
+      sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+    digest="$(curl -fsSI -H "Authorization: Bearer $registry_token" \
+      -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json" \
+      "https://ghcr.io/v2/storytold/craft-anything/manifests/stable-x86_64" |
+      tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: //p')"
+    [[ -n "$digest" ]] || {
+      echo "Error: the registry reported no digest for storytold/craft-anything:stable-x86_64!" >&2
+      exit 1
+    }
+    # The lookaside uses the containers/image separate-storage layout: <repo>@sha256=<hex>.
+    signature_status="$(curl -s -o /tmp/artcraft-oci.sig -w '%{http_code}' \
+      "$lookaside/storytold/craft-anything@${digest/:/=}/signature-1")"
+    [[ "$signature_status" == "200" ]] || {
+      echo "Error: the lookaside serves no signature for $digest (HTTP $signature_status)!" >&2
+      exit 1
+    }
+    grep -q "\"docker-manifest-digest\":\"$digest\"" /tmp/artcraft-oci.sig || {
+      echo "Error: the lookaside signature does not cover $digest!" >&2
+      exit 1
+    }
+    echo "  ✓ The descriptor advertises the key and the lookaside serves a signature for $digest"
+  fi
 
   # Use Ubuntu (glibc-based standard Linux container) for Flatpak tests
   $CONTAINER_TOOL run --rm --network host "$UBUNTU_IMAGE" bash -c '
@@ -370,6 +465,31 @@ test_flatpak() {
 
     echo "--- Adding ArtCraft Flatpak OCI remote ---"
     flatpak remote-add --user --if-not-exists test-artcraft "'"$flatpak_url"'/artcraft-oci.flatpakrepo"
+
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      # The lookaside is checked outside this container; here only the remote flatpak itself
+      # stored has to ask for a key.
+      echo "--- Confirming the remote verifies OCI signatures ---"
+      remote_config="$HOME/.local/share/flatpak/repo/config"
+      # Read the remote section with the shell: an awk program quoted inside this already
+      # double-quoted container script splits at the inner quotes and never reaches awk intact.
+      remote_section=""
+      in_remote=0
+      while IFS= read -r config_line; do
+        case "$config_line" in
+          "[remote \"test-artcraft\"]") in_remote=1; continue ;;
+          \[*) in_remote=0; continue ;;
+        esac
+        if [[ "$in_remote" == "1" ]]; then
+          printf -v remote_section "%s%s\n" "$remote_section" "$config_line"
+        fi
+      done < "$remote_config"
+      grep -qx "gpg-verify=true" <<< "$remote_section" || {
+        echo "Error: Flatpak remote is not configured to verify signatures!" >&2
+        exit 1
+      }
+      echo "  ✓ Flatpak remote verifies signatures with the published key"
+    fi
 
     echo "--- Listing remote packages from OCI registry ---"
     flatpak remote-ls --user --app --columns=application,version,branch | tee /tmp/remote-apps.txt
@@ -406,11 +526,6 @@ test_flatpak() {
     echo "=== Flatpak (OCI Remote) verified: every published app installed from the registry. ==="
   '
 
-  if [[ -n "$PROXY_PID" ]]; then
-    kill "$PROXY_PID" >/dev/null 2>&1 || true
-    wait "$PROXY_PID" >/dev/null 2>&1 || true
-    PROXY_PID=""
-  fi
 }
 
 test_arch() {
@@ -437,12 +552,38 @@ test_arch() {
     sed -i "s/^\[options\]/[options]\nDisableDownloadTimeout/" /etc/pacman.conf || true
 
     echo "--- Configuring ArtCraft repository in pacman.conf ---"
-    tee -a /etc/pacman.conf << EOF
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      echo "--- Importing and locally signing the ArtCraft key ---"
+      # The image ships /etc/pacman.d/gnupg without a secret key, so the directory existing is not
+      # enough to tell whether this keyring is usable.
+      if ! gpg --homedir /etc/pacman.d/gnupg --list-secret-keys --with-colons 2>/dev/null | grep -q "^sec:"; then
+        pacman-key --init
+      fi
+      curl -fsSL "'"$BASE_URL"'/keys/artcraft.asc" -o /tmp/artcraft.asc
+      pacman-key --add /tmp/artcraft.asc
+      artcraft_fingerprint="$(gpg --with-colons --import-options show-only --import /tmp/artcraft.asc | grep "^fpr:" | head -n1 | cut -d: -f10)"
+      pacman-key --lsign-key "$artcraft_fingerprint"
+
+      # Use the published configuration, which requires a signed database and signed packages.
+      curl -fsSL "'"$BASE_URL"'/arch/artcraft.conf" -o /etc/pacman.d/artcraft.conf
+      grep -q "SigLevel = Required DatabaseRequired" /etc/pacman.d/artcraft.conf || {
+        echo "Error: the repository configuration does not require signatures!" >&2
+        exit 1
+      }
+      if ! grep -Fxq "Include = /etc/pacman.d/artcraft.conf" /etc/pacman.conf; then
+        echo "Include = /etc/pacman.d/artcraft.conf" >> /etc/pacman.conf
+      fi
+    else
+      # Released packages are signed even when the deployment publishes no key, and pacman rejects
+      # a package whose signature key is missing from the keyring even under TrustAll. An unsigned
+      # deployment has nothing to verify against, so it has to disable checking outright.
+      tee -a /etc/pacman.conf << EOF
 
 [artcraft]
-SigLevel = Optional TrustAll
+SigLevel = Never
 Server = '"$BASE_URL"'/arch/\$arch
 EOF
+    fi
 
     echo "--- Synchronizing pacman repository ---"
     for attempt in {1..5}; do
@@ -467,6 +608,22 @@ EOF
 
     echo "--- Verifying SHA-256 integrity digests against manifest ---"
     sha256sum -c /tmp/expected.sha256
+
+    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
+      echo "--- Verifying the detached .sig of every downloaded package with the ArtCraft key ---"
+      for file in *.pkg.tar.zst; do
+        case "$file" in
+          *-x86_64.pkg.tar.zst) arch_dir=x86_64 ;;
+          *) arch_dir=aarch64 ;;
+        esac
+        curl -fsSL "'"$BASE_URL"'/arch/$arch_dir/$file.sig" -o "$file.sig"
+        if ! gpg --homedir /etc/pacman.d/gnupg --verify "$file.sig" "$file" >/dev/null 2>&1; then
+          echo "Error: no valid ArtCraft signature for $file!" >&2
+          exit 1
+        fi
+        echo "  ✓ $file signature verified"
+      done
+    fi
 
     echo "--- Testing real installation of native packages via pacman ---"
     pacman -S --noconfirm '"$pacman_install_pkgs"'

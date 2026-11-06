@@ -199,7 +199,8 @@ const SIGNED_RAW_FILES: Record<string, { name: string; href: string; description
 
 export function LinuxRepoGuide({ signing = null }: { readonly signing?: RepoSigning | null }) {
   const [activeTab, setActiveTab] = useState<string>("flatpak");
-  // The Flatpak OCI index is not signed, so only the package-manager tabs get this notice.
+  // Flatpak authenticates through the signed OCI lookaside rather than a signed index, so only the
+  // package-manager tabs get this notice.
   const signedIndex = Boolean(SIGNED_RAW_FILES[activeTab]);
   const config = useMemo(() => {
     const base = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.flatpak;
@@ -318,31 +319,19 @@ export function LinuxRepoGuide({ signing = null }: { readonly signing?: RepoSign
             checksums published in the repository index. Downloads are streamed directly from official
             GitHub Releases via HTTP 302 redirects, verifying binary integrity against the repository catalog.
           </p>
-          {signedIndex && (
+          {signedIndex && signing && (
             <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
               <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
               <span>
-                {signing ? (
-                  <>
-                    {"The APT, RPM and pacman indexes are signed with the ArtCraft Linux Release Signing Key ("}
-                    <code className="font-mono text-ink">{signing.fingerprint}</code>
-                    {"): apt verifies "}
-                    <code className="font-mono text-ink">InRelease</code>
-                    {", dnf and zypper verify "}
-                    <code className="font-mono text-ink">repomd.xml.asc</code>
-                    {", and pacman verifies "}
-                    <code className="font-mono text-ink">artcraft.db.sig</code>
-                    {". Packages are authenticated through the digests inside the signed index."}
-                  </>
-                ) : (
-                  <>
-                    {"This deployment has no signing key configured, so it publishes unsigned preview metadata ("}
-                    <code className="font-mono text-ink">[trusted=yes]</code>
-                    {" for APT and "}
-                    <code className="font-mono text-ink">gpgcheck=0</code>
-                    {" for RPM/DNF). Downloads are still verified against repository index digests."}
-                  </>
-                )}
+                {"The APT, RPM and pacman indexes are signed with the ArtCraft Linux Release Signing Key ("}
+                <code className="font-mono text-ink">{signing.fingerprint}</code>
+                {"): apt verifies "}
+                <code className="font-mono text-ink">InRelease</code>
+                {", dnf and zypper verify "}
+                <code className="font-mono text-ink">repomd.xml.asc</code>
+                {", and pacman verifies "}
+                <code className="font-mono text-ink">artcraft.db.sig</code>
+                {". Packages are authenticated through the digests inside the signed index."}
               </span>
             </div>
           )}
