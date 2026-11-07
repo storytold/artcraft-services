@@ -9,3 +9,4 @@ pub mod find_approving_session;
 pub mod find_redeemed_session;
 pub mod get_user_session_by_token;
 pub mod get_user_session_by_token_light;
+pub mod revoke_all_user_sessions;

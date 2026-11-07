@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use sqlx::{MySql, Transaction};
 
 use errors::AnyhowResult;
+use crate::queries::users::user_sessions::revoke_all_user_sessions::revoke_all_user_sessions;
 use tokens::tokens::password_reset::PasswordResetToken;
 use tokens::tokens::users::UserToken;
 
@@ -65,6 +66,15 @@ LIMIT 1
   if let Err(err) = query_result {
     let _r = args.mysql_transaction.rollback().await.ok();
     return Err(anyhow!("Error updating user password from password reset request: {err}"));
+  }
+
+  // NB: Recovery must lock out whoever held the account before it, so revoke every existing session
+  // in the same transaction. The handler issues a fresh session after commit.
+  let query_result = revoke_all_user_sessions(args.user_token, &mut *args.mysql_transaction).await;
+
+  if let Err(err) = query_result {
+    let _r = args.mysql_transaction.rollback().await.ok();
+    return Err(anyhow!("Error revoking sessions during password reset: {err}"));
   }
 
   match args.mysql_transaction.commit().await {
