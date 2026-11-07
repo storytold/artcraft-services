@@ -1,0 +1,22 @@
+name: Trigger Cloudflare deploy
+
+on:
+  push:
+    branches: [cloudflare-dev]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare build
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "CLOUDFLARE_DEPLOY_HOOK is not configured" >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
