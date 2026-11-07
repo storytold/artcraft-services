@@ -10,6 +10,7 @@ import { consoleToast } from "../../adapters/default/console-toast";
 import { anonymousAuthUser } from "../../adapters/default/anonymous-auth-user";
 import { downloadExportSink } from "../../adapters/default/download-export-sink";
 import { emptySoundsAdapter } from "../../adapters/default/empty-sounds-adapter";
+import { serializeProjectDocument } from "../../services/storage/serialization";
 import { buildDefaultScene } from "../../timeline/scenes";
 import type { TProject } from "../../project/types";
 import { mediaTimeFromSeconds, ZERO_MEDIA_TIME } from "../../wasm";
@@ -209,6 +210,74 @@ describe("EditorCore smoke", () => {
 
     const listed = await editor.adapters.projectStorage.listProjects();
     expect(listed.map((p) => p.id)).toContain(SAMPLE_PROJECT_ID);
+  });
+
+  describe("stored projects bind to their storage id", () => {
+    // A stored document whose body embeds a different project's id. The
+    // body is untrusted, so every read path must bind the project to the
+    // id the storage adapter loaded it under; otherwise later saves would
+    // target the embedded id.
+    const STORED_ID = "requested_token";
+    const EMBEDDED_ID = "someone_elses_token";
+
+    async function storeMismatchedProject(): Promise<EditorCore> {
+      const editor = EditorCore.getInstance();
+      const project = buildSampleProject();
+      await editor.adapters.projectStorage.saveProject({
+        id: STORED_ID,
+        name: "Stored",
+        updatedAt: 0,
+        data: JSON.parse(
+          JSON.stringify(
+            serializeProjectDocument({
+              project: {
+                ...project,
+                metadata: { ...project.metadata, id: EMBEDDED_ID },
+              },
+              media: [],
+            }),
+          ),
+        ),
+      });
+      return editor;
+    }
+
+    test("loadProject activates the project under the stored id", async () => {
+      const editor = await storeMismatchedProject();
+
+      await editor.project.loadProject({ id: STORED_ID });
+
+      expect(editor.project.getActive()?.metadata.id).toBe(STORED_ID);
+    });
+
+    test("openProject activates the project and saves under the stored id", async () => {
+      const editor = await storeMismatchedProject();
+
+      await editor.project.openProject({ id: STORED_ID });
+      expect(editor.project.getActive()?.metadata.id).toBe(STORED_ID);
+
+      await editor.project.saveCurrentProject();
+      const ids = (await editor.adapters.projectStorage.listProjects()).map(
+        (p) => p.id,
+      );
+      expect(ids).toEqual([STORED_ID]);
+    });
+
+    test("background renameProject saves under the stored id", async () => {
+      const editor = await storeMismatchedProject();
+
+      await editor.project.renameProject({ id: STORED_ID, name: "Renamed" });
+
+      const listed = await editor.adapters.projectStorage.listProjects();
+      expect(listed).toEqual([
+        expect.objectContaining({ id: STORED_ID, name: "Renamed" }),
+      ]);
+      expect(editor.project.getActive()).toBeNull();
+
+      const reopened = await editor.project.loadProject({ id: STORED_ID });
+      expect(reopened?.metadata.name).toBe("Renamed");
+      expect(reopened?.metadata.id).toBe(STORED_ID);
+    });
   });
 
   test("EditorCore.reset clears the singleton", () => {
