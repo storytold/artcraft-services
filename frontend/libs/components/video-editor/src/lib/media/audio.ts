@@ -25,7 +25,11 @@ import { Input, ALL_FORMATS, BlobSource, AudioBufferSink } from "mediabunny";
 import type { MediaAsset } from "./types";
 import { applyAudioMasteringToBuffer } from "./audio-mastering";
 import { mediaSupportsAudio } from "./media-utils";
-import { computeRmsBuckets, type SampleBucket } from "./waveform-summary";
+import {
+  clampSampleIndex,
+  computeRmsBuckets,
+  type SampleBucket,
+} from "./waveform-summary";
 import { shouldMaintainPitch } from "../retime/rate";
 import { getSourceTimeAtClipTime } from "../retime/resolve";
 import { renderRetimedBuffer } from "../retime/audio-stretch";
@@ -725,15 +729,18 @@ async function fetchLibraryAudioClip({
       type: "audio/mpeg",
     });
 
+    // Timeline times are ticks; clip sources are seconds (as for every other
+    // audio source above). Leaving ticks here inflated buffer allocation and
+    // render work by TICKS_PER_SECOND.
     return {
       timelineElement: element,
       id: element.id,
       sourceKey: element.id,
       file,
-      startTime: element.startTime,
-      duration: element.duration,
-      trimStart: element.trimStart,
-      trimEnd: element.trimEnd,
+      startTime: element.startTime / TICKS_PER_SECOND,
+      duration: element.duration / TICKS_PER_SECOND,
+      trimStart: element.trimStart / TICKS_PER_SECOND,
+      trimEnd: element.trimEnd / TICKS_PER_SECOND,
       volume,
       muted,
       retime: element.retime,
@@ -808,12 +815,14 @@ function collectPeakRange({
   for (let c = 0; c < channels; c++) {
     const data = buffer.getChannelData(c);
     for (let i = 0; i < count; i++) {
-      const { bucketStart: start, bucketEnd: end } = getSampleBucketRange({
+      const { bucketStart, bucketEnd } = getSampleBucketRange({
         startSample,
         endSample,
         bucketIndex: i,
         bucketCount: count,
       });
+      const start = clampSampleIndex(bucketStart, data.length);
+      const end = clampSampleIndex(bucketEnd, data.length);
       for (let j = start; j < end; j++) {
         const abs = Math.abs(data[j]);
         if (abs > peaks[i]) peaks[i] = abs;

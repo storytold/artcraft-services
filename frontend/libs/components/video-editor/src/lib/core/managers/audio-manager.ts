@@ -1,5 +1,11 @@
 import type { EditorCore } from "../index";
 import { TICKS_PER_SECOND } from "../../wasm";
+
+// Longest audio source decoded in full for playback. Every decoded sample is
+// kept in memory several times over (chunks, channel arrays, resampled
+// buffer), so a compact compressed file must not be able to request
+// unbounded allocation.
+const MAX_DECODED_SECONDS = 20 * 60;
 import { clampRetimeRate, shouldMaintainPitch } from "../../retime/rate";
 import type { AudioClipSource } from "../../media/audio";
 import { createAudioContext, collectAudioClips } from "../../media/audio";
@@ -611,6 +617,12 @@ export class AudioManager {
       for await (const { buffer } of sink.buffers(0)) {
         chunks.push(buffer);
         totalSamples += buffer.length;
+        if (totalSamples > MAX_DECODED_SECONDS * buffer.sampleRate) {
+          console.warn(
+            `[audio-manager] clip source longer than ${MAX_DECODED_SECONDS}s; not decoding`,
+          );
+          return null;
+        }
       }
 
       if (chunks.length === 0) {
