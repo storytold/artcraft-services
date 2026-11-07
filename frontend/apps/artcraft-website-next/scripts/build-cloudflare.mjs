@@ -21,7 +21,12 @@ const DYNAMIC_ROUTE_PATHS = [
   "media/[token]/player",
 ];
 
+/**
+ * Temporarily moves dynamic Next.js route handlers out of `src/app` before running
+ * a static export build, recovering any routes left behind by an interrupted build first.
+ */
 function stashRoutes() {
+  restoreRoutes();
   rmSync(STASH_DIR, { recursive: true, force: true });
   for (const rel of DYNAMIC_ROUTE_PATHS) {
     const src = join(APP_DIR, rel);
@@ -32,6 +37,9 @@ function stashRoutes() {
   }
 }
 
+/**
+ * Restores stashed dynamic Next.js route handlers back into `src/app` and removes the stash directory.
+ */
 function restoreRoutes() {
   if (!existsSync(STASH_DIR)) return;
   for (const rel of DYNAMIC_ROUTE_PATHS) {

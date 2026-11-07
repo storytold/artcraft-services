@@ -8,10 +8,16 @@ const FALLBACK_IMAGE = { url: "/images/og-image.png", width: 1200, height: 630, 
 
 type Props = { params: Promise<{ token: string }> };
 
+/**
+ * Generates static placeholder route parameters when exporting the site for Cloudflare.
+ */
 export function generateStaticParams() {
   return process.env.NEXT_STATIC_EXPORT === "1" ? [{ token: MEDIA_SHELL_TOKEN }] : [];
 }
 
+/**
+ * Generates Open Graph, Twitter Card, and oEmbed metadata for a shared media route.
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
   const url = `/media/${encodeURIComponent(token)}`;
@@ -81,6 +87,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+/**
+ * Renders the shared media viewer page for a given media token.
+ */
 export default async function Media({ params }: Props) {
   const { token } = await params;
   // Resolve in the browser, using the same session credentials as the Vite

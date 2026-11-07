@@ -19,6 +19,9 @@ export const metadata: Metadata = {
 const SEEDANCE_VIMEO_URL =
   "https://player.vimeo.com/video/1169289718?autoplay=1&muted=1&loop=1&background=0&byline=0&portrait=0&title=0";
 
+/**
+ * Renders the ArtCraft pricing page with plan comparison and credit information.
+ */
 export default function PricingPage() {
   return (
     <>

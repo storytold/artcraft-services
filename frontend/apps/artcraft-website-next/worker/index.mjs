@@ -39,6 +39,9 @@ const VALID_PACMAN_ARCHES = new Set(["x86_64", "aarch64"]);
 
 const REPO_CACHE_CONTROL = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 
+/**
+ * Escapes HTML special characters for safe interpolation into attributes and text nodes.
+ */
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -48,6 +51,20 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;");
 }
 
+/**
+ * Decodes a URL path segment, returning null when percent-encoding is malformed.
+ */
+function safeDecode(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves the trusted base origin for generated Linux repository and Flatpak descriptors.
+ */
 function getRequestBaseUrl(request) {
   const url = new URL(request.url);
   const fwdHost = request.headers.get("x-forwarded-host");
@@ -64,7 +81,9 @@ function getRequestBaseUrl(request) {
     (url.hostname === "getartcraft.com" ||
       url.hostname === "getartcraft.dev" ||
       /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname) ||
-      /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:workers|pages)\.dev$/.test(url.hostname))
+      /^(?:[a-z0-9-]+\.)?artcraft-(?:services|website-next)\.(?:pages\.dev|[a-z0-9-]+\.workers\.dev)$/.test(
+        url.hostname,
+      ))
   ) {
     return url.origin;
   }
@@ -74,6 +93,9 @@ function getRequestBaseUrl(request) {
   return "https://getartcraft.com";
 }
 
+/**
+ * Returns Flatpak INI `GPGKey` and `SignatureLookaside` lines when repository signing is active.
+ */
 function flatpakSignatureLines(baseUrl) {
   if (!SIGNING_CONFIGURED || !PUBLIC_KEY_BASE64) return [];
   return [
@@ -82,6 +104,9 @@ function flatpakSignatureLines(baseUrl) {
   ];
 }
 
+/**
+ * Normalizes Flatpak/OCI architecture query values to `amd64` or `arm64`.
+ */
 function normalizeArch(arch) {
   if (!arch) return null;
   const lower = arch.toLowerCase();
@@ -90,6 +115,9 @@ function normalizeArch(arch) {
   return lower;
 }
 
+/**
+ * Filters the precomputed Flatpak OCI index according to query parameters.
+ */
 function filterFlatpakIndex(searchParams) {
   const arch = normalizeArch(searchParams.get("architecture"));
   const ref = searchParams.get("label:org.flatpak.ref");
@@ -120,6 +148,9 @@ function filterFlatpakIndex(searchParams) {
   };
 }
 
+/**
+ * Redirects a catalogued Linux package or signature filename to its GitHub Release asset URL.
+ */
 function handlePackageRedirect(filename) {
   if (!filename) return new Response("Not found", { status: 404 });
   const targetUrl = PACKAGE_REDIRECTS[filename];
@@ -133,6 +164,9 @@ function handlePackageRedirect(filename) {
   });
 }
 
+/**
+ * Serves a pre-generated static repository asset from the Worker `ASSETS` binding with explicit headers.
+ */
 async function serveStaticAssetWithHeaders(request, env, pathname, contentType, extraHeaders = {}) {
   const assetUrl = new URL(pathname, request.url);
   const response = await env.ASSETS.fetch(new Request(assetUrl, { method: request.method }));
@@ -149,6 +183,9 @@ async function serveStaticAssetWithHeaders(request, env, pathname, contentType, 
   });
 }
 
+/**
+ * Validates that a candidate URL uses HTTP(S) and returns its normalized `href`.
+ */
 function safeMediaUrl(value) {
   if (!value) return undefined;
   try {
@@ -159,6 +196,9 @@ function safeMediaUrl(value) {
   }
 }
 
+/**
+ * Extracts the normalized lowercase media file extension or format identifier.
+ */
 function mediaFormat(media) {
   const type = media.media_type?.toLowerCase();
   if (type && !["unknown", "image", "video", "audio", "dimensional"].includes(type)) return type;
@@ -169,6 +209,9 @@ function mediaFormat(media) {
   }
 }
 
+/**
+ * Determines the high-level media kind (`image`, `video`, `audio`, `mesh`, `splat`, or `unsupported`).
+ */
 function mediaKind(media) {
   switch (media.media_class) {
     case "image":
@@ -190,18 +233,27 @@ function mediaKind(media) {
   return "unsupported";
 }
 
+/**
+ * Computes a human-readable display title for a shared media item.
+ */
 function mediaTitle(media) {
   const kind = mediaKind(media);
   const label = kind === "mesh" || kind === "splat" ? MEDIA_LABELS[kind] : MEDIA_LABELS[kind].toLowerCase();
   return media.maybe_title?.trim() || media.maybe_original_filename?.trim() || `Untitled ${label}`;
 }
 
+/**
+ * Resolves a thumbnail URL at the requested width from media link templates.
+ */
 function mediaThumbnail(links, width) {
   const previews = links.maybe_video_previews;
   const template = links.maybe_thumbnail_template ?? previews?.still_thumbnail_template;
   return safeMediaUrl(template?.replace("{WIDTH}", String(width))) ?? safeMediaUrl(previews?.still);
 }
 
+/**
+ * Resolves the best social preview image URL for a shared media item.
+ */
 function mediaShareImage(media) {
   const cover = media.cover_image?.maybe_links;
   return (
@@ -212,6 +264,9 @@ function mediaShareImage(media) {
   );
 }
 
+/**
+ * Returns embed player metadata for supported video and audio files, or null otherwise.
+ */
 function mediaEmbed(media) {
   const kind = mediaKind(media);
   if (kind !== "video" && kind !== "audio") return null;
@@ -221,6 +276,9 @@ function mediaEmbed(media) {
   return { kind, contentType, url, width: 640, height: kind === "video" ? 360 : 180 };
 }
 
+/**
+ * Fetches public or unlisted shared media metadata from the upstream API by token.
+ */
 async function fetchPublicMediaFile(token, env) {
   const apiHost = env?.NEXT_PUBLIC_API_HOST || DEFAULT_API_HOST;
   try {
@@ -242,11 +300,17 @@ async function fetchPublicMediaFile(token, env) {
   }
 }
 
+/**
+ * Parses a positive safe integer query bound or returns `Infinity`.
+ */
 function maximum(value) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : Infinity;
 }
 
+/**
+ * Handles `/media/:token/oembed` requests and returns an oEmbed 1.0 JSON response.
+ */
 async function handleMediaOembed(request, token, env) {
   const headers = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" };
   const query = new URL(request.url).searchParams;
@@ -285,6 +349,9 @@ async function handleMediaOembed(request, token, env) {
   );
 }
 
+/**
+ * Handles `/media/:token/player` requests and returns a standalone HTML5 player document.
+ */
 async function handleMediaPlayer(token, env) {
   const headers = {
     "Content-Type": "text/html; charset=utf-8",
@@ -316,6 +383,9 @@ async function handleMediaPlayer(token, env) {
   );
 }
 
+/**
+ * Builds the `<head>` social metadata tags (Open Graph, Twitter Card, canonical, and oEmbed) for `/media/:token`.
+ */
 function buildMediaHeadTags(token, media) {
   const encodedToken = encodeURIComponent(token);
   const canonicalUrl = `${MEDIA_SHARE_ORIGIN}/media/${encodedToken}`;
@@ -379,6 +449,9 @@ function buildMediaHeadTags(token, media) {
   return tags.filter(Boolean).join("");
 }
 
+/**
+ * Serves the static `/media/__MEDIA_TOKEN__` shell with resolved `<head>` social metadata for `token`.
+ */
 async function handleMediaPage(request, token, env) {
   const shellUrl = new URL(`/media/${MEDIA_SHELL_TOKEN}`, request.url);
   const [shellResponse, media] = await Promise.all([
@@ -409,6 +482,9 @@ async function handleMediaPage(request, token, env) {
 }
 
 export default {
+  /**
+   * Main Cloudflare Worker fetch entrypoint handling redirects, Linux repos, Flatpak OCI, and shared media.
+   */
   async fetch(request, env) {
     const url = new URL(request.url);
     const { pathname } = url;
@@ -625,7 +701,8 @@ export default {
     // 5. Shared media routes (/media/:token, /media/:token/oembed, /media/:token/player)
     const mediaSubMatch = pathname.match(/^\/media\/([^/]+)\/(oembed|player)$/);
     if (mediaSubMatch) {
-      const token = decodeURIComponent(mediaSubMatch[1]);
+      const token = safeDecode(mediaSubMatch[1]);
+      if (token === null) return new Response("Not found", { status: 404 });
       const subroute = mediaSubMatch[2];
       return subroute === "oembed"
         ? handleMediaOembed(request, token, env)
@@ -635,7 +712,8 @@ export default {
     if (mediaPageMatch) {
       const rawSegment = mediaPageMatch[1];
       if (rawSegment.endsWith(".txt")) {
-        const token = decodeURIComponent(rawSegment.slice(0, -4));
+        const token = safeDecode(rawSegment.slice(0, -4));
+        if (token === null) return new Response("Not found", { status: 404 });
         const rscUrl = new URL(`/media/${MEDIA_SHELL_TOKEN}.txt`, request.url);
         const rscResp = await env.ASSETS.fetch(new Request(rscUrl));
         if (!rscResp.ok) return new Response("Not found", { status: 404 });
@@ -644,7 +722,8 @@ export default {
           headers: { "Content-Type": "text/x-component; charset=utf-8", "Cache-Control": "private, no-store" },
         });
       }
-      const token = decodeURIComponent(rawSegment);
+      const token = safeDecode(rawSegment);
+      if (token === null) return new Response("Not found", { status: 404 });
       return handleMediaPage(request, token, env);
     }
 

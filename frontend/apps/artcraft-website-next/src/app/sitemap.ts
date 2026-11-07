@@ -31,6 +31,9 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Entry["c
   })),
 ];
 
+/**
+ * Generates the static `/sitemap.xml` metadata route entries for all public pages and articles.
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticEntries: Entry[] = STATIC_ROUTES.map((route) => ({
     url: `${SITE_URL}${route.path}`,

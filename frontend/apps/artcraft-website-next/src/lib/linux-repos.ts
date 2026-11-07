@@ -125,7 +125,9 @@ export function getRequestBaseUrl(request: Request): string {
     (url.hostname === "getartcraft.com" ||
       url.hostname === "getartcraft.dev" ||
       /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname) ||
-      /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:workers|pages)\.dev$/.test(url.hostname))
+      /^(?:[a-z0-9-]+\.)?artcraft-(?:services|website-next)\.(?:pages\.dev|[a-z0-9-]+\.workers\.dev)$/.test(
+        url.hostname,
+      ))
   ) {
     return url.origin;
   }

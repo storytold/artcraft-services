@@ -16,6 +16,9 @@ type Params = Promise<{ slug: string }>;
 export const dynamicParams = false;
 
 // Aliases are served too, then redirected to the canonical slug below.
+/**
+ * Generates static route parameters for canonical tutorial slugs (and aliases in non-export builds).
+ */
 export function generateStaticParams() {
   const slugs = new Set(
     getTutorialItems().flatMap((item) =>
@@ -25,6 +28,9 @@ export function generateStaticParams() {
   return [...slugs].map((slug) => ({ slug }));
 }
 
+/**
+ * Generates page metadata for a tutorial article by slug.
+ */
 export async function generateMetadata({
   params,
 }: {
@@ -40,6 +46,9 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * Renders a tutorial article page, redirecting alias slugs to the canonical slug when needed.
+ */
 export default async function TutorialArticlePage({
   params,
 }: {

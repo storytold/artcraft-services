@@ -10,7 +10,16 @@ permissions: {}
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
+      - name: Verify target branch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/cloudflare-dev" ]; then
+            echo "Manual deploy hook runs must target refs/heads/cloudflare-dev (got ${GITHUB_REF})" >&2
+            exit 1
+          fi
+
       - name: Trigger Cloudflare build
         env:
           DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
@@ -19,4 +28,23 @@ jobs:
             echo "CLOUDFLARE_DEPLOY_HOOK is not configured" >&2
             exit 1
           fi
-          curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
+
+          max_attempts=4
+          delay=2
+          for attempt in $(seq 1 "$max_attempts"); do
+            status=$(curl --silent --show-error --output /tmp/cf-deploy-hook.out --write-out "%{http_code}" \
+              --connect-timeout 10 --max-time 30 --request POST "$DEPLOY_HOOK") || status="000"
+            if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+              cat /tmp/cf-deploy-hook.out
+              exit 0
+            fi
+            if [ "$status" = "503" ] && [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Cloudflare deploy hook returned HTTP 503 (attempt ${attempt}/${max_attempts}); retrying in ${delay}s..." >&2
+              sleep "$delay"
+              delay=$((delay * 2))
+              continue
+            fi
+            cat /tmp/cf-deploy-hook.out >&2 || true
+            echo "Cloudflare deploy hook request failed with HTTP ${status}" >&2
+            exit 1
+          done

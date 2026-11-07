@@ -17,10 +17,24 @@ type MediaState =
   | { status: "ready"; media: SharedMedia }
   | { status: "error"; code?: number };
 
+/**
+ * Safely decodes a URL path segment, returning the raw segment if percent-encoding is malformed.
+ */
+function safeDecodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+/**
+ * Client-side shared media viewer that resolves the media token from props or `window.location.pathname`.
+ */
 export default function MediaPage({ token: propToken }: { token: string }) {
   const token =
     propToken === MEDIA_SHELL_TOKEN && typeof window !== "undefined"
-      ? decodeURIComponent(window.location.pathname.replace(/^\/media\/([^/?#]+).*$/, "$1"))
+      ? safeDecodeSegment(window.location.pathname.replace(/^\/media\/([^/?#]+).*$/, "$1"))
       : propToken;
   const [state, setState] = useState<MediaState>({ status: "loading" });
   const [prompt, setPrompt] = useState<MediaPrompt | null>(null);
