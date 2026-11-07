@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO oauth_spent_refresh_hashes (refresh_hash, oauth_token_id, expires_at) SELECT refresh_hash, id, TIMESTAMPADD(SECOND, ?, refresh_expires_at) FROM oauth_tokens WHERE refresh_hash = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "a9ec65db56449922bce5182166285b791a9d71018a2fb570b06b8528882e9914"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE oauth_authorization_codes SET maybe_used_at = UTC_TIMESTAMP() WHERE code_hash = ? AND maybe_used_at IS NULL AND expires_at > UTC_TIMESTAMP()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "ff5b7ba75f70cd0e99fe639a5fcba7cb6c8ea60e14c158576c7db9cea5563259"
+}
