@@ -161,7 +161,7 @@ export function TopBarActions({ className }: { className?: string }) {
             >
               <MenuItems
                 modal={false}
-                className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-[3px] bg-[#101014] border border-white/15 focus:outline-none overflow-hidden"
+                className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-[3px] bg-ui-panel border border-white/15 focus:outline-none overflow-hidden"
               >
                 <div className="px-4 py-3 border-b border-white/15">
                   <p className="text-sm font-medium text-white truncate">
@@ -303,7 +303,7 @@ function CreditsChip({
         </span>
       }
       buttonClassName="h-8 px-3 ps-2.5 bg-transparent hover:bg-white/10 border border-white/15 hover:border-white/30 shadow-none text-white/80 rounded-[3px] gap-1.5"
-      panelClassName="mt-2 bg-[#101014] border border-white/15 text-white rounded-[3px]"
+      panelClassName="mt-2 bg-ui-panel border border-white/15 text-white rounded-[3px]"
     >
       {(close) => (
         <div className="w-72 max-w-[calc(100vw-24px)] p-3 text-white">
