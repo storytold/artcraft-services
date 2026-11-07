@@ -1,6 +1,7 @@
 import { mediaFormat, mediaKind, mediaThumbnail, safeMediaUrl, type SharedMedia } from "./media";
 
 export const MEDIA_SHARE_ORIGIN = "https://getartcraft.com";
+export const MEDIA_SHELL_TOKEN = "__MEDIA_TOKEN__";
 const PREVIEW_WIDTH = 1200;
 const VIDEO_TYPES: Record<string, string> = { mp4: "video/mp4", webm: "video/webm" };
 const AUDIO_TYPES: Record<string, string> = {

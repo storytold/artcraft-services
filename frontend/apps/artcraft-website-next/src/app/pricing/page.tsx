@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { TagIcon } from "lucide-react";
 import RevealManager from "@/components/reveal-manager";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
 import { Accent, PageHeader } from "@/components/page/page-header";
 import CreditsCta from "@/components/pricing/credits-cta";
+import PricingHeader from "@/components/pricing/pricing-header";
 import PricingTable from "@/components/pricing/pricing-table";
 import { PROMO_PCT } from "@/lib/pricing-data";
 
@@ -14,27 +16,20 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" },
 };
 
-// Referral code that swaps the header for the Seedance early-access pitch
-// (kept from the Vite site's ?ref=sd2fakeyou campaign links).
-const SEEDANCE_REF = "sd2fakeyou";
 const SEEDANCE_VIMEO_URL =
   "https://player.vimeo.com/video/1169289718?autoplay=1&muted=1&loop=1&background=0&byline=0&portrait=0&title=0";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-export default async function PricingPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const params = await searchParams;
-  const isSeedanceRef = params.ref === SEEDANCE_REF;
-
+export default function PricingPage() {
   return (
     <>
       <RevealManager />
 
-      {isSeedanceRef ? <SeedanceHeader /> : <DefaultHeader />}
+      <Suspense fallback={<DefaultHeader />}>
+        <PricingHeader
+          defaultHeader={<DefaultHeader />}
+          seedanceHeader={<SeedanceHeader />}
+        />
+      </Suspense>
 
       <SectionShell id="plans">
         <SectionEyebrow

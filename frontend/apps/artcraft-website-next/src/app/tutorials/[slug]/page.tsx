@@ -17,9 +17,12 @@ export const dynamicParams = false;
 
 // Aliases are served too, then redirected to the canonical slug below.
 export function generateStaticParams() {
-  return getTutorialItems().flatMap((item) =>
-    [item.slug, ...item.aliases].map((slug) => ({ slug })),
+  const slugs = new Set(
+    getTutorialItems().flatMap((item) =>
+      process.env.NEXT_STATIC_EXPORT === "1" ? [item.slug] : [item.slug, ...item.aliases],
+    ),
   );
+  return [...slugs].map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({

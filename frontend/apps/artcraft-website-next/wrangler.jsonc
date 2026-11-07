@@ -1,0 +1,31 @@
+{
+  "name": "artcraft-services",
+  "compatibility_date": "2026-11-06",
+  "main": "worker/index.mjs",
+  "assets": {
+    "directory": "./out",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/checkout_success",
+      "/checkout_cancel",
+      "/portal_closed",
+      "/apps/loopcraft",
+      "/apps/drawcraft",
+      "/apps/printcraft",
+      "/images/apps/loopcraft/*",
+      "/images/apps/printcraft/*",
+      "/tutorials/*",
+      "/apps/*/*-oci.flatpakref",
+      "/artcraft-oci.flatpakrepo",
+      "/index/*",
+      "/keys/*",
+      "/oci-signatures/*",
+      "/apt/*",
+      "/rpm/*",
+      "/arch/*",
+      "/media",
+      "/media/*"
+    ]
+  },
+  "previews": {}
+}

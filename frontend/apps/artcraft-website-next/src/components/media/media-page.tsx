@@ -6,6 +6,7 @@ import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell
 import { Accent } from "@/components/page/page-header";
 import { Button } from "@/components/ui";
 import { getMediaPrompt, getSharedMedia } from "@/lib/media-api";
+import { MEDIA_SHELL_TOKEN } from "@/lib/media-sharing";
 import { MEDIA_LABELS, mediaKind, mediaTitle, type MediaDimensions, type MediaPrompt, type SharedMedia } from "@/lib/media";
 import { webappUrl } from "@/lib/links";
 import MediaPreview from "./media-preview";
@@ -16,7 +17,11 @@ type MediaState =
   | { status: "ready"; media: SharedMedia }
   | { status: "error"; code?: number };
 
-export default function MediaPage({ token }: { token: string }) {
+export default function MediaPage({ token: propToken }: { token: string }) {
+  const token =
+    propToken === MEDIA_SHELL_TOKEN && typeof window !== "undefined"
+      ? decodeURIComponent(window.location.pathname.replace(/^\/media\/([^/?#]+).*$/, "$1"))
+      : propToken;
   const [state, setState] = useState<MediaState>({ status: "loading" });
   const [prompt, setPrompt] = useState<MediaPrompt | null>(null);
   const [promptLoading, setPromptLoading] = useState(false);

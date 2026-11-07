@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import MediaPage from "@/components/media/media-page";
 import { fetchPublicMediaFile } from "@/lib/fetch-public-media";
-import { mediaEmbed, mediaShareImage, MEDIA_SHARE_ORIGIN } from "@/lib/media-sharing";
+import { mediaEmbed, mediaShareImage, MEDIA_SHARE_ORIGIN, MEDIA_SHELL_TOKEN } from "@/lib/media-sharing";
 import { mediaTitle } from "@/lib/media";
 
 const FALLBACK_IMAGE = { url: "/images/og-image.png", width: 1200, height: 630, alt: "ArtCraft" };
 
 type Props = { params: Promise<{ token: string }> };
+
+export function generateStaticParams() {
+  return process.env.NEXT_STATIC_EXPORT === "1" ? [{ token: MEDIA_SHELL_TOKEN }] : [];
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
@@ -29,6 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: fallbackDescription, images: [FALLBACK_IMAGE],
     },
   };
+  if (token === MEDIA_SHELL_TOKEN) return metadata;
   const media = await fetchPublicMediaFile(token);
   if (!media) return metadata;
   const title = mediaTitle(media);

@@ -1,5 +1,9 @@
 node_modules/
 .next/
+out/
+.wrangler/
+.build-route-stash/
+worker/generated-catalog.mjs
 next-env.d.ts
 *.tsbuildinfo
 playwright-report/
