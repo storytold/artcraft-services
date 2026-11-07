@@ -6,6 +6,11 @@ import { hostnameOf } from "../boards/linkMeta";
 import { PositionedItem } from "./gridLayout";
 import { Favicon } from "./Favicon";
 
+// Ratings come from stored documents; clamp to the five-star range so a bad
+// value cannot become a huge allocation.
+const starCount = (rating: number): number =>
+  Number.isFinite(rating) ? Math.min(5, Math.max(0, Math.floor(rating))) : 0;
+
 interface Props {
   item: BoardItem;
   pos: PositionedItem;
@@ -146,9 +151,9 @@ const BoardCardInner = ({
               No backdrop-blur: this tile lives in a virtualized scroll
               container, where blur filters trigger GPU repaints on every
               scroll frame. A solid scrim keeps the icons legible instead. */}
-          {item.rating > 0 && (
+          {starCount(item.rating) > 0 && (
             <div className="absolute bottom-2 left-2 flex items-center gap-0.5 rounded-full bg-black/65 px-2 py-1">
-              {Array.from({ length: item.rating }).map((_, i) => (
+              {Array.from({ length: starCount(item.rating) }).map((_, i) => (
                 <StarIcon
                   key={i}
                   
