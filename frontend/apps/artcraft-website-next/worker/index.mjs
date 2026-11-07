@@ -80,10 +80,7 @@ function getRequestBaseUrl(request) {
     url.protocol === "https:" &&
     (url.hostname === "getartcraft.com" ||
       url.hostname === "getartcraft.dev" ||
-      /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname) ||
-      /^(?:[a-z0-9-]+\.)?artcraft-(?:services|website-next)\.(?:pages\.dev|[a-z0-9-]+\.workers\.dev)$/.test(
-        url.hostname,
-      ))
+      /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname))
   ) {
     return url.origin;
   }
