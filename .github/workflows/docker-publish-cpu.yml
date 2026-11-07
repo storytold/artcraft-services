@@ -70,6 +70,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Deployments pull from the DigitalOcean registry; GHCR stays as a mirror.
+      # The DO token needs write access to the `artcraft` registry.
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        name: Login to DigitalOcean Container Registry
+        with:
+          registry: registry.digitalocean.com
+          username: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          password: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
       # Match the previous workflow's 12-char short-SHA convention exactly,
       # since some downstream consumers may pin to it. metadata-action's
       # built-in `type=sha,format=short` only gives a 7-char prefix.
@@ -82,7 +91,9 @@ jobs:
         name: Compute Docker tags
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ghcr.io/storytold/artcraft-services
+          images: |
+            ghcr.io/storytold/artcraft-services
+            registry.digitalocean.com/artcraft/artcraft-services
           tags: |
             type=raw,value=latest
             type=raw,value=${{ github.sha }}
