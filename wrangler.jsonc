@@ -2,6 +2,9 @@
   "name": "artcraft-services",
   "compatibility_date": "2026-11-06",
   "main": "frontend/apps/artcraft-website-next/worker/index.mjs",
+  "build": {
+    "command": "test -f frontend/apps/artcraft-website-next/out/index.html || npm run build"
+  },
   "assets": {
     "directory": "./frontend/apps/artcraft-website-next/out",
     "binding": "ASSETS",

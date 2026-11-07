@@ -2,6 +2,9 @@
   "name": "artcraft-services",
   "compatibility_date": "2026-11-06",
   "main": "worker/index.mjs",
+  "build": {
+    "command": "test -f out/index.html || (npm ci --ignore-scripts && npm run build)"
+  },
   "assets": {
     "directory": "./out",
     "binding": "ASSETS",
