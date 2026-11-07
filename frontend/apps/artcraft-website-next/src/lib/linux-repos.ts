@@ -119,8 +119,13 @@ export function getRequestBaseUrl(request: Request): string {
     return `${proto}://${fwdHost}`;
   }
 
-  // Check the request URL hostname (direct requests or Netlify edge URL)
-  if (url.protocol === "https:" && /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname)) {
+  // Check the request URL hostname (direct requests or Netlify/Cloudflare edge URL)
+  if (
+    url.protocol === "https:" &&
+    (url.hostname === "getartcraft.com" ||
+      url.hostname === "getartcraft.dev" ||
+      /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname))
+  ) {
     return url.origin;
   }
   if ((url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.protocol === "http:") {

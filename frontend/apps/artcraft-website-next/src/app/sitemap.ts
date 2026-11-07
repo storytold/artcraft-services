@@ -3,6 +3,8 @@ import { CRAFTING_APPS, craftAppPath } from "@/lib/crafting-apps";
 import { getFaqItems, getNewsPosts, getTutorialItems } from "@/lib/content";
 import { SITE_URL } from "@/lib/links";
 
+export const dynamic = "force-static";
+
 type Entry = MetadataRoute.Sitemap[number];
 
 const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Entry["changeFrequency"] }[] = [
@@ -29,6 +31,9 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Entry["c
   })),
 ];
 
+/**
+ * Generates the static `/sitemap.xml` metadata route entries for all public pages and articles.
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticEntries: Entry[] = STATIC_ROUTES.map((route) => ({
     url: `${SITE_URL}${route.path}`,
