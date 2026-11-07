@@ -12,11 +12,14 @@ import { snapshotTransform, writeTransform } from "./actions/snapshots";
 import { TimelineEditAction } from "./actions/TimelineEditAction";
 import { sampleTrackAt } from "../timeline/interpolation";
 import {
+  clampTimelineDuration,
   cloneTimeline,
   DEFAULT_EASING,
   DEFAULT_TIMELINE_DURATION,
   DEFAULT_TIMELINE_FPS,
   DEFAULT_TRANSITION_GAP,
+  MAX_TIMELINE_DURATION,
+  MIN_TIMELINE_DURATION,
   type ClipLane,
   type ClipStrip,
   type EasingSpec,
@@ -153,12 +156,15 @@ export class TimelineController {
     this.timeline = cloneTimeline(data);
     // Backfill defensively so legacy/partial saved timelines don't break the
     // frame-quantized UI (which assumes a valid fps) or produce a 0 duration.
-    if (!this.timeline.fps || this.timeline.fps <= 0) {
+    if (
+      !Number.isFinite(this.timeline.fps) ||
+      this.timeline.fps <= 0
+    ) {
       this.timeline.fps = DEFAULT_TIMELINE_FPS;
     }
-    if (!this.timeline.duration || this.timeline.duration <= 0) {
-      this.timeline.duration = DEFAULT_TIMELINE_DURATION;
-    }
+    // Same supported range as interactive edits (setDuration): the document
+    // is untrusted, and UI such as the ruler scales with the duration.
+    this.timeline.duration = clampTimelineDuration(this.timeline.duration);
     if (!Array.isArray(this.timeline.tracks)) this.timeline.tracks = [];
     if (!Array.isArray(this.timeline.clipLanes)) this.timeline.clipLanes = [];
     this.saved = cloneTimeline(this.timeline);
@@ -197,7 +203,10 @@ export class TimelineController {
   // trimming one computed a NEGATIVE max duration (clamping it to a frame).
   setDuration(seconds: number): void {
     if (!this.timeline || !Number.isFinite(seconds)) return;
-    const duration = Math.max(1, Math.min(60, seconds));
+    const duration = Math.max(
+      MIN_TIMELINE_DURATION,
+      Math.min(MAX_TIMELINE_DURATION, seconds),
+    );
     this.timeline.duration = duration;
     if (this.playhead > duration) {
       this.playhead = duration;
