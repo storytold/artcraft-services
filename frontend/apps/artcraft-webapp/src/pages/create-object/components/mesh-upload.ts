@@ -8,7 +8,7 @@ import type { RefImage } from "../../../components/prompt-box";
 
 export const MESH_FILE_ACCEPT = ".glb,.gltf,.fbx,.obj";
 
-const randomId = () => Math.random().toString(36).substring(7);
+const randomId = () => Math.random().toString(36).substring(7); // NOSONAR: UI-only id or cosmetic value, never a secret.
 
 const readAsDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -26,7 +26,7 @@ export async function uploadViewImage(
   const url = await readAsDataUrl(file);
   return new Promise((resolve) => {
     uploadImage({
-      title: `${label.toLowerCase()}-view-${Math.random().toString(36).substring(2, 10)}`,
+      title: `${label.toLowerCase()}-view-${Math.random().toString(36).substring(2, 10)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
       assetFile: file,
       progressCallback: (state) => {
         if (state.status === UploaderStates.success && state.data) {
