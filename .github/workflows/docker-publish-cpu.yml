@@ -1,8 +1,9 @@
-# Adapted from
-# https://github.com/actions/starter-workflows/ci/docker-publish.yml
-# If using base images, don't forget to add READ access, eg. from a package settings page like:
-# https://github.com/orgs/storytold/packages/container/docker-base-images-rust-ssl/settings/actions_access
-name: "[CPU] Build GHCR Docker artifact"
+# The image build itself lives in craft-common-actions; this file only declares
+# what is specific to artcraft-services: the 64-core runner the eight-binary
+# Cargo build needs, the CPU Dockerfile, and the 12-character SHA tag that
+# downstream consumers pin to.
+name: "Build Docker image"
+
 on:
   workflow_dispatch:
   push:
@@ -11,8 +12,8 @@ on:
       #- $default-branch
       - main
       - test
-    # Only build when files that affect the Docker image change.
-    # This avoids expensive 15-25 min builds for docs-only or config-only changes.
+    # Only build when files that affect the Docker image change, so docs-only or
+    # config-only pushes do not start a 15-25 minute build.
     paths:
       # Individual files
       - '.github/workflows/docker-publish-cpu.yml'
@@ -25,105 +26,49 @@ on:
       - 'crates/**'
       - 'includes/**'
       - 'test_data/**'
-env:
-  IMAGE_NAME: artcraft-services
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
-  # See also https://depot.dev/blog/docker-layer-caching-in-github-actions
-  # See also https://evilmartians.com/chronicles/build-images-on-github-actions-with-docker-layer-caching
-  build-docker-image:
-    name: "Build Docker Image"
-    #runs-on: ubuntu-22.04 # runs-on: ubuntu-latest
-    #runs-on: github-ubuntu-16core # NB: Premium GitHub runner with more cores
-    runs-on: github-ubuntu-64core # NB: Premium GitHub runner with more cores
-    permissions:
-      packages: write
-      contents: read
-
+  # metadata-action's `type=sha,format=short` only yields a 7-character prefix,
+  # but this image has always been tagged with 12, so it is computed here and
+  # passed to the shared workflow as a tag rule.
+  short-sha:
+    name: Short SHA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.sha.outputs.value }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: sha
+        shell: bash
+        env:
+          COMMIT: ${{ github.sha }}
+        run: echo "value=${COMMIT:0:12}" >> "$GITHUB_OUTPUT"
 
-      # Free up disk on the runner before BuildKit fills it up. The cargo
-      # release build inside the Dockerfile produces multi-GB target dirs
-      # for 8 binaries; the GHA runner ships with ~14 GB pre-installed
-      # tooling (Android SDK, .NET, etc.) that we don't need.
-      - name: Free disk space
-        run: |
-          set -x
-          df -h /
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /opt/hostedtoolcache/CodeQL || true
-          sudo docker system prune -af --volumes || true
-          df -h /
-
-      # BuildKit is required for the `cache-from`/`cache-to` options on
-      # docker/build-push-action.
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-        name: Set up Docker Buildx
-
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        name: Login to GitHub Container Registry
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Deployments pull from the DigitalOcean registry; GHCR stays as a mirror.
-      # The DO token needs write access to the `artcraft` registry.
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        name: Login to DigitalOcean Container Registry
-        with:
-          registry: registry.digitalocean.com
-          username: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          password: ${{ secrets.DIGITALOCEAN_TOKEN }}
-
-      # Match the previous workflow's 12-char short-SHA convention exactly,
-      # since some downstream consumers may pin to it. metadata-action's
-      # built-in `type=sha,format=short` only gives a 7-char prefix.
-      - id: vars
-        name: Calculate short SHA
-        run: |
-          echo "sha_short=$(echo ${{ github.sha }} | cut -c1-12)" >> $GITHUB_OUTPUT
-
-      - id: meta
-        name: Compute Docker tags
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: |
-            ghcr.io/storytold/artcraft-services
-            registry.digitalocean.com/artcraft/artcraft-services
-          tags: |
-            type=raw,value=latest
-            type=raw,value=${{ github.sha }}
-            type=raw,value=${{ steps.vars.outputs.sha_short }}
-
-      - name: Build and push
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: ./build/service_cpu.Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            GIT_SHA=${{ github.sha }}
-          # GitHub Actions cache backend for BuildKit. `mode=max` saves
-          # all intermediate layers, not just the final image — critical
-          # for our multi-stage Cargo builds.
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # The runner has plenty of memory; this prevents BuildKit from
-          # OOM-killing the cargo linker on a 16+ GB workspace build.
-          provenance: false
-
-      - name: Cleanup / Debug
-        # This job will run even on failures to help with debugging.
-        if: always()
-        run: |
-          echo "Report at final github action step:"
-          echo "Disk usage:"
-          pwd
-          du -hsc * 2>/dev/null | sort -hr || true
-          df -h /
+  publish:
+    needs: short-sha
+    uses: storytold/craft-common-actions/.github/workflows/docker-build.yml@main
+    # DIGITALOCEAN_TOKEN for the registry, GITHUB_TOKEN for GHCR.
+    secrets: inherit
+    with:
+      images: |
+        registry.digitalocean.com/artcraft/artcraft-services
+        ghcr.io/storytold/artcraft-services
+      platforms: '[{"platform":"linux/amd64","runner":"github-ubuntu-64core"}]'
+      dockerfile: build/service_cpu.Dockerfile
+      build-args: GIT_SHA=${{ github.sha }}
+      free-disk: true
+      cache-from: type=gha
+      cache-to: type=gha,mode=max
+      timeout-minutes: 45
+      tags: |
+        type=raw,value=latest
+        type=raw,value=${{ github.sha }}
+        type=raw,value=${{ needs.short-sha.outputs.sha }}
