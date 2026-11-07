@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "node scripts/build-cloudflare.mjs",
+    "build": "next build",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:media": "playwright test tests/media.spec.ts tests/media-metadata.spec.ts",

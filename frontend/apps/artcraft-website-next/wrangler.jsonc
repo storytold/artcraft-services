@@ -3,7 +3,7 @@
   "compatibility_date": "2026-11-06",
   "main": "worker/index.mjs",
   "build": {
-    "command": "npm ci --ignore-scripts && npm run build"
+    "command": "npm ci --ignore-scripts && npm run build:cloudflare"
   },
   "assets": {
     "directory": "./out",
