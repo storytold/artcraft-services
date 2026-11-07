@@ -23,6 +23,11 @@ pub(crate) fn find_from(haystack: &[u8], needle: &[u8], start: usize) -> Option<
 /// Read a CBOR text string (major type 3) starting at `at`. Supports inline
 /// length (0x60–0x77), 1-byte length (0x78), and 2-byte length (0x79).
 pub(crate) fn read_cbor_text(data: &[u8], at: usize) -> Option<String> {
+  read_cbor_text_with_end(data, at).map(|(text, _end)| text)
+}
+
+/// Like [`read_cbor_text`], also returning the offset just past the value.
+fn read_cbor_text_with_end(data: &[u8], at: usize) -> Option<(String, usize)> {
   let first = *data.get(at)?;
   let (len, value_offset) = match first {
     0x60..=0x77 => ((first - 0x60) as usize, 1),
@@ -36,7 +41,30 @@ pub(crate) fn read_cbor_text(data: &[u8], at: usize) -> Option<String> {
   };
   let start = at + value_offset;
   let bytes = data.get(start..start + len)?;
-  String::from_utf8(bytes.to_vec()).ok()
+  String::from_utf8(bytes.to_vec()).ok().map(|text| (text, start + len))
+}
+
+/// Find a CBOR `description` value whose text contains `needle`. There can be several descriptions
+/// in a manifest (one per action).
+///
+/// NB: After reading a value the scan resumes *past that value*, not past its key. Otherwise a
+/// `description` key planted inside a value is reinterpreted as another field, and nested values
+/// make each byte get copied and searched many times over.
+pub(crate) fn find_cbor_description_containing(data: &[u8], needle: &[u8]) -> Option<String> {
+  let mut from = 0;
+  while let Some(i) = find_from(data, b"description", from) {
+    let value_at = i + b"description".len();
+    match read_cbor_text_with_end(data, value_at) {
+      Some((text, end)) => {
+        if text.as_bytes().windows(needle.len()).any(|w| w == needle) {
+          return Some(text);
+        }
+        from = end;
+      }
+      None => from = value_at,
+    }
+  }
+  None
 }
 
 /// Find `key` and read the CBOR text string immediately following it.
@@ -254,6 +282,46 @@ mod tests {
     push_cbor_text(&mut long, "doubao-seedance-2-0-fast"); // 24 chars → 0x78
     assert_eq!(long[0], 0x78);
     assert_eq!(read_cbor_text(&long, 0).as_deref(), Some("doubao-seedance-2-0-fast"));
+  }
+
+  #[test]
+  fn description_scan_does_not_reread_inside_a_value() {
+    // The outer value ends with a planted `description` key and a header (0x6a = 10 bytes) that
+    // would reach into the bytes after it. Only a scan that re-enters consumed values finds NEEDLE.
+    let mut data = Vec::new();
+    data.extend_from_slice(b"description");
+    push_cbor_text(&mut data, "xxdescription\u{6a}");
+    data.extend_from_slice(b"NEEDLE1234");
+    assert_eq!(find_cbor_description_containing(&data, b"NEEDLE"), None);
+
+    let mut data = Vec::new();
+    data.extend_from_slice(b"description");
+    push_cbor_text(&mut data, "first");
+    data.extend_from_slice(b"description");
+    push_cbor_text(&mut data, "has NEEDLE");
+    assert_eq!(find_cbor_description_containing(&data, b"NEEDLE").as_deref(), Some("has NEEDLE"));
+  }
+
+  #[test]
+  fn description_scan_handles_deeply_nested_values() {
+    // Hostile input near the 2-byte length limit: every value is another `description` key plus a
+    // 2-byte-length text holding the rest. Re-entering values made the old scan copy and search
+    // ~n^2/2 bytes; advancing past the outer value reads it once.
+    let mut value: Vec<u8> = Vec::new();
+    while value.len() + 14 < 0x7F00 {
+      let len = value.len();
+      // NB: Keep both length bytes ASCII so every nested value is valid UTF-8.
+      if (len >> 8) > 0x7F || (len & 0xFF) > 0x7F { value.push(b'x'); continue; }
+      let mut next = b"description".to_vec();
+      next.extend_from_slice(&[0x79, (len >> 8) as u8, (len & 0xFF) as u8]);
+      next.extend_from_slice(&value);
+      value = next;
+    }
+    let mut data = b"description".to_vec();
+    data.extend_from_slice(&[0x79, (value.len() >> 8) as u8, (value.len() & 0xFF) as u8]);
+    data.extend_from_slice(&value);
+
+    assert_eq!(find_cbor_description_containing(&data, b"absent"), None);
   }
 
   #[test]
