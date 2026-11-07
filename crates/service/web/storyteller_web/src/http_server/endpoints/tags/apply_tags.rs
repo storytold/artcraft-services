@@ -195,8 +195,10 @@ async fn perform_apply_work(
   // Recount every tag whose link set may have changed: the requested
   // tags plus any tags that previously linked to these files.
   let mut recount_tag_tokens = tag_tokens.clone();
+  // A set keeps this linear; `Vec::contains` made it quadratic in the (user-accumulated) history.
+  let mut seen_tag_tokens: std::collections::HashSet<TagToken> = tag_tokens.iter().cloned().collect();
   for token in previously_linked_tag_tokens {
-    if !recount_tag_tokens.contains(&token) {
+    if seen_tag_tokens.insert(token.clone()) {
       recount_tag_tokens.push(token);
     }
   }
