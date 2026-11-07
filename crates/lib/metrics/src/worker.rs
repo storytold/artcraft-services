@@ -231,7 +231,7 @@ impl MetricsWorker {
         value: 0.0,
         last_timestamp_secs: s.timestamp_secs,
       });
-      entry.value += 1.0;
+      entry.value += s.count as f64;
       if s.timestamp_secs > entry.last_timestamp_secs {
         entry.last_timestamp_secs = s.timestamp_secs;
       }
@@ -434,8 +434,19 @@ mod tests {
       Sample::Counter(CounterSample {
         metric: metric.to_string(),
         tags: tags.into_iter().map(|s| s.to_string()).collect(),
+        count: 1,
         timestamp_secs: ts,
       })
+    }
+
+    #[test]
+    fn sums_sample_counts() {
+      let w = make_worker();
+      let mut big = counter("orders.placed", vec![], 1);
+      if let Sample::Counter(c) = &mut big { c.count = u64::MAX / 2; }
+      let build = w.build_metrics(vec![big, counter("orders.placed", vec![], 2)]);
+      assert_eq!(build.counts.len(), 1);
+      assert_eq!(build.counts[0].points[0].1, (u64::MAX / 2) as f64 + 1.0);
     }
 
     #[test]
