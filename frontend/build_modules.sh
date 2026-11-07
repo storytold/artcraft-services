@@ -16,8 +16,9 @@ set -euxo pipefail
 
 echo 'TEMPORARY HACK: Build shared frontend dependencies since nx is not finding them...'
 
-# A 'clean' will remove nx
-npm install
+# A 'clean' will remove nx. nx, esbuild and @swc/core need their lifecycle scripts, so
+# --ignore-scripts would leave an unusable tree.
+npm install # NOSONAR
 
 # TODO: Temp commented out
 nx build "@storyteller/api"

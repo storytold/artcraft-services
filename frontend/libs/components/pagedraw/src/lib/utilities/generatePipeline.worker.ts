@@ -35,7 +35,9 @@ const post = (response: WorkerResponse, transfer: Transferable[] = []) => {
   );
 };
 
-self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
+// A dedicated worker only receives messages from the page that created it; MessageEvent.origin is
+// always empty here, so there is no origin to verify.
+self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => { // NOSONAR
   const req = event.data;
   try {
     if (req.type === "composite") {
