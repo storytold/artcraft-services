@@ -7,7 +7,7 @@ for (const arch of ["x86_64", "aarch64", "riscv64"]) {
       await page.goto("/download");
       const format = arch === "riscv64" ? "tar.gz" : "flatpak";
       await expect(page.getByRole("link", { name: "Download for Linux", exact: true }))
-        .toHaveAttribute("href", `https://github.com/storytold/artcraft/releases/download/artcraft-v0.42.0/artcraft-0.42.0-linux-${arch}.${format}`);
+        .toHaveAttribute("href", `https://github.com/storytold/artcraft/releases/download/artcraft-v0.41.1/artcraft-0.41.1-linux-${arch}.${format}`);
     });
   });
 }

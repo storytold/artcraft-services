@@ -3,8 +3,8 @@ import { releaseDownloads } from "./crafting-apps";
 
 // Merge this release selection only after its signed Linux assets are published.
 export const ARTCRAFT_STUDIO_RELEASE: CraftRelease = {
-  version: "0.42.0",
-  tag: "artcraft-v0.42.0",
+  version: "0.41.1",
+  tag: "artcraft-v0.41.1",
   assets: CRAFT_RELEASE_ASSETS.filter((asset) => asset.group === "Linux" || asset.file === "SHA256SUMS.txt"),
 };
 

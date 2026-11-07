@@ -696,16 +696,19 @@ async function buildDebAssets(
     candidates.map(async ({ debArch, fileArch }) => {
       const filename = `${name}-${version}-linux-${fileArch}.deb`;
       const meta = await getLinuxPackageMetadata(filename, repo, version);
+      const glibcVer = debArch === "riscv64" ? "2.39" : "2.35";
+      let depends = defaultDepends;
+      if (name === "artcraft") {
+        depends = `libc6 (>= ${glibcVer}), libgcc-s1, libgtk-3-0, libwebkit2gtk-4.1-0, libssl3`;
+      } else if (name === "artcraft-launcher" && debArch === "riscv64") {
+        depends = "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
+      }
       return {
         arch: debArch,
         filename,
         size: meta.size,
         sha256: meta.sha256,
-        depends: name === "artcraft"
-          ? `libc6 (>= ${debArch === "riscv64" ? "2.39" : "2.35"}), libgcc-s1, libgtk-3-0, libwebkit2gtk-4.1-0, libssl3`
-          : (name === "artcraft-launcher" && debArch === "riscv64")
-          ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
-          : defaultDepends,
+        depends,
         recommends: defaultRecommends,
         installedSize: meta.installedSize,
       };
@@ -1226,12 +1229,16 @@ export function buildTar(
   return Buffer.concat(blocks);
 }
 
+function pacmanPkgName(app: LinuxRepoApp): string {
+  return app.slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${app.name}`;
+}
+
 export function generatePacmanDesc(
   app: LinuxRepoApp,
   asset: LinuxRepoApp["archAssets"][number],
   timestamp: number = PACMAN_REPO_TIMESTAMP,
 ): string {
-  const pkgname = `ai.storyteller.${app.name}`;
+  const pkgname = pacmanPkgName(app);
   // pacman compares these against the package's own .PKGINFO, so mirror what the package declares
   // and fall back to the shared builder's lists only when .PKGINFO could not be read.
   const provides = asset.provides.length > 0 ? asset.provides : [`${app.name}=${app.version}-1`];
@@ -1302,7 +1309,7 @@ export async function generatePacmanDb(
     const asset = app.archAssets.find((a) => a.arch === arch);
     if (!asset) continue;
 
-    const dirName = `ai.storyteller.${app.name}-${app.version}-1`;
+    const dirName = `${pacmanPkgName(app)}-${app.version}-1`;
     entries.push(
       {
         name: `${dirName}/`,
