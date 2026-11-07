@@ -16,7 +16,7 @@ use crate::http_server::common_responses::media::media_links_builder::MediaLinks
 use crate::http_server::common_responses::media::media_links_builder::VideoThumbnailInfo;
 use crate::http_server::common_responses::user_details_lite_builder::UserDetailsLightBuilder;
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
-use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
+use crate::http_server::user_lookup::api_or_web_session::require_any_session_or_key::require_library_user_token;
 use crate::state::server_state::ServerState;
 
 const DEFAULT_PAGE_SIZE: usize = 100;
@@ -26,6 +26,11 @@ const MAX_PAGE_SIZE: usize = 1000;
 /// 3D scenes, mood boards, workflows, and video timelines (paginated).
 ///
 /// Use `filter_project_type` to scope the results to a single project type.
+///
+/// A website session cookie is accepted. An `Authorization` header is accepted when it carries
+/// an API key or an MCP session token, and a bad header is rejected rather than falling through
+/// to the cookie. The rows are still that caller's own projects. Send a descriptive `User-Agent`:
+/// Cloudflare answers 403 error 1010 for a library's default agent before this handler runs.
 #[utoipa::path(
   get,
   tag = "Media Files",
@@ -51,9 +56,10 @@ pub async fn list_session_project_media_files_handler(
         CommonWebError::from_error(err)
       })?;
 
-  let user_session = require_user_session(
+  let user_token = require_library_user_token(
     &http_request,
     &server_state.session_checker,
+    &server_state.avt_cookie_manager,
     &mut *mysql_connection,
   ).await?;
 
@@ -71,7 +77,7 @@ pub async fn list_session_project_media_files_handler(
   };
 
   let results_page = list_session_project_media_files(ListSessionProjectMediaFilesArgs {
-    user_token: user_session.get_user_token(),
+    user_token: &user_token,
     maybe_filter_project_type: query.filter_project_type,
     limit,
     maybe_cursor_id,
