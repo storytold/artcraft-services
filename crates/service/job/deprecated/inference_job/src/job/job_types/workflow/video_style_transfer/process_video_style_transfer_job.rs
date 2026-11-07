@@ -557,7 +557,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
 
     if let Some(sleep_millis) = comfy_args.sleep_millis {
         info!("Sleeping for millis: {sleep_millis}");
-        thread::sleep(Duration::from_millis(sleep_millis));
+        thread::sleep(crate::util::debug_sleep::debug_sleep_duration(sleep_millis));
     }
 
     // ==================== CLEANUP/ DELETE TEMP FILES ==================== //
