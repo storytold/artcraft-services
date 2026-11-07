@@ -678,7 +678,11 @@ export const MentionTextarea = forwardRef<HTMLDivElement, MentionTextareaProps>(
     // Case-insensitive so users can type "@image1" and still get it tagged
     // when the canonical label is "@Image1".
     const mentionRegex = useMemo(() => {
-      const labels = mentionItems.map((item) => item.label);
+      // An empty label would match the empty string and the exec() loops in
+      // buildHTML never advance past a zero-length match.
+      const labels = mentionItems
+        .map((item) => item.label)
+        .filter((label) => label.length > 0);
       if (labels.length === 0) return null;
       const sorted = [...labels].sort((a, b) => b.length - a.length);
       const pattern = sorted.map((l) => escapeRegex(l)).join("|");
