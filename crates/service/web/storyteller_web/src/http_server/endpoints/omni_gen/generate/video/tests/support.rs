@@ -735,6 +735,7 @@ pub(crate) fn build_test_server_state(pool: MySqlPool, media_cdn_override_url: S
         daily_generations_id: None,
       },
     },
+    metrics: metrics::collector::MetricsCollector::noop(),
   }
 }
 

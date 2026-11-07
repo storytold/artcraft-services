@@ -15,6 +15,7 @@ use memory_caching::single_item_ttl_cache::SingleItemTtlCache;
 use mysql_queries::mediators::badge_granter::BadgeGranter;
 use mysql_queries::mediators::firehose_publisher::FirehosePublisher;
 use crate::http_server::web_utils::web_opaque_cursor_encoder_v2::WebOpaqueCursorEncoderV2;
+use metrics::worker::MetricsWorker;
 use pager::worker::pager_worker::PagerWorker;
 use redis::Client;
 use redis_caching::redis_ttl_cache::RedisTtlCache;
@@ -36,6 +37,7 @@ use crate::startup::setup_bans::{
 use crate::startup::setup_inference_providers::setup_inference_providers;
 use crate::startup::setup_internal_api_keys::setup_internal_api_keys;
 use crate::startup::setup_dashboards::setup_dashboards;
+use crate::startup::setup_metrics::build_metrics;
 use crate::startup::setup_seedance_video_bucket::setup_seedance_video_bucket;
 use crate::startup::setup_static_feature_flags::setup_static_feature_flags;
 use crate::startup::setup_stripe_artcraft::setup_stripe_artcraft;
@@ -65,6 +67,8 @@ pub struct SetupResult {
   pub server_state: ServerState,
   pub pager_worker: PagerWorker,
   pub health_check_interval: Duration,
+  /// Present when Datadog metrics are enabled; spawn and drain on shutdown.
+  pub maybe_metrics_worker: Option<MetricsWorker>,
 }
 
 pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResult> {
@@ -199,6 +203,9 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
 
   let startup_time = Utc::now();
 
+  let (metrics_collector, maybe_metrics_worker) =
+    build_metrics(server_environment, server_hostname);
+
   let server_state = ServerState {
     env_config: EnvConfig {
       num_workers,
@@ -269,12 +276,14 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
     temp_dir_creator: ScopedTempDirCreator::auto_setup(),
     google_sign_in_cert: GoogleSignInCert::new(),
     dashboards: setup_dashboards(),
+    metrics: metrics_collector,
   };
 
   Ok(SetupResult {
     server_state,
     pager_worker,
     health_check_interval,
+    maybe_metrics_worker,
   })
 }
 
