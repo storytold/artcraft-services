@@ -28,6 +28,7 @@ pub mod media_uploads;
 pub mod model_categories;
 pub mod model_weight_usage_counts;
 pub mod model_weights;
+pub mod named_locks;
 pub mod prompt_context_items;
 pub mod prompts;
 pub mod public_event_feed;
