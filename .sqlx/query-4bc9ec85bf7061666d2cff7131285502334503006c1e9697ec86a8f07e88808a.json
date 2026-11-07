@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "\nUPDATE fal_queue_requests\nSET\n  maybe_recovery_claimed_at = NOW(),\n  recovery_attempt_count = recovery_attempt_count + 1\nWHERE id = ?\n  AND (\n    maybe_recovery_claimed_at IS NULL\n    OR maybe_recovery_claimed_at < NOW() - INTERVAL ? SECOND\n  )\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "4bc9ec85bf7061666d2cff7131285502334503006c1e9697ec86a8f07e88808a"
+}

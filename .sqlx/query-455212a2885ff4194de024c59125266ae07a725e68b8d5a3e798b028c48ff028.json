@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "\nINSERT INTO fal_queue_requests\nSET\n  fal_request_id = ?,\n  status_url = ?,\n  response_url = ?,\n  recovery_attempt_count = 0\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "455212a2885ff4194de024c59125266ae07a725e68b8d5a3e798b028c48ff028"
+}
