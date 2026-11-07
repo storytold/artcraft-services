@@ -30,6 +30,7 @@ use crate::http_server::validations::validate_idempotency_token_format::validate
 use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::http_server::user_lookup::user_session::require_user_session_extended::require_user_session_extended;
 use crate::state::server_state::ServerState;
+use crate::util::job_input_access::{require_media_file_inputs, JobInputRequester};
 use crate::util::cleaners::empty_media_file_token_to_null::empty_media_file_token_to_null;
 
 #[derive(Deserialize, ToSchema)]
@@ -189,6 +190,14 @@ pub async fn enqueue_face_fusion_workflow_handler(
   if request.remove_watermark.unwrap_or(false) && is_allowed_no_watermark {
     watermark_type = None;
   }
+
+  // ==================== INPUT ACCESS ==================== //
+
+  require_media_file_inputs(
+    &[Some(&request.audio_media_file_token), Some(&request.image_or_video_media_file_token)],
+    JobInputRequester::from_session(Some(&user_session)),
+    &server_state.mysql_pool,
+  ).await?;
 
   let payload = FaceFusionPayload {
     audio_media_file_token: empty_media_file_token_to_null(Some(&request.audio_media_file_token)),

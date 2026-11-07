@@ -35,6 +35,7 @@ use crate::http_server::requests::request_headers::has_debug_header::has_debug_h
 use crate::http_server::user_lookup::user_session::session_utils::lookup::user_session_extended::UserSessionExtended;
 use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
 use crate::state::server_state::ServerState;
+use crate::util::job_input_access::{require_media_file_inputs, JobInputRequester};
 use crate::util::allowed_video_style_transfer_access::allowed_video_style_transfer_access;
 
 #[derive(Deserialize)]
@@ -204,6 +205,14 @@ pub async fn enqueue_comfy_ui_handler(
             trim_end_seconds = 3;
         }
     }
+
+    // ==================== INPUT ACCESS ==================== //
+
+    require_media_file_inputs(
+        &[request.maybe_input_file.as_ref()],
+        JobInputRequester::from_session(maybe_user_session.as_ref()),
+        &server_state.mysql_pool,
+    ).await?;
 
     let inference_args = WorkflowArgs {
         workflow_type: None, // Is this endpoint even used anymore?
