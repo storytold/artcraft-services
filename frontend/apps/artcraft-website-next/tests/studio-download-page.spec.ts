@@ -6,8 +6,11 @@ for (const arch of ["x86_64", "aarch64", "riscv64"]) {
     test("offers the matching Linux build instead of Windows", async ({ page }) => {
       await page.goto("/download");
       const format = arch === "riscv64" ? "tar.gz" : "flatpak";
-      await expect(page.getByRole("link", { name: "Download for Linux", exact: true }))
-        .toHaveAttribute("href", `https://github.com/storytold/artcraft/releases/download/artcraft-v0.41.1/artcraft-0.41.1-linux-${arch}.${format}`);
+      const expectedHref = `https://github.com/storytold/artcraft/releases/download/artcraft-v0.41.1/artcraft-0.41.1-linux-${arch}.${format}`;
+      const buttons = page.getByRole("link", { name: "Download for Linux", exact: true });
+      await expect(buttons).toHaveCount(2);
+      await expect(buttons.first()).toHaveAttribute("href", expectedHref);
+      await expect(buttons.nth(1)).toHaveAttribute("href", expectedHref);
     });
   });
 }
