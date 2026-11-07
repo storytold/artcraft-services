@@ -13,14 +13,16 @@ import {
 import { getFlatpakOciIndex } from "../src/lib/flatpak-oci.ts";
 import { buildOciSignaturePayload } from "../src/lib/flatpak-signatures.ts";
 import {
+  RPM_REPO_TIMESTAMP,
   VALID_APT_ARCHES,
   VALID_PACMAN_ARCHES,
   VALID_RPM_ARCHES,
   generateAptPackages,
   generateAptRelease,
   generatePacmanDb,
-  getRpmPrimaryGz,
-  getRpmRepomdXml,
+  generateRpmRepomdXml,
+  getLinuxRepoApps,
+  getRpmPrimaryXml,
   resolvePackageDownloadUrl,
 } from "../src/lib/linux-repos.ts";
 import {
@@ -44,83 +46,109 @@ function writeOut(relPath, content) {
 
 console.info("Generating static Linux repositories and Flatpak OCI catalog...");
 
-const signingConfigured = await isRepoSigningConfigured();
-const publicKey = await getSigningPublicKey();
+const [signingConfigured, publicKey, , flatpakIndex] = await Promise.all([
+  isRepoSigningConfigured(),
+  getSigningPublicKey(),
+  getLinuxRepoApps({ deb: true, rpm: true, arch: true }),
+  getFlatpakOciIndex(),
+]);
 
 if (signingConfigured && publicKey) {
   writeOut("keys/artcraft.asc", publicKey.armored);
   writeOut("keys/artcraft.gpg", Buffer.from(publicKey.binary));
 }
 
-// 1. APT repository metadata
-for (const arch of VALID_APT_ARCHES) {
-  const packages = await generateAptPackages(arch);
-  const base = `apt/dists/stable/main/binary-${arch}`;
-  writeOut(`${base}/Packages`, packages);
-  writeOut(`${base}/Packages.gz`, gzipSync(Buffer.from(packages, "utf-8")));
-}
+async function buildAptRepo() {
+  await Promise.all(
+    [...VALID_APT_ARCHES].map(async (arch) => {
+      const packages = await generateAptPackages(arch);
+      const base = `apt/dists/stable/main/binary-${arch}`;
+      writeOut(`${base}/Packages`, packages);
+      writeOut(`${base}/Packages.gz`, gzipSync(Buffer.from(packages, "utf-8")));
+    }),
+  );
 
-const aptRelease = await generateAptRelease();
-writeOut("apt/dists/stable/Release", aptRelease);
-if (signingConfigured) {
-  const releaseGpg = await signDetachedArmored(aptRelease);
-  const inRelease = await signCleartext(aptRelease);
-  if (releaseGpg) writeOut("apt/dists/stable/Release.gpg", releaseGpg);
-  if (inRelease) writeOut("apt/dists/stable/InRelease", inRelease);
-}
-
-// 2. RPM repository metadata (root and per-arch)
-const rootPrimaryGz = await getRpmPrimaryGz();
-const rootRepomd = await getRpmRepomdXml();
-writeOut("rpm/repodata/primary.xml.gz", rootPrimaryGz);
-writeOut("rpm/repodata/repomd.xml", rootRepomd);
-if (signingConfigured && publicKey) {
-  const rootRepomdAsc = await signDetachedArmored(rootRepomd);
-  if (rootRepomdAsc) writeOut("rpm/repodata/repomd.xml.asc", rootRepomdAsc);
-  writeOut("rpm/repodata/repomd.xml.key", publicKey.armored);
-}
-
-for (const arch of VALID_RPM_ARCHES) {
-  const archPrimaryGz = await getRpmPrimaryGz(arch);
-  const archRepomd = await getRpmRepomdXml(arch);
-  writeOut(`rpm/${arch}/repodata/primary.xml.gz`, archPrimaryGz);
-  writeOut(`rpm/${arch}/repodata/repomd.xml`, archRepomd);
+  const aptRelease = await generateAptRelease();
+  writeOut("apt/dists/stable/Release", aptRelease);
   if (signingConfigured) {
-    const archRepomdAsc = await signDetachedArmored(archRepomd);
-    if (archRepomdAsc) writeOut(`rpm/${arch}/repodata/repomd.xml.asc`, archRepomdAsc);
+    const [releaseGpg, inRelease] = await Promise.all([
+      signDetachedArmored(aptRelease),
+      signCleartext(aptRelease),
+    ]);
+    if (releaseGpg) writeOut("apt/dists/stable/Release.gpg", releaseGpg);
+    if (inRelease) writeOut("apt/dists/stable/InRelease", inRelease);
   }
 }
 
-// 3. Arch Linux (Pacman) repository metadata
-for (const arch of VALID_PACMAN_ARCHES) {
-  const db = await generatePacmanDb(arch);
-  writeOut(`arch/${arch}/artcraft.db`, db);
-  writeOut(`arch/${arch}/artcraft.db.tar.gz`, db);
+async function buildRpmTarget(prefix, archFilter) {
+  const primaryXml = await getRpmPrimaryXml(archFilter);
+  const primaryBuffer = Buffer.from(primaryXml, "utf-8");
+  const primaryGzBuffer = gzipSync(primaryBuffer);
+  const repomd = generateRpmRepomdXml(primaryBuffer, primaryGzBuffer, RPM_REPO_TIMESTAMP);
+
+  writeOut(`${prefix}/repodata/primary.xml.gz`, primaryGzBuffer);
+  writeOut(`${prefix}/repodata/repomd.xml`, repomd);
   if (signingConfigured) {
-    const sig = await signDetachedBinary(new Uint8Array(db));
-    if (sig) writeOut(`arch/${arch}/artcraft.db.sig`, Buffer.from(sig));
+    const repomdAsc = await signDetachedArmored(repomd);
+    if (repomdAsc) writeOut(`${prefix}/repodata/repomd.xml.asc`, repomdAsc);
   }
 }
 
-// 4. Flatpak OCI index & containers/image signature lookaside files
-const flatpakIndex = await getFlatpakOciIndex();
-if (signingConfigured) {
+async function buildRpmRepos() {
+  if (signingConfigured && publicKey) {
+    writeOut("rpm/repodata/repomd.xml.key", publicKey.armored);
+  }
+  await Promise.all([
+    buildRpmTarget("rpm", undefined),
+    ...[...VALID_RPM_ARCHES].map((arch) => buildRpmTarget(`rpm/${arch}`, arch)),
+  ]);
+}
+
+async function buildPacmanRepos() {
+  await Promise.all(
+    [...VALID_PACMAN_ARCHES].map(async (arch) => {
+      const db = await generatePacmanDb(arch);
+      writeOut(`arch/${arch}/artcraft.db`, db);
+      writeOut(`arch/${arch}/artcraft.db.tar.gz`, db);
+      if (signingConfigured) {
+        const sig = await signDetachedBinary(new Uint8Array(db));
+        if (sig) writeOut(`arch/${arch}/artcraft.db.sig`, Buffer.from(sig));
+      }
+    }),
+  );
+}
+
+async function buildFlatpakSignatures() {
+  if (!signingConfigured) return;
+  const tasks = [];
   for (const repo of flatpakIndex.Results) {
     const seenDigests = new Set();
     for (const image of repo.Images) {
       if (!image.Digest.startsWith("sha256:") || seenDigests.has(image.Digest)) continue;
       seenDigests.add(image.Digest);
-      const payload = buildOciSignaturePayload(image.Digest, repo.Repository);
-      const sig = await signInlineBinary(Buffer.from(payload, "utf-8"));
-      if (sig) {
-        const hex = image.Digest.slice("sha256:".length);
-        writeOut(`oci-signatures/${repo.Repository}@sha256=${hex}/signature-1`, Buffer.from(sig));
-      }
+      tasks.push(
+        (async () => {
+          const payload = buildOciSignaturePayload(image.Digest, repo.Repository);
+          const sig = await signInlineBinary(Buffer.from(payload, "utf-8"));
+          if (sig) {
+            const hex = image.Digest.slice("sha256:".length);
+            writeOut(`oci-signatures/${repo.Repository}@sha256=${hex}/signature-1`, Buffer.from(sig));
+          }
+        })(),
+      );
     }
   }
+  await Promise.all(tasks);
 }
 
-// 5. Build static lookup tables for the Cloudflare Worker
+await Promise.all([
+  buildAptRepo(),
+  buildRpmRepos(),
+  buildPacmanRepos(),
+  buildFlatpakSignatures(),
+]);
+
+// Build static lookup tables for the Cloudflare Worker
 const packageRedirects = {};
 const allDownloads = [
   ...artcraftStudioDownloads(),
