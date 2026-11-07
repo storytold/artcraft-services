@@ -327,8 +327,13 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
 
   test("provides metadata and catalog for /linux setup page", async () => {
     const apps = await getLinuxRepoApps();
-    // The launcher plus every app that publishes Linux packages, MaterialCraft included.
-    expect(apps).toHaveLength(17);
+    // ArtCraft Studio, the launcher, and every Craft app that publishes Linux packages.
+    expect(apps).toHaveLength(18);
+    const studioApp = apps.find((app) => app.slug === "artcraft");
+    expect(studioApp).toBeDefined();
+    expect(studioApp?.debAssets).toHaveLength(3);
+    expect(studioApp?.rpmAssets).toHaveLength(3);
+    expect(studioApp?.archAssets).toHaveLength(2);
     const pdfcraftApp = apps.find((app) => app.slug === "pdfcraft");
     expect(pdfcraftApp).toBeDefined();
     expect(pdfcraftApp?.version).toBe(pdf);

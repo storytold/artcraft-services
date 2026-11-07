@@ -370,7 +370,8 @@ test_rhel() {
     dnf --disablerepo="*" --enablerepo="artcraft" repoquery
     mkdir -p /tmp/pkg && cd /tmp/pkg
     # Download the manifest RPMs from ArtCraft alone; resolve their dependencies from
-    # AlmaLinux BaseOS, AppStream, and CRB repositories during installation below.
+    # AlmaLinux BaseOS, AppStream, CRB, and EPEL (webkit2gtk4.1) repositories during installation below.
+    dnf install -y epel-release
     dnf --disablerepo="*" --enablerepo="artcraft" download '"$dnf_pkgs"'
     for rpm in *.rpm; do
       rpm -qip "$rpm" | grep -E "Name|Version|Release|Architecture|Size"
@@ -503,7 +504,11 @@ test_flatpak() {
 
   local flatpak_ids=""
   for app in $flatpak_apps; do
-    flatpak_ids+=" ai.storyteller.$app"
+    if [[ "$app" == *.* ]]; then
+      flatpak_ids+=" $app"
+    else
+      flatpak_ids+=" ai.storyteller.$app"
+    fi
   done
 
   # Flatpak honours GPGKey from the remote descriptor, but no released flatpak takes a lookaside:
@@ -590,12 +595,12 @@ test_flatpak() {
     cut -f1 /tmp/remote-apps.txt > /tmp/remote-ids.txt
 
     echo "--- Verifying presence of all published apps in manifest ---"
-    for app in '"$flatpak_apps"'; do
-      if ! grep -qxF "ai.storyteller.$app" /tmp/remote-ids.txt; then
-        echo "Error: Application ai.storyteller.$app not found in Flatpak remote!" >&2
+    for app_id in '"$flatpak_ids"'; do
+      if ! grep -qxF "$app_id" /tmp/remote-ids.txt; then
+        echo "Error: Application $app_id not found in Flatpak remote!" >&2
         exit 1
       fi
-      echo "  ✓ ai.storyteller.$app verified in remote"
+      echo "  ✓ $app_id verified in remote"
     done
 
     echo "--- Installing every published app from the OCI remote ---"
@@ -607,11 +612,11 @@ test_flatpak() {
     flatpak list --user --app --columns=application,version,branch,arch,size | tee /tmp/installed-apps.txt
     cut -f1 /tmp/installed-apps.txt > /tmp/installed-ids.txt
     missing=0
-    for app in '"$flatpak_apps"'; do
-      if grep -qxF "ai.storyteller.$app" /tmp/installed-ids.txt; then
-        echo "  ✓ ai.storyteller.$app installed"
+    for app_id in '"$flatpak_ids"'; do
+      if grep -qxF "$app_id" /tmp/installed-ids.txt; then
+        echo "  ✓ $app_id installed"
       else
-        echo "Error: ai.storyteller.$app is not installed after the OCI install." >&2
+        echo "Error: $app_id is not installed after the OCI install." >&2
         missing=1
       fi
     done

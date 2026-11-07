@@ -56,6 +56,16 @@ jobs:
               fileSlug: "artcraft-launcher",
             };
 
+            const studio = {
+              repo: "artcraft",
+              fileSlug: "artcraft",
+              tagPrefix: "artcraft-v",
+              studioFile:
+                "frontend/apps/artcraft-website-next/src/lib/artcraft-studio.ts",
+              webappDownloadsFile:
+                "frontend/apps/artcraft-webapp/src/config/github_download_links.ts",
+            };
+
             // Pin a repository here to preserve an intentional rollback.
             // Example: photocraft: "0.8.0"
             // Remove the pin to resume automatic updates.
@@ -83,9 +93,15 @@ jobs:
               );
             }
 
-            function parseVersion(tag) {
+            function parseVersion(tag, tagPrefix = "v") {
+              const escapedPrefix = tagPrefix.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+              );
               const match = tag.match(
-                /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
+                new RegExp(
+                  `^${escapedPrefix}(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$`
+                )
               );
 
               if (!match) return null;
@@ -106,17 +122,36 @@ jobs:
             }
 
             function validateReleaseAssets(repo, fileSlug, release) {
-              const requiredAssets = assetTemplates
-                .filter(
-                  asset =>
-                    repo !== launcher.repo ||
-                    !asset.startsWith("{slug}-cli-")
-                )
-                .map(asset =>
-                  asset
-                    .replaceAll("{slug}", fileSlug)
-                    .replaceAll("{version}", release.text)
-                );
+              const requiredAssets =
+                repo === studio.repo
+                  ? [
+                      ...assetTemplates
+                        .filter(
+                          asset =>
+                            !asset.startsWith("{slug}-cli-") &&
+                            !asset.endsWith(".dmg") &&
+                            !asset.endsWith(".exe") &&
+                            !asset.endsWith(".msi")
+                        )
+                        .map(asset =>
+                          asset
+                            .replaceAll("{slug}", fileSlug)
+                            .replaceAll("{version}", release.text)
+                        ),
+                      `ArtCraft_${release.text}_x64-setup.exe`,
+                      `ArtCraft_${release.text}_universal.dmg`,
+                    ]
+                  : assetTemplates
+                      .filter(
+                        asset =>
+                          repo !== launcher.repo ||
+                          !asset.startsWith("{slug}-cli-")
+                      )
+                      .map(asset =>
+                        asset
+                          .replaceAll("{slug}", fileSlug)
+                          .replaceAll("{version}", release.text)
+                      );
 
               const publishedAssets = new Set(
                 release.assets.map(asset => asset.name)
@@ -133,7 +168,11 @@ jobs:
               }
             }
 
-            async function latestVersion(repo, fileSlug = repo) {
+            async function latestVersion(
+              repo,
+              fileSlug = repo,
+              tagPrefix = "v"
+            ) {
               const releases = await github.paginate(
                 github.rest.repos.listReleases,
                 {
@@ -148,7 +187,7 @@ jobs:
                   release => !release.draft && !release.prerelease
                 )
                 .map(release => {
-                  const parsed = parseVersion(release.tag_name);
+                  const parsed = parseVersion(release.tag_name, tagPrefix);
                   if (!parsed) return null;
 
                   return {
@@ -171,12 +210,12 @@ jobs:
               if (!selected) {
                 if (pinnedVersion) {
                   throw new Error(
-                    `Pinned stable release v${pinnedVersion} not found for ${owner}/${repo}.`
+                    `Pinned stable release ${tagPrefix}${pinnedVersion} not found for ${owner}/${repo}.`
                   );
                 }
 
                 throw new Error(
-                  `No published stable vX.Y.Z releases found for ${owner}/${repo}.`
+                  `No published stable ${tagPrefix}X.Y.Z releases found for ${owner}/${repo}.`
                 );
               }
 
@@ -184,6 +223,41 @@ jobs:
 
               core.info(`${repo}: ${selected.text} (${selected.tag})`);
               return selected.text;
+            }
+
+            // Update ArtCraft Studio Linux/Desktop version.
+            const studioVersion = await latestVersion(
+              studio.repo,
+              studio.fileSlug,
+              studio.tagPrefix
+            );
+            let studioContent = fs.readFileSync(studio.studioFile, "utf8");
+            studioContent = studioContent
+              .replace(
+                /(version:\s*)"[^"]+"/,
+                (_, prefix) => `${prefix}"${studioVersion}"`
+              )
+              .replace(
+                /(tag:\s*)"artcraft-v[^"]+"/,
+                (_, prefix) => `${prefix}"artcraft-v${studioVersion}"`
+              );
+            fs.writeFileSync(studio.studioFile, studioContent);
+
+            if (fs.existsSync(studio.webappDownloadsFile)) {
+              let webappContent = fs.readFileSync(
+                studio.webappDownloadsFile,
+                "utf8"
+              );
+              const updatedWebapp = webappContent.replace(
+                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m,
+                `$1"${studioVersion}"`
+              );
+              if (updatedWebapp === webappContent) {
+                throw new Error(
+                  "Could not find ARTCRAFT_STUDIO_VERSION in github_download_links.ts."
+                );
+              }
+              fs.writeFileSync(studio.webappDownloadsFile, updatedWebapp);
             }
 
             // Update the launcher version.

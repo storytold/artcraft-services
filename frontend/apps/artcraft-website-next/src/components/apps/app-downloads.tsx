@@ -439,7 +439,7 @@ export function AppHeroOtherDownloadsLink() {
   );
 }
 
-function useDetectedDesktop(): DetectedDesktop | null {
+export function useDetectedDesktop(): DetectedDesktop | null {
   const [detected, setDetected] = useState<DetectedDesktop | null>(null);
   useEffect(() => {
     let active = true;

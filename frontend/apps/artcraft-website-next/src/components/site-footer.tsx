@@ -29,6 +29,7 @@ const LINK_COLUMNS: {
     heading: "Resources",
     links: [
       { name: "Linux Repositories", href: "/linux" },
+      { name: "Wiki", href: "https://craft.wiki", external: true },
       { name: "Tutorials", href: "/tutorials" },
       { name: "News", href: "/news" },
       { name: "FAQ", href: "/faq" },

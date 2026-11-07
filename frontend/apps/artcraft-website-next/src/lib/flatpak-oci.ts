@@ -1,3 +1,4 @@
+import { ARTCRAFT_STUDIO_RELEASE } from "./artcraft-studio";
 import { createHash } from "node:crypto";
 import {
   CRAFTING_APPS,
@@ -334,6 +335,7 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
     });
   }
 
+  items.push({ repoName: "storytold/artcraft", appId: "ai.artcraft.app", release: ARTCRAFT_STUDIO_RELEASE });
 
   for (const app of CRAFTING_APPS) {
     const release = craftAppRelease(app);

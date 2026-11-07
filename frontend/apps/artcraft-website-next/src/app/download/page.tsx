@@ -4,9 +4,9 @@ import CraftingAppsCallout from "@/components/download/crafting-apps-callout";
 import DownloadPage from "@/components/download/download-page";
 
 export const metadata: Metadata = {
-  title: "Download ArtCraft Studio for Windows and macOS",
+  title: "Download ArtCraft Studio for Windows, macOS and Linux",
   description:
-    "Download ArtCraft Studio, the generative AI app for images and video, for Windows and macOS.",
+    "Download ArtCraft Studio, the generative AI app for images and video, for Windows, macOS and Linux.",
   alternates: { canonical: "/download" },
 };
 
