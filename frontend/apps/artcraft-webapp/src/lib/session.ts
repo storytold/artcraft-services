@@ -90,7 +90,7 @@ function ensureAuthChangeListener(): void {
   listenerAttached = true;
   window.addEventListener("auth-change", () => {
     invalidateSession();
-    refreshSession(true);
+    void refreshSession(true);
   });
 }
 
@@ -114,7 +114,7 @@ export function useSession(): UseSessionResult {
     ensureAuthChangeListener();
     if (!bootRequested) {
       bootRequested = true;
-      refreshSession();
+      void refreshSession();
     }
   }, []);
 

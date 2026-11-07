@@ -130,7 +130,7 @@ const VerifyReset = () => {
                 className="space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  handleRedeemReset();
+                  void handleRedeemReset();
                 }}
               >
                 {error && (

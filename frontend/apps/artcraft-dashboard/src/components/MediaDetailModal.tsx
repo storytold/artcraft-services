@@ -130,14 +130,14 @@ export function MediaDetailModal({
     if (!open || !item) return;
     let cancelled = false;
     const api = new MediaApi();
-    api.GetMediaFile(item.token).then((res) => {
+    void api.GetMediaFile(item.token).then((res) => {
       if (cancelled) return;
       const promptToken = res.data?.maybe_prompt_token;
       if (!promptToken) {
         setPromptFailed(true);
         return;
       }
-      api.GetPrompt(promptToken).then((promptRes) => {
+      void api.GetPrompt(promptToken).then((promptRes) => {
         if (cancelled) return;
         if (promptRes.success && promptRes.data) {
           setPromptInfo(promptRes.data);

@@ -63,7 +63,7 @@ const ForgotPassword = () => {
                 className="space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  handleRequestReset();
+                  void handleRequestReset();
                 }}
               >
                 {error && (

@@ -105,7 +105,7 @@ export function WalletHistory() {
   const totalCredits = totalMonthly + totalBanked;
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       setCopiedToken(text);
       setTimeout(() => setCopiedToken(null), 2000);
     });
@@ -170,7 +170,7 @@ export function WalletHistory() {
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData();
+    void loadData();
     return () => {
       cancelledRef.current = true;
     };

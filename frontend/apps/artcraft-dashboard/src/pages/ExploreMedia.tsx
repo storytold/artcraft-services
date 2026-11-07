@@ -21,6 +21,7 @@ import {
   IconPhoto,
 } from "@tabler/icons-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 const MEDIA_CLASS_OPTIONS = [
   { value: "", label: "All" },
@@ -52,9 +53,7 @@ export function ExploreMedia() {
   const [selectedItem, setSelectedItem] = useState<ExploreMediaFile | null>(null);
 
   const cancelledRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
+  
   // Stable filter key to detect changes
   const filterKey = useMemo(
     () => `${filterMediaClasses}|${filterMediaType}|${includeUserUploads}`,
@@ -122,22 +121,7 @@ export function ExploreMedia() {
   }, [nextCursor, isLoadingMore, loadData]);
 
   // IntersectionObserver for infinite scroll
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { threshold: 0.1 },
-    );
-
-    if (sentinelRef.current) {
-      observerRef.current.observe(sentinelRef.current);
-    }
-
-    return () => observerRef.current?.disconnect();
-  }, [loadMore]);
+  const sentinelRef = useInfiniteScroll<HTMLDivElement>(loadMore);
 
   // Sync URL mediaToken → selectedItem
   useEffect(() => {
@@ -152,7 +136,7 @@ export function ExploreMedia() {
     } else {
       // Fetch single media file for direct URL access
       const api = new MediaApi();
-      api.GetMediaFile(mediaToken).then((res) => {
+      void api.GetMediaFile(mediaToken).then((res) => {
         if (res.success && res.data) {
           setSelectedItem(res.data as unknown as ExploreMediaFile);
         }

@@ -71,7 +71,7 @@ export function JobsTable({
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       setCopiedToken(text);
       setTimeout(() => setCopiedToken(null), 2000);
     });

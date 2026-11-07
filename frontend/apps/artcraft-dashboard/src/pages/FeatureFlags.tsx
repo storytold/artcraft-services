@@ -49,7 +49,7 @@ export function FeatureFlags() {
   useEffect(() => {
     let cancelled = false;
     const api = new ModerationApi();
-    api
+    void api
       .ListAvailableFeatureFlags()
       .then((resp) => {
         if (cancelled) return;

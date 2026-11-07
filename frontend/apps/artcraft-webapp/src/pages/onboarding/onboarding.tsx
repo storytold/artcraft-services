@@ -36,7 +36,7 @@ const Onboarding = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    checkOnboardingStatus();
+    void checkOnboardingStatus();
   }, []);
 
   const getSuccessUrl = (afterUsernameStep = false) => {

@@ -88,7 +88,7 @@ export default function CreateVFX() {
       pollers.set(resultId, cancel);
     };
 
-    (async () => {
+    void (async () => {
       try {
         const sessionJobs = await listSessionBackgroundChangeJobs();
         if (cancelled) return;

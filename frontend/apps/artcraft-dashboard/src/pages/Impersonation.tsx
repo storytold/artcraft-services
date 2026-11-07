@@ -23,6 +23,7 @@ import {
   IconArrowRight,
 } from "@tabler/icons-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 export function Impersonation() {
   usePageTitle("Impersonation Logs");
@@ -33,9 +34,7 @@ export function Impersonation() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   const cancelledRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
-
+  
   const loadData = async (cursor?: string | null, append = false) => {
     if (!append) {
       setIsLoading(true);
@@ -74,12 +73,12 @@ export function Impersonation() {
   const handleRefresh = () => {
     setRequests([]);
     setNextCursor(null);
-    loadData();
+    void loadData();
   };
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData();
+    void loadData();
     return () => {
       cancelledRef.current = true;
     };
@@ -87,26 +86,11 @@ export function Impersonation() {
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && nextCursor != null) {
-      loadData(nextCursor, true);
+      void loadData(nextCursor, true);
     }
   }, [nextCursor, isLoadingMore]);
 
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { threshold: 0.1 },
-    );
-
-    if (sentinelRef.current) {
-      observerRef.current.observe(sentinelRef.current);
-    }
-
-    return () => observerRef.current?.disconnect();
-  }, [loadMore]);
+  const sentinelRef = useInfiniteScroll<HTMLTableRowElement>(loadMore);
 
   const { ref: tableRef, height: tableHeight } = useTableHeight();
 

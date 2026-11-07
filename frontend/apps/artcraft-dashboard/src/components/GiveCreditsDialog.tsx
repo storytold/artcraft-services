@@ -156,7 +156,7 @@ export function GiveCreditsDialog({
               disabled={isSubmitting}
               onClick={(e) => {
                 e.preventDefault();
-                handleConfirm();
+                void handleConfirm();
               }}
             >
               {isSubmitting ? (

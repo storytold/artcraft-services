@@ -26,6 +26,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 const PAGE_SIZE = 200;
 const COLUMN_COUNT = 8;
@@ -62,9 +63,7 @@ export function UserSpendHistory() {
 
   const cancelledRef = useRef(false);
   const tokenRef = useRef<string | null>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
-
+  
   const loadPage = useCallback(async (offset: number, append: boolean) => {
     const token = tokenRef.current;
     if (!token) return;
@@ -94,7 +93,7 @@ export function UserSpendHistory() {
     if (!username) return;
     cancelledRef.current = false;
 
-    (async () => {
+    void (async () => {
       setIsLoading(true);
       setError(null);
       setRows([]);
@@ -130,17 +129,7 @@ export function UserSpendHistory() {
     }
   }, [nextOffset, isLoadingMore, loadPage]);
 
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { threshold: 0.1 },
-    );
-    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current);
-    return () => observerRef.current?.disconnect();
-  }, [loadMore]);
+  const sentinelRef = useInfiniteScroll<HTMLTableRowElement>(loadMore);
 
   const { ref: tableRef, height: tableHeight } = useTableHeight();
 

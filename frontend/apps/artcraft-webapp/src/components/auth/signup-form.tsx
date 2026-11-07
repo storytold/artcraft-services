@@ -110,7 +110,7 @@ export const SignupForm = ({
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          handleSignup();
+          void handleSignup();
         }}
       >
         {error && (
