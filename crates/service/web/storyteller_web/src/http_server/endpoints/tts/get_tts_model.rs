@@ -206,7 +206,7 @@ pub async fn get_tts_model_handler(
       get_tts_model().await
     }
     Ok(mut redis_ttl_cache) => {
-      let cache_key = RedisCacheKeys::get_tts_model_for_info_migration_endpoint(&path.token);
+      let cache_key = RedisCacheKeys::get_tts_model_for_info_migration_endpoint(&path.token, show_deleted_models);
       redis_ttl_cache.lazy_load_if_not_cached(&cache_key, move || {
         get_tts_model()
       }).await
