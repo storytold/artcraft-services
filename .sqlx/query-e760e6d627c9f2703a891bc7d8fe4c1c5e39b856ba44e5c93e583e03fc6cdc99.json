@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "\nSELECT\n    m.id as `id: u64`,\n    m.token as `token: tokens::tokens::media_files::MediaFileToken`,\n\n    m.media_class as `media_class: enums::by_table::media_files::media_file_class::MediaFileClass`,\n    m.maybe_project_type as `project_type!: enums::by_table::media_files::media_file_project_type::MediaFileProjectType`,\n    m.media_type as `media_type: enums::by_table::media_files::media_file_type::MediaFileType`,\n\n    m.public_bucket_directory_hash,\n    m.maybe_public_bucket_prefix,\n    m.maybe_public_bucket_extension,\n    m.maybe_thumbnail_version as `maybe_thumbnail_version: u8`,\n\n    users.token as `maybe_creator_user_token: tokens::tokens::users::UserToken`,\n    users.username as maybe_creator_username,\n    users.display_name as maybe_creator_display_name,\n    users.email_gravatar_hash as maybe_creator_gravatar_hash,\n\n    media_file_cover_image.public_bucket_directory_hash as maybe_file_cover_image_public_bucket_hash,\n    media_file_cover_image.maybe_public_bucket_prefix as maybe_file_cover_image_public_bucket_prefix,\n    media_file_cover_image.maybe_public_bucket_extension as maybe_file_cover_image_public_bucket_extension,\n\n    m.creator_set_visibility as `creator_set_visibility: enums::common::visibility::Visibility`,\n\n    m.maybe_title,\n\n    m.created_at,\n    m.updated_at\n\nFROM media_files AS m FORCE INDEX (fk_maybe_creator_user_token)\nLEFT OUTER JOIN users\n    ON m.maybe_creator_user_token = users.token\nLEFT OUTER JOIN media_files as media_file_cover_image\n    ON media_file_cover_image.token = m.maybe_cover_image_media_file_token\nWHERE\n    m.maybe_creator_user_token = ?\n    AND m.media_class = 'project'\n    AND m.maybe_project_type IS NOT NULL\n    AND m.maybe_project_type = ?\n    AND m.user_deleted_at IS NULL\n    AND m.mod_deleted_at IS NULL\n    AND NOT m.is_intermediate_system_file\n    AND m.id < ?\nORDER BY m.id DESC\nLIMIT ?\n          ",
+  "query": "\nSELECT\n    m.id as `id: u64`,\n    m.token as `token: tokens::tokens::media_files::MediaFileToken`,\n\n    m.media_class as `media_class: enums::by_table::media_files::media_file_class::MediaFileClass`,\n    m.maybe_project_type as `project_type!: enums::by_table::media_files::media_file_project_type::MediaFileProjectType`,\n    m.media_type as `media_type: enums::by_table::media_files::media_file_type::MediaFileType`,\n\n    m.public_bucket_directory_hash,\n    m.maybe_public_bucket_prefix,\n    m.maybe_public_bucket_extension,\n    m.maybe_thumbnail_version as `maybe_thumbnail_version: u8`,\n\n    users.token as `maybe_creator_user_token: tokens::tokens::users::UserToken`,\n    users.username as maybe_creator_username,\n    users.display_name as maybe_creator_display_name,\n    users.email_gravatar_hash as maybe_creator_gravatar_hash,\n\n    media_file_cover_image.public_bucket_directory_hash as maybe_file_cover_image_public_bucket_hash,\n    media_file_cover_image.maybe_public_bucket_prefix as maybe_file_cover_image_public_bucket_prefix,\n    media_file_cover_image.maybe_public_bucket_extension as maybe_file_cover_image_public_bucket_extension,\n\n    m.creator_set_visibility as `creator_set_visibility: enums::common::visibility::Visibility`,\n\n    m.maybe_title,\n\n    m.created_at,\n    m.updated_at\n\nFROM media_files AS m FORCE INDEX (fk_maybe_creator_user_token)\nLEFT OUTER JOIN users\n    ON m.maybe_creator_user_token = users.token\nLEFT OUTER JOIN media_files as media_file_cover_image\n    ON media_file_cover_image.token = m.maybe_cover_image_media_file_token\n  AND media_file_cover_image.user_deleted_at IS NULL\n  AND media_file_cover_image.mod_deleted_at IS NULL\n  AND (media_file_cover_image.creator_set_visibility <> 'private' OR media_file_cover_image.maybe_creator_user_token = m.maybe_creator_user_token)\nWHERE\n    m.maybe_creator_user_token = ?\n    AND m.media_class = 'project'\n    AND m.maybe_project_type IS NOT NULL\n    AND m.user_deleted_at IS NULL\n    AND m.mod_deleted_at IS NULL\n    AND NOT m.is_intermediate_system_file\n    AND m.id > ?\nORDER BY m.id ASC\nLIMIT ?\n          ",
   "describe": {
     "columns": [
       {
@@ -205,7 +205,7 @@
       }
     ],
     "parameters": {
-      "Right": 4
+      "Right": 3
     },
     "nullable": [
       false,
@@ -230,5 +230,5 @@
       false
     ]
   },
-  "hash": "770f5c0672653e82c40deade6ba7b1e769558d8ebcf40d736f798f30c7a75c68"
+  "hash": "e760e6d627c9f2703a891bc7d8fe4c1c5e39b856ba44e5c93e583e03fc6cdc99"
 }
