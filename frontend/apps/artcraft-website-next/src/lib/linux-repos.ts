@@ -820,6 +820,15 @@ async function buildArchAssets(
 let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
 
 /**
+ * Resets module-level Linux repository catalog, checksum, and metadata caches for isolated unit tests.
+ */
+export function resetLinuxRepoCachesForTests(): void {
+  cachedAllAppsPromise = null;
+  shaSumsCache.clear();
+  packageMetaCache.clear();
+}
+
+/**
  * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
  * Package metadata is fetched and computed on demand.
  */
@@ -1229,6 +1238,10 @@ export function buildTar(
   return Buffer.concat(blocks);
 }
 
+/**
+ * Returns the Pacman package name for a catalogued Linux app (`ai.artcraft.app` for ArtCraft Studio,
+ * and `ai.storyteller.<name>` for the Craft Launcher and Crafting Apps).
+ */
 function pacmanPkgName(app: LinuxRepoApp): string {
   return app.slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${app.name}`;
 }

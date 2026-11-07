@@ -59,6 +59,9 @@ export function WindowsIcon({ className }: IconProps) {
   );
 }
 
+/**
+ * Linux (Tux) brand icon.
+ */
 export function LinuxIcon({ className }: IconProps) {
   return (
     <svg

@@ -62,8 +62,8 @@ jobs:
               tagPrefix: "artcraft-v",
               studioFile:
                 "frontend/apps/artcraft-website-next/src/lib/artcraft-studio.ts",
-              downloadsFile:
-                "frontend/apps/artcraft-website-next/src/lib/download-links.ts",
+              webappDownloadsFile:
+                "frontend/apps/artcraft-webapp/src/config/github_download_links.ts",
             };
 
             // Pin a repository here to preserve an intentional rollback.
@@ -243,26 +243,22 @@ jobs:
               );
             fs.writeFileSync(studio.studioFile, studioContent);
 
-            let downloadsContent = fs.readFileSync(
-              studio.downloadsFile,
-              "utf8"
-            );
-            if (!downloadsContent.includes(`"${studioVersion}":`)) {
-              downloadsContent = downloadsContent.replace(
-                /(const DOWNLOAD_HISTORY = \{\n)/,
-                `$1  "${studioVersion}": githubDownloadLinks("${studioVersion}"),\n`
+            if (fs.existsSync(studio.webappDownloadsFile)) {
+              let webappContent = fs.readFileSync(
+                studio.webappDownloadsFile,
+                "utf8"
               );
+              const updatedWebapp = webappContent.replace(
+                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m,
+                `$1"${studioVersion}"`
+              );
+              if (updatedWebapp === webappContent) {
+                throw new Error(
+                  "Could not find ARTCRAFT_STUDIO_VERSION in github_download_links.ts."
+                );
+              }
+              fs.writeFileSync(studio.webappDownloadsFile, updatedWebapp);
             }
-            downloadsContent = downloadsContent
-              .replace(
-                /(const WINDOWS_VERSION:[\s\S]*?=\s*)"[^"]+"/,
-                (_, prefix) => `${prefix}"${studioVersion}"`
-              )
-              .replace(
-                /(const MAC_VERSION:[\s\S]*?=\s*)"[^"]+"/,
-                (_, prefix) => `${prefix}"${studioVersion}"`
-              );
-            fs.writeFileSync(studio.downloadsFile, downloadsContent);
 
             // Update the launcher version.
             const launcherDisabledPattern =

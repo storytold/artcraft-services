@@ -1,9 +1,20 @@
 import { getFlatpakOciAppIds } from "../src/lib/flatpak-oci";
 import { expect, test } from "@playwright/test";
-import { artcraftStudioDownloads } from "../src/lib/artcraft-studio";
-import { generatePacmanDesc, getLinuxRepoApps, resolvePackageDownloadUrl } from "../src/lib/linux-repos";
+import { ARTCRAFT_STUDIO_RELEASE, artcraftStudioDownloads } from "../src/lib/artcraft-studio";
+import { DOWNLOAD_LINKS, DOWNLOAD_VERSIONS } from "../src/lib/download-links";
+import {
+  generatePacmanDesc,
+  getLinuxRepoApps,
+  resetLinuxRepoCachesForTests,
+  resolvePackageDownloadUrl,
+} from "../src/lib/linux-repos";
 
-test("Studio Linux catalog matches every package target", () => {
+test("Studio Linux catalog matches every package target and keeps all three platforms on the same version", () => {
+  expect(DOWNLOAD_VERSIONS.WINDOWS).toBe(ARTCRAFT_STUDIO_RELEASE.version);
+  expect(DOWNLOAD_VERSIONS.MACOS).toBe(ARTCRAFT_STUDIO_RELEASE.version);
+  expect(DOWNLOAD_VERSIONS.LINUX).toBe(ARTCRAFT_STUDIO_RELEASE.version);
+  expect(DOWNLOAD_LINKS.WINDOWS).toContain(`artcraft-v${ARTCRAFT_STUDIO_RELEASE.version}/ArtCraft_${ARTCRAFT_STUDIO_RELEASE.version}_x64-setup.exe`);
+  expect(DOWNLOAD_LINKS.MACOS).toContain(`artcraft-v${ARTCRAFT_STUDIO_RELEASE.version}/ArtCraft_${ARTCRAFT_STUDIO_RELEASE.version}_universal.dmg`);
   expect(getFlatpakOciAppIds()).toContain("ai.artcraft.app");
   const downloads = artcraftStudioDownloads();
   for (const arch of ["x86_64", "aarch64", "riscv64"]) {
@@ -22,6 +33,7 @@ test("Studio Linux catalog matches every package target", () => {
 
 test("Studio APT and RPM repositories use the ArtCraft tag and WebKit dependencies", async () => {
   const originalFetch = globalThis.fetch;
+  resetLinuxRepoCachesForTests();
   const requests: string[] = [];
   const files = ["x86_64", "aarch64", "riscv64"].flatMap((arch) =>
     ["deb", "rpm", "rpm.asc", "pkg.tar.zst", "pkg.tar.zst.sig"].map((format) => `artcraft-0.41.1-linux-${arch}.${format}`));
@@ -48,5 +60,6 @@ test("Studio APT and RPM repositories use the ArtCraft tag and WebKit dependenci
     expect(requests).toContain("https://github.com/storytold/artcraft/releases/download/artcraft-v0.41.1/SHA256SUMS.txt");
   } finally {
     globalThis.fetch = originalFetch;
+    resetLinuxRepoCachesForTests();
   }
 });

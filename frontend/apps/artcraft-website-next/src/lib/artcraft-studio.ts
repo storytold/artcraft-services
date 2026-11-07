@@ -8,6 +8,9 @@ export const ARTCRAFT_STUDIO_RELEASE: CraftRelease = {
   assets: CRAFT_RELEASE_ASSETS.filter((asset) => asset.group === "Linux" || asset.file === "SHA256SUMS.txt"),
 };
 
+/**
+ * Returns the release download entries for ArtCraft Studio.
+ */
 export function artcraftStudioDownloads() {
   return releaseDownloads("https://github.com/storytold/artcraft", "artcraft", ARTCRAFT_STUDIO_RELEASE);
 }
