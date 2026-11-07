@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -18,6 +19,9 @@ use enums::by_table::media_files::media_file_type::MediaFileType;
 use enums::common::visibility::Visibility;
 use mysql_queries::queries::folders::folder::get_folder_for_owner::{
   get_folder_for_owner, GetFolderForOwnerArgs,
+};
+use mysql_queries::queries::folders::media_files::filter_existing_media_file_tokens::{
+  filter_existing_media_file_tokens, FilterExistingMediaFileTokensArgs,
 };
 use mysql_queries::queries::folders::media_files::list_folder_media_files::{
   list_folder_media_files, FolderMediaFileRow, ListFolderMediaFilesArgs,
@@ -175,10 +179,35 @@ pub async fn list_folder_media_files_handler(
     None
   };
 
+  // Folder membership is stored when a file is added, and the file's
+  // visibility may have changed since. Re-check private rows so another
+  // user's private file never comes back with its URLs. The cursor above
+  // is taken from the unfiltered page, so pagination is unaffected.
+  let private_tokens: Vec<MediaFileToken> = rows.iter()
+      .filter(|row| row.creator_set_visibility == Visibility::Private)
+      .map(|row| row.media_file_token.clone())
+      .collect();
+
+  let readable_private_tokens: HashSet<MediaFileToken> = if private_tokens.is_empty() {
+    HashSet::new()
+  } else {
+    filter_existing_media_file_tokens(FilterExistingMediaFileTokensArgs {
+      candidate_tokens: &private_tokens,
+      viewer_user_token: &user_session.user_token,
+      mysql_executor: &mut *conn,
+      phantom: PhantomData,
+    }).await.map_err(|err| {
+      warn!("filter_existing_media_file_tokens failed: {:?}", err);
+      CommonWebError::from_error(err)
+    })?.into_iter().collect()
+  };
+
   let media_domain = get_media_domain(&http_request);
   let server_environment = server_state.server_environment;
 
   let media_files = rows.into_iter()
+      .filter(|row| row.creator_set_visibility != Visibility::Private
+          || readable_private_tokens.contains(&row.media_file_token))
     .map(|row| folder_media_file_row_to_list_item(row, media_domain, server_environment))
     .collect();
 

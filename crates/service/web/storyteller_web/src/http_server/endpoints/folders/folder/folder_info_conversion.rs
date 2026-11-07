@@ -12,6 +12,7 @@ use mysql_queries::queries::media_files::get::batch_get_media_file_thumbnails_by
 };
 use server_environment::ServerEnvironment;
 use tokens::tokens::media_files::MediaFileToken;
+use tokens::tokens::users::UserToken;
 
 use crate::http_server::common_responses::media::media_domain::MediaDomain;
 use crate::http_server::common_responses::media::media_links_builder::MediaLinksBuilder;
@@ -23,9 +24,12 @@ use crate::http_server::common_responses::media::media_links_builder::VideoThumb
 ///
 /// Returns a token → thumbnail map. Tokens for media files that don't
 /// exist or are soft-deleted are silently absent from the map; the
-/// caller treats them as "slot skipped".
+/// caller treats them as "slot skipped". So are other users' private
+/// media files: folder membership was stored when the file was added, and
+/// its visibility may have changed since, so it is re-checked here.
 pub async fn build_folder_thumbnails_lookup<'e, 'c: 'e, E>(
   folder_rows: &[FolderRow],
+  viewer_user_token: &UserToken,
   mysql_executor: E,
   media_domain: MediaDomain,
   server_environment: ServerEnvironment,
@@ -42,6 +46,7 @@ where
   let thumbnail_rows = batch_get_media_file_thumbnails_by_tokens(
     BatchGetMediaFileThumbnailsByTokensArgs {
       candidate_tokens: &candidate_tokens,
+      maybe_restrict_private_to_creator: Some(viewer_user_token),
       mysql_executor,
       phantom: PhantomData,
     },

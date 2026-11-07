@@ -28,6 +28,7 @@ use mysql_queries::queries::folders::media_files::recompute_folder_last_media_fi
   recompute_folder_last_media_files, RecomputeFolderLastMediaFilesArgs,
 };
 use tokens::tokens::folders::FolderToken;
+use tokens::tokens::users::UserToken;
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
@@ -131,6 +132,7 @@ pub async fn bulk_move_folder_media_files_handler(
     &request.source_folder,
     &path.folder_token,
     &request.media_file_tokens,
+    &user_session.user_token,
   ).await?;
 
   Ok(Json(BulkMoveFolderMediaFilesSuccessResponse {
@@ -158,6 +160,7 @@ async fn perform_atomic_move(
   source_folder_token: &FolderToken,
   destination_folder_token: &FolderToken,
   media_file_tokens: &[MediaFileToken],
+  viewer_user_token: &UserToken,
 ) -> Result<MoveOutcome, CommonWebError> {
   let mut tx = conn.begin().await.map_err(|err| {
     warn!("Failed to begin transaction: {:?}", err);
@@ -169,6 +172,7 @@ async fn perform_atomic_move(
     source_folder_token,
     destination_folder_token,
     media_file_tokens,
+    viewer_user_token,
   ).await;
 
   match work_result {
@@ -196,6 +200,7 @@ async fn perform_move_work(
   source_folder_token: &FolderToken,
   destination_folder_token: &FolderToken,
   media_file_tokens: &[MediaFileToken],
+  viewer_user_token: &UserToken,
 ) -> Result<MoveOutcome, CommonWebError> {
   let removed_from_source_count = bulk_delete_folder_media_files(BulkDeleteFolderMediaFilesArgs {
     folder_token: source_folder_token,
@@ -209,6 +214,7 @@ async fn perform_move_work(
 
   let accepted_media_file_tokens = filter_existing_media_file_tokens(FilterExistingMediaFileTokensArgs {
     candidate_tokens: media_file_tokens,
+    viewer_user_token,
     mysql_executor: &mut **tx,
     phantom: PhantomData,
   }).await.map_err(|err| {

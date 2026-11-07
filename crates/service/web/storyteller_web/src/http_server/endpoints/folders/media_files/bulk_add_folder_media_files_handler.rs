@@ -33,9 +33,9 @@ use crate::state::server_state::ServerState;
 const MAX_BULK: usize = 500;
 
 /// Bulk-add media files to a folder. Idempotent via INSERT IGNORE on the
-/// composite primary key. Media-file tokens that don't exist or are
-/// soft-deleted are silently skipped; the response lists the accepted
-/// tokens.
+/// composite primary key. Media-file tokens that don't exist, are
+/// soft-deleted, or are another user's private files are silently
+/// skipped; the response lists the accepted tokens.
 #[utoipa::path(
   post,
   tag = "Folders (Media File Management)",
@@ -85,6 +85,7 @@ pub async fn bulk_add_folder_media_files_handler(
 
   let accepted = filter_existing_media_file_tokens(FilterExistingMediaFileTokensArgs {
     candidate_tokens: &request.media_file_tokens,
+    viewer_user_token: &user_session.user_token,
     mysql_executor: &mut *conn,
     phantom: PhantomData,
   }).await.map_err(|err| {
