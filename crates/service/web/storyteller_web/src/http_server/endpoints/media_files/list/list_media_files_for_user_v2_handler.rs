@@ -8,7 +8,8 @@ use artcraft_api_defs::media_file::list::list_media_files_for_user_v2::{
   ListMediaFilesForUserV2SuccessResponse, UserMediaFileV2Pagination,
 };
 use enums::common::view_as::ViewAs;
-use log::info;
+use log::{info, warn};
+use mysql_queries::queries::users::user::get::get_user_token_by_username::get_user_token_by_username;
 use mysql_queries::queries::media_files::list::list_media_files_for_user::{
   list_media_files_for_user, ListMediaFileForUserArgs,
 };
@@ -64,10 +65,19 @@ pub async fn list_media_files_for_user_v2_handler(
   // NB: Temporary rollout flag for certain file types (BVH, etc).
   let is_allowed_studio_access = allowed_studio_access(maybe_user_session.as_ref(), &server_state.flags);
 
+  // NB: Usernames can be released and reassigned while a cached session still carries the old
+  // name, so author access is bound to the immutable user token of the account being listed.
+  let maybe_target_user_token = get_user_token_by_username(&path.username, &server_state.mysql_pool)
+      .await
+      .map_err(|err| {
+        warn!("Error resolving username {:?}: {:?}", path.username, err);
+        CommonWebError::from_anyhow_error(err)
+      })?;
+
   match maybe_user_session {
     None => {}
     Some(session) => {
-      is_author = session.username == path.username;
+      is_author = maybe_target_user_token.as_ref() == Some(&session.user_token);
       is_mod = session.can_ban_users;
     }
   };
