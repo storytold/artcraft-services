@@ -1,3 +1,4 @@
+pub mod get_media_upload_access_info;
 pub mod get_media_upload_by_uuid;
 pub mod get_media_upload_for_inference;
 pub mod insert_media_upload;
