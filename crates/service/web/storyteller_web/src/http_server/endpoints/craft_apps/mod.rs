@@ -1,1 +1,4 @@
+pub mod get_craft_apps_download_handler;
+pub mod get_craft_apps_flatpak_repo_redirect_handler;
+pub mod get_craft_apps_flatpakrepo_handler;
 pub mod get_craft_apps_release_info_handler;
