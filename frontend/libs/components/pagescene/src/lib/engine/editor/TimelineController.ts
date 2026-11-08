@@ -167,6 +167,7 @@ export class TimelineController {
     this.timeline.duration = clampTimelineDuration(this.timeline.duration);
     if (!Array.isArray(this.timeline.tracks)) this.timeline.tracks = [];
     if (!Array.isArray(this.timeline.clipLanes)) this.timeline.clipLanes = [];
+    this.refitClipLanes(this.timeline.duration);
     this.saved = cloneTimeline(this.timeline);
     this.playhead = Math.min(this.playhead, this.timeline.duration);
     this.syncClipLanes();
@@ -211,17 +212,24 @@ export class TimelineController {
     if (this.playhead > duration) {
       this.playhead = duration;
     }
-    // Ascending order so earlier strips claim room first; a strip longer
-    // than the whole timeline shrinks to fit, and resolveFreeStart re-snaps
-    // anything now out of range into the nearest free slot.
+    if (this.refitClipLanes(duration)) this.syncClipLanes();
+    this.evaluate();
+    this.emitChanged();
+    this.emitPlayhead();
+  }
+
+  private refitClipLanes(duration: number): boolean {
+    if (!this.timeline) return false;
+    // Earlier strips claim room first; oversized strips shrink and out-of-range
+    // strips move to the nearest free slot, matching interactive duration edits.
     const lanes = [...this.timeline.clipLanes].sort(
       (a, b) => a.strip.startTime - b.strip.startTime,
     );
-    let lanesChanged = false;
+    let changed = false;
     for (const lane of lanes) {
       const strip = lane.strip;
       if (strip.startTime + strip.duration <= duration) continue;
-      lanesChanged = true;
+      changed = true;
       if (strip.duration > duration) {
         strip.duration = duration;
         strip.autoDuration = false;
@@ -232,14 +240,9 @@ export class TimelineController {
         strip.startTime,
         strip.duration,
       );
-      // No free slot in the shrunken timeline: park the strip flush with the
-      // end; overlaps (if any) resolve on the next add/move like restore's.
       strip.startTime = freeStart ?? Math.max(0, duration - strip.duration);
     }
-    if (lanesChanged) this.syncClipLanes();
-    this.evaluate();
-    this.emitChanged();
-    this.emitPlayhead();
+    return changed;
   }
 
   // Advanced once per frame from editor.renderSingleFrame().
