@@ -209,6 +209,8 @@ pub async fn enqueue_live_portrait_workflow_handler(
 
   // ==================== INPUT ACCESS ==================== //
 
+  drop(mysql_connection);
+
   require_media_file_inputs(
     &[Some(&request.source_media_file_token), Some(&request.face_driver_media_file_token)],
     JobInputRequester::from_session(Some(&user_session)),

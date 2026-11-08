@@ -208,6 +208,8 @@ pub async fn enqueue_comfy_ui_handler(
 
     // ==================== INPUT ACCESS ==================== //
 
+    drop(mysql_connection);
+
     require_media_file_inputs(
         &[request.maybe_input_file.as_ref()],
         JobInputRequester::from_session(maybe_user_session.as_ref()),

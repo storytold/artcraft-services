@@ -191,6 +191,8 @@ pub async fn enqueue_fbx_to_gltf_handler(
 
     // ==================== INPUT ACCESS ==================== //
 
+    drop(mysql_connection);
+
     let requester = JobInputRequester::from_session(maybe_user_session.as_ref());
 
     let can_use_input = can_use_media_file_input(&request.media_file_token, requester, &server_state.mysql_pool)

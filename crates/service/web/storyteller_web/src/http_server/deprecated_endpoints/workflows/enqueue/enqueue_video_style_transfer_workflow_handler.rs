@@ -252,6 +252,8 @@ pub async fn enqueue_video_style_transfer_workflow_handler(
 
   // ==================== INPUT ACCESS ==================== //
 
+  drop(mysql_connection);
+
   require_media_file_inputs(
     &[
       Some(&request.input_file),

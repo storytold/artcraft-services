@@ -179,6 +179,8 @@ pub async fn enqueue_rerender_animation_handler(
 
     // ==================== INPUT ACCESS ==================== //
 
+    drop(mysql_connection);
+
     if let Some(ref token) = request.video_source {
         let requester = JobInputRequester::from_session(maybe_user_session.as_ref());
         let can_use_input = can_use_media_file_input(token, requester, &server_state.mysql_pool)

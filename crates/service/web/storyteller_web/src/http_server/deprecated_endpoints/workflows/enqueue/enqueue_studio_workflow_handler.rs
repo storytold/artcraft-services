@@ -264,6 +264,8 @@ pub async fn enqueue_studio_workflow_handler(
 
   // ==================== INPUT ACCESS ==================== //
 
+  drop(mysql_connection);
+
   require_media_file_inputs(
     &[
       Some(&request.input_file),

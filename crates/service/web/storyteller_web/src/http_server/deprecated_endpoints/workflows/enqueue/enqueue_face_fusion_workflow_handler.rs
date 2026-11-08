@@ -193,6 +193,8 @@ pub async fn enqueue_face_fusion_workflow_handler(
 
   // ==================== INPUT ACCESS ==================== //
 
+  drop(mysql_connection);
+
   require_media_file_inputs(
     &[Some(&request.audio_media_file_token), Some(&request.image_or_video_media_file_token)],
     JobInputRequester::from_session(Some(&user_session)),

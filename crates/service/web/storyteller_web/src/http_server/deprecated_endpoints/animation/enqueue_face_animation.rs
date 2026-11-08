@@ -251,6 +251,8 @@ pub async fn enqueue_face_animation_handler(
 
   // ==================== INPUT ACCESS ==================== //
 
+  drop(mysql_connection);
+
   // NB: The worker downloads these with the service's credentials and publishes the result under
   // this job, so the requester must be allowed to use each source. Checked in the same order the
   // sources are chosen above. (TTS results are not implemented by the worker.)

@@ -11,32 +11,28 @@ pub struct MediaUploadAccessInfo {
   pub creator_set_visibility: Visibility,
 }
 
-/// Look up the creator and visibility of a media upload. Excludes soft-deleted rows.
-///
-/// NB: Runtime query because `maybe_creator_user_token` on `media_uploads` has no offline cache
-/// entry yet; replace with `sqlx::query_as!` after the next `cargo sqlx prepare`.
-pub async fn get_media_upload_access_info<'e, 'c: 'e, E>(
-  media_upload_token: &MediaUploadToken,
-  mysql_executor: E,
-) -> Result<Option<MediaUploadAccessInfo>, sqlx::Error>
-  where E: 'e + Executor<'c, Database = MySql>
-{
-  let maybe_row: Option<(Option<String>, Visibility)> = sqlx::query_as(r#"
-SELECT
-  maybe_creator_user_token,
-  creator_set_visibility
-FROM media_uploads
-WHERE token = ?
-  AND user_deleted_at IS NULL
-  AND mod_deleted_at IS NULL
-LIMIT 1
-    "#)
-      .bind(media_upload_token.as_str())
-      .fetch_optional(mysql_executor)
-      .await?;
+/// Inputs for [`get_media_upload_access_info`].
+pub struct GetMediaUploadAccessInfoArgs<'a, T> {
+  pub media_upload_token: &'a MediaUploadToken,
+  pub mysql_executor: T,
+}
 
-  Ok(maybe_row.map(|(maybe_creator_user_token, creator_set_visibility)| MediaUploadAccessInfo {
-    maybe_creator_user_token: maybe_creator_user_token.map(|t| UserToken::new_from_str(&t)),
-    creator_set_visibility,
-  }))
+/// Look up the creator and visibility of a media upload. Excludes soft-deleted rows.
+pub async fn get_media_upload_access_info<'c, T>(
+  args: GetMediaUploadAccessInfoArgs<'_, T>,
+) -> Result<Option<MediaUploadAccessInfo>, sqlx::Error>
+  where T: Executor<'c, Database = MySql>
+{
+  sqlx::query_as!(MediaUploadAccessInfo, r#"
+SELECT
+  mu.maybe_creator_user_token as `maybe_creator_user_token: tokens::tokens::users::UserToken`,
+  mu.creator_set_visibility as `creator_set_visibility: enums::common::visibility::Visibility`
+FROM media_uploads as mu
+WHERE mu.token = ?
+  AND mu.user_deleted_at IS NULL
+  AND mu.mod_deleted_at IS NULL
+LIMIT 1
+    "#, args.media_upload_token.as_str())
+    .fetch_optional(args.mysql_executor)
+    .await
 }

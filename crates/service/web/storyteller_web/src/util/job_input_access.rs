@@ -10,7 +10,7 @@ use sqlx::MySqlPool;
 
 use enums::common::visibility::Visibility;
 use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
-use mysql_queries::queries::media_uploads::get_media_upload_access_info::get_media_upload_access_info;
+use mysql_queries::queries::media_uploads::get_media_upload_access_info::{get_media_upload_access_info, GetMediaUploadAccessInfoArgs};
 use mysql_queries::queries::voice_conversion::results::get_voice_conversion_result::get_voice_conversion_result;
 use tokens::tokens::media_files::MediaFileToken;
 use tokens::tokens::media_uploads::MediaUploadToken;
@@ -85,7 +85,7 @@ pub async fn can_use_media_upload_input(
   requester: JobInputRequester<'_>,
   mysql_pool: &MySqlPool,
 ) -> anyhow::Result<bool> {
-  let maybe_record = get_media_upload_access_info(token, mysql_pool).await?;
+  let maybe_record = get_media_upload_access_info(GetMediaUploadAccessInfoArgs { media_upload_token: token, mysql_executor: mysql_pool }).await?;
   Ok(maybe_record.is_some_and(|record| may_use_record(
     record.creator_set_visibility,
     record.maybe_creator_user_token.as_ref(),
