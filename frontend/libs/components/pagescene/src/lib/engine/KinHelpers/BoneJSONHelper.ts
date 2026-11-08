@@ -32,12 +32,13 @@ function readTransform(data: any): Pick<BonePoseNode, "position" | "quaternion" 
   if (isFiniteNumberArray(data.matrix, 16)) {
     new Matrix4().fromArray(data.matrix).decompose(position, quaternion, scale);
     // A degenerate matrix (e.g. a zero scale column) decomposes to NaN.
-    const finite = [...position.toArray(), ...quaternion.toArray(), ...scale.toArray()]
-      .every(Number.isFinite);
-    if (finite) {
-      return { position, quaternion, scale };
-    }
-    return { position: new Vector3(), quaternion: new Quaternion(), scale: new Vector3(1, 1, 1) };
+    const finiteVector = (v: Vector3) => v.toArray().every(Number.isFinite);
+    const finiteQuaternion = quaternion.toArray().every(Number.isFinite);
+    return {
+      position: finiteVector(position) ? position : new Vector3(),
+      quaternion: finiteQuaternion ? quaternion : new Quaternion(),
+      scale: finiteVector(scale) ? scale : new Vector3(1, 1, 1),
+    };
   }
   if (isFiniteNumberArray(data.position, 3)) position.fromArray(data.position);
   if (isFiniteNumberArray(data.quaternion, 4)) quaternion.fromArray(data.quaternion);
@@ -54,11 +55,14 @@ export function parseBonePose(boneJSON: any): BonePoseNode | undefined {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const readNode = (data: any, depth: number): BonePoseNode | undefined => {
-    if (depth > MAX_POSE_DEPTH || remaining <= 0) {
+    if (remaining <= 0) {
       return undefined;
     }
     // Every visited slot counts against the budget, readable or not.
     remaining--;
+    if (depth > MAX_POSE_DEPTH) {
+      return undefined;
+    }
     if (!data || typeof data !== "object") {
       return undefined;
     }
