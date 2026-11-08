@@ -562,7 +562,11 @@ export function createBoundedScratchSurface({
     width: Math.max(1, Math.round(w * scale)),
     height: Math.max(1, Math.round(h * scale)),
   });
-  if (scale < 1) surface.context.scale(scale, scale);
+  if (scale < 1) {
+    // Use the actual rounded surface dimensions on each axis so one-pixel
+    // masks still reach the far edge after downscaling.
+    surface.context.scale(surface.canvas.width / w, surface.canvas.height / h);
+  }
   return surface;
 }
 
