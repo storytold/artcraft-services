@@ -458,7 +458,7 @@ const imagePlaneLoader = ({
   });
 };
 
-// World-space bounds of every mesh under `root`, in one pass. Each distinct
+// World-space bounds of every mesh, line, and points object under `root`, in one pass. Each distinct
 // geometry's local bounds are computed once and reused by every mesh that
 // shares it, and each mesh is visited once: Box3.expandByObject recurses
 // into children, so calling it per mesh inside a traversal re-walked whole
@@ -470,18 +470,18 @@ export function computeMeshBounds(root: THREE.Object3D): THREE.Box3 {
   const local = new THREE.Box3();
   const computed = new Set<THREE.BufferGeometry>();
   root.traverse((object) => {
-    if (!(object instanceof THREE.Mesh)) return;
-    const mesh = object as THREE.Mesh & {
+    if (!(object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points)) return;
+    const renderable = object as (THREE.Mesh | THREE.Line | THREE.Points) & {
       boundingBox?: THREE.Box3 | null;
       computeBoundingBox?: () => void;
     };
-    if (mesh.boundingBox !== undefined && mesh.computeBoundingBox) {
+    if (renderable.boundingBox !== undefined && renderable.computeBoundingBox) {
       // Skinned/instanced meshes keep an object-level box (per object).
-      if (mesh.boundingBox === null) mesh.computeBoundingBox();
-      if (!mesh.boundingBox) return;
-      local.copy(mesh.boundingBox);
+      if (renderable.boundingBox === null) renderable.computeBoundingBox();
+      if (!renderable.boundingBox) return;
+      local.copy(renderable.boundingBox);
     } else {
-      const geometry = mesh.geometry as THREE.BufferGeometry | undefined;
+      const geometry = renderable.geometry as THREE.BufferGeometry | undefined;
       if (!geometry) return;
       if (!computed.has(geometry)) {
         geometry.computeBoundingBox();
@@ -490,7 +490,7 @@ export function computeMeshBounds(root: THREE.Object3D): THREE.Box3 {
       if (!geometry.boundingBox) return;
       local.copy(geometry.boundingBox);
     }
-    local.applyMatrix4(mesh.matrixWorld);
+    local.applyMatrix4(renderable.matrixWorld);
     box.union(local);
   });
   return box;
