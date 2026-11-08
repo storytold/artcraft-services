@@ -124,10 +124,14 @@ export async function assertFbxWithinBudget(
         if (declared > maxBytes) {
           throw new FbxBudgetError("FBX file is too large to convert.");
         }
-        if (encoding === 1) {
+        if (encoding === 0) {
+          offset += expected;
+        } else if (encoding === 1) {
           compressed.push({ start: offset, length: compressedLength, expected });
+          offset += compressedLength;
+        } else {
+          throw new RangeError(`Unknown FBX array encoding ${encoding}`);
         }
-        offset += compressedLength;
       }
     }
   };
@@ -182,8 +186,8 @@ async function inflateWithLimit(input: Uint8Array, limit: number): Promise<void>
       try {
         chunk = await reader.read();
       } catch {
-        // Corrupt stream: FBXLoader's own inflate will fail on it.
-        return;
+        // FBXLoader's fflate inflate does not verify the Adler-32 trailer.
+        throw new FbxBudgetError("FBX file contains a compressed array that fails to inflate.");
       }
       if (chunk.done) return;
       produced += chunk.value.byteLength;
