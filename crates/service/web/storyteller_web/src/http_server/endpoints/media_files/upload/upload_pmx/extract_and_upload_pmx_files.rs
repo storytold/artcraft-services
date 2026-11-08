@@ -184,6 +184,12 @@ fn get_relevant_zip_entries(archive: &mut ZipArchive<BufReader<Cursor<&[u8]>>>) 
       None => return Err(PmxError::FileError),
       Some(name) => name,
     };
+    if enclosed_name
+        .components()
+        .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
+      return Err(PmxError::FileError);
+    }
 
     if filename_lowercase.ends_with(".pmx") {
       entries.push(PmxZipEntryDetail {
@@ -279,6 +285,17 @@ fn remove_useless_leading_directories(mut entries: Vec<PmxZipEntryDetail>) -> Re
             }
           })
           .collect::<Vec<PmxZipEntryDetail>>();
+    }
+  }
+
+  let mut destinations = HashSet::with_capacity(entries.len());
+  for entry in &entries {
+    let destination = entry
+        .maybe_better_alternative_output_name
+        .as_ref()
+        .unwrap_or(&entry.enclosed_name);
+    if !destinations.insert(destination.clone()) {
+      return Err(PmxError::FileError);
     }
   }
 
