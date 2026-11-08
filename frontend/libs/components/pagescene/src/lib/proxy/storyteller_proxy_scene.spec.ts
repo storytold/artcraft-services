@@ -90,10 +90,10 @@ describe("loadFromSceneJson", () => {
     const proxy = new StoryTellerProxyScene(2, scene);
     const lightJson = {
       ...BOX_JSON,
-      object_name: "PointLight",
+      object_name: "Point Light",
       object_uuid: "light-uuid",
       color: "#00FF00",
-      user_data: { shapeKey: "PointLight" },
+      user_data: { shapeKey: "PointLight", shapeType: "PointLight" },
     };
 
     await proxy.loadFromSceneJson([lightJson] as never, "m_1", 2, makeTicket());

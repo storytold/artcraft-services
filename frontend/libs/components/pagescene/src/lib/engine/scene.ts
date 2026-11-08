@@ -637,7 +637,7 @@ class Scene {
       if (!isShape) return;
       if (c.material.color === undefined) return;
       c.material.color.set(picked);
-      if (c.name == "PointLight") {
+      if (c.userData["shapeType"] == "PointLight") {
         // instantiate attaches the light under its marker mesh, so look in
         // this subtree rather than searching the whole scene.
         const light = c.getObjectByProperty("uuid", c.userData["light"]);
