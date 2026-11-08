@@ -1318,6 +1318,7 @@ export const MentionTextarea = forwardRef<HTMLDivElement, MentionTextareaProps>(
       const chipType = chipMenuItem?.type ?? "character";
       return mentionItems.filter(
         (i) =>
+          i.label.length > 0 &&
           i.type === chipType &&
           (chipMenu.token
             ? i.token !== chipMenu.token
