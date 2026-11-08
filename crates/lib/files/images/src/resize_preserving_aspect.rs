@@ -5,25 +5,22 @@ use image::imageops::FilterType;
 ///
 /// If `exact_fit` is true, the image will be resized to fit the largest dimension,
 /// then cropped to fit the precise dimensions specified.
-pub fn resize_preserving_aspect(
-  source_image: &DynamicImage,
-  new_width: u32,
-  new_height: u32,
-  exact_fit: bool,
-) -> DynamicImage {
+pub fn resize_preserving_aspect(source_image: &DynamicImage, new_width: u32, new_height: u32, exact_fit: bool) -> DynamicImage {
   if exact_fit && new_width > 0 && new_height > 0 {
     // NB: Crop the source to the target aspect first. `resize_to_fill` scales the whole source up
     // to cover the target, so an extreme aspect ratio needed gigabytes for the intermediate.
     let (src_w, src_h) = (source_image.width() as u64, source_image.height() as u64);
     let (dst_w, dst_h) = (new_width as u64, new_height as u64);
-    let (crop_w, crop_h) = if src_w * dst_h > dst_w * src_h {
-      ((src_h * dst_w / dst_h).clamp(1, src_w), src_h)
+    let (crop_w, crop_h) = if src_w * dst_h > dst_w * src_h { ((src_h * dst_w / dst_h).clamp(1, src_w), src_h) } else { (src_w, (src_w * dst_h / dst_w).clamp(1, src_h)) };
+    if crop_w == src_w && crop_h == src_h {
+      source_image.resize_exact(new_width, new_height, FilterType::Lanczos3)
+    } else if crop_w as f64 * crop_h as f64 >= src_w as f64 * src_h as f64 * 0.875 {
+      // Near the target ratio, resize_to_fill keeps its intermediate close to the output size;
+      // avoid crop_imm's full source-sized copy.
+      source_image.resize_to_fill(new_width, new_height, FilterType::Lanczos3)
     } else {
-      (src_w, (src_w * dst_h / dst_w).clamp(1, src_h))
-    };
-    source_image
-        .crop_imm(((src_w - crop_w) / 2) as u32, ((src_h - crop_h) / 2) as u32, crop_w as u32, crop_h as u32)
-        .resize_exact(new_width, new_height, FilterType::Lanczos3)
+      source_image.crop_imm(((src_w - crop_w) / 2) as u32, ((src_h - crop_h) / 2) as u32, crop_w as u32, crop_h as u32).resize_exact(new_width, new_height, FilterType::Lanczos3)
+    }
   } else if exact_fit {
     source_image.resize_to_fill(new_width, new_height, FilterType::Lanczos3)
   } else {
