@@ -116,7 +116,7 @@ pub async fn remove_image_background_handler(
         _ => false,
       }
       || match (&maybe_avt_token, &media_file.maybe_creator_anonymous_visitor_token) {
-        (Some(avt), Some(creator_avt)) => avt == creator_avt,
+        (Some(avt), Some(creator_avt)) if media_file.maybe_creator_user_token.is_none() => avt == creator_avt,
         _ => false,
       };
 
