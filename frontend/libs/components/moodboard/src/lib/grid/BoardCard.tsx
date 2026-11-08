@@ -88,8 +88,9 @@ const BoardCardInner = ({
   }, [focused]);
 
   const caption = "caption" in item ? item.caption : undefined;
+  const rating = starCount(item.rating);
   const label = `${KIND_NOUN[item.kind]}${caption ? `: ${caption}` : ""}${
-    item.rating > 0 ? `, rated ${item.rating}` : ""
+    rating > 0 ? `, rated ${rating}` : ""
   }${selected ? ", selected" : ""}`;
 
   return (
@@ -151,9 +152,9 @@ const BoardCardInner = ({
               No backdrop-blur: this tile lives in a virtualized scroll
               container, where blur filters trigger GPU repaints on every
               scroll frame. A solid scrim keeps the icons legible instead. */}
-          {starCount(item.rating) > 0 && (
+          {rating > 0 && (
             <div className="absolute bottom-2 left-2 flex items-center gap-0.5 rounded-full bg-black/65 px-2 py-1">
-              {Array.from({ length: starCount(item.rating) }).map((_, i) => (
+              {Array.from({ length: rating }).map((_, i) => (
                 <StarIcon
                   key={i}
                   
