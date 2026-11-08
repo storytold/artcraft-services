@@ -197,10 +197,10 @@ pub async fn list_user_bookmarks_for_user_handler(
       .session_checker
       .maybe_get_user_session(&http_request, &server_state.mysql_pool)
       .await
-      .map_err(|e| {
+      .unwrap_or_else(|e| {
         warn!("Session checker error: {:?}", e);
-        ListUserBookmarksForUserError::ServerError
-      })?;
+        None
+      });
 
   let maybe_viewer_user_token = maybe_user_session.as_ref()
       .map(|session| session.user_token.as_str());
