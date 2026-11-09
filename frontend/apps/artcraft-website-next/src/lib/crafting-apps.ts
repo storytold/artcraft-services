@@ -28,6 +28,7 @@ export type CraftAppSlug =
   | "lightcraft"
   | "pdfcraft"
   | "effectcraft"
+  | "anicraft"
   | "designcraft"
   | "figcraft"
   | "texturecraft"
@@ -520,6 +521,77 @@ export const CRAFTING_APPS: CraftApp[] = [
         source: "effectcraft-3d.png",
         caption: "3D cameras, lights and soft shadows",
         alt: "EffectCraft's 3D showcase: intersecting cards lit by a spot light with soft shadows on a gridded floor, seen from a custom camera view",
+      },
+    ],
+  },
+  {
+    slug: "anicraft",
+    prefix: "Ani",
+    category: "2D vector animation",
+    status: "Early alpha",
+    headline: ["Vector animation on a ", "timeline", " you know."],
+    pitch: "Open-source 2D vector animation, built in pure Rust.",
+    lede: "Draw on the stage, key it on the timeline and tween it with easing, in a native 2D vector animation studio written in pure Rust. Early alpha, open source, and yours.",
+    schemaCategory: "MultimediaApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "Familiar by design",
+        body: "Stage, tools, timeline, layers, keyframes, Properties and Library sit where animators expect them, with onion skinning for in-betweening.",
+      },
+      {
+        title: "Tweens that ease",
+        body: "Classic tweens with eight easing presets and custom ease curves, plus shape tweens that morph one vector contour into another.",
+      },
+      {
+        title: "Symbols and scenes",
+        body: "Graphic symbols and movie clips with nested timelines and loop modes, mask and guide layers, filters, blend modes and scenes.",
+      },
+      {
+        title: "Real vector tools",
+        body: "Pen, Pencil with curve fitting, shapes, text, Paint Bucket and Ink Bottle, with Bézier anchors and handles you edit point by point.",
+      },
+      {
+        title: "Open formats",
+        body: "Opens .fla and .xfl documents and imports SVG. Exports PNG sequences, GIF, SVG frames, sprite sheets, Lottie, and WebM or MP4 through your own FFmpeg.",
+      },
+      {
+        title: "Agent-ready",
+        body: "Every action is an engine command, so the CLI, a JSON-lines channel and an MCP server can draw, animate and export the way a person does.",
+      },
+    ],
+    // The README's 1600×940 captures, padded above the menu bar to 16:10.
+    shots: [
+      {
+        file: "hero.webp",
+        source: "shot-1-stage.png",
+        caption: "The sample animation on the timeline",
+        alt: "AniCraft with the sample animation open: the stage shows a ball, a star and a sun over hills at dusk; the timeline below has five layers with violet classic-tween spans, and the Properties panel shows the selected tween's easing curve",
+      },
+      {
+        file: "subselection.webp",
+        source: "shot-2-subselection.png",
+        caption: "Bézier anchors, Pen and Pencil",
+        alt: "AniCraft's Subselection tool showing anchor points and Bézier handles on a blue shape, next to a wavy line drawn with the Pencil; the Properties panel shows the shape's position, scale, fill and stroke",
+      },
+      {
+        file: "frames.webp",
+        source: "shot-3-frames.png",
+        caption: "Frame ranges across layers",
+        alt: "A block of frames selected across three layers in AniCraft's timeline, with the ball squashed mid-tween on the stage",
+      },
+      {
+        file: "transform.webp",
+        source: "shot-4-transform.png",
+        caption: "Free Transform on a symbol",
+        alt: "AniCraft's Free Transform on the ball with corner and edge handles; the Properties panel shows the symbol instance's position, scale, rotation, alpha and looping",
+      },
+      {
+        file: "palette.webp",
+        source: "shot-5-palette.png",
+        caption: "Every command, one search away",
+        alt: "AniCraft's command palette open over the stage, searching for key and listing the keyframe commands with their shortcuts",
       },
     ],
   },
@@ -1237,6 +1309,7 @@ const COUNT_WORDS = [
   "Fourteen",
   "Fifteen",
   "Sixteen",
+  "Seventeen",
 ];
 
 /** "Seven" — the family size as a capitalized word, for headlines. */
