@@ -618,12 +618,13 @@ export default {
     if (pathname === "/keys/artcraft.asc") {
       if (!SIGNING_CONFIGURED) {
         return new Response(
-          `Not found: repository signing is not configured (diagnostics: ${JSON.stringify(SIGNING_DIAGNOSTICS)})\n`,
+          `Not found: repository signing is not configured (diagnostics: ${JSON.stringify(SIGNING_DIAGNOSTICS)}, runtimeKeyPresent: ${Boolean(env.LINUX_SIGNING_KEY)})\n`,
           {
             status: 404,
             headers: {
               "Content-Type": "text/plain; charset=utf-8",
               "X-Signing-Diagnostics": JSON.stringify(SIGNING_DIAGNOSTICS),
+              "X-Runtime-Key-Present": String(Boolean(env.LINUX_SIGNING_KEY)),
             },
           },
         );
