@@ -30,40 +30,52 @@ jobs:
         id: wait
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BRANCH_NAME: ${{ github.head_ref }}
+          COMMIT_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
         run: |
           # The distro tests below run against a real deployment, never a server started here.
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            TARGET_SHA="${{ github.event.pull_request.head.sha }}"
-            BRANCH_NAME="${{ github.head_ref }}"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            TARGET_SHA="$PR_HEAD_SHA"
+            SHORT_SHA="${TARGET_SHA:0:7}"
             BRANCH_SLUG="$(echo "${BRANCH_NAME}" | tr '/_.' '-' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+//g; s/^-+|-+$//g')"
             DEPLOY_URL="https://${BRANCH_SLUG}.getartcraft.dev"
             echo "Awaiting Cloudflare deploy preview for PR #${PR_NUMBER} (branch ${BRANCH_NAME}, commit ${TARGET_SHA})..."
           else
-            TARGET_SHA="${{ github.sha }}"
+            TARGET_SHA="$COMMIT_SHA"
+            SHORT_SHA="${TARGET_SHA:0:7}"
             DEPLOY_URL="https://getartcraft.com"
             echo "Testing the production deployment of ${TARGET_SHA} at ${DEPLOY_URL}..."
           fi
 
-          saw_check=0
           for i in {1..90}; do
-            # For PRs, extract the preview URL directly from the Cloudflare bot comment if present
-            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-              CF_URL=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-                --jq '[.[] | select(.user.login | test("cloudflare"; "i")) | .body | capture("Preview URL:\\s*(?<url>https://[^,\\s]+)") | .url] | (map(select(contains("getartcraft.dev"))) | first) // first' 2>/dev/null || true)
+            # For PRs, extract the preview URL directly from the Cloudflare bot comment if present for this commit
+            if [[ "$EVENT_NAME" == "pull_request" ]]; then
+              CF_URL=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" 2>/dev/null | jq -r --arg sha "$SHORT_SHA" '
+                [ .[] |
+                  select(.user.login == "cloudflare-workers-and-pages[bot]") |
+                  select(.body | contains("(commit " + $sha + ")")) |
+                  .body |
+                  capture("Preview URL:\\s*(?<urls>[^\\n\\r]+)") |
+                  .urls |
+                  [scan("https://[a-zA-Z0-9.-]+\\.(?:getartcraft\\.dev|workers\\.dev)")] |
+                  .[]
+                ] | (map(select(contains("getartcraft.dev"))) | first) // first // empty
+              ' 2>/dev/null || true)
               if [[ -n "$CF_URL" ]]; then
                 DEPLOY_URL="$CF_URL"
               fi
             fi
 
             # Check Workers Builds check run status on this commit
-            CHECK_DATA=$(gh api "repos/${{ github.repository }}/commits/${TARGET_SHA}/check-runs" \
-              --jq '[.check_runs[] | select(.name | test("Workers Builds|Cloudflare"))] | first' 2>/dev/null || true)
+            CHECK_DATA=$(gh api "repos/${REPO}/commits/${TARGET_SHA}/check-runs" \
+              --jq '[.check_runs[] | select(.name == "Workers Builds: artcraft-services" or (.name | test("Workers Builds|Cloudflare")))] | first' 2>/dev/null || true)
 
             CHECK_STATUS=$(echo "$CHECK_DATA" | jq -r '.status // empty' 2>/dev/null || true)
             CHECK_CONCLUSION=$(echo "$CHECK_DATA" | jq -r '.conclusion // empty' 2>/dev/null || true)
-
-            [[ -n "$CHECK_STATUS" ]] && saw_check=1
 
             if [[ "$CHECK_CONCLUSION" == "failure" || "$CHECK_CONCLUSION" == "timed_out" || "$CHECK_CONCLUSION" == "cancelled" ]]; then
               echo "Error: the Cloudflare deploy check reported ${CHECK_CONCLUSION}!" >&2
@@ -72,8 +84,6 @@ jobs:
 
             ready=0
             [[ "$CHECK_STATUS" == "completed" && "$CHECK_CONCLUSION" == "success" ]] && ready=1
-            # If no check was registered within ~2 minutes, allow readiness probing against the endpoint
-            [[ "$saw_check" == "0" && "$i" -gt 12 ]] && ready=1
 
             if [[ "$ready" == "1" ]] && curl -sf -o /dev/null "${DEPLOY_URL}/apt/artcraft.sources" 2>/dev/null; then
               echo "Deployment is live and responsive at ${DEPLOY_URL} (attempt $i)!"

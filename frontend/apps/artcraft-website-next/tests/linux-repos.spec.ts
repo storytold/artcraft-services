@@ -294,6 +294,16 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
       headers: { "x-forwarded-host": "attacker.example" },
     });
     expect(getRequestBaseUrl(cfPreview)).toBe("https://feat-sample.getartcraft.dev");
+
+    const cfWorkersPreview = new Request(
+      "https://feat-sample-artcraft-services.account.workers.dev/apt/artcraft.sources",
+      {
+        headers: { "x-forwarded-host": "attacker.example" },
+      },
+    );
+    expect(getRequestBaseUrl(cfWorkersPreview)).toBe(
+      "https://feat-sample-artcraft-services.account.workers.dev",
+    );
   });
 
   test("mirrors the package's .PKGINFO provides and optdepends in the pacman database", () => {
