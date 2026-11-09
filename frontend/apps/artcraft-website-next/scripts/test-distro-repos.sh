@@ -15,7 +15,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-all}"
-BASE_URL="${2:-${NETLIFY_PREVIEW_URL:-}}"
+BASE_URL="${2:-${DEPLOY_URL:-${CLOUDFLARE_PREVIEW_URL:-${NETLIFY_PREVIEW_URL:-}}}}"
 if [[ -z "$BASE_URL" ]]; then
   echo "Error: pass the deployment to test, e.g. ./scripts/test-distro-repos.sh arch https://getartcraft.com" >&2
   exit 2
