@@ -41,7 +41,7 @@ import {
 import { siteUrl } from "@/lib/links";
 
 export const CRAFTING_APPS_COVERAGE =
-  "Image editing, vector illustration, video, photography, PDFs, motion graphics, page layout, interface design, 3D texture painting, procedural materials, word processing, audio, presentations, CAD and spreadsheets";
+  "Image editing, vector illustration, video, photography, PDFs, motion graphics, 2D animation, page layout, interface design, 3D texture painting, procedural materials, word processing, audio, presentations, CAD and spreadsheets";
 
 // Order matches CRAFTING_APPS_PRINCIPLES.
 const PRINCIPLE_ICONS = [
@@ -104,9 +104,11 @@ export function CraftingAppsOverview({
             <nav
               aria-label="Crafting Apps"
               data-reveal
-              // Sixteen apps in even rows. Under the text: four across, then two
-              // rows of eight from lg up. Beside it from xl up: four across.
-              className="mt-12 grid w-fit grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-5 lg:grid-cols-8 xl:mt-0 xl:shrink-0 xl:grid-cols-4"
+              // Seventeen apps in centered rows, sized so no row strands one
+              // where width allows: four across on phones, rows of six (6 + 6
+              // + 5) from sm, nine (9 + 8) under the text from lg, six beside
+              // it from xl.
+              className="mt-12 flex w-81 flex-wrap justify-center gap-x-3 gap-y-6 sm:w-145 sm:gap-x-5 lg:w-220 xl:mt-0 xl:w-145 xl:shrink-0"
             >
               {CRAFTING_APPS.map((app) => (
                 <Link
@@ -176,11 +178,11 @@ export function CraftingAppsOverview({
           {CRAFTING_APPS.map((app) => (
             <AppCard key={app.slug} app={app} index={craftAppIndex(app)} />
           ))}
-          {/* Sixteen apps fill every row two and four across, so Next up
-              closes the grid as a full-width row of its own. */}
+          {/* Seventeen apps: Next up takes the one cell left two across and
+              the three left four across, so every row stays full. */}
           <div
             data-reveal
-            className="flex flex-col gap-8 bg-bg p-6 sm:col-span-2 md:flex-row md:items-end md:justify-between md:p-8 xl:col-span-4"
+            className="flex flex-col gap-8 bg-bg p-6 md:p-8 xl:col-span-3 xl:flex-row xl:items-end xl:justify-between"
           >
             <div>
               <p className="hud-label text-faint">Next up</p>
@@ -192,7 +194,7 @@ export function CraftingAppsOverview({
                 development with the team in the ArtCraft Discord.
               </p>
             </div>
-            <DiscordButton className="shrink-0 self-start md:self-auto" />
+            <DiscordButton className="mt-auto shrink-0 self-start xl:mt-0 xl:self-auto" />
           </div>
         </div>
       </SectionShell>
