@@ -28,4 +28,18 @@ test.describe("downloads for Linux", () => {
     await expect(page.getByRole("link", { name: "Download Launcher" }).first())
       .toHaveAttribute("href", /artcraft-launcher-.*-linux-x86_64\.flatpak$/);
   });
+
+  test("links to documentation on craft.wiki", async ({ page }) => {
+    await page.goto("/apps/photocraft");
+    const docButton = page.getByRole("link", { name: "Documentation" });
+    await expect(docButton).toHaveAttribute("href", "https://craft.wiki/apps/photocraft/overview/");
+    await expect(docButton).toHaveAttribute("target", "_blank");
+  });
+
+  test("links to documentation on craft.wiki for unreleased apps", async ({ page }) => {
+    await page.goto("/apps/figcraft");
+    const docButton = page.getByRole("link", { name: "Documentation" });
+    await expect(docButton).toHaveAttribute("href", "https://craft.wiki/apps/figcraft/overview/");
+    await expect(docButton).toHaveAttribute("target", "_blank");
+  });
 });
