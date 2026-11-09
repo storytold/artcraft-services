@@ -55,12 +55,12 @@ jobs:
   publish:
     needs: short-sha
     uses: storytold/craft-common-actions/.github/workflows/docker-build.yml@main
-    # DIGITALOCEAN_TOKEN for the registry, GITHUB_TOKEN for GHCR.
+    # GITHUB_TOKEN for GHCR, DOCKERHUB_USERNAME / DOCKERHUB_TOKEN for Docker Hub.
     secrets: inherit
     with:
       images: |
-        registry.digitalocean.com/artcraft/artcraft-services
         ghcr.io/storytold/artcraft-services
+        docker.io/storytold/artcraft-services
       platforms: '[{"platform":"linux/amd64","runner":"github-ubuntu-64core"}]'
       dockerfile: build/service_cpu.Dockerfile
       build-args: GIT_SHA=${{ github.sha }}
