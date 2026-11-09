@@ -29,17 +29,41 @@ test.describe("downloads for Linux", () => {
       .toHaveAttribute("href", /artcraft-launcher-.*-linux-x86_64\.flatpak$/);
   });
 
-  test("links to documentation on craft.wiki", async ({ page }) => {
+  test("links to documentation on craft.wiki as the second option", async ({ page }) => {
     await page.goto("/apps/photocraft");
-    const docButton = page.getByRole("link", { name: "Documentation" });
+    const hero = page.locator("#photocraft");
+    const docButton = hero.getByRole("link", { name: "Documentation" });
     await expect(docButton).toHaveAttribute("href", "https://craft.wiki/apps/photocraft/overview/");
     await expect(docButton).toHaveAttribute("target", "_blank");
+
+    const launcherButton = hero.getByRole("link", { name: "Download Launcher" }).first();
+    const discordButton = hero.getByRole("link", { name: "Join the Discord" });
+    const docAfterLauncher = await launcherButton.evaluate((el, target) => {
+      return (el.compareDocumentPosition(target!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }, await docButton.elementHandle());
+    const discordAfterDoc = await docButton.evaluate((el, target) => {
+      return (el.compareDocumentPosition(target!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }, await discordButton.elementHandle());
+    expect(docAfterLauncher).toBe(true);
+    expect(discordAfterDoc).toBe(true);
   });
 
-  test("links to documentation on craft.wiki for unreleased apps", async ({ page }) => {
+  test("links to documentation on craft.wiki for figcraft as the second option", async ({ page }) => {
     await page.goto("/apps/figcraft");
-    const docButton = page.getByRole("link", { name: "Documentation" });
+    const hero = page.locator("#figcraft");
+    const docButton = hero.getByRole("link", { name: "Documentation" });
     await expect(docButton).toHaveAttribute("href", "https://craft.wiki/apps/figcraft/overview/");
     await expect(docButton).toHaveAttribute("target", "_blank");
+
+    const launcherButton = hero.getByRole("link", { name: "Download Launcher" }).first();
+    const discordButton = hero.getByRole("link", { name: "Join the Discord" });
+    const docAfterLauncher = await launcherButton.evaluate((el, target) => {
+      return (el.compareDocumentPosition(target!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }, await docButton.elementHandle());
+    const discordAfterDoc = await docButton.evaluate((el, target) => {
+      return (el.compareDocumentPosition(target!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }, await discordButton.elementHandle());
+    expect(docAfterLauncher).toBe(true);
+    expect(discordAfterDoc).toBe(true);
   });
 });

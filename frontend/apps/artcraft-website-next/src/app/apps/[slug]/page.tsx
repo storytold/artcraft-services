@@ -92,34 +92,49 @@ export default async function CraftAppPage({ params }: { params: Params }) {
   const launcherDownloads = release ? craftLauncherRecommended() : [];
   const allLauncherDownloads = craftLauncherDownloads();
   const hasDownload = release !== null;
-  const communityButtons = (
+  const documentationButton = (
+    <Button
+      href={craftAppDocsUrl(app)}
+      variant="secondary"
+      size="lg"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <BookOpenIcon aria-hidden className="h-4 w-4" />
+      Documentation
+    </Button>
+  );
+  const gitHubButton = (
+    <Button
+      href={craftAppRepo(app)}
+      variant="secondary"
+      size="lg"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <GitHubIcon className="h-4 w-4" />
+      View on GitHub
+    </Button>
+  );
+  const discordButton = (
+    <DiscordButton
+      size="lg"
+      variant={hasDownload ? "secondary" : "primary"}
+    >
+      Join the Discord
+    </DiscordButton>
+  );
+  const communityButtons = hasDownload ? (
     <>
-      <DiscordButton
-        size="lg"
-        variant={hasDownload ? "secondary" : "primary"}
-      >
-        Join the Discord
-      </DiscordButton>
-      <Button
-        href={craftAppRepo(app)}
-        variant="secondary"
-        size="lg"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <GitHubIcon className="h-4 w-4" />
-        View on GitHub
-      </Button>
-      <Button
-        href={craftAppDocsUrl(app)}
-        variant="secondary"
-        size="lg"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <BookOpenIcon aria-hidden className="h-4 w-4" />
-        Documentation
-      </Button>
+      {documentationButton}
+      {discordButton}
+      {gitHubButton}
+    </>
+  ) : (
+    <>
+      {discordButton}
+      {documentationButton}
+      {gitHubButton}
     </>
   );
   const [hero] = app.shots;
