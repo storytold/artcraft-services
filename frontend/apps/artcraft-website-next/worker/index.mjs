@@ -4,6 +4,7 @@ import {
   PACKAGE_REDIRECTS,
   PUBLIC_KEY_BASE64,
   SIGNING_CONFIGURED,
+  SIGNING_DIAGNOSTICS,
   TUTORIAL_REDIRECTS,
 } from "./generated-catalog.mjs";
 
@@ -615,6 +616,18 @@ export default {
 
     // 4. Pre-generated keys, OCI signatures & Linux repository files + binary redirects
     if (pathname === "/keys/artcraft.asc") {
+      if (!SIGNING_CONFIGURED) {
+        return new Response(
+          `Not found: repository signing is not configured (diagnostics: ${JSON.stringify(SIGNING_DIAGNOSTICS)})\n`,
+          {
+            status: 404,
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8",
+              "X-Signing-Diagnostics": JSON.stringify(SIGNING_DIAGNOSTICS),
+            },
+          },
+        );
+      }
       return serveStaticAssetWithHeaders(request, env, pathname, "application/pgp-keys; charset=utf-8", {
         "Content-Disposition": 'inline; filename="artcraft.asc"',
       });
