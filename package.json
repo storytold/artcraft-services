@@ -2,6 +2,7 @@
   "name": "artcraft-services",
   "private": true,
   "scripts": {
-    "build": "npm --prefix frontend/apps/artcraft-website-next ci --ignore-scripts && npm --prefix frontend/apps/artcraft-website-next run build:cloudflare"
+    "build": "npm --prefix frontend/apps/artcraft-website-next ci --ignore-scripts && npm --prefix frontend/apps/artcraft-website-next run build:cloudflare",
+    "build:webapp": "npm --prefix frontend ci --ignore-scripts && npm --prefix frontend run build:webapp"
   }
 }
