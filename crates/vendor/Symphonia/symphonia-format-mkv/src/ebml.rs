@@ -103,7 +103,22 @@ fn read_vint<R: ReadBytes>(mut reader: R) -> Result<(u64, u32)> {
 mod tests {
     use symphonia_core::io::BufReader;
 
-    use super::{read_signed_vint, read_tag, read_unsigned_vint};
+    use super::{read_signed_vint, read_tag, read_unsigned_vint, ElementIterator};
+
+    #[test]
+    fn reject_oversized_string_and_binary_elements() {
+        // DocType (0x4282, string) and CodecPrivate (0x63A2, binary) headers declaring a
+        // 1 TiB payload (8 byte size vint) followed by only a few bytes of data.
+        let size = [0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00];
+        for tag in [[0x42, 0x82], [0x63, 0xA2]] {
+            let mut buf = tag.to_vec();
+            buf.extend_from_slice(&size);
+            buf.extend_from_slice(b"abc");
+            let mut it = ElementIterator::new(BufReader::new(&buf), None);
+            let header = it.read_header().unwrap().unwrap();
+            assert!(it.try_read_data(header).is_err());
+        }
+    }
 
     #[test]
     fn element_tag_parsing() {
@@ -221,6 +236,14 @@ impl Element for EbmlElement {
         Ok(Self { header: it.read_element_data::<EbmlHeaderElement>()? })
     }
 }
+
+/// Upper bound on the declared payload size of a string element. Element sizes come straight from
+/// the untrusted stream, and the payload is allocated in full before it is read, so an unbounded
+/// size lets a tiny file request an enormous allocation.
+const MAX_STRING_DATA_LEN: u64 = 1 << 20;
+
+/// Upper bound on the declared payload size of a binary element (blocks, codec private data, ...).
+const MAX_BINARY_DATA_LEN: u64 = 1 << 26;
 
 pub(crate) struct ElementIterator<R: ReadBytes> {
     /// Reader of the stream containing this element.
@@ -468,13 +491,21 @@ impl<R: ReadBytes> ElementIterator<R> {
                         ElementData::Float(value)
                     }
                     Type::String => {
+                        if header.data_len > MAX_STRING_DATA_LEN {
+                            return decode_error("mkv: string element too large");
+                        }
                         let data = self.reader.read_boxed_slice_exact(header.data_len as usize)?;
                         let bytes = data.split(|b| *b == 0).next().unwrap_or(&data);
                         ElementData::String(String::from_utf8_lossy(bytes).into_owned())
                     }
-                    Type::Binary => ElementData::Binary(
-                        self.reader.read_boxed_slice_exact(header.data_len as usize)?,
-                    ),
+                    Type::Binary => {
+                        if header.data_len > MAX_BINARY_DATA_LEN {
+                            return decode_error("mkv: binary element too large");
+                        }
+                        ElementData::Binary(
+                            self.reader.read_boxed_slice_exact(header.data_len as usize)?,
+                        )
+                    }
                 })
             }
             None => None,

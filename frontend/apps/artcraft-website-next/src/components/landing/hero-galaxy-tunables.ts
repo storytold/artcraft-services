@@ -2,7 +2,7 @@
 // tuner (see TUNER.md). Defaults here ARE the shipped values — tune live,
 // copy the JSON from the panel, then update the defaults.
 
-import { defineTunables } from "@/lib/tuner";
+import { defineTunables, type TunableDef, type TunableReader } from "@/lib/tuner";
 
 // Structure knobs — changing these rebuilds the arm paths, tick marks, and
 // card roster (debounced).
@@ -146,7 +146,7 @@ export const galaxyMobileTuner = defineTunables(
     mobCardN: {
       label: "Card count",
       min: 4,
-      max: 40,
+      max: 64,
       step: 1,
       default: 14,
       info: "Cards riding the arms on mobile — a fixed count, not scaled from the desktop knob.",
@@ -637,3 +637,151 @@ export const galaxyLookTuner = defineTunables("galaxyLook", "Galaxy look", {
     info: "Light theme only: darkness of the plain gray pulses (ink mixed over the paper; 1 = ink-black). Light mode carries the pulse with thickness, not color.",
   },
 });
+
+// The company landing's galaxy: the same instrument with app icons in place of
+// footage. Every group is mirrored with its own defaults, so the two pages
+// tune independently; only the knobs that differ from the footage are listed.
+function appsTuner<T extends Record<string, TunableDef>>(
+  base: TunableReader<T>,
+  title: string,
+  defaults: { [K in keyof T]?: number },
+): TunableReader<T> {
+  const defs: Record<string, TunableDef> = { ...base.defs };
+  for (const key in defaults) {
+    defs[key] = { ...defs[key], default: defaults[key] as number };
+  }
+  return defineTunables(`apps-${base.id}`, title, defs as T);
+}
+
+export const appsLayoutTuner = appsTuner(galaxyLayoutTuner, "Apps galaxy layout", {
+  cardN: 40,
+  tunedMpx: 1.3,
+  cardHFrac: 0.15,
+});
+
+export const appsMobileTuner = appsTuner(galaxyMobileTuner, "Apps galaxy mobile", {
+  mobCardN: 40,
+  mobCardH: 0.095,
+  mobDensityX: 1,
+});
+
+export const appsMotionTuner = appsTuner(galaxyMotionTuner, "Apps galaxy motion", {
+  wobbleAmp: 8,
+});
+
+export const appsPointerTuner = appsTuner(galaxyPointerTuner, "Apps galaxy pointer", {
+  mouseWarp: 40,
+  boostScale: 1.2,
+});
+
+export const appsLookTuner = appsTuner(galaxyLookTuner, "Apps galaxy look", {
+  density: 0.7,
+  innerCap: 0.5,
+  blurMax: 0.05,
+  blurEnd: 0.14,
+  aberration: 0.002,
+  curvePx: 14,
+});
+
+// Icons have no footage to carry them, so each tile gets a real shadow.
+export const appsIconTuner = defineTunables("apps-galaxyIcon", "Apps galaxy icon", {
+  shadowAlpha: {
+    label: "Shadow alpha",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    default: 0.5,
+    info: "Strength of the soft shadow under each tile, tinted with the tile's own color: a glow on the dark theme, a colored shadow on the light one.",
+  },
+  shadowSpread: {
+    label: "Shadow spread",
+    min: 0.02,
+    max: 0.5,
+    step: 0.01,
+    default: 0.22,
+    info: "Softness of the shadow, as a fraction of the tile size.",
+  },
+  shadowDrop: {
+    label: "Shadow drop",
+    min: 0,
+    max: 0.3,
+    step: 0.01,
+    default: 0.09,
+    info: "How far the shadow falls below the tile, as a fraction of the tile size.",
+  },
+  shadowTone: {
+    label: "Shadow tone (light)",
+    min: 0.1,
+    max: 1,
+    step: 0.05,
+    default: 0.55,
+    info: "Light theme only: how bright the tinted shadow stays (lower reads as a darker, denser shadow).",
+  },
+  tileRadius: {
+    label: "Tile radius",
+    min: 0.05,
+    max: 0.3,
+    step: 0.005,
+    default: 0.19,
+    info: "Corner radius of the shadow's rounded square, as a fraction of the tile size. Matches the icon art.",
+  },
+  keepPad: {
+    label: "Keep-out pad px",
+    min: 0,
+    max: 120,
+    step: 2,
+    default: 8,
+    info: "Clear margin around the hero's text stack. Tiles never cross it: they surface from behind this pocket, so the copy always reads.",
+  },
+  keepBand: {
+    label: "Keep-out band px",
+    min: 10,
+    max: 240,
+    step: 5,
+    default: 40,
+    info: "Width of the zone past the pocket's edge where a tile fades, unblurs and grows into place.",
+  },
+  keepBandMob: {
+    label: "Keep-out band (mobile)",
+    min: 4,
+    max: 120,
+    step: 2,
+    default: 12,
+    info: "Keep-out band on the mobile profile, where the only room is the thin strips above and below the copy.",
+  },
+  keepScale: {
+    label: "Keep-out scale",
+    min: 0.3,
+    max: 1,
+    step: 0.05,
+    default: 0.7,
+    info: "Size a tile starts at as it surfaces from the pocket, as a fraction of its full size.",
+  },
+  labelGap: {
+    label: "Label gap px",
+    min: 0,
+    max: 40,
+    step: 1,
+    default: 12,
+    info: "Gap between a hovered tile and its app-name label.",
+  },
+});
+
+export type GalaxyVariant = "clips" | "apps";
+
+export const GALAXY_TUNERS = {
+  clips: {
+    layout: galaxyLayoutTuner,
+    mobile: galaxyMobileTuner,
+    motion: galaxyMotionTuner,
+    pointer: galaxyPointerTuner,
+    look: galaxyLookTuner,
+  },
+  apps: {
+    layout: appsLayoutTuner,
+    mobile: appsMobileTuner,
+    motion: appsMotionTuner,
+    pointer: appsPointerTuner,
+    look: appsLookTuner,
+  },
+};

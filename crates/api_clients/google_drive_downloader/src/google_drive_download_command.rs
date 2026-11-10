@@ -94,7 +94,7 @@ impl GoogleDriveDownloadCommand {
   }
 
   fn run_downloader(&self, download_url: &str, output_filename: &str) -> AnyhowResult<()> {
-    info!("Downloading {} to: {}", download_url, output_filename);
+    info!("Downloading {:?} to: {:?}", download_url, output_filename);
 
     let mut command = self.build_command(download_url, output_filename);
 
