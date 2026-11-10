@@ -21,6 +21,11 @@ describe("assertFbxWithinBudget", () => {
     await expect(assertFbxWithinBudget(fbx)).rejects.toBeInstanceOf(FbxBudgetError);
   });
 
+  it("rejects an unknown array encoding", async () => {
+    const fbx = makeFbx(4, deflateSync(new Uint8Array(16)), 2);
+    await expect(assertFbxWithinBudget(fbx)).rejects.toBeInstanceOf(FbxBudgetError);
+  });
+
   it("ignores non-binary files", async () => {
     const ascii = new TextEncoder().encode("; FBX 7.4.0 project file\n").buffer;
     await expect(assertFbxWithinBudget(ascii)).resolves.toBeUndefined();
@@ -29,7 +34,7 @@ describe("assertFbxWithinBudget", () => {
 
 // Binary FBX 7400 with one top-level node "Vertices" holding a compressed
 // float array, a NULL record, and a zeroed footer.
-function makeFbx(arrayLength: number, compressed: Uint8Array): ArrayBuffer {
+function makeFbx(arrayLength: number, compressed: Uint8Array, encoding = 1): ArrayBuffer {
   const magic = new TextEncoder().encode("Kaydara FBX Binary  \0");
   const name = new TextEncoder().encode("Vertices");
   const headerBytes = 27;
@@ -50,7 +55,7 @@ function makeFbx(arrayLength: number, compressed: Uint8Array): ArrayBuffer {
   o += 13 + name.length;
   out[o] = "f".charCodeAt(0);
   view.setUint32(o + 1, arrayLength, true);
-  view.setUint32(o + 5, 1, true);
+  view.setUint32(o + 5, encoding, true);
   view.setUint32(o + 9, compressed.length, true);
   out.set(compressed, o + 13);
   return out.buffer;

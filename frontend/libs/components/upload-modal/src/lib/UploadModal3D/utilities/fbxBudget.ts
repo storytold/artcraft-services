@@ -130,7 +130,7 @@ export async function assertFbxWithinBudget(
           compressed.push({ start: offset, length: compressedLength, expected });
           offset += compressedLength;
         } else {
-          throw new RangeError(`Unknown FBX array encoding ${encoding}`);
+          throw new FbxBudgetError(`Unknown FBX array encoding ${encoding}`);
         }
       }
     }
