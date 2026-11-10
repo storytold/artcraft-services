@@ -6,6 +6,7 @@ import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell
 import { Accent } from "@/components/page/page-header";
 import { Button } from "@/components/ui";
 import { getMediaPrompt, getSharedMedia } from "@/lib/media-api";
+import { MEDIA_SHELL_TOKEN } from "@/lib/media-sharing";
 import { MEDIA_LABELS, mediaKind, mediaTitle, type MediaDimensions, type MediaPrompt, type SharedMedia } from "@/lib/media";
 import { webappUrl } from "@/lib/links";
 import MediaPreview from "./media-preview";
@@ -16,7 +17,25 @@ type MediaState =
   | { status: "ready"; media: SharedMedia }
   | { status: "error"; code?: number };
 
-export default function MediaPage({ token }: { token: string }) {
+/**
+ * Safely decodes a URL path segment, returning the raw segment if percent-encoding is malformed.
+ */
+function safeDecodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+/**
+ * Client-side shared media viewer that resolves the media token from props or `window.location.pathname`.
+ */
+export default function MediaPage({ token: propToken }: { token: string }) {
+  const token =
+    propToken === MEDIA_SHELL_TOKEN && typeof window !== "undefined"
+      ? safeDecodeSegment(window.location.pathname.replace(/^\/media\/([^/?#]+).*$/, "$1"))
+      : propToken;
   const [state, setState] = useState<MediaState>({ status: "loading" });
   const [prompt, setPrompt] = useState<MediaPrompt | null>(null);
   const [promptLoading, setPromptLoading] = useState(false);

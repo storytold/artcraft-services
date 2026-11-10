@@ -110,6 +110,7 @@ export type CraftDownload = Omit<CraftReleaseAsset, "file"> & {
 };
 
 export const CRAFTING_APPS_GITHUB_ORG = "https://github.com/storytold";
+export const CRAFT_WIKI_URL = "https://craft.wiki";
 
 export const CRAFTING_APPS: CraftApp[] = [
   {
@@ -1303,6 +1304,10 @@ export function craftAppPath(app: CraftApp): string {
 
 export function craftAppRepo(app: CraftApp): string {
   return `${CRAFTING_APPS_GITHUB_ORG}/${app.slug}`;
+}
+
+export function craftAppDocsUrl(app: CraftApp): string {
+  return `${CRAFT_WIKI_URL}/apps/${app.slug}/overview/`;
 }
 
 /** Site-relative path; use craftShotUrl for an <img> src. */

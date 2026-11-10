@@ -90,17 +90,22 @@ impl LegacyBucketClient {
     })
   }
 
-  fn get_rooted_object_name(&self, object_name: &str) -> String {
-    match &self.optional_bucket_root {
+  fn get_rooted_object_name(&self, object_name: &str) -> anyhow::Result<String> {
+    // NB: The SDK normalizes `.`/`..` segments before signing, which would move the upload out of
+    // the configured root (or, with path-style URLs, out of the bucket).
+    if has_dot_segment(object_name) {
+      return Err(anyhow!("invalid object name: {:?}", object_name));
+    }
+    Ok(match &self.optional_bucket_root {
       None => object_name.to_string(),
       Some(root) => format!("{}/{}", root, object_name),
-    }
+    })
   }
 
   pub async fn upload_file(&self, object_name: &str, bytes: &[u8]) -> anyhow::Result<()> {
     debug!("Filename for bucket: {:?}", object_name);
 
-    let object_name = self.get_rooted_object_name(object_name);
+    let object_name = self.get_rooted_object_name(object_name)?;
     debug!("Rooted filename for bucket: {:?}", object_name);
 
     let response = self.bucket.put_object(&object_name, bytes).await?;
@@ -122,7 +127,7 @@ impl LegacyBucketClient {
 
   pub async fn upload_file_with_content_type_process(&self, object_name: &str, bytes: &[u8], content_type: &str) -> AnyhowResult<()> {
     info!("Filename for bucket: {:?}", object_name);
-    let object_name = self.get_rooted_object_name(object_name);
+    let object_name = self.get_rooted_object_name(object_name)?;
     info!("Rooted filename for bucket: {:?}", object_name);
     let response = self.bucket.put_object_with_content_type(&object_name, bytes, content_type).await?;
     let body_bytes = response.bytes();
@@ -142,7 +147,7 @@ impl LegacyBucketClient {
   pub async fn upload_file_with_content_type(&self, object_name: &str, bytes: &[u8], content_type: &str) -> anyhow::Result<()> {
     info!("Filename for bucket: {:?}", object_name);
 
-    let object_name = self.get_rooted_object_name(object_name);
+    let object_name = self.get_rooted_object_name(object_name)?;
     info!("Rooted filename for bucket: {:?}", object_name);
 
     let response = self.bucket.put_object_with_content_type(&object_name, bytes, content_type).await;
@@ -260,5 +265,28 @@ impl LegacyBucketClient {
     }
 
     Ok(())
+  }
+}
+
+/// Whether any `/`-separated segment is `.` or `..` (also percent-encoded).
+fn has_dot_segment(object_name: &str) -> bool {
+  object_name.split('/').any(|segment| {
+    let decoded = segment.to_ascii_lowercase().replace("%2e", ".");
+    decoded == "." || decoded == ".."
+  })
+}
+
+#[cfg(test)]
+mod dot_segment_tests {
+  use super::has_dot_segment;
+
+  #[test]
+  fn detects_dot_segments() {
+    assert!(has_dot_segment("../elsewhere/x"));
+    assert!(has_dot_segment("media/../../x"));
+    assert!(has_dot_segment("media/%2e%2E/x"));
+    assert!(has_dot_segment("./x"));
+    assert!(!has_dot_segment("media/a..b/x.mp4"));
+    assert!(!has_dot_segment("media/x.v2.mp4"));
   }
 }
