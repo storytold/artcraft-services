@@ -530,7 +530,7 @@ test_flatpak() {
     }
 
     # OCI tags are per architecture, so the digest flatpak pulls is <branch>-<arch>.
-    registry_token="$(curl -fsSL "https://ghcr.io/token?scope=repository:storytold/craft-anything:pull&service=ghcr.io" |
+    registry_token="$(curl --proto '=https' -fsSL "https://ghcr.io/token?scope=repository:storytold/craft-anything:pull&service=ghcr.io" |
       sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
     digest="$(curl -fsSI -H "Authorization: Bearer $registry_token" \
       -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json" \
