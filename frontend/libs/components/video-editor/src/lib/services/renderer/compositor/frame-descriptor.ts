@@ -248,11 +248,12 @@ async function collectVisualSourceNode({
     height: sourceHeight,
   });
 
+  const layout = node.resolved as Partial<ResolvedVisualSourceNodeState>;
   const transform = computeVisualTransform({
     renderer,
     resolved: node.resolved,
-    sourceWidth,
-    sourceHeight,
+    sourceWidth: layout.layoutWidth ?? sourceWidth,
+    sourceHeight: layout.layoutHeight ?? sourceHeight,
   });
   const { mask, strokeLayer } = buildMaskArtifacts({
     node,

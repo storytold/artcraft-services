@@ -29,6 +29,9 @@ export interface ResolvedVisualSourceNodeState extends ResolvedVisualNodeState {
   source: CanvasImageSource;
   sourceWidth: number;
   sourceHeight: number;
+  // Intrinsic size for layout when it differs from the uploaded texture size.
+  layoutWidth?: number;
+  layoutHeight?: number;
 }
 
 export abstract class VisualNode<
