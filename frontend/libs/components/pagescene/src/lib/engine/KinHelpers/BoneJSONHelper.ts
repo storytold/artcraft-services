@@ -31,14 +31,14 @@ function readTransform(data: any): Pick<BonePoseNode, "position" | "quaternion" 
   const scale = new Vector3(1, 1, 1);
   if (isFiniteNumberArray(data.matrix, 16)) {
     new Matrix4().fromArray(data.matrix).decompose(position, quaternion, scale);
-    // A degenerate matrix (e.g. a zero scale column) decomposes to NaN.
-    const finiteVector = (v: Vector3) => v.toArray().every(Number.isFinite);
-    const finiteQuaternion = quaternion.toArray().every(Number.isFinite);
-    return {
-      position: finiteVector(position) ? position : new Vector3(),
-      quaternion: finiteQuaternion ? quaternion : new Quaternion(),
-      scale: finiteVector(scale) ? scale : new Vector3(1, 1, 1),
-    };
+    // A degenerate matrix (e.g. a zero scale column) decomposes to NaN or zero
+    // scale; fall back to identity for the whole transform.
+    const usable =
+      [position, scale].every((v) => v.toArray().every(Number.isFinite)) &&
+      quaternion.toArray().every(Number.isFinite) &&
+      scale.toArray().every((n) => n !== 0);
+    if (!usable) return { position: new Vector3(), quaternion: new Quaternion(), scale: new Vector3(1, 1, 1) };
+    return { position, quaternion, scale };
   }
   if (isFiniteNumberArray(data.position, 3)) position.fromArray(data.position);
   if (isFiniteNumberArray(data.quaternion, 4)) quaternion.fromArray(data.quaternion);
@@ -50,20 +50,26 @@ function readTransform(data: any): Pick<BonePoseNode, "position" | "quaternion" 
 // plain tree. Returns undefined when the document has no usable root; nodes
 // past the bone or depth budget are dropped.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseBonePose(boneJSON: any): BonePoseNode | undefined {
+export function parseBonePose(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  boneJSON: any,
+  report?: { truncated: boolean },
+): BonePoseNode | undefined {
   let remaining = MAX_POSE_BONES;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const readNode = (data: any, depth: number): BonePoseNode | undefined => {
     if (remaining <= 0) {
+      if (report) report.truncated = true;
       return undefined;
     }
     // Every visited slot counts against the budget, readable or not.
     remaining--;
     if (depth > MAX_POSE_DEPTH) {
+      if (report) report.truncated = true;
       return undefined;
     }
-    if (!data || typeof data !== "object") {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
       return undefined;
     }
 
@@ -71,7 +77,10 @@ export function parseBonePose(boneJSON: any): BonePoseNode | undefined {
     const children: (BonePoseNode | undefined)[] = [];
     if (Array.isArray(data.children)) {
       for (const child of data.children) {
-        if (remaining <= 0) break;
+        if (remaining <= 0) {
+          if (report) report.truncated = true;
+          break;
+        }
         children.push(readNode(child, depth + 1));
       }
     }
@@ -149,8 +158,11 @@ export class BoneJSONHelper {
       return;
     }
 
-    const boneTree = parseBonePose(boneJSON);
-    if (!boneTree) {
+    // A pose cut short by the bone/depth budget would load as a mix of saved
+    // and fresh bones, so it is skipped whole.
+    const report = { truncated: false };
+    const boneTree = parseBonePose(boneJSON, report);
+    if (!boneTree || report.truncated) {
       return;
     }
     this.applyBoneTree(hipBone, boneTree);

@@ -94,4 +94,22 @@ describe("BoneJSONHelper", () => {
     expect(parseBonePose(null)).toBeUndefined();
     expect(parseBonePose({ geometries: [] })).toBeUndefined();
   });
+
+  it("rejects an array root and reports truncation", () => {
+    expect(parseBonePose({ object: [] })).toBeUndefined();
+    const report = { truncated: false };
+    parseBonePose({ object: { children: Array.from({ length: MAX_POSE_BONES + 1 }, () => ({})) } }, report);
+    expect(report.truncated).toBe(true);
+    const ok = { truncated: false };
+    parseBonePose({ object: { children: [{}] } }, ok);
+    expect(ok.truncated).toBe(false);
+  });
+
+  it("skips a truncated pose instead of applying part of it", () => {
+    const target = makeCharacter();
+    new BoneJSONHelper(target.model).poseFromBoneJSON({
+      object: { position: [5, 5, 5], children: Array.from({ length: MAX_POSE_BONES + 1 }, () => ({})) },
+    });
+    expect(target.hip.position.toArray()).toEqual([0, 0, 0]);
+  });
 });
