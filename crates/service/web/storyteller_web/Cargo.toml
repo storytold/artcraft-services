@@ -142,7 +142,7 @@ resend-rs = { version = "0.21.0", default-features = false, features = ["rustls-
 rustls = { version = "0.23", features = ["ring"], default-features = false }
 
 # Runtime
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs"] }
 
 # Futures
 futures = { version = "0.3.17", features = ["thread-pool"] } # feature for ThreadPool

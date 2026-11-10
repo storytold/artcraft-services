@@ -17,9 +17,6 @@
 #[macro_use] extern crate magic_crypt;
 #[macro_use] extern crate serde_derive;
 
-use std::fs::File;
-use std::io::Write;
-
 use utoipa::OpenApi;
 
 use docs::api_doc::ApiDoc;
@@ -40,8 +37,7 @@ pub mod util;
 async fn main() -> AnyhowResult<()> {
   let api_json = ApiDoc::openapi().to_pretty_json()?;
 
-  let mut file = File::create("api.json")?;
-  file.write_all(api_json.as_bytes())?;
+  tokio::fs::write("api.json", api_json.as_bytes()).await?;
 
   Ok(())
 }
