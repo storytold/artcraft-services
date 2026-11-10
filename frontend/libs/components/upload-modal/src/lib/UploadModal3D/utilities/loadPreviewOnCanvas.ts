@@ -465,7 +465,8 @@ const imagePlaneLoader = ({
 // subtrees, and recomputing shared geometry bounds per instance rescanned
 // the same vertices over and over.
 export function computeMeshBounds(root: THREE.Object3D): THREE.Box3 {
-  root.updateMatrixWorld(true);
+  // Also refresh ancestors so a moved parent is not read from a stale matrixWorld.
+  root.updateWorldMatrix(true, true);
   const box = new THREE.Box3();
   const local = new THREE.Box3();
   const computed = new Set<THREE.BufferGeometry>();

@@ -143,4 +143,18 @@ describe("computeMeshBounds", () => {
     expect(box.max.x).toBeCloseTo(200.5);
     expect(box.max.y).toBeCloseTo(0.5);
   });
+
+  it("uses the current transform of a moved ancestor", () => {
+    const parent = new THREE.Group();
+    const child = new THREE.Group();
+    child.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)));
+    parent.add(child);
+    parent.updateMatrixWorld(true);
+    parent.position.x = 10;
+
+    const box = computeMeshBounds(child);
+
+    expect(box.min.x).toBeCloseTo(9.5);
+    expect(box.max.x).toBeCloseTo(10.5);
+  });
 });
