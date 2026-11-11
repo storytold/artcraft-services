@@ -53,7 +53,7 @@ export const HistoryStack = ({
 
   // This is used to force image reloads in different sessions
   // and prevent fetching CORS-tainted images from cache
-  const sessionRandBuster = useRef(Math.random());
+  const sessionRandBuster = useRef(Math.random()); // NOSONAR: UI-only id or cosmetic value, never a secret.
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const prevPendingCountRef = useRef<number>(0);
 

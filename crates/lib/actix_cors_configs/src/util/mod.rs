@@ -1,1 +1,2 @@
+pub mod cloudflare_pages_branch_domain_matches;
 pub mod netlify_branch_domain_matches;

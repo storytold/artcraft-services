@@ -1,7 +1,9 @@
 import { getRequestBaseUrl } from "@/lib/linux-repos";
+import { getFlatpakSignatureDescriptor } from "@/lib/flatpak-signatures";
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request);
+  const signatureEntries = await getFlatpakSignatureDescriptor(baseUrl);
 
   const ini = `[Flatpak Repo]
 Title=ArtCraft OCI
@@ -9,8 +11,7 @@ Url=oci+${baseUrl}
 Homepage=https://getartcraft.com/
 Comment=Official ArtCraft OCI Flatpak repository
 Description=Open-source creative apps for Linux distributed via GitHub Container Registry
-GPGVerify=false
-`;
+${signatureEntries.length > 0 ? `${signatureEntries.join("\n")}\n` : "GPGVerify=false\n"}`;
 
   return new Response(ini, {
     headers: {

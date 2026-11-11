@@ -16,6 +16,9 @@ pub enum BucketClientError {
 
   /// The object store accepted the request but returned a non-success status.
   UploadFailed { status_code: u16, message: String },
+
+  /// The object name has `.`/`..` segments that would escape its intended location.
+  InvalidObjectName(String),
 }
 
 impl fmt::Display for BucketClientError {
@@ -29,6 +32,7 @@ impl fmt::Display for BucketClientError {
       Self::UploadFailed { status_code, message } => {
         write!(f, "upload failed (HTTP {}): {}", status_code, message)
       }
+      Self::InvalidObjectName(name) => write!(f, "invalid object name: {:?}", name),
     }
   }
 }

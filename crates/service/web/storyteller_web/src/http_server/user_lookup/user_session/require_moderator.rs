@@ -33,6 +33,11 @@ pub async fn require_moderator<'e, 'c : 'e, E>(
     }
   };
 
+  if user_session.is_banned {
+    warn!("banned user attempted a moderator action: {:?}", user_session.user_token.as_str());
+    return Err(CommonWebError::NotAuthorized);
+  }
+
   if !user_session.is_mod() {
     warn!("user is not a moderator: {:?}", user_session.user_token.as_str());
     return Err(CommonWebError::NotAuthorized);
