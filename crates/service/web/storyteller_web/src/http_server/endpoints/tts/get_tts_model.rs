@@ -226,6 +226,12 @@ pub async fn get_tts_model_handler(
     is_original_author = user_session.user_token.as_str().to_string() == model.creator_user_token();
   }
 
+  // NB: Private models are readable only by their creator and moderators. `NotFound` so that a
+  // private token's existence isn't confirmed. Checked after the cache so stale entries can't skip it.
+  if model.creator_set_visibility() == Visibility::Private && !is_original_author && !is_moderator {
+    return Err(CommonWebError::NotFound);
+  }
+
   // NB(bt, 2024-01-20): Removing to make porting easier.
   //if let Some(moderator_fields) = model.maybe_moderator_fields.as_ref() {
   //  // NB: The moderator fields will always be present before removal
