@@ -1,4 +1,4 @@
-import { MediaFilesApi, MediaUploadApi } from "@storyteller/api";
+import { MediaFilesApi, MediaUploadApi, Visibility } from "@storyteller/api";
 import { CanvasRenderer, EditorCore } from "@storyteller/ui-video-editor";
 
 // Best-effort project cover capture: renders the active project's current
@@ -12,6 +12,27 @@ import { CanvasRenderer, EditorCore } from "@storyteller/ui-video-editor";
 
 const COVER_WIDTH = 640;
 const COVER_JPEG_QUALITY = 0.85;
+
+// The cover is a separate media file rendered from the project, so it gets
+// the project's own visibility. If that can't be read, fall back to private
+// rather than letting the upload default to anything more open.
+export function coverVisibilityFor(projectVisibility: string | undefined): Visibility {
+  switch (projectVisibility) {
+    case Visibility.Public:
+      return Visibility.Public;
+    case Visibility.Hidden:
+      return Visibility.Hidden;
+    default:
+      return Visibility.Private;
+  }
+}
+
+async function projectVisibility(token: string): Promise<string | undefined> {
+  const response = await new MediaFilesApi().GetMediaFileByToken({
+    mediaFileToken: token,
+  });
+  return response.success ? response.data?.creator_set_visibility : undefined;
+}
 
 export async function captureAndUploadProjectCover({
   token,
@@ -72,6 +93,7 @@ export async function captureAndUploadProjectCover({
       blob,
       fileName: "cover.jpg",
       uuid: crypto.randomUUID(),
+      maybe_visibility: coverVisibilityFor(await projectVisibility(token)),
     });
     if (!upload.success || !upload.data) {
       console.warn("Project cover upload failed:", upload.errorMessage);

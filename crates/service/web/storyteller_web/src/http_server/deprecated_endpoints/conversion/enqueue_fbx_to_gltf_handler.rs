@@ -33,6 +33,7 @@ use crate::configs::plans::get_correct_plan_for_session::get_correct_plan_for_se
 use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::state::server_state::ServerState;
 use crate::util::allowed_studio_access::allowed_studio_access;
+use crate::util::job_input_access::{can_use_media_file_input, JobInputRequester};
 
 /// Debug requests can get routed to special "debug-only" workers, which can
 /// be used to trial new code, run debugging, etc.
@@ -186,6 +187,24 @@ pub async fn enqueue_fbx_to_gltf_handler(
 
     if request.media_file_token.as_str().is_empty() {
         return Err(EnqueueFbxToGltfRequestError::BadInput("media_file_token is empty".to_string()));
+    }
+
+    // ==================== INPUT ACCESS ==================== //
+
+    drop(mysql_connection);
+
+    let requester = JobInputRequester::from_session(maybe_user_session.as_ref());
+
+    let can_use_input = can_use_media_file_input(&request.media_file_token, requester, &server_state.mysql_pool)
+        .await
+        .map_err(|err| {
+            warn!("Error checking input media file access: {:?}", err);
+            EnqueueFbxToGltfRequestError::ServerError
+        })?;
+
+    if !can_use_input {
+        warn!("Input media file not usable by requester: {:?}", request.media_file_token);
+        return Err(EnqueueFbxToGltfRequestError::BadInput("media file not found".to_string()));
     }
 
     let query_result = insert_generic_inference_job(InsertGenericInferenceArgs {

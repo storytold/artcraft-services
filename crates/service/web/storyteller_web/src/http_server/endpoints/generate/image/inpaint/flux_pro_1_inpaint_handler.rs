@@ -94,6 +94,7 @@ pub async fn flux_pro_1_inpaint_image_handler(
     &mut mysql_connection,
     &media_tokens,
     CAN_SEE_DELETED,
+    &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
   ).await;
 
   let media_files = match result {

@@ -30,6 +30,7 @@ use crate::http_server::validations::validate_idempotency_token_format::validate
 use crate::http_server::validations::validate_model_title::validate_model_title;
 use crate::http_server::user_lookup::user_session::require_user_session_extended::require_user_session_extended;
 use crate::state::server_state::ServerState;
+use crate::util::job_input_access::{require_media_file_inputs, JobInputRequester};
 
 #[derive(Deserialize, ToSchema)]
 pub struct EnqueueGptSovitsModelDownloadRequest {
@@ -133,6 +134,14 @@ pub async fn enqueue_gptsovits_model_download_handler(
       return Err(CommonWebError::BadInputWithSimpleMessage("Bad model download URL".to_string()));
     }
   }
+
+  // NB: The cover is stored on the resulting model weight and its links are served to anyone who
+  // can read the weight, so the uploader must be allowed to use the cover image.
+  require_media_file_inputs(
+    &[request.maybe_cover_image_media_file_token.as_ref()],
+    JobInputRequester::from_session(Some(&user_session)),
+    &server_state.mysql_pool,
+  ).await?;
 
   let query_result = insert_generic_inference_job(InsertGenericInferenceArgs {
     uuid_idempotency_token: &request.uuid_idempotency_token,

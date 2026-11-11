@@ -16,27 +16,18 @@ pub fn add_power_stream(cors: Cors, is_production: bool) -> Cors {
 }
 
 pub fn add_legacy_storyteller_stream(cors: Cors, is_production: bool) -> Cors {
-  // TODO: Remove non-SSL "http://" from production in safe rollout
+  // NB: HTTPS only. A credentialed origin served over plain HTTP can be replaced by a network attacker.
   if is_production {
     cors
         // Storyteller.stream (Production)
-        .allowed_origin("http://api.storyteller.stream")
-        .allowed_origin("http://obs.storyteller.stream")
-        .allowed_origin("http://storyteller.stream")
-        .allowed_origin("http://ws.storyteller.stream")
         .allowed_origin("https://api.storyteller.stream")
         .allowed_origin("https://obs.storyteller.stream")
         .allowed_origin("https://storyteller.stream")
         .allowed_origin("https://ws.storyteller.stream")
         // Storyteller.stream (Staging)
-        .allowed_origin("http://staging.obs.storyteller.stream")
-        .allowed_origin("http://staging.storyteller.stream")
         .allowed_origin("https://staging.obs.storyteller.stream")
         .allowed_origin("https://staging.storyteller.stream")
         // Legacy "create.storyteller.ai" (Production)
-        .allowed_origin("http://create.storyteller.ai")
-        .allowed_origin("http://obs.storyteller.ai")
-        .allowed_origin("http://ws.storyteller.ai")
         .allowed_origin("https://create.storyteller.ai")
         .allowed_origin("https://obs.storyteller.ai")
         .allowed_origin("https://ws.storyteller.ai")
@@ -89,6 +80,21 @@ mod tests {
     let cors = isolated_cors(add_legacy_storyteller_stream, false);
     assert_origin_invalid(&cors, "https://storyteller.stream").await;
     assert_origin_invalid(&cors, "https://create.storyteller.ai").await;
+  }
+
+  #[actix_rt::test]
+  async fn legacy_storyteller_stream_rejects_plaintext_origins_in_production() {
+    let cors = isolated_cors(add_legacy_storyteller_stream, true);
+    assert_origin_ok(&cors, "https://create.storyteller.ai").await;
+    assert_origin_invalid(&cors, "http://api.storyteller.stream").await;
+    assert_origin_invalid(&cors, "http://obs.storyteller.stream").await;
+    assert_origin_invalid(&cors, "http://storyteller.stream").await;
+    assert_origin_invalid(&cors, "http://ws.storyteller.stream").await;
+    assert_origin_invalid(&cors, "http://staging.obs.storyteller.stream").await;
+    assert_origin_invalid(&cors, "http://staging.storyteller.stream").await;
+    assert_origin_invalid(&cors, "http://create.storyteller.ai").await;
+    assert_origin_invalid(&cors, "http://obs.storyteller.ai").await;
+    assert_origin_invalid(&cors, "http://ws.storyteller.ai").await;
   }
 
   #[actix_rt::test]

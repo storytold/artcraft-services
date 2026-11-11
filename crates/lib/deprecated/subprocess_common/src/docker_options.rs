@@ -90,6 +90,46 @@ impl DockerOptions {
             &self.image_name,
             container_command)
   }
+
+  /// Build the argument list for `docker` (excluding the `docker` program itself) that runs
+  /// `container_command` with `/bin/bash -c` inside the container.
+  ///
+  /// Unlike `to_command_string`, nothing here is parsed by a host shell. `positional_args` are
+  /// handed to the container shell as `$1`, `$2`, ... so untrusted values (URLs, filenames)
+  /// can be referenced from `container_command` as `"$1"` without being interpreted as shell
+  /// syntax.
+  pub fn to_command_args(&self, container_command: &str, positional_args: &[&str]) -> Vec<String> {
+    let mut args = vec!["run".to_string(), "--rm".to_string()];
+
+    if let Some(env_vars) = self.maybe_environment_variables.as_ref() {
+      for var in env_vars {
+        args.push("--env".to_string());
+        args.push(format!("{}={}", var.name.trim(), var.value.trim()));
+      }
+    }
+
+    if let Some(mount) = self.maybe_bind_mount.as_ref() {
+      args.push("--mount".to_string());
+      args.push(format!("type=bind,source={},target={}", &mount.local_filesystem, &mount.container_filesystem));
+    }
+
+    if let Some(gpu) = self.maybe_gpu.as_ref() {
+      args.push("--gpus".to_string());
+      args.push(match gpu {
+        DockerGpu::All => "all".to_string(),
+        DockerGpu::Named(named) => named.to_string(),
+      });
+    }
+
+    args.push(self.image_name.to_string());
+    args.push("/bin/bash".to_string());
+    args.push("-c".to_string());
+    args.push(container_command.to_string());
+    // $0 for the container shell.
+    args.push("bash".to_string());
+    args.extend(positional_args.iter().map(|arg| arg.to_string()));
+    args
+  }
 }
 
 #[cfg(test)]
@@ -113,5 +153,25 @@ mod tests {
 
     assert_eq!("docker run --rm  --env FOO=1  --env BAR=2   --mount type=bind,source=/local,target=/container   --gpus all  MY_IMAGE /bin/bash -c \"echo wat\"",
                command.to_command_string("echo wat"));
+  }
+
+  #[test]
+  fn test_command_args_keep_positional_args_separate() {
+    let command = DockerOptions {
+      image_name: "MY_IMAGE".to_string(),
+      maybe_bind_mount: Some(DockerFilesystemMount::tmp_to_tmp()),
+      maybe_environment_variables: Some(vec![DockerEnvVar::new("FOO", "1")]),
+      maybe_gpu: Some(DockerGpu::All),
+    };
+
+    let args = command.to_command_args("echo \"$1\"", &["$(touch /tmp/pwned)"]);
+
+    assert_eq!(args, vec![
+      "run", "--rm",
+      "--env", "FOO=1",
+      "--mount", "type=bind,source=/tmp,target=/tmp",
+      "--gpus", "all",
+      "MY_IMAGE", "/bin/bash", "-c", "echo \"$1\"", "bash", "$(touch /tmp/pwned)",
+    ]);
   }
 }

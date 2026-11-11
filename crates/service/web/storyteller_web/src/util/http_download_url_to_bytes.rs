@@ -13,11 +13,15 @@ const USER_AGENT: &str = "storyteller-web/1.0";
 /// as a download failure.
 const MAX_REDIRECTS: usize = 10;
 
+/// Cap on decoded bytes, enforced per chunk so gzip bombs are cut off too.
+const MAX_DOWNLOAD_BYTES: usize = 1 << 30;
+
 // TODO(bt, 2025-06-03): Don't load the entire file into memory!
 
 #[derive(Debug)]
 pub enum DownloadFileToBytesError {
   WreqError(wreq::Error),
+  TooLarge { url: String },
   BadResponseError {
     status_code: StatusCode,
     body: Bytes,
@@ -32,14 +36,22 @@ pub async fn http_download_url_to_bytes(url: &str) -> Result<Bytes, DownloadFile
       .redirect(Policy::limited(MAX_REDIRECTS))
       .build()?;
 
-  let response = client.get(url) // NB: No IntoUrl for &Url.
+  let mut response = client.get(url) // NB: No IntoUrl for &Url.
       .header("User-Agent", USER_AGENT)
       .header("Accept", "*/*")
       .send()
       .await?;
 
   let status = response.status();
-  let bytes = response.bytes().await?;
+
+  let mut buffer = Vec::new();
+  while let Some(chunk) = response.chunk().await? {
+    if buffer.len() + chunk.len() > MAX_DOWNLOAD_BYTES {
+      return Err(DownloadFileToBytesError::TooLarge { url: url.to_string() });
+    }
+    buffer.extend_from_slice(&chunk);
+  }
+  let bytes = Bytes::from(buffer);
 
   if !status.is_success() {
     warn!("Error downloading URL (status={}): {:?}", status.as_u16(), url);
@@ -58,7 +70,7 @@ impl Error for DownloadFileToBytesError {
   fn source(&self) -> Option<&(dyn Error + 'static)> {
     match self {
       DownloadFileToBytesError::WreqError(e) => Some(e),
-      DownloadFileToBytesError::BadResponseError { .. } => None,
+      DownloadFileToBytesError::BadResponseError { .. } | DownloadFileToBytesError::TooLarge { .. } => None,
     }
   }
 }
@@ -67,6 +79,7 @@ impl Display for DownloadFileToBytesError {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       DownloadFileToBytesError::WreqError(e) => write!(f, "Wreq error: {}", e),
+      DownloadFileToBytesError::TooLarge { url } => write!(f, "Download of {} exceeded {} bytes", url, MAX_DOWNLOAD_BYTES),
       DownloadFileToBytesError::BadResponseError { status_code, body, url } => {
         write!(f, "Bad response (status={}) fetching {} : {:?}", status_code.as_u16(), url, body)
       }
