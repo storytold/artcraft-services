@@ -2,7 +2,8 @@ use anyhow::anyhow;
 use sqlx::{MySql, Transaction};
 
 use errors::AnyhowResult;
-use crate::queries::users::user_sessions::revoke_all_user_sessions::{list_live_session_tokens, revoke_all_user_sessions};
+use crate::queries::users::user_sessions::list_live_session_tokens::{list_live_session_tokens, ListLiveSessionTokensArgs};
+use crate::queries::users::user_sessions::revoke_all_user_sessions::{revoke_all_user_sessions, RevokeAllUserSessionsArgs};
 use tokens::tokens::password_reset::PasswordResetToken;
 use tokens::tokens::users::UserToken;
 
@@ -70,7 +71,10 @@ LIMIT 1
 
   // NB: Recovery must lock out whoever held the account before it, so revoke every existing session
   // in the same transaction. The handler issues a fresh session after commit.
-  let revoked_session_tokens = match list_live_session_tokens(args.user_token, &mut *args.mysql_transaction).await {
+  let revoked_session_tokens = match list_live_session_tokens(ListLiveSessionTokensArgs {
+    user_token: args.user_token,
+    mysql_executor: &mut *args.mysql_transaction,
+  }).await {
     Ok(tokens) => tokens,
     Err(err) => {
       let _r = args.mysql_transaction.rollback().await.ok();
@@ -78,7 +82,10 @@ LIMIT 1
     }
   };
 
-  let query_result = revoke_all_user_sessions(args.user_token, &mut *args.mysql_transaction).await;
+  let query_result = revoke_all_user_sessions(RevokeAllUserSessionsArgs {
+    user_token: args.user_token,
+    mysql_executor: &mut *args.mysql_transaction,
+  }).await;
 
   if let Err(err) = query_result {
     let _r = args.mysql_transaction.rollback().await.ok();

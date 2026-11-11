@@ -16,8 +16,8 @@ use http_server_common::request::get_request_ip::get_request_ip;
 use log::{info, warn};
 use mysql_queries::queries::google_sign_in_accounts::get_google_sign_in_account_by_subject::get_google_sign_in_account;
 use mysql_queries::queries::user_referrals::insert_user_referral::{insert_user_referral, InsertUserReferralArgs};
-use mysql_queries::queries::users::user_sessions::create_user_session_with_transactor::create_user_session_with_transactor;
-use mysql_queries::utils::transactor::Transactor;
+use enums::by_table::user_sessions::user_web_session_creation_type::UserWebSessionCreationType;
+use mysql_queries::queries::users::user_sessions::create_user_session_if_password_version::{create_user_session_if_password_version, CreateUserSessionIfPasswordVersionArgs};
 use sqlx::{Acquire, MySqlPool};
 use tokens::tokens::user_sessions::UserSessionToken;
 use tokens::tokens::users::UserToken;
@@ -244,15 +244,20 @@ pub async fn google_sso_handler(
 
   let ip_address = get_request_ip(&http_request);
 
-  let session_token = create_user_session_with_transactor(
-    &user_token,
-    &ip_address,
-    Transactor::for_connection(&mut mysql_connection))
+  // NB: no password is verified here, so the version is read inside the insert, under the user's row lock.
+  let session_token = create_user_session_if_password_version(CreateUserSessionIfPasswordVersionArgs {
+    user_token: &user_token,
+    maybe_expected_password_version: None,
+    ip_address: &ip_address,
+    creation_type: UserWebSessionCreationType::DirectLogin,
+    mysql_executor: &mut *mysql_connection,
+  })
       .await
       .map_err(|e| {
         warn!("error creating user session: {:?}", e);
-        CommonWebError::from_anyhow_error(e)
-      })?;
+        CommonWebError::from_error(e)
+      })?
+      .ok_or(CommonWebError::NotAuthorized)?;
 
   info!("new user session created");
 

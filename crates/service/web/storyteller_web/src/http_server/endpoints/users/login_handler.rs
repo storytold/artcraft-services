@@ -24,7 +24,8 @@ use mysql_queries::queries::users::user::get::lookup_user_for_login_by_username:
 use mysql_queries::queries::users::user_sessions::create_impersonated_user_session::{
   create_impersonated_user_session, CreateImpersonatedUserSessionArgs,
 };
-use mysql_queries::queries::users::user_sessions::create_user_session_if_password_version::create_user_session_if_password_version;
+use mysql_queries::queries::users::user_sessions::create_user_session_if_password_version::{create_user_session_if_password_version, CreateUserSessionIfPasswordVersionArgs};
+use enums::by_table::user_sessions::user_web_session_creation_type::UserWebSessionCreationType;
 use password::bcrypt_confirm_password::bcrypt_confirm_password;
 use sqlx::MySqlPool;
 use tokens::tokens::user_sessions::UserSessionToken;
@@ -164,8 +165,13 @@ pub async fn login_handler(
     // Normal login path — password matched.
     // NB: bound to the password_version we verified against, so a password reset that committed
     // after the lookup cannot be followed by a session for the old password.
-    let token = match create_user_session_if_password_version(
-      &user.token, user.password_version, &ip_address, &**mysql_pool).await
+    let token = match create_user_session_if_password_version(CreateUserSessionIfPasswordVersionArgs {
+      user_token: &user.token,
+      maybe_expected_password_version: Some(user.password_version),
+      ip_address: &ip_address,
+      creation_type: UserWebSessionCreationType::DirectLogin,
+      mysql_executor: &**mysql_pool,
+    }).await
     {
       Ok(Some(token)) => token.to_string(),
       Ok(None) => {

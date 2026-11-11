@@ -4,19 +4,26 @@ use sqlx::{Executor, MySql};
 use tokens::tokens::user_sessions::UserSessionToken;
 use tokens::tokens::users::UserToken;
 
-/// Creates a password-login session only if `users.password_version` still equals the version the
-/// caller verified the password against. The version check and the INSERT are one statement, and
-/// the `FOR UPDATE` row lock orders it against a password reset (which updates that row, then
-/// revokes sessions, in one transaction): either the session exists before the reset's revoke, or
-/// the version has moved and no session is created. Returns `Ok(None)` when the version moved.
-pub async fn create_user_session_if_password_version<'e, 'c: 'e, E>(
-  user_token: &UserToken,
-  expected_password_version: u32,
-  ip_address: &str,
-  mysql_executor: E,
+pub struct CreateUserSessionIfPasswordVersionArgs<'a, T> {
+  pub user_token: &'a UserToken,
+  /// The `password_version` the caller verified a password against. `None` for paths that verify no
+  /// password (SSO): the version is then read inside the statement, under the same row lock.
+  pub maybe_expected_password_version: Option<u32>,
+  pub ip_address: &'a str,
+  pub creation_type: UserWebSessionCreationType,
+  pub mysql_executor: T,
+}
+
+/// Creates a session only if `users.password_version` still equals the expected version (when one is
+/// given). The version check and the INSERT are one statement, and the `FOR UPDATE` row lock orders
+/// it against a password reset (which updates that row, then revokes sessions, in one transaction):
+/// either the session exists before the reset's revoke, or it is created after the reset committed.
+/// Returns `Ok(None)` when the user is missing or the version moved.
+pub async fn create_user_session_if_password_version<'c, T>(
+  args: CreateUserSessionIfPasswordVersionArgs<'_, T>,
 ) -> Result<Option<UserSessionToken>, sqlx::Error>
 where
-  E: 'e + Executor<'c, Database = MySql>,
+  T: Executor<'c, Database = MySql>,
 {
   let session_token = UserSessionToken::generate();
 
@@ -33,15 +40,16 @@ INSERT INTO user_sessions (
 SELECT ?, token, ?, ?, NOW() + interval 1 year
 FROM users
 WHERE token = ?
-  AND password_version = ?
+  AND (? IS NULL OR password_version = ?)
 FOR UPDATE
     "#)
     .bind(session_token.as_str())
-    .bind(ip_address)
-    .bind(UserWebSessionCreationType::DirectLogin.to_str())
-    .bind(user_token.as_str())
-    .bind(expected_password_version)
-    .execute(mysql_executor)
+    .bind(args.ip_address)
+    .bind(args.creation_type.to_str())
+    .bind(args.user_token.as_str())
+    .bind(args.maybe_expected_password_version)
+    .bind(args.maybe_expected_password_version)
+    .execute(args.mysql_executor)
     .await?;
 
   if result.rows_affected() == 0 {
