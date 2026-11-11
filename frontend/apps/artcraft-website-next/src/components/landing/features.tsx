@@ -21,7 +21,7 @@ export default function Features({ index = "01" }: { index?: string }) {
     <SectionShell id="features">
       <SectionEyebrow
         index={index}
-        label="Crafting features"
+        label="Studio features"
         annotation="Real footage — captured in ArtCraft"
       />
 

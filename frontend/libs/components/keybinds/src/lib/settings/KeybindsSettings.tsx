@@ -31,7 +31,7 @@ const SURFACE_HINTS: Record<Surface, string> = {
   global: "App-wide — works on every page",
   pagescene: "Viewport camera, transforms & selection",
   pagedraw: "Vector canvas editing",
-  moodboard: "Figma-style board tools",
+  moodboard: "Board tools",
   "moodboard-grid": "Board library, item viewer & presentation",
 };
 

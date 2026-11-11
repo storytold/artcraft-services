@@ -28,21 +28,28 @@ export type CraftAppSlug =
   | "lightcraft"
   | "pdfcraft"
   | "effectcraft"
+  | "anicraft"
   | "designcraft"
   | "figcraft"
+  | "texturecraft"
+  | "materialcraft"
   | "wordcraft"
   | "soundcraft"
   | "deckcraft"
   | "cadcraft"
-  | "gridcraft";
+  | "gridcraft"
+  | "craft-anything";
 
 export type CraftPlatform = "macOS" | "Windows" | "Linux" | "Web";
 
 export type CraftShot = {
   /** File under public/images/apps/<slug>/. */
   file: string;
-  /** Full-resolution original in the repo's docs/images/ (press kit). */
-  source: string;
+  /**
+   * Full-resolution original in the repo's docs/images/ (press kit). Omit
+   * when the site's copy is the original.
+   */
+  source?: string;
   caption: string;
   alt: string;
   /** Portrait page (7:9) rather than a 16:10 window capture. */
@@ -66,10 +73,19 @@ export type CraftDemo = {
   alt: string;
 };
 
+/** Work made in the app, in its own section after the highlights. */
+export type CraftShowcase = {
+  lede: string;
+  /** 4:3 renders, three across. */
+  renders: CraftShot[];
+};
+
 export type CraftApp = {
   slug: CraftAppSlug;
   /** Prefix before "Craft" — the wordmark colors "Craft". */
   prefix: string;
+  /** Text following Craft in names such as Craft Anything. */
+  nameSuffix?: string;
   category: string;
   status: string;
   /** Headline split around its one color-accented contrast word. */
@@ -85,6 +101,7 @@ export type CraftApp = {
   /** First shot is the hero. */
   shots: [CraftShot, ...CraftShot[]];
   demo?: CraftDemo;
+  showcase?: CraftShowcase;
 };
 
 /** One release file, resolved to a URL for a specific app. */
@@ -94,6 +111,7 @@ export type CraftDownload = Omit<CraftReleaseAsset, "file"> & {
 };
 
 export const CRAFTING_APPS_GITHUB_ORG = "https://github.com/storytold";
+export const CRAFT_WIKI_URL = "https://craft.wiki";
 
 export const CRAFTING_APPS: CraftApp[] = [
   {
@@ -508,6 +526,77 @@ export const CRAFTING_APPS: CraftApp[] = [
     ],
   },
   {
+    slug: "anicraft",
+    prefix: "Ani",
+    category: "2D vector animation",
+    status: "Early alpha",
+    headline: ["Vector animation on a ", "timeline", " you know."],
+    pitch: "Open-source 2D vector animation, built in pure Rust.",
+    lede: "Draw on the stage, key it on the timeline and tween it with easing, in a native 2D vector animation studio written in pure Rust. Early alpha, open source, and yours.",
+    schemaCategory: "MultimediaApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "Familiar by design",
+        body: "Stage, tools, timeline, layers, keyframes, Properties and Library sit where animators expect them, with onion skinning for in-betweening.",
+      },
+      {
+        title: "Tweens that ease",
+        body: "Classic tweens with eight easing presets and custom ease curves, plus shape tweens that morph one vector contour into another.",
+      },
+      {
+        title: "Symbols and scenes",
+        body: "Graphic symbols and movie clips with nested timelines and loop modes, mask and guide layers, filters, blend modes and scenes.",
+      },
+      {
+        title: "Real vector tools",
+        body: "Pen, Pencil with curve fitting, shapes, text, Paint Bucket and Ink Bottle, with Bézier anchors and handles you edit point by point.",
+      },
+      {
+        title: "Open formats",
+        body: "Opens .fla and .xfl documents and imports SVG. Exports PNG sequences, GIF, SVG frames, sprite sheets, Lottie, and WebM or MP4 through your own FFmpeg.",
+      },
+      {
+        title: "Agent-ready",
+        body: "Every action is an engine command, so the CLI, a JSON-lines channel and an MCP server can draw, animate and export the way a person does.",
+      },
+    ],
+    // The README's 1600×940 captures, padded above the menu bar to 16:10.
+    shots: [
+      {
+        file: "hero.webp",
+        source: "shot-1-stage.png",
+        caption: "The sample animation on the timeline",
+        alt: "AniCraft with the sample animation open: the stage shows a ball, a star and a sun over hills at dusk; the timeline below has five layers with violet classic-tween spans, and the Properties panel shows the selected tween's easing curve",
+      },
+      {
+        file: "subselection.webp",
+        source: "shot-2-subselection.png",
+        caption: "Bézier anchors, Pen and Pencil",
+        alt: "AniCraft's Subselection tool showing anchor points and Bézier handles on a blue shape, next to a wavy line drawn with the Pencil; the Properties panel shows the shape's position, scale, fill and stroke",
+      },
+      {
+        file: "frames.webp",
+        source: "shot-3-frames.png",
+        caption: "Frame ranges across layers",
+        alt: "A block of frames selected across three layers in AniCraft's timeline, with the ball squashed mid-tween on the stage",
+      },
+      {
+        file: "transform.webp",
+        source: "shot-4-transform.png",
+        caption: "Free Transform on a symbol",
+        alt: "AniCraft's Free Transform on the ball with corner and edge handles; the Properties panel shows the symbol instance's position, scale, rotation, alpha and looping",
+      },
+      {
+        file: "palette.webp",
+        source: "shot-5-palette.png",
+        caption: "Every command, one search away",
+        alt: "AniCraft's command palette open over the stage, searching for key and listing the keyframe commands with their shortcuts",
+      },
+    ],
+  },
+  {
     slug: "designcraft",
     prefix: "Design",
     category: "Page layout & publishing",
@@ -671,6 +760,170 @@ export const CRAFTING_APPS: CraftApp[] = [
       caption: "A host and a guest editing one file",
       alt: "Two people editing one FigCraft file live: each sees the other's cursor, selection and edits land instantly, ending on the FigCraft end card.",
     },
+  },
+  {
+    slug: "texturecraft",
+    prefix: "Texture",
+    category: "3D texture painting",
+    status: "In development",
+    headline: ["3D texture painting, ", "rebuilt", " in pure Rust."],
+    pitch: "Open-source 3D texture painting, rebuilt in pure Rust.",
+    lede: "Paint PBR materials straight onto your models in layers with masks, bake mesh maps, drive smart materials from them and export textures for any engine. Open source, offline, and yours.",
+    schemaCategory: "DesignApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.95",
+    features: [
+      {
+        title: "Familiar by design",
+        body: "Texture sets, a layer stack with per-channel blending, masks and generators, smart materials, the tool shelf and the 3D and 2D views, where texture artists expect them.",
+      },
+      {
+        title: "Paint across seams",
+        body: "Brush stamps live on the 3D surface, so strokes flow across UV seams, and the camera's visibility keeps paint off the back of your model.",
+      },
+      {
+        title: "Bake on the GPU",
+        body: "Ambient occlusion, curvature, thickness and more, ray traced about 12× faster than on the CPU, from the model itself or a high-poly mesh.",
+      },
+      {
+        title: "Fast at 8K",
+        body: "A tiled, copy-on-write texel engine on every CPU core and a native viewport on Metal, Vulkan, DirectX 12 and WebGPU keep 8K texture sets responsive.",
+      },
+      {
+        title: "Open formats",
+        body: "glTF, FBX, COLLADA, USD, Alembic, OBJ, PLY and STL in. PNG, JPEG, TGA, TIFF, EXR and more out at 8, 16 or 32 bits, with UDIM tiles and engine presets.",
+      },
+      {
+        title: "Agent-ready",
+        body: "Every menu item and tool is a command, so the CLI, a JSON control channel and an MCP server can paint, bake and export the way a person does.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "texturecraft-workspace.png",
+        caption: "The workspace — a portable TV with wear and crayon doodles",
+        alt: "The TextureCraft workspace: the material library on the left, the 3D viewport and the 2D UV view of a cream 1970s portable TV with orange dials and crayon doodles, and the texture set list, layer stack and fill properties on the right",
+      },
+      {
+        file: "bake.webp",
+        source: "texturecraft-bake.png",
+        caption: "Mesh map baking on the GPU",
+        alt: "TextureCraft's Bake mode: the TV's texture sets and the mesh map bakers on the left, the common bake parameters below them, and the Bake selected textures button under the viewport",
+      },
+      {
+        file: "export.webp",
+        source: "texturecraft-export.png",
+        caption: "Export presets and output templates",
+        alt: "TextureCraft's Export textures dialog over the TV project: texture sets to export, the output directory, an output template, file type, size, padding and normal map format",
+      },
+      {
+        file: "rendering.webp",
+        source: "texturecraft-rendering.png",
+        caption: "Rendering mode, path traced on the GPU",
+        alt: "TextureCraft's Rendering mode: the portable TV path traced on the GPU at 256 samples with denoising, and the render settings in a card over the viewport",
+      },
+      {
+        file: "light.webp",
+        source: "texturecraft-light.png",
+        caption: "Light theme with the blue accent",
+        alt: "TextureCraft in its light theme with the blue accent: light panels around the dark 3D and UV views of the portable TV",
+      },
+    ],
+    showcase: {
+      lede: "Original models, painted in layers with masks and generators, baked and path traced in TextureCraft. No outside textures.",
+      renders: [
+        {
+          file: "tv.webp",
+          caption: "1970s portable TV",
+          alt: "A path-traced render of a cream 1970s portable TV with a chrome carry handle, orange dials, scuffed edges and a crayon flower and sun doodled on its side",
+        },
+        {
+          file: "lantern.webp",
+          source: "texturecraft-lantern.png",
+          caption: "Storm lantern",
+          alt: "A path-traced render of a storm lantern: red enamel chipped down to bare steel, a brass burner, a glass globe and a lit flame",
+        },
+        {
+          file: "camera.webp",
+          source: "texturecraft-camera.png",
+          caption: "Rangefinder camera",
+          alt: "A path-traced render of a vintage rangefinder camera: black paint worn through to brass on the edges, brown leatherette and chrome dials",
+        },
+      ],
+    },
+  },
+  {
+    slug: "materialcraft",
+    prefix: "Material",
+    category: "Procedural materials",
+    status: "In development",
+    headline: ["Procedural materials, ", "node", " by node."],
+    pitch: "Open-source, node-based procedural materials, built in pure Rust.",
+    lede: "Build tileable PBR materials from noises, patterns and filters in a node graph, watch them update live in 2D and on a 3D model, and export the maps for any engine. Open source, offline, and yours.",
+    schemaCategory: "DesignApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.95",
+    features: [
+      {
+        title: "Familiar by design",
+        body: "A package explorer, a node library with previews, the graph with live thumbnails, 3D and 2D views and a properties panel, where material artists expect them.",
+      },
+      {
+        title: "Cooks as you drag",
+        body: "Every node cooks on every CPU core, and a content-addressed cache re-cooks only what lies downstream of an edit. The brick wall sample cooks in about 40 ms.",
+      },
+      {
+        title: "Tileable by design",
+        body: "Noises and patterns live on whole-number lattices, so every material tiles seamlessly at any resolution, from 16 px to 8K.",
+      },
+      {
+        title: "Open formats",
+        body: "Export base color, normal, roughness, metallic, height and ambient occlusion as PNG, JPEG, TGA, TIFF, EXR and more at 8, 16 or 32 bits.",
+      },
+      {
+        title: "Works with TextureCraft",
+        body: "Send a material to TextureCraft as a .mcmat fill layer. Its exposed inputs stay live sliders and colors there, re-cooked for each texture set.",
+      },
+      {
+        title: "Agent-ready",
+        body: "Every menu item is a command, so the CLI, a JSON control channel and an MCP server can build materials the way a person does.",
+      },
+    ],
+    // shortcut: no `source` while storytold/materialcraft is private, so "Full size" opens the site's copy; add them once it's public.
+    shots: [
+      {
+        file: "hero.webp",
+        caption: "The workspace — the brick wall sample",
+        alt: "The MaterialCraft workspace: the explorer and node library on the left, a brick wall material as a node graph with live thumbnails in the middle over a 3D view of a rounded cube in red brick and a 2D view of the base color, and the brick generator's parameters on the right",
+      },
+      {
+        file: "materials.webp",
+        caption: "Eight materials, all procedural",
+        alt: "Eight material spheres made in MaterialCraft: red brick, lava rock with glowing cracks, blue painted metal plates with rivets, wood planks, wicker weave, mossy ground, cracked stone tiles and polished white marble",
+        wide: true,
+      },
+      {
+        file: "lava.webp",
+        caption: "Lava rock with emissive cracks",
+        alt: "A lava rock graph in MaterialCraft: Voronoi plates with cracks and glowing seams, shown as dark rock with orange emissive cracks on the rounded cube",
+      },
+      {
+        file: "wood.webp",
+        caption: "Wood grain warped over planks",
+        alt: "A wood planks graph in MaterialCraft: anisotropic noise warped by Perlin noise and multiplied over a plank pattern, shown on the rounded cube and in the 2D view",
+      },
+      {
+        file: "ground.webp",
+        caption: "Mossy ground, height-blended",
+        alt: "A mossy ground graph in MaterialCraft: stones height-blended with dirt and moss grown in the crevices, on the rounded cube and in the 2D view",
+      },
+      {
+        file: "new-graph.webp",
+        caption: "New graph from twelve templates",
+        alt: "MaterialCraft's New graph dialog: template spheres for empty, PBR, brick wall, stone tiles, wood planks, painted metal plates, rusty metal, lava rock, polished marble, wicker weave, woven fabric and mossy ground, beside the graph name and size",
+      },
+    ],
   },
   {
     slug: "wordcraft",
@@ -1010,6 +1263,33 @@ export const CRAFTING_APPS: CraftApp[] = [
       },
     ],
   },
+  {
+    slug: "craft-anything",
+    prefix: "",
+    nameSuffix: " Anything",
+    category: "Software exploration & creation",
+    status: "Early alpha",
+    headline: ["Understand how software works, then ", "craft", " your own."],
+    pitch: "Explore how software works and build your own version.",
+    lede: "Study websites, apps, games and files with evidence-backed tools, then work with a coding agent to build and check your own project.",
+    schemaCategory: "DesignApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.97",
+    features: [
+      { title: "Study software", body: "Inspect websites, applications, games and files with tools that record the evidence behind their findings." },
+      { title: "Build your own", body: "Describe what you want and work with a coding agent to build a new project." },
+      { title: "Check and refine", body: "Compare the result with the original, review the differences and ask for changes." },
+      { title: "Choose your approach", body: "Use clean-room tools or opt into deeper inspection when you need it." },
+      { title: "Work with agents", body: "Use the desktop app, command line or MCP server to access the same engine." },
+      { title: "Stay in control", body: "Review requests for actions outside the rules you set before they run." },
+    ],
+    shots: [
+      { file: "project-website.webp", source: "project-website.png", caption: "Review a website project", alt: "Craft Anything showing a website project with build checks, an approval request and a plan" },
+      { file: "make.webp", source: "make.png", caption: "Start a project", alt: "Craft Anything's Make screen for choosing a target and describing a project" },
+      { file: "project-game.webp", source: "project-game.png", caption: "Play a finished project", alt: "Craft Anything showing a finished game project" },
+      { file: "workbench.webp", source: "workbench.png", caption: "Explore the workbench", alt: "Craft Anything's workbench" },
+    ],
+  },
 ];
 
 const COUNT_WORDS = [
@@ -1030,6 +1310,7 @@ const COUNT_WORDS = [
   "Fourteen",
   "Fifteen",
   "Sixteen",
+  "Seventeen",
 ];
 
 /** "Seven" — the family size as a capitalized word, for headlines. */
@@ -1082,7 +1363,7 @@ export function getCraftApp(slug: string): CraftApp | undefined {
 }
 
 export function craftAppName(app: CraftApp): string {
-  return `${app.prefix}Craft`;
+  return `${app.prefix}Craft${app.nameSuffix ?? ""}`;
 }
 
 /** Two-digit lineup position, e.g. "03". */
@@ -1098,6 +1379,10 @@ export function craftAppRepo(app: CraftApp): string {
   return `${CRAFTING_APPS_GITHUB_ORG}/${app.slug}`;
 }
 
+export function craftAppDocsUrl(app: CraftApp): string {
+  return `${CRAFT_WIKI_URL}/apps/${app.slug}/overview/`;
+}
+
 /** Site-relative path; use craftShotUrl for an <img> src. */
 export function craftShotPath(app: CraftApp, shot: CraftShot): string {
   return `/images/apps/${app.slug}/${shot.file}`;
@@ -1108,7 +1393,9 @@ export function craftShotUrl(app: CraftApp, shot: CraftShot): string {
 }
 
 export function craftShotSourceUrl(app: CraftApp, shot: CraftShot): string {
-  return `https://raw.githubusercontent.com/storytold/${app.slug}/main/docs/images/${shot.source}`;
+  return shot.source
+    ? `https://raw.githubusercontent.com/storytold/${app.slug}/main/docs/images/${shot.source}`
+    : craftShotUrl(app, shot);
 }
 
 export function craftDemoPosterUrl(app: CraftApp, demo: CraftDemo): string {

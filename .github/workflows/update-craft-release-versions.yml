@@ -1,0 +1,391 @@
+name: Update Craft Release Versions
+
+on:
+  schedule:
+    # Hourly, on the hour
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-craft-release-versions
+  cancel-in-progress: false
+
+jobs:
+  update-versions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check latest releases and update versions
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require("fs");
+
+            const owner = "storytold";
+            const file =
+              "frontend/apps/artcraft-website-next/src/lib/crafting-app-releases.ts";
+
+            const apps = [
+              "photocraft",
+              "vectorcraft",
+              "filmcraft",
+              "lightcraft",
+              "pdfcraft",
+              "effectcraft",
+              "anicraft",
+              "designcraft",
+              "figcraft",
+              "texturecraft",
+              "materialcraft",
+              "wordcraft",
+              "soundcraft",
+              "deckcraft",
+              "cadcraft",
+              "gridcraft",
+              "craft-anything",
+            ];
+
+            const launcher = {
+              repo: "craft-launcher",
+              fileSlug: "artcraft-launcher",
+            };
+
+            const studio = {
+              repo: "artcraft",
+              fileSlug: "artcraft",
+              tagPrefix: "artcraft-v",
+              studioFile:
+                "frontend/apps/artcraft-website-next/src/lib/artcraft-studio.ts",
+              webappDownloadsFile:
+                "frontend/apps/artcraft-webapp/src/config/github_download_links.ts",
+            };
+
+            // Pin a repository here to preserve an intentional rollback.
+            // Example: photocraft: "0.8.0"
+            // Remove the pin to resume automatic updates.
+            const pinnedVersions = {};
+
+            let content = fs.readFileSync(file, "utf8");
+
+            const assetsMatch = content.match(
+              /export const CRAFT_RELEASE_ASSETS:[\s\S]*?=\s*\[([\s\S]*?)\n\];/
+            );
+
+            if (!assetsMatch) {
+              throw new Error(
+                "Could not read required assets from the release catalog."
+              );
+            }
+
+            const assetTemplates = [
+              ...assetsMatch[1].matchAll(/\bfile:\s*"([^"]+)"/g),
+            ].map(match => match[1]);
+
+            if (assetTemplates.length === 0) {
+              throw new Error(
+                "No required release assets found in the catalog."
+              );
+            }
+
+            function parseVersion(tag, tagPrefix = "v") {
+              const escapedPrefix = tagPrefix.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+              );
+              const match = tag.match(
+                new RegExp(
+                  `^${escapedPrefix}(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$`
+                )
+              );
+
+              if (!match) return null;
+
+              return {
+                text: `${match[1]}.${match[2]}.${match[3]}`,
+                parts: match.slice(1).map(Number),
+              };
+            }
+
+            function compareVersions(a, b) {
+              for (let i = 0; i < 3; i++) {
+                if (a.parts[i] !== b.parts[i]) {
+                  return a.parts[i] - b.parts[i];
+                }
+              }
+              return 0;
+            }
+
+            function validateReleaseAssets(repo, fileSlug, release) {
+              const requiredAssets =
+                repo === studio.repo
+                  ? [
+                      ...assetTemplates
+                        .filter(
+                          asset =>
+                            !asset.startsWith("{slug}-cli-") &&
+                            !asset.endsWith(".dmg") &&
+                            !asset.endsWith(".exe") &&
+                            !asset.endsWith(".msi")
+                        )
+                        .map(asset =>
+                          asset
+                            .replaceAll("{slug}", fileSlug)
+                            .replaceAll("{version}", release.text)
+                        ),
+                      `ArtCraft_${release.text}_x64-setup.exe`,
+                      `ArtCraft_${release.text}_universal.dmg`,
+                    ]
+                  : assetTemplates
+                      .filter(
+                        asset =>
+                          (repo !== launcher.repo ||
+                            !asset.startsWith("{slug}-cli-")) &&
+                          // Match AniCraft's custom download list: no web ZIP is published.
+                          (repo !== "anicraft" ||
+                            !asset.startsWith("{slug}-web-"))
+                      )
+                      .map(asset =>
+                        asset
+                          .replaceAll("{slug}", fileSlug)
+                          .replaceAll("{version}", release.text)
+                      );
+
+              const publishedAssets = new Set(
+                release.assets.map(asset => asset.name)
+              );
+
+              const missingAssets = requiredAssets.filter(
+                asset => !publishedAssets.has(asset)
+              );
+
+              if (missingAssets.length > 0) {
+                throw new Error(
+                  `Release ${owner}/${repo}@${release.tag} is missing required assets: ${missingAssets.join(", ")}`
+                );
+              }
+            }
+
+            async function latestVersion(
+              repo,
+              fileSlug = repo,
+              tagPrefix = "v"
+            ) {
+              const releases = await github.paginate(
+                github.rest.repos.listReleases,
+                {
+                  owner,
+                  repo,
+                  per_page: 100,
+                }
+              );
+
+              const versions = releases
+                .filter(
+                  release => !release.draft && !release.prerelease
+                )
+                .map(release => {
+                  const parsed = parseVersion(release.tag_name, tagPrefix);
+                  if (!parsed) return null;
+
+                  return {
+                    ...parsed,
+                    tag: release.tag_name,
+                    assets: release.assets || [],
+                  };
+                })
+                .filter(Boolean)
+                .sort(compareVersions);
+
+              const pinnedVersion = pinnedVersions[repo];
+
+              const selected = pinnedVersion
+                ? versions.find(
+                    version => version.text === pinnedVersion
+                  )
+                : versions[versions.length - 1];
+
+              if (!selected) {
+                if (pinnedVersion) {
+                  throw new Error(
+                    `Pinned stable release ${tagPrefix}${pinnedVersion} not found for ${owner}/${repo}.`
+                  );
+                }
+
+                throw new Error(
+                  `No published stable ${tagPrefix}X.Y.Z releases found for ${owner}/${repo}.`
+                );
+              }
+
+              validateReleaseAssets(repo, fileSlug, selected);
+
+              core.info(`${repo}: ${selected.text} (${selected.tag})`);
+              return selected.text;
+            }
+
+            // Update ArtCraft Studio Linux/Desktop version.
+            const studioVersion = await latestVersion(
+              studio.repo,
+              studio.fileSlug,
+              studio.tagPrefix
+            );
+            let studioContent = fs.readFileSync(studio.studioFile, "utf8");
+            studioContent = studioContent
+              .replace(
+                /(version:\s*)"[^"]+"/,
+                (_, prefix) => `${prefix}"${studioVersion}"`
+              )
+              .replace(
+                /(tag:\s*)"artcraft-v[^"]+"/,
+                (_, prefix) => `${prefix}"artcraft-v${studioVersion}"`
+              );
+            fs.writeFileSync(studio.studioFile, studioContent);
+
+            if (fs.existsSync(studio.webappDownloadsFile)) {
+              let webappContent = fs.readFileSync(
+                studio.webappDownloadsFile,
+                "utf8"
+              );
+              const updatedWebapp = webappContent.replace(
+                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m,
+                `$1"${studioVersion}"`
+              );
+              if (updatedWebapp === webappContent) {
+                throw new Error(
+                  "Could not find ARTCRAFT_STUDIO_VERSION in github_download_links.ts."
+                );
+              }
+              fs.writeFileSync(studio.webappDownloadsFile, updatedWebapp);
+            }
+
+            // Update the launcher version.
+            const launcherDisabledPattern =
+              /export const CRAFT_LAUNCHER_RELEASE:[\s\S]*?=\s*null\s*;/;
+
+            const launcherPattern =
+              /(export const CRAFT_LAUNCHER_RELEASE:[\s\S]*?=\s*craftRelease\(\s*)"[^"]+"/;
+
+            if (launcherDisabledPattern.test(content)) {
+              core.info(
+                "craft-launcher: release disabled in catalog; preserving null."
+              );
+            } else {
+              if (!launcherPattern.test(content)) {
+                throw new Error("Could not find the launcher version.");
+              }
+
+              const launcherVersion = await latestVersion(
+                launcher.repo,
+                launcher.fileSlug
+              );
+
+              content = content.replace(
+                launcherPattern,
+                (_, prefix) => `${prefix}"${launcherVersion}"`
+              );
+            }
+
+            // Update each enabled app version.
+            for (const app of apps) {
+              const escaped = app.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+              );
+
+              // Slugs with a hyphen ("craft-anything") are quoted keys in the catalog.
+              const disabledPattern = new RegExp(
+                `(^\\s*"?${escaped}"?\\s*:\\s*)null\\s*,`,
+                "m"
+              );
+
+              const pattern = new RegExp(
+                `(^\\s*"?${escaped}"?\\s*:\\s*craftRelease\\()"[^"]+"`,
+                "m"
+              );
+
+              if (disabledPattern.test(content)) {
+                core.info(
+                  `${app}: release disabled in catalog; preserving null.`
+                );
+                continue;
+              }
+
+              if (!pattern.test(content)) {
+                throw new Error(
+                  `Could not find the release entry for ${app}.`
+                );
+              }
+
+              const version = await latestVersion(app);
+
+              content = content.replace(
+                pattern,
+                (_, prefix) => `${prefix}"${version}"`
+              );
+            }
+
+            fs.writeFileSync(file, content);
+
+            core.info("Release versions updated successfully.");
+
+      - name: Create or update pull request
+        id: create-pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: automation/update-craft-release-versions
+          delete-branch: true
+          commit-message: "chore: update Craft release versions"
+          title: "chore: update Craft Launcher and app release versions"
+          body: |
+            ## Summary
+
+            Automatically synchronize the Craft Launcher and Crafting Apps
+            versions with the latest stable published releases in their
+            respective GitHub repositories.
+
+            ## Changes
+
+            - Update versions from published stable releases only.
+            - Ignore prereleases, drafts, and tags outside vX.Y.Z.
+            - Validate all required release assets before updating the catalog.
+            - Preserve catalog entries explicitly set to null.
+            - Support pinned versions for intentional rollbacks.
+            - Keep the existing release asset configuration unchanged.
+
+            Generated by the `Update Craft Release Versions` workflow.
+          labels: |
+            automated
+            dependencies
+
+      # The repository does not allow GitHub's native auto-merge, so merge the PR directly.
+      - name: Merge pull request
+        if: steps.create-pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
+              exit 0
+            fi
+
+            # A retry can race GitHub recording the first merge; treat that as success.
+            if [ "$(gh pr view "$PR_NUMBER" --json state --jq .state)" = "MERGED" ]; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 5 ]; then
+              echo "Merge attempt $attempt failed; retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+
+          echo "Unable to merge pull request $PR_NUMBER after 5 attempts." >&2
+          exit 1

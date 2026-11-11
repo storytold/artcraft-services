@@ -13,6 +13,7 @@ import Analytics from "@/components/analytics";
 import MotionProvider from "@/components/motion-provider";
 import ScrollRuler from "@/components/ruler/scroll-ruler";
 import TunerPanel from "@/components/dev/tuner-panel";
+import { CRAFTING_APPS_COUNT_WORD } from "@/lib/crafting-apps";
 import { SITE_URL } from "@/lib/links";
 import "./globals.css";
 
@@ -49,21 +50,21 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+const DESCRIPTION = `ArtCraft builds capable open source tools: ${CRAFTING_APPS_COUNT_WORD.toLowerCase()} native Crafting Apps and ArtCraft Studio, our AI image and video app.`;
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "ArtCraft — Controllable AI for Artists",
-    template: "%s — ArtCraft",
+    default: "ArtCraft - Capable open source tools",
+    template: "%s - ArtCraft",
   },
-  description:
-    "ArtCraft is the open-source desktop app for generating AI video and images — built for artists who want real control.",
+  description: DESCRIPTION,
   openGraph: {
     type: "website",
     url: SITE_URL,
     siteName: "ArtCraft",
-    title: "ArtCraft — Controllable AI for Artists",
-    description:
-      "ArtCraft is the open-source desktop app for generating AI video and images — built for artists who want real control.",
+    title: "ArtCraft — Capable open source tools",
+    description: DESCRIPTION,
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
@@ -87,8 +88,7 @@ const JSON_LD = {
   name: "ArtCraft",
   applicationCategory: "DesignApplication",
   operatingSystem: "macOS, Windows, Web",
-  description:
-    "Open-source desktop app for generating AI video and images — built for artists who want real control.",
+  description: DESCRIPTION,
   url: SITE_URL,
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   publisher: { "@type": "Organization", name: "ArtCraft", url: SITE_URL },

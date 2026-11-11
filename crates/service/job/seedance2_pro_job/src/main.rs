@@ -39,6 +39,7 @@ use crate::startup::build_pager::build_pager;
 use crate::startup::kinovi_setup::{get_kinovi_session, get_kinovi_version};
 
 pub mod alert_on_error;
+pub mod download_result_bytes;
 pub mod http_server;
 pub mod job_dependencies;
 pub mod jobs;

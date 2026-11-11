@@ -1,6 +1,6 @@
 ---
 title: Edit Image — Inpaint and Replace
-seoTitle: Edit Image — Remove, replace, and restyle without Photoshop
+seoTitle: Edit Image — Remove, replace, and restyle with precision
 abstract: Paint masks, describe the change, and let AI update only what you selected.
 isPublished: true
 publishedOn: 2025-10-06

@@ -6,8 +6,8 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   workers: 1,
   use: {
-    // Use installed Google Chrome; no Playwright browser download is needed.
-    channel: "chrome",
+    // CI installs the matching Playwright Chromium; local runs use Chrome.
+    channel: process.env.CI ? "chromium" : "chrome",
     baseURL: "http://localhost:4202",
     viewport: { width: 1440, height: 960 },
     contextOptions: { reducedMotion: "reduce" },

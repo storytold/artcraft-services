@@ -36,7 +36,7 @@ async fn both_browser_sites_can_review_approve_and_decline() {
   let h = Harness::create().await;
   let app = test::init_service(App::new().app_data(web::Data::new(h.db.pool.clone())).app_data(web::Data::new(h.signer.clone())).configure(handlers::configure).route("/protected", web::get().to(protected))).await;
   let mut minted = 0;
-  for origin in ["https://getartcraft.com", "https://www.getartcraft.com", "https://app.getartcraft.com"] {
+  for origin in ["https://getartcraft.com", "https://www.getartcraft.com", "https://app.getartcraft.com", "https://app-new.getartcraft.com"] {
     for approve in [false, true] {
       let created: CreateLoginChallengeResponse = test::read_body_json(post(&app, &h, "create", json!({}), false).await).await;
       let approval = approval_token(&created);

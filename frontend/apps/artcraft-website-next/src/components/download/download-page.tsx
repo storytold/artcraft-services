@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   ArrowDownToLineIcon,
   FilesIcon,
@@ -8,7 +9,7 @@ import {
   MonitorIcon,
   AppleIcon,
 } from "lucide-react";
-import { WindowsIcon } from "@/components/icons";
+import { LinuxIcon, WindowsIcon } from "@/components/icons";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
 import { Accent, PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui";
@@ -24,9 +25,11 @@ import {
   type Platform,
 } from "@/lib/use-platform";
 import DownloadModal from "./download-modal";
+import { ARTCRAFT_STUDIO_RELEASE, artcraftStudioDownloads } from "@/lib/artcraft-studio";
+import { DownloadRow, useDetectedDesktop } from "@/components/apps/app-downloads";
 
 type System = {
-  id: Platform;
+  id: Platform | "linux";
   os: string;
   short: string;
   icon: ReactNode;
@@ -34,6 +37,10 @@ type System = {
   version: string;
   requirements: { icon: ReactNode; text: string }[];
 };
+
+const DEFAULT_LINUX_DOWNLOAD = artcraftStudioDownloads().find(
+  (asset) => asset.recommended && asset.arch === "x86_64",
+)!;
 
 const SYSTEMS: System[] = [
   {
@@ -62,6 +69,19 @@ const SYSTEMS: System[] = [
       { icon: <FilesIcon aria-hidden className="h-4 w-4" />, text: "2 GB available storage" },
     ],
   },
+  {
+    id: "linux",
+    os: "Linux",
+    short: "Linux",
+    icon: <LinuxIcon className="h-5 w-5" />,
+    link: DEFAULT_LINUX_DOWNLOAD.href,
+    version: ARTCRAFT_STUDIO_RELEASE.version,
+    requirements: [
+      { icon: <MonitorIcon aria-hidden className="h-4 w-4" />, text: "x86_64, ARM64 or RISC-V (glibc 2.35+)" },
+      { icon: <MemoryStickIcon aria-hidden className="h-4 w-4" />, text: "8 GB RAM recommended" },
+      { icon: <FilesIcon aria-hidden className="h-4 w-4" />, text: "2 GB available storage" },
+    ],
+  },
 ];
 
 const STEPS = [
@@ -70,13 +90,34 @@ const STEPS = [
   { title: "Create", description: "Start generating artwork immediately." },
 ];
 
-export default function DownloadPage() {
+// `aside` sits beside the header (the Crafting Apps signpost), rendered on
+// the server and passed in.
+export default function DownloadPage({ aside }: { aside?: ReactNode }) {
   const detected = useDetectedPlatform();
+  const desktop = useDetectedDesktop();
   const [modalOpen, setModalOpen] = useState(false);
 
-  const detectedSystem =
-    SYSTEMS.find((s) => s.id === detected?.platform) ?? SYSTEMS[0];
+  const studioLinuxDownloads = artcraftStudioDownloads().filter(
+    (asset) => asset.group === "Linux",
+  );
+  const linuxDownload = desktop?.platform === "Linux"
+    ? studioLinuxDownloads.find((asset) => asset.recommended && asset.arch === desktop.arch)
+    : undefined;
+  const systems = SYSTEMS.map((system) =>
+    system.id === "linux" && linuxDownload
+      ? { ...system, link: linuxDownload.href }
+      : system,
+  );
+  const detectedSystemId: System["id"] | undefined = linuxDownload
+    ? "linux"
+    : detected?.platform;
+  const detectedSystem: System =
+    systems.find((s) => s.id === detectedSystemId) ?? systems[0];
   const isMobile = detected?.mobile ?? false;
+  const activeLinuxMain = linuxDownload ?? DEFAULT_LINUX_DOWNLOAD;
+  const otherLinuxDownloads = studioLinuxDownloads.filter(
+    (download) => download.href !== activeLinuxMain.href,
+  );
 
   // Downloads start natively via the anchor; the modal only invites the
   // visitor to create an account while the installer arrives.
@@ -91,13 +132,14 @@ export default function DownloadPage() {
         id="download"
         index="01"
         label="Download"
-        annotation="macOS · Windows · Web"
+        annotation="ArtCraft Studio · macOS · Windows · Linux · Web"
         title={
           <>
-            Download <Accent>ArtCraft</Accent>.
+            Download ArtCraft <Accent>Studio</Accent>.
           </>
         }
-        lede="AI-powered artwork creation with canvas editing and 3D scene composition — right on your desktop."
+        lede="The generative AI studio for images and video. Edit on the canvas, compose 3D scenes and render them with the latest models, right on your desktop."
+        aside={aside}
       >
         <div data-reveal className="mt-8 flex flex-wrap items-center gap-3">
           <PrimaryDownloadButton
@@ -138,10 +180,10 @@ export default function DownloadPage() {
       </SectionShell>
 
       <SectionShell id="platforms">
-        <SectionEyebrow index="02" label="Platforms" annotation="Universal macOS build · x64 Windows" />
-        <div className="grid gap-px bg-line md:grid-cols-2">
-          {SYSTEMS.map((system, i) => {
-            const isDetected = detected?.platform === system.id && !isMobile;
+        <SectionEyebrow index="02" label="Platforms" annotation="Universal macOS · x64 Windows · Linux" />
+        <div className="grid gap-px bg-line md:grid-cols-3">
+          {systems.map((system, i) => {
+            const isDetected = detectedSystemId === system.id && !isMobile;
             return (
               <article key={system.id} className="flex flex-col bg-bg">
                 <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2.5 md:px-8">
@@ -194,6 +236,28 @@ export default function DownloadPage() {
                       </Button>
                     )}
                   </div>
+                  {system.id === "linux" && (
+                    <div className="mt-6 flex flex-col gap-3 border-t border-line pt-4">
+                      <Link
+                        href="/linux"
+                        className="hud-label inline-flex items-center gap-1.5 text-muted hover:text-ink"
+                      >
+                        Package repositories (Flatpak, APT, RPM & Pacman) →
+                      </Link>
+                      <details className="group">
+                        <summary className="hud-label cursor-pointer list-none text-faint hover:text-ink">
+                          Other Linux formats & architectures ({otherLinuxDownloads.length}) ▾
+                        </summary>
+                        <ul className="mt-3 border-t border-line">
+                          {otherLinuxDownloads.map((download) => (
+                            <li key={download.href} className="border-b border-line">
+                              <DownloadRow download={download} />
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </div>
+                  )}
                 </div>
               </article>
             );

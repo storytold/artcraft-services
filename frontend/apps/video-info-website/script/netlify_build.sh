@@ -5,7 +5,7 @@ set -euxo pipefail
 # Runs from the Netlify base directory (= the Nx workspace root, `frontend/`).
 
 echo "Building video-info-website"
-npx nx build @frontend/video-info-website
+npx --no-install nx build @frontend/video-info-website
 
 echo "Copy netlify configs into dist"
 pushd apps/video-info-website/

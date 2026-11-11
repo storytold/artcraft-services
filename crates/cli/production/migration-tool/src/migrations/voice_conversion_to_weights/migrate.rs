@@ -1,4 +1,3 @@
-use std::thread;
 use std::time::Duration;
 
 use log::{info, warn};
@@ -40,7 +39,7 @@ pub async fn migrate_voice_conversion_to_weights(deps: &Deps) -> AnyhowResult<()
       cursor = last_id as u64;
     }
 
-    thread::sleep(Duration::from_secs(2));
+    tokio::time::sleep(Duration::from_secs(2)).await;
   }
 
   Ok(())

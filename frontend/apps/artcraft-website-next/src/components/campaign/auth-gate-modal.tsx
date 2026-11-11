@@ -107,7 +107,9 @@ function SignupForm({
     // Username generated from the email, same scheme as the Vite form:
     // up to 7 alphanumerics from the local part plus a 3-digit suffix.
     const prefix = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "").slice(0, 7);
-    const username = `${prefix}${Math.floor(Math.random() * 900) + 100}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
+    const suffixBuf = new Uint32Array(1);
+    crypto.getRandomValues(suffixBuf);
+    const username = `${prefix}${(suffixBuf[0] % 900) + 100}`;
     const result = await signup({
       username,
       email,

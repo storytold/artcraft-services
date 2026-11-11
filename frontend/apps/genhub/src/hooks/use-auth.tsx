@@ -73,7 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(
     async (email: string, password: string): Promise<string | null> => {
-      const username = email.split('@')[0] + Math.floor(Math.random() * 1000); // NOSONAR: UI-only id or cosmetic value, never a secret.
+      const suffixBuf = new Uint32Array(1);
+      crypto.getRandomValues(suffixBuf);
+      const username = email.split('@')[0] + (suffixBuf[0] % 1000);
       const res = await api.Signup({
         username,
         email,

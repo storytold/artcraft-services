@@ -304,7 +304,10 @@ impl MediaFileInsertBuilder {
     self.insert_acquire(mysql_connection).await
   }
 
-  async fn insert_acquire<'a, A>(&'a self, connector: A) -> Result<MediaFileToken, MediaFileInsertBuilderError>
+  /// Insert through a pool, connection, or existing transaction. Within a
+  /// transaction the underlying helper uses a savepoint; the caller controls
+  /// the final commit, including any associated job-status update.
+  pub async fn insert_acquire<'a, A>(&'a self, connector: A) -> Result<MediaFileToken, MediaFileInsertBuilderError>
   where
     A: Acquire<'a, Database = MySql> + Send,
     <A as Acquire<'a>>::Connection: Send,

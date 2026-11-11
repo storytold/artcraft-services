@@ -16,6 +16,7 @@ use mysql_queries::queries::generic_inference::web::mark_generic_inference_job_s
 use mysql_queries::queries::media_files::create::insert_builder::media_file_insert_builder::MediaFileInsertBuilder;
 use kinovi_web_client::requests::poll_characters::poll_characters::CharacterStatus;
 
+use crate::download_result_bytes::download_result_bytes;
 use crate::job_dependencies::JobDependencies;
 
 const PREFIX: &str = "artcraft_";
@@ -117,14 +118,7 @@ async fn download_and_create_media_file(
 ) -> AnyhowResult<tokens::tokens::media_files::MediaFileToken> {
   info!("Downloading character image: {}", image_url);
 
-  let image_bytes: Vec<u8> = deps.download_client.get(image_url)
-    .send()
-    .await
-    .map_err(|err| anyhow!("reqwest error downloading image: {:?}", err))?
-    .bytes()
-    .await
-    .map_err(|err| anyhow!("error reading image bytes: {:?}", err))?
-    .to_vec();
+  let image_bytes: Vec<u8> = download_result_bytes(&deps.download_client, image_url).await?;
 
   info!("Downloaded {} bytes from {}", image_bytes.len(), image_url);
 

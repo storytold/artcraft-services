@@ -198,6 +198,18 @@ The website runs at `http://localhost:3000`. Repository-root launchers are in
 [`script/website`](./script/website). For desktop development, use the
 [ArtCraft desktop repository](https://github.com/storytold/artcraft).
 
+## Automated Craft Release Version Updates
+
+The `.github/workflows/update-craft-release-versions.yml` workflow automatically updates the release versions of the Craft Launcher and Crafting Apps.
+
+**When adding a new Craft app repository, you must:**
+
+1. Add the repository name to the `apps` array in `.github/workflows/update-craft-release-versions.yml` (`const apps`).
+2. Add the app to `CRAFT_APP_RELEASES` in `frontend/apps/artcraft-website-next/src/lib/crafting-app-releases.ts` and update the corresponding app definitions as required.
+3. Ensure the repository publishes stable releases using the `vX.Y.Z` tag format and provides the required release assets.
+
+**Important:** The repository must be added to both the workflow's apps array and the release catalog. Adding it to the workflow alone is not enough.
+
 ## Further reading
 
 - [Technical documentation](./_docs)

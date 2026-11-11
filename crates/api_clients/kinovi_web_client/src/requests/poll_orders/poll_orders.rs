@@ -36,7 +36,7 @@ pub struct PollOrdersResponse {
 
 // --- Public types ---
 
-/// The status of one order (one generation task — video or image).
+/// The status of one order (one generation task — video, image, or audio).
 #[derive(Debug, Clone)]
 pub struct OrderStatus {
   pub order_id: String,
@@ -61,7 +61,7 @@ pub struct OrderStatus {
   /// Parsed `created_at` as a `DateTime<Utc>`. `None` if the raw string could not be parsed.
   pub created_at_utc: Option<DateTime<Utc>>,
 
-  /// Whether this order produced an image or a video. `None` for older
+  /// Whether this order produced an image, video, or audio. `None` for older
   /// polling responses that didn't include the field — those came from the
   /// video-only era and can be treated as video by callers that need to.
   pub media_type: Option<OrderMediaType>,
@@ -119,14 +119,15 @@ pub struct MediaResult {
 }
 
 /// Media type of an order. Midjourney orders are `Image`; the various
-/// Seedance/keyframe/reference flows are `Video`.
+/// Seedance/keyframe/reference flows are `Video`; Suno orders are `Audio`.
 ///
-/// `Unknown` covers response payloads that omit the field (older video
-/// polling) or return an unrecognised value.
+/// `Unknown` preserves unrecognised values. An omitted field is represented
+/// by `None` on `OrderStatus`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OrderMediaType {
   Image,
   Video,
+  Audio,
   Unknown(String),
 }
 
@@ -135,12 +136,14 @@ impl OrderMediaType {
     match s {
       "image" => Self::Image,
       "video" => Self::Video,
+      "audio" => Self::Audio,
       other => Self::Unknown(other.to_string()),
     }
   }
 
   pub fn is_image(&self) -> bool { matches!(self, Self::Image) }
   pub fn is_video(&self) -> bool { matches!(self, Self::Video) }
+  pub fn is_audio(&self) -> bool { matches!(self, Self::Audio) }
 }
 
 // --- Implementation ---
@@ -274,6 +277,14 @@ mod tests {
   use crate::test_utils::setup_test_logging::setup_test_logging;
   use errors::AnyhowResult;
   use log::LevelFilter;
+
+  #[test]
+  fn recognizes_audio_orders_without_changing_legacy_types() {
+    assert_eq!(OrderMediaType::from_str("audio"), OrderMediaType::Audio);
+    assert_eq!(OrderMediaType::from_str("image"), OrderMediaType::Image);
+    assert_eq!(OrderMediaType::from_str("video"), OrderMediaType::Video);
+    assert_eq!(OrderMediaType::from_str("future"), OrderMediaType::Unknown("future".into()));
+  }
 
   fn test_session() -> AnyhowResult<KinoviWebSession> {
     let cookies = get_test_cookies()?;
@@ -438,6 +449,28 @@ mod tests {
       }).collect()
     }
 
+    /// Synthetic contract fixture: audio clips need neither video dimensions
+    /// nor a top-level result URL when the results array is populated.
+    #[test]
+    fn audio_order_preserves_both_clips_without_dimensions() {
+      let body = r#"[{"result":{"data":{"json":{"orders":[{
+        "orderId":"ord_suno_audio",
+        "resultUrl":null,
+        "taskStatus":"COMPLETED",
+        "results":[{"url":"https://example.test/one.mp3"},{"url":"https://example.test/two.mp3"}],
+        "failReason":null,
+        "createdAt":"2026-10-18T00:00:00Z",
+        "mediaType":"audio"
+      }],"nextCursor":null}}}}]"#;
+      let orders = parse_orders(body);
+      assert_eq!(orders.len(), 1);
+      assert_eq!(orders[0].media_type, Some(OrderMediaType::Audio));
+      assert_eq!(orders[0].task_status, TaskStatus::Completed);
+      assert_eq!(orders[0].results.len(), 2);
+      assert_eq!(orders[0].results[1].url, "https://example.test/two.mp3");
+      assert!(orders[0].results.iter().all(|clip| clip.maybe_width.is_none() && clip.maybe_height.is_none()));
+    }
+
     /// Back-compat: when the raw payload omits `mediaType` (older video-only
     /// polling), `media_type` parses as `None` and the rest of the order
     /// continues to deserialise unchanged.
@@ -555,12 +588,14 @@ mod tests {
     println!("Next cursor: {:?}", result.next_cursor);
     let mut images = 0;
     let mut videos = 0;
+    let mut audio = 0;
     let mut unknown = 0;
     let mut missing = 0;
     for order in &result.orders {
       match &order.media_type {
         Some(OrderMediaType::Image) => images += 1,
         Some(OrderMediaType::Video) => videos += 1,
+        Some(OrderMediaType::Audio) => audio += 1,
         Some(OrderMediaType::Unknown(_)) => unknown += 1,
         None => missing += 1,
       }
@@ -569,8 +604,8 @@ mod tests {
         order.results.len(), order.result_url, order.fail_reason);
     }
     println!(
-      "media_type tally: image={}, video={}, unknown={}, missing={}",
-      images, videos, unknown, missing,
+      "media_type tally: image={}, video={}, audio={}, unknown={}, missing={}",
+      images, videos, audio, unknown, missing,
     );
     assert_eq!(1, 2); // NB: Intentional failure to inspect output.
     Ok(())

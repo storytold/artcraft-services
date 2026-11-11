@@ -1,21 +1,19 @@
-import RevealManager from "@/components/reveal-manager";
+import {
+  CraftingAppsClosing,
+  CraftingAppsOverview,
+} from "@/components/apps/crafting-apps-overview";
 import Hero from "@/components/landing/hero";
-import CapabilityTicker from "@/components/landing/capability-ticker";
-import Features from "@/components/landing/features";
-import Ownership from "@/components/landing/ownership";
-import MadeWith from "@/components/landing/made-with";
-import FinalCta from "@/components/landing/final-cta";
+import StudioIntro from "@/components/landing/studio-intro";
+import RevealManager from "@/components/reveal-manager";
 
 export default function Home() {
   return (
     <>
       <RevealManager />
       <Hero />
-      <CapabilityTicker />
-      <Features />
-      <Ownership />
-      <MadeWith />
-      <FinalCta />
+      <CraftingAppsOverview headingAs="h2" />
+      <StudioIntro index="04" />
+      <CraftingAppsClosing />
     </>
   );
 }

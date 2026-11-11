@@ -6,7 +6,7 @@ export { Button, type ButtonProps } from "./button";
 export { Checkbox, type CheckboxProps } from "./checkbox";
 export { CloseButton, type CloseButtonProps } from "./close-button";
 export { CopyButton, type CopyButtonProps } from "./copy-button";
-export { Input, type InputProps } from "./input";
+export { Input, Textarea, type InputProps, type TextareaProps } from "./input";
 export { Label, type LabelProps } from "./label";
 export { Modal, type ModalProps } from "./modal";
 export {
