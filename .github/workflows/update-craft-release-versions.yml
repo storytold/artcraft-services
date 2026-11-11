@@ -260,16 +260,20 @@ jobs:
                 studio.webappDownloadsFile,
                 "utf8"
               );
-              const updatedWebapp = webappContent.replace(
-                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m,
-                `$1"${studioVersion}"`
-              );
-              if (updatedWebapp === webappContent) {
+              const webappVersionPattern =
+                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m;
+              // Test for the declaration rather than comparing the file before
+              // and after: the replace is a no-op when the version is current.
+              if (!webappVersionPattern.test(webappContent)) {
                 throw new Error(
                   "Could not find ARTCRAFT_STUDIO_VERSION in github_download_links.ts."
                 );
               }
-              fs.writeFileSync(studio.webappDownloadsFile, updatedWebapp);
+              webappContent = webappContent.replace(
+                webappVersionPattern,
+                (_, prefix) => `${prefix}"${studioVersion}"`
+              );
+              fs.writeFileSync(studio.webappDownloadsFile, webappContent);
             }
 
             // Update the launcher version.
