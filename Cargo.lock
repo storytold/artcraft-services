@@ -2982,6 +2982,7 @@ dependencies = [
  "server_environment",
  "shared_env_var_config",
  "sqlx",
+ "tokio",
  "workspace-build-acceleration",
 ]
 

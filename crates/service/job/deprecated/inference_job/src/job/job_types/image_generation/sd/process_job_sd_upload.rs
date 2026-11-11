@@ -1,4 +1,3 @@
-use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -182,7 +181,7 @@ pub async fn process_job_sd_upload(
 
     let error = ProcessSingleJobError::Other(anyhow!("CommandExitStatus: {:?}", exit_status));
 
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
       warn!("Captured stderr output: {}", contents);
 
       //match categorize_error(&contents)  {
@@ -203,7 +202,7 @@ pub async fn process_job_sd_upload(
   if !file_exists(file_path.path()) {
     error!("Output file did not exist: {:?}", file_path);
 
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
       error!("Captured stderr output: {}", contents);
     }
 

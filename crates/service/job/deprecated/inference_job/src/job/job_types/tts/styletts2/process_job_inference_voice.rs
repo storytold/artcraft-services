@@ -1,4 +1,3 @@
-use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -124,7 +123,7 @@ pub async fn process_inference_voice(
 
   let text_input_fs_path = work_temp_dir.path().join("inference_input.txt");
 
-  std::fs::write(&text_input_fs_path, &text)
+  tokio::fs::write(&text_input_fs_path, &text).await
       .map_err(|e| ProcessSingleJobError::from_io_error(e))?;
 
   let inference_start_time = Instant::now();
@@ -150,7 +149,7 @@ pub async fn process_inference_voice(
 
     let error = ProcessSingleJobError::Other(anyhow!("CommandExitStatus: {:?}", command_exit_status));
 
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
       warn!("Captured stderr output: {}", contents);
     }
 

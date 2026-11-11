@@ -35,7 +35,7 @@ pub async fn maybe_block_on_sidecar_health_check(
       }
     }
 
-    std::thread::sleep(Duration::from_millis(error_timeout_millis));
+    tokio::time::sleep(Duration::from_millis(error_timeout_millis)).await;
   }
 }
 

@@ -1,6 +1,4 @@
-use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
-use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
@@ -92,7 +90,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     let workflow_dir = root_comfy_path.join("prompt");
     // make folder if not exist
     if !workflow_dir.exists() {
-        std::fs::create_dir_all(&workflow_dir).map_err(|err| ProcessSingleJobError::IoError(err))?;
+        tokio::fs::create_dir_all(&workflow_dir).await.map_err(|err| ProcessSingleJobError::IoError(err))?;
     }
 
     let mut workflow_path = workflow_dir.join("prompt.json").to_str().unwrap().to_string();
@@ -175,7 +173,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
             let lora_dir = root_comfy_path.join("models").join("loras");
             // make if not exist
             if !lora_dir.exists() {
-                std::fs::create_dir_all(&lora_dir)
+                tokio::fs::create_dir_all(&lora_dir).await
                     .map_err(|err| ProcessSingleJobError::IoError(err))?;
             }
 
@@ -209,7 +207,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     let input_dir = root_comfy_path.join("input");
 
     if !input_dir.exists() {
-        std::fs::create_dir_all(&input_dir)
+        tokio::fs::create_dir_all(&input_dir).await
             .map_err(|err| ProcessSingleJobError::IoError(err))?;
     }
 
@@ -279,7 +277,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     // make outputs dir if not exist
     let output_dir = root_comfy_path.join("output");
     if !output_dir.exists() {
-        std::fs::create_dir_all(&output_dir)
+        tokio::fs::create_dir_all(&output_dir).await
             .map_err(|err| ProcessSingleJobError::IoError(err))?;
     }
 
@@ -301,7 +299,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     let maybe_positive_prompt_filename = comfy_args.positive_prompt
         .as_deref()
         .map(|prompt| {
-            std::fs::write(&positive_prompt_file, prompt)
+            tokio::fs::write(&positive_prompt_file, prompt).await
                 .map(|_| positive_prompt_file.as_path())
                 .map_err(|e| ProcessSingleJobError::IoError(e))
         })
@@ -310,7 +308,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     let maybe_negative_prompt_filename = comfy_args.negative_prompt
         .as_deref()
         .map(|prompt| {
-            std::fs::write(&negative_prompt_file, prompt)
+            tokio::fs::write(&negative_prompt_file, prompt).await
                 .map(|_| negative_prompt_file.as_path())
                 .map_err(|e| ProcessSingleJobError::IoError(e))
         })
@@ -319,7 +317,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     let maybe_travel_prompt_filename = comfy_args.travel_prompt
         .as_deref()
         .map(|prompt| {
-            std::fs::write(&travel_prompt_file, prompt)
+            tokio::fs::write(&travel_prompt_file, prompt).await
                 .map(|_| travel_prompt_file.as_path())
                 .map_err(|e| ProcessSingleJobError::IoError(e))
         })
@@ -442,11 +440,11 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     info!("Inference took duration to complete: {:?}", &inference_duration);
 
     // check stdout for success and check if file exists
-    if let Ok(contents) = read_to_string(&stdout_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stdout_output_file).await {
         info!("Captured stdout output: {}", contents);
     }
 
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
         info!("Captured stderr output: {}", contents);
     }
 
@@ -465,7 +463,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
 
         error!("Inference failed: {:?}", command_exit_status);
 
-        if let Ok(contents) = read_to_string(&stderr_output_file) {
+        if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
             warn!("Captured stderr output: {}", contents);
         }
 
@@ -557,7 +555,7 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
 
     if let Some(sleep_millis) = comfy_args.sleep_millis {
         info!("Sleeping for millis: {sleep_millis}");
-        thread::sleep(Duration::from_millis(sleep_millis));
+        tokio::time::sleep(Duration::from_millis(sleep_millis)).await;
     }
 
     // ==================== CLEANUP/ DELETE TEMP FILES ==================== //

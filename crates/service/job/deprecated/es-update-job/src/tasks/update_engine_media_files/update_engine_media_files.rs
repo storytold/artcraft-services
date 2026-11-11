@@ -33,7 +33,7 @@ pub async fn update_engine_media_files(job_state: Arc<JobState>) {
 
     if let Err(err) = result {
       error!("Error in main loop: {:?}", err);
-      std::thread::sleep(Duration::from_millis(job_state.sleep_config.between_error_wait_millis));
+      tokio::time::sleep(Duration::from_millis(job_state.sleep_config.between_error_wait_millis)).await;
     }
 
     // NB: Function should never return in success case, but we'll sleep just in case.
@@ -85,7 +85,7 @@ pub async fn with_database_main_loop(cursor: &mut usize, job_state: &JobState) -
       info!("No records after cursor: {:?}. Resetting to 0.", &cursor);
       *cursor = 0;
 
-      std::thread::sleep(Duration::from_millis(job_state.sleep_config.between_no_updates_wait_millis));
+      tokio::time::sleep(Duration::from_millis(job_state.sleep_config.between_no_updates_wait_millis)).await;
       continue;
     }
 
@@ -104,15 +104,15 @@ pub async fn with_database_main_loop(cursor: &mut usize, job_state: &JobState) -
 
         *cursor = id as usize;
 
-        std::thread::sleep(Duration::from_millis(job_state.sleep_config.between_es_writes_wait_millis));
+        tokio::time::sleep(Duration::from_millis(job_state.sleep_config.between_es_writes_wait_millis)).await;
       }
 
-      std::thread::sleep(Duration::from_millis(job_state.sleep_config.between_job_batch_wait_millis));
+      tokio::time::sleep(Duration::from_millis(job_state.sleep_config.between_job_batch_wait_millis)).await;
     }
 
     info!("Up to date at cursor = {:?}", &cursor);
 
-    std::thread::sleep(Duration::from_millis(job_state.sleep_config.between_query_wait_millis));
+    tokio::time::sleep(Duration::from_millis(job_state.sleep_config.between_query_wait_millis)).await;
   }
 }
 

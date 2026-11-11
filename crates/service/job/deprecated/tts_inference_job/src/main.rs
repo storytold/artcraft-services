@@ -364,7 +364,7 @@ async fn main_loop(job_args: JobArgs) {
       Ok(jobs) => jobs,
       Err(e) => {
         warn!("Error querying jobs: {:?}", e);
-        std::thread::sleep(Duration::from_millis(error_timeout_millis));
+        tokio::time::sleep(Duration::from_millis(error_timeout_millis)).await;
         error_timeout_millis += INCREASE_TIMEOUT_MILLIS;
         continue;
       }
@@ -373,7 +373,7 @@ async fn main_loop(job_args: JobArgs) {
     if jobs.is_empty() {
       noop_logger.log_message_after_awhile("No TTS jobs picked up from database!");
 
-      std::thread::sleep(Duration::from_millis(job_args.job_batch_wait_millis));
+      tokio::time::sleep(Duration::from_millis(job_args.job_batch_wait_millis)).await;
       continue;
     }
 
@@ -391,14 +391,14 @@ async fn main_loop(job_args: JobArgs) {
 
     if let Err(e) = batch_result {
       warn!("Error running job batch: {:?}", e);
-      std::thread::sleep(Duration::from_millis(error_timeout_millis));
+      tokio::time::sleep(Duration::from_millis(error_timeout_millis)).await;
       error_timeout_millis += INCREASE_TIMEOUT_MILLIS;
       continue;
     }
 
     error_timeout_millis = START_TIMEOUT_MILLIS; // reset
 
-    std::thread::sleep(Duration::from_millis(job_args.job_batch_wait_millis));
+    tokio::time::sleep(Duration::from_millis(job_args.job_batch_wait_millis)).await;
   }
 }
 

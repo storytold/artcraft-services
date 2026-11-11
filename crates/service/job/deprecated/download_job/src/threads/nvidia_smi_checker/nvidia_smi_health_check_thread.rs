@@ -1,4 +1,3 @@
-use std::thread;
 use std::time::Duration;
 
 use log::{error, warn};
@@ -14,7 +13,7 @@ pub async fn nvidia_smi_health_check_thread(
   let mut consecutive_mystery_status_count = 0;
 
   loop {
-    thread::sleep(check_duration);
+    tokio::time::sleep(check_duration).await;
 
     debug!("Checking nvidia-smi health...");
 

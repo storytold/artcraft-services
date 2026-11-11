@@ -59,7 +59,7 @@ r2d2_redis.workspace = true
 
 # Runtime
 # NB: We switched to Tokio from `async-std` for broader ecosystem support.
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs", "time"] }
 
 # NB: Hyper is just for HTTP client use in jobs. I'd use Actix client, but I need tokio runtime
 # NB: Furthermore, the Tokio runtime is old, so I have to use an older Hyper.

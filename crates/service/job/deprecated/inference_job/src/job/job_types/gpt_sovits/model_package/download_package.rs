@@ -24,7 +24,7 @@ pub async fn download_package(
 ) -> Result<(), ProcessSingleJobError> {
 
   if !download_directory.exists() {
-    std::fs::create_dir_all(&download_directory)
+    tokio::fs::create_dir_all(&download_directory).await
       .map_err(|err| ProcessSingleJobError::IoError(err))?;
   }
 
@@ -86,7 +86,7 @@ pub async fn do_download_package(
 
   if final_download_path.exists() {
     debug!("Deleting existing file at {:?}", final_download_path.display().to_string());
-    std::fs::remove_file(&final_download_path)
+    tokio::fs::remove_file(&final_download_path).await
         .map_err(|err| ProcessSingleJobError::IoError(err))?;
   }
 

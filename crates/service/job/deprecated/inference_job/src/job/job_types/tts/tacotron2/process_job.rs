@@ -171,7 +171,7 @@ async fn process_job_with_cleanup(
 
   let text_input_fs_path = work_temp_dir.path().join("inference_input.txt");
 
-  std::fs::write(&text_input_fs_path, &cleaned_inference_text)
+  tokio::fs::write(&text_input_fs_path, &cleaned_inference_text).await
       .map_err(|e| ProcessSingleJobError::from_io_error(e))?;
 
   // ==================== SETUP FOR INFERENCE ==================== //

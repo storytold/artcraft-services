@@ -52,34 +52,29 @@ impl DirWalker {
   }
 
   pub(crate) async fn walk(&self) {
-    let dir = std::fs::read_dir(self.base_directory.clone());
-    match dir {
-      Ok(dir) => {
-        if dir.count() > 0 {
-          let mut batch = PathBatch::new();
-          for entry in std::fs::read_dir(self.base_directory.clone()).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_dir() {
-              for entry in std::fs::read_dir(&path).unwrap() {
-                let entry = entry.unwrap();
-                let path = entry.path();
-                batch.add_path(path);
-                if batch.get_paths().len() >= self.batch_size {
-                  self.send_batch(batch).await;
-                  batch = PathBatch::new();
-                }
-              }
-            }
-          }
-          if batch.get_paths().len() > 0 {
-            self.send_batch(batch).await;
-          }
-        }
-      },
+    let mut dir = match tokio::fs::read_dir(&self.base_directory).await {
+      Ok(dir) => dir,
       Err(e) => {
         log::info!("Error reading preview frames directory: {:?}", e);
+        return;
       }
+    };
+    let mut batch = PathBatch::new();
+    while let Some(entry) = dir.next_entry().await.unwrap() {
+      let path = entry.path();
+      if path.is_dir() {
+        let mut frames = tokio::fs::read_dir(&path).await.unwrap();
+        while let Some(entry) = frames.next_entry().await.unwrap() {
+          batch.add_path(entry.path());
+          if batch.get_paths().len() >= self.batch_size {
+            self.send_batch(batch).await;
+            batch = PathBatch::new();
+          }
+        }
+      }
+    }
+    if batch.get_paths().len() > 0 {
+      self.send_batch(batch).await;
     }
   }
 

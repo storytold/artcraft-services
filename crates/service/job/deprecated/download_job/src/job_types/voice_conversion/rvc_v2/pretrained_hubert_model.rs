@@ -66,7 +66,7 @@ impl PretrainedHubertModel {
 
     info!("Renaming hubert file from {:?} to {:?}!", &temp_path, &self.filesystem_path);
 
-    std::fs::rename(&temp_path, &self.filesystem_path)
+    tokio::fs::rename(&temp_path, &self.filesystem_path).await
         .map_err(|e| {
           safe_delete_directory(&temp_dir);
           anyhow!("couldn't rename disk files: {:?}", e)

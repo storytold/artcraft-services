@@ -51,7 +51,7 @@ pub async fn maybe_download_file_from_bucket(
   info!("Renaming {} temp file from {:?} to {:?}!",
     name_or_description_of_file, &temp_path, &file_path);
 
-  std::fs::rename(&temp_path, &file_path)
+  tokio::fs::rename(&temp_path, &file_path).await
       .map_err(|e| ProcessSingleJobError::from_io_error(e))?;
 
   info!("Finished downloading {} file to {:?}", name_or_description_of_file, &file_path);

@@ -243,7 +243,7 @@ async fn main_loop(downloader: Downloader) {
       Ok(jobs) => jobs,
       Err(e) => {
         warn!("Error querying jobs: {:?}", e);
-        std::thread::sleep(Duration::from_millis(error_timeout_millis));
+        tokio::time::sleep(Duration::from_millis(error_timeout_millis)).await;
         error_timeout_millis += INCREASE_TIMEOUT_MILLIS;
         continue;
       }
@@ -252,7 +252,7 @@ async fn main_loop(downloader: Downloader) {
     if jobs.is_empty() {
       noop_logger.log_after_awhile();
 
-      std::thread::sleep(Duration::from_millis(downloader.job_batch_wait_millis));
+      tokio::time::sleep(Duration::from_millis(downloader.job_batch_wait_millis)).await;
       continue;
     }
 
@@ -262,7 +262,7 @@ async fn main_loop(downloader: Downloader) {
       Ok(_) => {},
       Err(e) => {
         warn!("Error querying jobs: {:?}", e);
-        std::thread::sleep(Duration::from_millis(error_timeout_millis));
+        tokio::time::sleep(Duration::from_millis(error_timeout_millis)).await;
         error_timeout_millis += INCREASE_TIMEOUT_MILLIS;
         continue;
       }
@@ -270,7 +270,7 @@ async fn main_loop(downloader: Downloader) {
 
     error_timeout_millis = START_TIMEOUT_MILLIS; // reset
 
-    std::thread::sleep(Duration::from_millis(downloader.job_batch_wait_millis));
+    tokio::time::sleep(Duration::from_millis(downloader.job_batch_wait_millis)).await;
   }
 }
 

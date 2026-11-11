@@ -346,7 +346,7 @@ async fn upload_media_files_to_kinovi(
     }).await.map_err(|err| anyhow!("Failed to prepare upload for {:?}: {:?}", file.path, err))?;
 
     // 2. Read file bytes.
-    let file_bytes = fs::read(&file.path)
+    let file_bytes = tokio::fs::read(&file.path).await
       .map_err(|err| anyhow!("Failed to read {:?}: {}", file.path, err))?;
 
     info!("Uploading {} bytes to signed URL...", file_bytes.len());

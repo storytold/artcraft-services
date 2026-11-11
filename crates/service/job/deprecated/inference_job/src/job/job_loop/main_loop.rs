@@ -40,7 +40,7 @@ pub async fn main_loop(job_dependencies: JobDependencies) {
     if let Some(pause_file) = job_dependencies.fs.maybe_pause_file.as_deref() {
       while file_exists(pause_file) {
         warn!("Pause file exists. Pausing until deleted: {:?}", pause_file);
-        std::thread::sleep(Duration::from_millis(PAUSE_FILE_EXISTS_WAIT_MILLIS));
+        tokio::time::sleep(Duration::from_millis(PAUSE_FILE_EXISTS_WAIT_MILLIS)).await;
       }
     }
 
@@ -81,7 +81,7 @@ pub async fn main_loop(job_dependencies: JobDependencies) {
       Ok(jobs) => jobs,
       Err(e) => {
         error!("Error querying jobs: {:?}", e);
-        std::thread::sleep(Duration::from_millis(error_timeout_millis));
+        tokio::time::sleep(Duration::from_millis(error_timeout_millis)).await;
         error_timeout_millis += INCREASE_TIMEOUT_MILLIS;
         continue;
       }
@@ -94,7 +94,7 @@ pub async fn main_loop(job_dependencies: JobDependencies) {
 
       noop_logger.log_message_after_awhile(&message);
 
-      std::thread::sleep(Duration::from_millis(job_dependencies.job.system.job_batch_wait_millis));
+      tokio::time::sleep(Duration::from_millis(job_dependencies.job.system.job_batch_wait_millis)).await;
       error_timeout_millis = START_TIMEOUT_MILLIS; // reset
       continue;
     }
@@ -113,7 +113,7 @@ pub async fn main_loop(job_dependencies: JobDependencies) {
       Ok(_) => {},
       Err(e) => {
         error!("Error processing jobs: {:?}", e);
-        std::thread::sleep(Duration::from_millis(error_timeout_millis));
+        tokio::time::sleep(Duration::from_millis(error_timeout_millis)).await;
         error_timeout_millis += INCREASE_TIMEOUT_MILLIS;
         continue;
       }
@@ -123,7 +123,7 @@ pub async fn main_loop(job_dependencies: JobDependencies) {
 
     info!("Job loop batch processing complete. Sleeping {} ms", job_dependencies.job.system.job_batch_wait_millis);
 
-    std::thread::sleep(Duration::from_millis(job_dependencies.job.system.job_batch_wait_millis));
+    tokio::time::sleep(Duration::from_millis(job_dependencies.job.system.job_batch_wait_millis)).await;
   }
 
   warn!("Job runner main loop is shut down.");
