@@ -39,6 +39,8 @@ use crate::http_server::requests::request_headers::has_debug_header::has_debug_h
 use crate::http_server::user_lookup::user_session::session_utils::lookup::user_session_extended::UserSessionExtended;
 use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
 use crate::state::server_state::ServerState;
+use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::util::job_input_access::{require_media_file_inputs, JobInputRequester};
 use crate::util::allowed_video_style_transfer_access::allowed_video_style_transfer_access;
 use crate::util::cleaners::empty_media_file_token_to_null::empty_media_file_token_to_null;
 
@@ -259,6 +261,25 @@ pub async fn enqueue_studio_workflow_handler(
   let is_allowed_expensive_generation = is_staff || has_paid_plan;
 
   let coordinated_args = coordinate_workflow_args(coordinated_args, is_allowed_expensive_generation);
+
+  // ==================== INPUT ACCESS ==================== //
+
+  drop(mysql_connection);
+
+  require_media_file_inputs(
+    &[
+      Some(&request.input_file),
+      request.input_depth_file.as_ref(),
+      request.input_normal_file.as_ref(),
+      request.input_outline_file.as_ref(),
+      request.global_ipa_media_token.as_ref(),
+    ],
+    JobInputRequester::from_session(maybe_user_session.as_ref()),
+    &server_state.mysql_pool,
+  ).await.map_err(|err| match err {
+    CommonWebError::NotFound => VstError::BadInput("input file not found".to_string()),
+    _ => VstError::ServerError,
+  })?;
 
   let inference_args = WorkflowArgs {
     // Type of workflow
