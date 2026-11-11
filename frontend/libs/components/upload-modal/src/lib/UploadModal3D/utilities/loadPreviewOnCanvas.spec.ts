@@ -33,6 +33,7 @@ vi.mock("three/addons/loaders/GLTFLoader.js", () => ({
     load(_url: string, onLoad: (gltf: { scene: unknown }) => void) {
       pendingGltfLoads.push(onLoad);
     }
+    parse() {}
   },
 }));
 

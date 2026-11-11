@@ -1,4 +1,5 @@
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { applyGltfBudget } from "@storyteller/ui-viewer-3d";
 
 // Longest animation clip in a GLB file, in whole milliseconds — the value the
 // backend requires (maybe_duration_millis) for engine_category=animation
@@ -11,7 +12,7 @@ export async function readGlbAnimationDurationMillis(
   const buffer = await file.arrayBuffer();
   const gltf = await new Promise<{ animations?: { duration: number }[] }>(
     (resolve, reject) => {
-      new GLTFLoader().parse(buffer, "", resolve, reject);
+      applyGltfBudget(new GLTFLoader()).parse(buffer, "", resolve, reject);
     },
   );
   const durations = (gltf.animations ?? []).map((clip) => clip.duration);
