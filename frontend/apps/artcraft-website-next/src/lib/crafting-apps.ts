@@ -926,76 +926,6 @@ export const CRAFTING_APPS: CraftApp[] = [
     ],
   },
   {
-    slug: "wordcraft",
-    prefix: "Word",
-    category: "Word processing",
-    status: "In development",
-    headline: ["A fast, open-source ", "word processor", ", rebuilt in pure Rust."],
-    pitch: "Fast, open-source word processing, rebuilt in pure Rust.",
-    lede: "The ribbon, styles, tables, track changes, references and mail merge in a native word processor that reads and writes .docx. Open source, offline, and fast.",
-    schemaCategory: "BusinessApplication",
-    platforms: ["macOS", "Windows", "Linux", "Web"],
-    rustVersion: "1.90",
-    features: [
-      {
-        title: "The ribbon you know",
-        body: "Tabs, groups, shortcuts and the live Styles gallery. Enter continues a list, Tab demotes it, and formatting works as your hands expect.",
-      },
-      {
-        title: "Real document formats",
-        body: "Opens and saves .docx natively, imports and exports .odt, .rtf, .html, .md and .txt, and exports clean PDF with selectable text.",
-      },
-      {
-        title: "Instant layout",
-        body: "Paragraph layout is cached: typing in a 188-page document re-lays it out in about 1.4 ms, with pages rendered on demand.",
-      },
-      {
-        title: "Track changes & review",
-        body: "Comment balloons in the margin, accept and reject changes, document comparison, plus offline spelling and grammar as you type.",
-      },
-      {
-        title: "Academic & business references",
-        body: "Generate tables of contents, footnotes, citations and bibliographies in APA, MLA, Chicago and IEEE styles, indexes, and captions.",
-      },
-      {
-        title: "Agent-ready commands",
-        body: "389 discrete commands drive the ribbon, keyboard shortcuts, a command-line tool, a JSON control channel and an MCP server.",
-      },
-    ],
-    shots: [
-      {
-        file: "hero.webp",
-        source: "hero.png",
-        caption: "The Open Studio Handbook — ribbon, styles and navigation",
-        alt: "WordCraft with the Home tab of the ribbon open over a two-page document titled The Open Studio Handbook, the Navigation pane on the left, and the Styles gallery showing live previews",
-      },
-      {
-        file: "review.webp",
-        source: "review.png",
-        caption: "Review and track changes",
-        alt: "WordCraft's Review tab with Track Changes on, inline insertions and deletions, and margin comment balloons",
-      },
-      {
-        file: "references.webp",
-        source: "references.png",
-        caption: "Table of contents and citations",
-        alt: "WordCraft's References tab showing a table of contents with dot leaders on page one and citations on page two",
-      },
-      {
-        file: "layout.webp",
-        source: "layout.png",
-        caption: "Drop caps and text wrap",
-        alt: "WordCraft layout tab showing a three-line drop cap, text wrapping around an object, and margin line numbers",
-      },
-      {
-        file: "dark.webp",
-        source: "dark.png",
-        caption: "Dark mode with formatting marks",
-        alt: "WordCraft in dark mode with the Insert tab open and formatting marks visible",
-      },
-    ],
-  },
-  {
     slug: "soundcraft",
     prefix: "Sound",
     category: "Digital audio workstation",
@@ -1062,6 +992,76 @@ export const CRAFTING_APPS: CraftApp[] = [
         source: "surround.png",
         caption: "Immersive surround renderer",
         alt: "SoundCraft Renderer window displaying a 7.1.4 surround speaker layout and spatial panners",
+      },
+    ],
+  },
+  {
+    slug: "wordcraft",
+    prefix: "Word",
+    category: "Word processing",
+    status: "In development",
+    headline: ["A fast, open-source ", "word processor", ", rebuilt in pure Rust."],
+    pitch: "Fast, open-source word processing, rebuilt in pure Rust.",
+    lede: "The ribbon, styles, tables, track changes, references and mail merge in a native word processor that reads and writes .docx. Open source, offline, and fast.",
+    schemaCategory: "BusinessApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "The ribbon you know",
+        body: "Tabs, groups, shortcuts and the live Styles gallery. Enter continues a list, Tab demotes it, and formatting works as your hands expect.",
+      },
+      {
+        title: "Real document formats",
+        body: "Opens and saves .docx natively, imports and exports .odt, .rtf, .html, .md and .txt, and exports clean PDF with selectable text.",
+      },
+      {
+        title: "Instant layout",
+        body: "Paragraph layout is cached: typing in a 188-page document re-lays it out in about 1.4 ms, with pages rendered on demand.",
+      },
+      {
+        title: "Track changes & review",
+        body: "Comment balloons in the margin, accept and reject changes, document comparison, plus offline spelling and grammar as you type.",
+      },
+      {
+        title: "Academic & business references",
+        body: "Generate tables of contents, footnotes, citations and bibliographies in APA, MLA, Chicago and IEEE styles, indexes, and captions.",
+      },
+      {
+        title: "Agent-ready commands",
+        body: "389 discrete commands drive the ribbon, keyboard shortcuts, a command-line tool, a JSON control channel and an MCP server.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "hero.png",
+        caption: "The Open Studio Handbook — ribbon, styles and navigation",
+        alt: "WordCraft with the Home tab of the ribbon open over a two-page document titled The Open Studio Handbook, the Navigation pane on the left, and the Styles gallery showing live previews",
+      },
+      {
+        file: "review.webp",
+        source: "review.png",
+        caption: "Review and track changes",
+        alt: "WordCraft's Review tab with Track Changes on, inline insertions and deletions, and margin comment balloons",
+      },
+      {
+        file: "references.webp",
+        source: "references.png",
+        caption: "Table of contents and citations",
+        alt: "WordCraft's References tab showing a table of contents with dot leaders on page one and citations on page two",
+      },
+      {
+        file: "layout.webp",
+        source: "layout.png",
+        caption: "Drop caps and text wrap",
+        alt: "WordCraft layout tab showing a three-line drop cap, text wrapping around an object, and margin line numbers",
+      },
+      {
+        file: "dark.webp",
+        source: "dark.png",
+        caption: "Dark mode with formatting marks",
+        alt: "WordCraft in dark mode with the Insert tab open and formatting marks visible",
       },
     ],
   },
