@@ -57,7 +57,7 @@ const Welcome = () => {
 
         {/* Create-in-browser CTA — desktop download is optional */}
         <div className="max-w-3xl mx-auto mb-8">
-          <div className="bg-[#101014] border border-white/15 p-8 md:p-10">
+          <div className="bg-ui-panel border border-white/15 p-8 md:p-10">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-white/10 flex items-center justify-center">
                 <WandSparklesIcon className="text-white/70 text-lg" />
@@ -101,7 +101,7 @@ const Welcome = () => {
 
         {/* Desktop app alternative */}
         <div className="max-w-3xl mx-auto">
-          <div className="bg-[#101014] border border-white/15 p-8 md:p-10">
+          <div className="bg-ui-panel border border-white/15 p-8 md:p-10">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-white/10 flex items-center justify-center">
                 <MonitorIcon className="text-white/70 text-lg" />
