@@ -255,7 +255,10 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   lightcraft: craftRelease("0.19.0"),
   pdfcraft: craftRelease("0.19.0"),
   effectcraft: craftRelease("0.22.0"),
-  anicraft: null,
+  // AniCraft publishes no 32-bit Windows or web ZIP builds yet.
+  anicraft: craftRelease("0.1.0", CRAFT_RELEASE_ASSETS.filter(
+    (asset) => !asset.file.includes("-windows-x86") && !asset.file.startsWith("{slug}-web-"),
+  )),
   designcraft: craftRelease("0.18.0"),
   figcraft: craftRelease("0.16.0"),
   texturecraft: craftRelease("0.4.0"),
