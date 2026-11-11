@@ -171,9 +171,15 @@ function groupClipboardItemsByTrackId({
 }): Map<string, ElementClipboardItem[]> {
   const groupedItems = new Map<string, ElementClipboardItem[]>();
 
+  // Append in place: rebuilding the group for every item made a paste of
+  // many clips from one track quadratic in the clip count.
   for (const item of clipboardItems) {
-    const existingItems = groupedItems.get(item.trackId) ?? [];
-    groupedItems.set(item.trackId, [...existingItems, item]);
+    const existingItems = groupedItems.get(item.trackId);
+    if (existingItems) {
+      existingItems.push(item);
+    } else {
+      groupedItems.set(item.trackId, [item]);
+    }
   }
 
   return groupedItems;
