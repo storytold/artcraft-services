@@ -158,7 +158,9 @@ pub async fn upload_saved_scene_media_file_handler(
   match creator_check {
     CheckCreatorTokenResult::UserTokenMatch => {} // Allowed
     CheckCreatorTokenResult::NoUserAnonymousVisitorTokenMatch => {} // Allowed
-    CheckCreatorTokenResult::InsufficientInformation => {} // TODO(bt,2024-03-28): Temporary fallthrough. This should be a 401.
+    // NB: Without a user or visitor identity on both sides, ownership can't be shown, so no overwrite.
+    CheckCreatorTokenResult::InsufficientInformation => return Err(MediaFileUploadError::NotAuthorizedVerbose(
+      "cannot verify ownership of this scene".to_string())),
     CheckCreatorTokenResult::UserTokenMismatch => return Err(MediaFileUploadError::NotAuthorizedVerbose(
       "user tokens do not match".to_string())),
     CheckCreatorTokenResult::NoUserAnonymousVisitorTokenMismatch => return Err(MediaFileUploadError::NotAuthorizedVerbose(
