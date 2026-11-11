@@ -8,7 +8,6 @@ use bucket_paths::legacy::typified_paths::public::weight_files::bucket_file_path
 use enums::by_table::model_weights::weights_category::WeightsCategory;
 use enums::by_table::model_weights::weights_types::WeightsType;
 use enums::by_table::voice_conversion_models::voice_conversion_model_type::VoiceConversionModelType;
-use enums::common::visibility::Visibility;
 use errors::AnyhowResult;
 use filesys::check_file_exists::check_file_exists;
 use filesys::file_size::file_size;
@@ -128,7 +127,7 @@ pub async fn process_so_vits_svc_model<'a, 'b>(
     file_size_bytes,
     creator_user_token: &job.creator_user_token,
     creator_ip_address: &job.creator_ip_address,
-    creator_set_visibility: Visibility::Public, // TODO: All models default to public at start
+    creator_set_visibility: job.creator_set_visibility,
     has_index_file: false,
     private_bucket_hash: &private_bucket_hash,
     private_bucket_object_name: "", // TODO: This should go away.
@@ -149,7 +148,7 @@ pub async fn process_so_vits_svc_model<'a, 'b>(
     file_checksum_sha2: &file_checksum,
     creator_user_token: &job.creator_user_token,
     creator_ip_address: &job.creator_ip_address,
-    creator_set_visibility: Visibility::Public, // TODO: All models default to public at start
+    creator_set_visibility: job.creator_set_visibility,
     has_index_file: false, // SVC do not have index files.
     public_bucket_hash: new_model_bucket_path.get_object_hash().to_string(),
     maybe_public_bucket_prefix: new_model_bucket_path.get_optional_prefix().map(|p| p.to_string()),
