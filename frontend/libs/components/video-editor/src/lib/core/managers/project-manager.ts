@@ -53,6 +53,9 @@ const INITIAL_EXPORT_STATE: ExportProgressState = {
 export class ProjectManager {
   private active: TProject | null = null;
   private isLoading = false;
+  // Bumped by every open/close; an open that awaited past a newer open or
+  // close must not install its results into the editor.
+  private openGeneration = 0;
   private migrationState: MigrationState = { isMigrating: false };
   private listeners = new Set<() => void>();
   private exportState: ExportProgressState = { ...INITIAL_EXPORT_STATE };
@@ -129,11 +132,13 @@ export class ProjectManager {
   // its next autosave persists the contamination.
   async openProject({ id }: { id: string }): Promise<TProject | null> {
     this.closeProject();
+    const generation = this.openGeneration;
     this.isLoading = true;
     this.notify();
     try {
       const envelope =
         await this.editor.adapters.projectStorage.loadProject(id);
+      if (generation !== this.openGeneration) return null;
       const document = envelope
         ? deserializeProjectDocument(envelope.data)
         : null;
@@ -158,13 +163,16 @@ export class ProjectManager {
           mediaSource: this.editor.adapters.mediaSource,
           toast: this.editor.adapters.toast,
         });
+        if (generation !== this.openGeneration) return null;
         this.editor.media.loadProjectMedia({ assets });
       }
 
       return project;
     } finally {
-      this.isLoading = false;
-      this.notify();
+      if (generation === this.openGeneration) {
+        this.isLoading = false;
+        this.notify();
+      }
     }
   }
 
@@ -232,6 +240,9 @@ export class ProjectManager {
   }
 
   closeProject(): void {
+    this.openGeneration += 1;
+    // A cancelled openProject() skips its own reset in `finally`.
+    this.isLoading = false;
     this.editor.save.stop();
     this.editor.command.clear();
     this.editor.scenes.clearScenes();

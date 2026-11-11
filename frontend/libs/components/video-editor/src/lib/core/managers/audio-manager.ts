@@ -1,5 +1,11 @@
 import type { EditorCore } from "../index";
 import { TICKS_PER_SECOND } from "../../wasm";
+
+// Longest audio source decoded in full for playback. Every decoded sample is
+// kept in memory several times over (chunks, channel arrays, resampled
+// buffer), so a compact compressed file must not be able to request
+// unbounded allocation.
+const MAX_DECODED_SECONDS = 20 * 60;
 import { clampRetimeRate, shouldMaintainPitch } from "../../retime/rate";
 import type { AudioClipSource } from "../../media/audio";
 import { createAudioContext, collectAudioClips } from "../../media/audio";
@@ -557,7 +563,9 @@ export class AudioManager {
       return await renderRetimedBuffer({
         audioContext,
         sourceBuffer: decodedBuffer,
-        trimStart: clip.trimStart,
+        // decodeClipBuffer returns only the selected source interval, based at
+        // source time zero for the retimer.
+        trimStart: 0,
         clipDuration: clip.duration,
         retime: clip.retime,
         maintainPitch: clip.retime?.maintainPitch === true,
@@ -573,13 +581,20 @@ export class AudioManager {
   }: {
     clip: AudioClipSource;
   }): Promise<AudioBuffer | null> {
-    const existing = this.decodedBuffers.get(clip.sourceKey);
+    const cacheKey = JSON.stringify({
+      sourceKey: clip.sourceKey,
+      trimStart: clip.trimStart,
+      trimEnd: clip.trimEnd,
+      duration: clip.duration,
+      retime: clip.retime ?? null,
+    });
+    const existing = this.decodedBuffers.get(cacheKey);
     if (existing) {
       return existing;
     }
 
     const promise = this.decodeClipBuffer({ clip });
-    this.decodedBuffers.set(clip.sourceKey, promise);
+    this.decodedBuffers.set(cacheKey, promise);
     return promise;
   }
 
@@ -605,12 +620,30 @@ export class AudioManager {
       }
 
       const sink = new AudioBufferSink(audioTrack);
-      const chunks: AudioBuffer[] = [];
+      const chunks: Array<{ buffer: AudioBuffer; timestamp: number }> = [];
       let totalSamples = 0;
+      const sourceStart = Math.max(0, clip.trimStart);
+      const sourceEnd = Math.max(
+        sourceStart,
+        Math.min(
+          clip.trimEnd,
+          sourceStart +
+            getSourceTimeAtClipTime({
+              clipTime: clip.duration,
+              retime: clip.retime,
+            }),
+        ),
+      );
 
-      for await (const { buffer } of sink.buffers(0)) {
-        chunks.push(buffer);
+      for await (const { buffer, timestamp } of sink.buffers(sourceStart, sourceEnd)) {
+        chunks.push({ buffer, timestamp });
         totalSamples += buffer.length;
+        if (totalSamples > MAX_DECODED_SECONDS * buffer.sampleRate) {
+          console.warn(
+            `[audio-manager] clip source longer than ${MAX_DECODED_SECONDS}s; not decoding`,
+          );
+          return null;
+        }
       }
 
       if (chunks.length === 0) {
@@ -618,26 +651,40 @@ export class AudioManager {
       }
 
       const targetSampleRate = audioContext.sampleRate;
-      const nativeSampleRate = chunks[0].sampleRate;
-      const numChannels = Math.min(2, chunks[0].numberOfChannels);
+      const nativeSampleRate = chunks[0].buffer.sampleRate;
+      const numChannels = Math.min(2, chunks[0].buffer.numberOfChannels);
       const nativeChannels = Array.from(
         { length: numChannels },
         () => new Float32Array(totalSamples),
       );
 
       let offset = 0;
-      for (const chunk of chunks) {
+      for (const { buffer } of chunks) {
         for (let channel = 0; channel < numChannels; channel++) {
           nativeChannels[channel].set(
-            chunk.getChannelData(Math.min(channel, chunk.numberOfChannels - 1)),
+            buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1)),
             offset,
           );
         }
-        offset += chunk.length;
+        offset += buffer.length;
       }
 
+      // Range iteration may include the audio sample overlapping the requested
+      // start/end. Crop by timestamps so the prepared buffer begins at trimStart.
+      const decodedStart = chunks[0].timestamp;
+      const startSample = Math.min(
+        totalSamples,
+        Math.max(0, Math.round((sourceStart - decodedStart) * nativeSampleRate)),
+      );
+      const endSample = Math.min(
+        totalSamples,
+        Math.max(startSample, Math.round((sourceEnd - decodedStart) * nativeSampleRate)),
+      );
+      const selectedSamples = endSample - startSample;
+      if (selectedSamples <= 0) return null;
+
       const outputSamples = Math.ceil(
-        totalSamples * (targetSampleRate / nativeSampleRate),
+        selectedSamples * (targetSampleRate / nativeSampleRate),
       );
       const offlineContext = new OfflineAudioContext(
         numChannels,
@@ -646,12 +693,15 @@ export class AudioManager {
       );
       const nativeBuffer = audioContext.createBuffer(
         numChannels,
-        totalSamples,
+        selectedSamples,
         nativeSampleRate,
       );
 
       for (let channel = 0; channel < numChannels; channel++) {
-        nativeBuffer.copyToChannel(nativeChannels[channel], channel);
+        nativeBuffer.copyToChannel(
+          nativeChannels[channel].subarray(startSample, endSample),
+          channel,
+        );
       }
 
       const sourceNode = offlineContext.createBufferSource();

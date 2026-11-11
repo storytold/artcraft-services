@@ -248,11 +248,12 @@ async function collectVisualSourceNode({
     height: sourceHeight,
   });
 
+  const layout = node.resolved as Partial<ResolvedVisualSourceNodeState>;
   const transform = computeVisualTransform({
     renderer,
     resolved: node.resolved,
-    sourceWidth,
-    sourceHeight,
+    sourceWidth: layout.layoutWidth ?? sourceWidth,
+    sourceHeight: layout.layoutHeight ?? sourceHeight,
   });
   const { mask, strokeLayer } = buildMaskArtifacts({
     node,
@@ -412,9 +413,9 @@ function buildMaskArtifacts({
   const maskContentHash = `mask:${mask.type}:${JSON.stringify(mask.params)}:${transformHash(transform)}:${canvasWidth}x${canvasHeight}:body=${body.kind}:fastPath=${usesOpaqueFastPath}`;
   const drawMask: TextureCanvasDrawFn = (ctx) => {
     const { canvas: elementMaskCanvas, context: elementMaskCtx } =
-      createCanvasSurface({
-        width: Math.round(transform.width),
-        height: Math.round(transform.height),
+      createBoundedScratchSurface({
+        width: transform.width,
+        height: transform.height,
       });
 
     switch (body.kind) {
@@ -475,10 +476,11 @@ function buildMaskArtifacts({
     const strokeTextureId = `${path}:mask-stroke`;
     const strokeContentHash = `stroke:${mask.type}:${JSON.stringify(mask.params)}:${transformHash(transform)}:${canvasWidth}x${canvasHeight}:stroke=${stroke.kind}`;
     const drawStroke: TextureCanvasDrawFn = (ctx) => {
-      const { canvas: strokeCanvas, context: strokeCtx } = createCanvasSurface({
-        width: Math.round(transform.width),
-        height: Math.round(transform.height),
-      });
+      const { canvas: strokeCanvas, context: strokeCtx } =
+        createBoundedScratchSurface({
+          width: transform.width,
+          height: transform.height,
+        });
 
       switch (stroke.kind) {
         case "renderStroke":
@@ -531,6 +533,42 @@ function buildMaskArtifacts({
     },
     strokeLayer,
   };
+}
+
+// Mask and stroke scratch surfaces are sized from the element transform,
+// which persisted scale and animation values can make enormous. They are
+// rendered at a reduced scale past this pixel budget and stretched back by
+// drawTransformedCanvas, so the output is unchanged for ordinary elements.
+const MAX_SCRATCH_SURFACE_PIXELS = 4096 * 4096;
+const MAX_SCRATCH_SURFACE_SIDE = 16384;
+
+export function createBoundedScratchSurface({
+  width,
+  height,
+}: {
+  width: number;
+  height: number;
+}): ReturnType<typeof createCanvasSurface> {
+  const w = Number.isFinite(width) ? Math.max(1, Math.round(width)) : 1;
+  const h = Number.isFinite(height) ? Math.max(1, Math.round(height)) : 1;
+  // Separate divisions: w * h overflows to Infinity for absurd sizes. The side cap
+  // keeps a 1px-tall, enormously wide surface bounded too.
+  const scale = Math.min(
+    1,
+    Math.sqrt(MAX_SCRATCH_SURFACE_PIXELS / w) * Math.sqrt(1 / h),
+    MAX_SCRATCH_SURFACE_SIDE / w,
+    MAX_SCRATCH_SURFACE_SIDE / h,
+  );
+  const surface = createCanvasSurface({
+    width: Math.max(1, Math.round(w * scale)),
+    height: Math.max(1, Math.round(h * scale)),
+  });
+  if (scale < 1) {
+    // Use the actual rounded surface dimensions on each axis so one-pixel
+    // masks still reach the far edge after downscaling.
+    surface.context.scale(surface.canvas.width / w, surface.canvas.height / h);
+  }
+  return surface;
 }
 
 function drawTransformedCanvas({

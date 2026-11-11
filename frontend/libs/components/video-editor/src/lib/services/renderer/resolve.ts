@@ -279,11 +279,15 @@ async function resolveStickerNode({
     return null;
   }
 
+  // Persisted intrinsic dimensions drive layout (layoutWidth/Height); the texture
+  // is uploaded at the decoded image size so a project cannot inflate it.
   return {
     ...visualState,
     source: source.source,
-    sourceWidth,
-    sourceHeight,
+    sourceWidth: source.width,
+    sourceHeight: source.height,
+    layoutWidth: sourceWidth,
+    layoutHeight: sourceHeight,
   };
 }
 
