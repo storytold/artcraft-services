@@ -14,6 +14,8 @@ import toast from "react-hot-toast";
 import { SplatMesh } from "@sparkjsdev/spark";
 import { ensureInternalBbox } from "./internalBbox";
 import {
+  applyGltfBudget,
+  assertSpzWithinBudget,
   collectObjectTextures,
   disposeObject3D,
 } from "@storyteller/ui-viewer-3d";
@@ -1053,7 +1055,9 @@ class Scene {
         reject(error);
         return;
       }
-      const glbLoader = new GLTFLoader();
+      // Reject accessor counts that would decode past the memory budget
+      // before GLTFLoader allocates for them.
+      const glbLoader = applyGltfBudget(new GLTFLoader());
       glbLoader.parse(
         buffer,
         "", // NB: No relative path to load additional assets!
@@ -1096,6 +1100,15 @@ class Scene {
         return;
       }
 
+      try {
+        // The SPZ decoder sizes its storage from the header's splat count.
+        await assertSpzWithinBudget(buffer);
+      } catch (error) {
+        console.error("Splat rejected:", error);
+        reject(error);
+        return;
+      }
+
       new SplatMesh({
         fileBytes: buffer,
         onLoad: (mesh) => {
@@ -1117,7 +1130,7 @@ class Scene {
     progress: (event: ProgressEvent) => void,
   ): Promise<GLTF> {
     return new Promise((resolve, reject) => {
-      const glbLoader = new GLTFLoader();
+      const glbLoader = applyGltfBudget(new GLTFLoader());
       glbLoader.load(
         media_url,
         (gltf) => {
