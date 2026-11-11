@@ -394,6 +394,9 @@ LEFT OUTER JOIN model_weights
     ON m.maybe_origin_model_token = model_weights.token
 LEFT OUTER JOIN media_files as media_file_cover_image
     ON media_file_cover_image.token = m.maybe_cover_image_media_file_token
+  AND media_file_cover_image.user_deleted_at IS NULL
+  AND media_file_cover_image.mod_deleted_at IS NULL
+  AND (media_file_cover_image.creator_set_visibility <> 'private' OR media_file_cover_image.maybe_creator_user_token = m.maybe_creator_user_token)
 LEFT OUTER JOIN media_files as model_weight_cover_image
     ON model_weight_cover_image.token = model_weights.maybe_cover_image_media_file_token
 LEFT OUTER JOIN users as model_weight_creator
@@ -517,6 +520,9 @@ LEFT OUTER JOIN model_weights
     ON m.maybe_origin_model_token = model_weights.token
 LEFT OUTER JOIN media_files as media_file_cover_image
     ON media_file_cover_image.token = m.maybe_cover_image_media_file_token
+  AND media_file_cover_image.user_deleted_at IS NULL
+  AND media_file_cover_image.mod_deleted_at IS NULL
+  AND (media_file_cover_image.creator_set_visibility <> 'private' OR media_file_cover_image.maybe_creator_user_token = m.maybe_creator_user_token)
 LEFT OUTER JOIN media_files as model_weight_cover_image
     ON model_weight_cover_image.token = model_weights.maybe_cover_image_media_file_token
 LEFT OUTER JOIN users as model_weight_creator

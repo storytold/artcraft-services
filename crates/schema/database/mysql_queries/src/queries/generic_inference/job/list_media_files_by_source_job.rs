@@ -94,6 +94,9 @@ SELECT
 FROM media_files AS m
 LEFT OUTER JOIN media_files as media_file_cover_image
     ON media_file_cover_image.token = m.maybe_cover_image_media_file_token
+  AND media_file_cover_image.user_deleted_at IS NULL
+  AND media_file_cover_image.mod_deleted_at IS NULL
+  AND (media_file_cover_image.creator_set_visibility <> 'private' OR media_file_cover_image.maybe_creator_user_token = m.maybe_creator_user_token)
 WHERE
     m.maybe_source_job_token = ?
     AND m.maybe_creator_user_token = ?
