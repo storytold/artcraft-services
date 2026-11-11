@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { loadPreviewOnCanvas } from "./loadPreviewOnCanvas";
+import { computeMeshBounds, loadPreviewOnCanvas } from "./loadPreviewOnCanvas";
 
 const { renderers, pendingGltfLoads } = vi.hoisted(() => ({
   renderers: [] as Array<{
@@ -33,6 +33,7 @@ vi.mock("three/addons/loaders/GLTFLoader.js", () => ({
     load(_url: string, onLoad: (gltf: { scene: unknown }) => void) {
       pendingGltfLoads.push(onLoad);
     }
+    parse() {}
   },
 }));
 
@@ -122,3 +123,39 @@ function attachedCanvas(): HTMLCanvasElement {
   document.body.appendChild(canvas);
   return canvas;
 }
+
+describe("computeMeshBounds", () => {
+  it("frames transformed meshes and computes shared geometry bounds once", () => {
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const compute = vi.spyOn(geometry, "computeBoundingBox");
+    const root = new THREE.Group();
+    let parent: THREE.Object3D = root;
+    for (let i = 0; i < 200; i++) {
+      const mesh = new THREE.Mesh(geometry);
+      mesh.position.x = 1;
+      parent.add(mesh);
+      parent = mesh;
+    }
+
+    const box = computeMeshBounds(root);
+
+    expect(compute).toHaveBeenCalledTimes(1);
+    expect(box.min.x).toBeCloseTo(0.5);
+    expect(box.max.x).toBeCloseTo(200.5);
+    expect(box.max.y).toBeCloseTo(0.5);
+  });
+
+  it("uses the current transform of a moved ancestor", () => {
+    const parent = new THREE.Group();
+    const child = new THREE.Group();
+    child.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)));
+    parent.add(child);
+    parent.updateMatrixWorld(true);
+    parent.position.x = 10;
+
+    const box = computeMeshBounds(child);
+
+    expect(box.min.x).toBeCloseTo(9.5);
+    expect(box.max.x).toBeCloseTo(10.5);
+  });
+});

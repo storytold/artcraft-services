@@ -44,6 +44,7 @@ async function fetchAndStoreSession(): Promise<void> {
         ? !!response.data!.onboarding?.password_not_set
         : false,
     });
+    reconcileAccountOwner(loggedIn ? response.data!.user.user_token : undefined);
   } catch {
     // Backend unreachable or timed out — clear cache so next call retries.
     inflight = null;
@@ -55,6 +56,35 @@ async function fetchAndStoreSession(): Promise<void> {
       passwordNotSet: false,
     });
   }
+}
+
+// Account-scoped caches (drafts, library caches, scene snapshots) must not
+// outlive the account that filled them: this browser profile may be shared,
+// and persisted stores survive logout. Clearers registered here run whenever
+// the signed-in identity differs from the one last recorded for this browser
+// (logout, or login as someone else). Only a confirmed session answer updates
+// the record, so a backend outage never wipes a draft.
+const ACCOUNT_OWNER_KEY = "artcraft-webapp-session-owner";
+const accountCacheClearers: Array<() => void> = [];
+
+export function onAccountChange(clear: () => void): void {
+  accountCacheClearers.push(clear);
+}
+
+export function reconcileAccountOwner(userToken: string | undefined): void {
+  const next = userToken ?? "";
+  let previous: string | null;
+  try {
+    previous = localStorage.getItem(ACCOUNT_OWNER_KEY);
+    if (previous === next) return;
+    localStorage.setItem(ACCOUNT_OWNER_KEY, next);
+  } catch {
+    return;
+  }
+  // No record yet (first visit, or first run of this code): adopt the current
+  // identity without discarding anything.
+  if (previous === null) return;
+  for (const clear of accountCacheClearers) clear();
 }
 
 export function refreshSession(force = false): Promise<void> {

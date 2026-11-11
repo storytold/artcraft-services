@@ -2,6 +2,8 @@ use anyhow::anyhow;
 use sqlx::{MySql, Transaction};
 
 use errors::AnyhowResult;
+use crate::queries::users::user_sessions::list_live_session_tokens::{list_live_session_tokens, ListLiveSessionTokensArgs};
+use crate::queries::users::user_sessions::revoke_all_user_sessions::{revoke_all_user_sessions, RevokeAllUserSessionsArgs};
 use tokens::tokens::password_reset::PasswordResetToken;
 use tokens::tokens::users::UserToken;
 
@@ -15,7 +17,7 @@ pub struct ChangePasswordFromPasswordResetArgs<'a, 'b> {
 
 pub async fn change_password_from_password_reset<'a, 'b>(
   mut args: ChangePasswordFromPasswordResetArgs<'a, 'b>
-) -> AnyhowResult<()> {
+) -> AnyhowResult<Vec<String>> {
 
   let query = sqlx::query!(
         r#"
@@ -67,8 +69,31 @@ LIMIT 1
     return Err(anyhow!("Error updating user password from password reset request: {err}"));
   }
 
+  // NB: Recovery must lock out whoever held the account before it, so revoke every existing session
+  // in the same transaction. The handler issues a fresh session after commit.
+  let revoked_session_tokens = match list_live_session_tokens(ListLiveSessionTokensArgs {
+    user_token: args.user_token,
+    mysql_executor: &mut *args.mysql_transaction,
+  }).await {
+    Ok(tokens) => tokens,
+    Err(err) => {
+      let _r = args.mysql_transaction.rollback().await.ok();
+      return Err(anyhow!("Error listing sessions during password reset: {err}"));
+    }
+  };
+
+  let query_result = revoke_all_user_sessions(RevokeAllUserSessionsArgs {
+    user_token: args.user_token,
+    mysql_executor: &mut *args.mysql_transaction,
+  }).await;
+
+  if let Err(err) = query_result {
+    let _r = args.mysql_transaction.rollback().await.ok();
+    return Err(anyhow!("Error revoking sessions during password reset: {err}"));
+  }
+
   match args.mysql_transaction.commit().await {
-    Ok(_) => Ok(()),
+    Ok(_) => Ok(revoked_session_tokens),
     Err(err) => Err(anyhow!("Error committing password reset changes: {err}")),
   }
 }

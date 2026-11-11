@@ -91,6 +91,22 @@ export const DEFAULT_EASING: EasingSpec = EASING_PRESETS.easeInOut;
 // transition at their boundary — the blend needs room on the timeline to play.
 export const DEFAULT_TRANSITION_GAP = 0.3;
 export const DEFAULT_TIMELINE_DURATION = 10; // seconds
+// Supported timeline length range (seconds). Interactive edits and loaded
+// scene documents are both held to it: the ruler and other per-second UI
+// scale with the duration, so an unbounded value from a document would turn
+// into an unbounded amount of rendering work.
+export const MIN_TIMELINE_DURATION = 1;
+export const MAX_TIMELINE_DURATION = 60;
+
+// Normalizes a duration from user input or a loaded document: non-numeric,
+// non-finite and non-positive values fall back to the default, the rest are
+// clamped into the supported range.
+export const clampTimelineDuration = (seconds: unknown): number => {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
+    return DEFAULT_TIMELINE_DURATION;
+  }
+  return Math.max(MIN_TIMELINE_DURATION, Math.min(MAX_TIMELINE_DURATION, seconds));
+};
 export const DEFAULT_TIMELINE_FPS = 30;
 
 export const cloneTimeline = (t: TimelineData): TimelineData =>

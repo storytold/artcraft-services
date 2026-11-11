@@ -393,9 +393,15 @@ export function PrettyPayload({ raw }: { raw: string }) {
 // Lightweight reformatter for Rust's `Debug` output (e.g. `Foo { a: 1, b: Bar { c: 2 } }`).
 // Adds line breaks and indentation around `{`, `}`, `[`, `]`, and top-level commas.
 // Falls back gracefully for anything it doesn't understand.
-function formatRustyDebug(raw: string): string {
+// Budgets for the reformatter: log messages contain user-supplied prompt text,
+// and unbalanced delimiters would otherwise grow the indentation without bound.
+const MAX_DEBUG_FORMAT_INPUT = 64 * 1024;
+const MAX_DEBUG_FORMAT_DEPTH = 32;
+const MAX_DEBUG_FORMAT_OUTPUT = 256 * 1024;
+
+export function formatRustyDebug(raw: string): string {
   const looksRusty = /[{[].+[}\]]/s.test(raw);
-  if (!looksRusty) return raw;
+  if (!looksRusty || raw.length > MAX_DEBUG_FORMAT_INPUT) return raw;
 
   let depth = 0;
   let out = "";
@@ -406,12 +412,18 @@ function formatRustyDebug(raw: string): string {
 
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
-    const prev = raw[i - 1];
+    if (out.length > MAX_DEBUG_FORMAT_OUTPUT) return raw;
 
     // String tracking (handle escapes)
     if (inString) {
       out += ch;
-      if (ch === stringChar && prev !== "\\") {
+      if (ch === "\\") {
+        // Consume the escaped character so `\\"` and `\\\\` are read correctly.
+        i++;
+        if (i < raw.length) out += raw[i];
+        continue;
+      }
+      if (ch === stringChar) {
         inString = false;
         stringChar = null;
       }
@@ -425,6 +437,7 @@ function formatRustyDebug(raw: string): string {
     }
 
     if (ch === "{" || ch === "[") {
+      if (depth >= MAX_DEBUG_FORMAT_DEPTH) return raw;
       depth++;
       out += ch + "\n" + indent();
       continue;

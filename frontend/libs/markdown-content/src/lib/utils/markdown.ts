@@ -1,3 +1,34 @@
+// Escape text for use in HTML element content and quoted attribute values.
+export const escapeHtml = (text: string): string =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+// Markdown can come from a remote feed (the help menu fetches news.json at
+// runtime), so link and media targets are limited to relative URLs and
+// http(s)/mailto. Anything else (javascript:, data:, vbscript:, ...) becomes
+// an inert "#".
+const SAFE_URL_SCHEMES = new Set(["http", "https", "mailto"]);
+
+export const safeUrl = (url: string): string => {
+  // Browsers ignore ASCII whitespace and control characters inside a scheme,
+  // so strip them before reading it.
+  const compact = url.replace(/[\u0000-\u0020\u007f]/g, "");
+  const scheme = compact.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (scheme && !SAFE_URL_SCHEMES.has(scheme[1].toLowerCase())) return "#";
+  return url;
+};
+
+// Image size: "300", "300px", "50%", or "400x300". Anything else is ignored,
+// since the value lands in a style attribute.
+const SIZE_PART = /^\d{1,5}(?:px|%)?$/;
+
+// Input lines are HTML-escaped before any markdown syntax is applied, so raw
+// HTML in the source renders as text. The markdown below only emits the tags
+// it builds itself.
 export const markdownToHtml = (
   markdown: string,
   basePath: string = "",
@@ -15,7 +46,8 @@ export const markdownToHtml = (
   };
 
   const isAbsolute = (url: string): boolean => /^(?:[a-z]+:)?\/\//i.test(url);
-  const normalizeLink = (url: string): string => {
+  const normalizeLink = (rawUrl: string): string => {
+    const url = safeUrl(rawUrl);
     if (!basePath) return url;
     if (!url) return url;
     if (url.startsWith("#")) return url;
@@ -83,10 +115,12 @@ export const markdownToHtml = (
   // Parse size string like "300" or "400x300"
   const parseSize = (sizeStr: string): { width?: string; height?: string } => {
     if (!sizeStr) return {};
-    const parts = sizeStr.toLowerCase().split("x");
+    const parts = sizeStr.trim().toLowerCase().split("x");
+    if (!parts.every((part) => SIZE_PART.test(part))) return {};
     if (parts.length === 2) {
       return { width: parts[0], height: parts[1] };
     }
+    if (parts.length !== 1) return {};
     return { width: parts[0] };
   };
 
@@ -97,7 +131,7 @@ export const markdownToHtml = (
     sizeStr: string = "",
   ): string => {
     const safeUrl = normalizeLink(url);
-    const safeAlt = alt.replace(/"/g, "&quot;");
+    const safeAlt = alt;
     const { width, height } = parseSize(sizeStr);
 
     let style =
@@ -144,7 +178,7 @@ export const markdownToHtml = (
     });
     // links: [text](url)
     out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, url) => {
-      const safeLabel = String(label || "").replace(/"/g, "&quot;");
+      const safeLabel = String(label || "");
       const safeUrl = normalizeLink(String(url || ""));
       return `<a href="${safeUrl}" class="underline hover:opacity-90">${safeLabel}</a>`;
     });
@@ -171,17 +205,17 @@ export const markdownToHtml = (
   };
 
   for (const raw of lines) {
-    const line = raw.trimEnd();
-    const ltrim = line.replace(/^\s+/, "");
-
-    // Blockquote: > text
-    const blockquoteMatch = line.match(/^>\s?(.*)$/);
+    // Blockquote: > text. Matched before escaping, since ">" is escaped.
+    const blockquoteMatch = raw.trimEnd().match(/^>\s?(.*)$/);
     if (blockquoteMatch) {
       flushParagraph();
       closeListIfOpen();
-      blockquoteLines.push(blockquoteMatch[1]);
+      blockquoteLines.push(escapeHtml(blockquoteMatch[1]));
       continue;
     }
+
+    const line = escapeHtml(raw.trimEnd());
+    const ltrim = line.replace(/^\s+/, "");
 
     // If we were in a blockquote but this line isn't, flush it
     flushBlockquote();
@@ -246,7 +280,7 @@ export const markdownToHtml = (
     if (imgMatch) {
       flushParagraph();
       closeListIfOpen();
-      const alt = String(imgMatch[1] || "").replace(/"/g, "&quot;");
+      const alt = String(imgMatch[1] || "");
       const [url, size] = imgMatch[2].split("|");
       const safeUrl = normalizeLink(String(url || "").trim());
 

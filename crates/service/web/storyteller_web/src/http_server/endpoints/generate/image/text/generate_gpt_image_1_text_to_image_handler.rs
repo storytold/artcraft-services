@@ -77,6 +77,7 @@ pub async fn generate_gpt_image_1_text_to_image_handler(
       .get_avt_token_from_request(&http_request);
 
   let user_token = match maybe_user_session.as_ref() {
+    Some(session) if session.is_banned => return Err(CommonWebError::NotAuthorized),
     Some(session) => &session.user_token,
     None => {
       return Err(CommonWebError::NotAuthorized);
