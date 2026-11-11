@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRightIcon } from "lucide-react";
+import { twMerge } from "tailwind-merge";
 import { AppIcon, appThemeClass } from "@/components/apps/app-wordmark";
 import { Accent } from "@/components/page/page-header";
 import { trackAttrs } from "@/lib/analytics";
@@ -11,15 +12,15 @@ import {
 } from "@/lib/crafting-apps";
 import { SectionShell, SectionEyebrow } from "./section-shell";
 
-// Phones: icon beside the name, so seven rows stay short. From sm up: icon
-// stacked over the name, seven across.
+// Phones: icon beside the name, so eight rows stay short. From sm up: icon
+// stacked over the name, four across, then eight from lg up.
 const CELL_CLASSES =
   "group relative flex items-center gap-3 bg-bg px-4 py-4 sm:flex-col sm:px-3 sm:py-6 sm:text-center md:py-8";
 const ICON_CLASSES = "h-10 w-10 shrink-0 sm:h-14 sm:w-14 md:h-16 md:w-16";
 
 // The Crafting Apps family on the landing page: one hairline cell per app
-// (icon and name) plus a closing cell into the /apps hub, so the grid
-// stays even (14 cells: two columns on phones, seven across from sm up).
+// (icon and name). Sixteen apps fill every row, so the closing cell into the
+// /apps hub is a full-width row of its own.
 export default function CraftingApps({ index }: { index: string }) {
   return (
     <SectionShell id="apps">
@@ -55,7 +56,7 @@ export default function CraftingApps({ index }: { index: string }) {
       <nav
         aria-label="Crafting Apps"
         data-reveal-group
-        className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-7"
+        className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-4 lg:grid-cols-8"
       >
         {CRAFTING_APPS.map((app) => (
           <Link
@@ -78,7 +79,11 @@ export default function CraftingApps({ index }: { index: string }) {
             </span>
           </Link>
         ))}
-        <Link href="/apps" data-reveal className={CELL_CLASSES}>
+        <Link
+          href="/apps"
+          data-reveal
+          className={twMerge(CELL_CLASSES, "col-span-full justify-center sm:flex-row sm:py-5 md:py-5")}
+        >
           <span className={`${ICON_CLASSES} flex items-center justify-center border border-line-strong text-ink transition-colors group-hover:bg-invert-bg group-hover:text-invert-fg`}>
             <ArrowUpRightIcon aria-hidden className="h-5 w-5 sm:h-6 sm:w-6" />
           </span>

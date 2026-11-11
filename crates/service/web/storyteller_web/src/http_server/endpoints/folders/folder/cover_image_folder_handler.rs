@@ -10,12 +10,14 @@ use artcraft_api_defs::folders::folder::{
 };
 use enums::by_table::media_files::media_file_class::MediaFileClass;
 use enums::by_table::media_files::media_file_type::MediaFileType;
+use enums::common::visibility::Visibility;
 use mysql_queries::queries::folders::folder::get_folder_for_owner::{
   get_folder_for_owner, GetFolderForOwnerArgs,
 };
 use mysql_queries::queries::folders::folder::update_folder_cover_image::{
   update_folder_cover_image, UpdateFolderCoverImageArgs,
 };
+use mysql_queries::queries::media_files::get::get_media_file::get_media_file_with_connection;
 use mysql_queries::queries::media_files::get::lookup_media_file_for_cover_check::{
   lookup_media_file_for_cover_check, LookupMediaFileForCoverCheckArgs,
 };
@@ -34,7 +36,8 @@ use crate::state::server_state::ServerState;
 /// 1. The media file must exist, not be soft-deleted, and be owned by the
 ///    requesting user (same owner as the folder).
 /// 2. If the media file has its own `maybe_cover_image_media_file_token`
-///    set, that cover token wins outright and is used as the folder
+///    set, and the requester can read that cover (not deleted, and not
+///    someone else's private file), that cover token is used as the folder
 ///    cover.
 /// 3. Otherwise, if the media file's `media_class` is `image`/`video` OR
 ///    its `media_type` is `jpg`/`png`/`mp4`, the file's own token is used.
@@ -147,8 +150,14 @@ async fn resolve_cover_image_token(
   // The file's own cover image wins outright — if there is one, we use
   // it regardless of the underlying file's class/type. This covers
   // arbitrary 3D/audio/scene files that have a curated thumbnail.
+  //
+  // NB: Owning the file doesn't grant access to its cover, which is a separate media file. The
+  // cover must still exist and be readable by the requester, or we fall through as if unset.
   if let Some(cover_token) = media_file.maybe_cover_image_media_file_token {
-    return Ok(cover_token);
+    if can_use_nested_cover(&cover_token, session_user_token, conn).await? {
+      return Ok(cover_token);
+    }
+    warn!("ignoring unreadable cover image {:?} on media file {:?}", cover_token, media_file_token);
   }
 
   // No cover image present — fall back to using the file itself, which
@@ -160,6 +169,27 @@ async fn resolve_cover_image_token(
   Err(CommonWebError::BadInputWithSimpleMessage(
     "media file has no cover image and isn't a renderable image or video".to_string(),
   ))
+}
+
+/// The nested cover must exist (not deleted) and be either non-private or created by the requester.
+async fn can_use_nested_cover(
+  cover_token: &MediaFileToken,
+  session_user_token: &UserToken,
+  conn: &mut PoolConnection<sqlx::MySql>,
+) -> Result<bool, CommonWebError> {
+  let maybe_cover = get_media_file_with_connection(cover_token, false, conn)
+    .await
+    .map_err(|err| {
+      warn!("get_media_file_with_connection failed: {:?}", err);
+      CommonWebError::from_anyhow_error(err)
+    })?;
+
+  Ok(maybe_cover.is_some_and(|cover| {
+    cover.creator_set_visibility != Visibility::Private
+      || cover.maybe_creator_user_token
+        .as_ref()
+        .is_some_and(|t| t.as_str() == session_user_token.as_str())
+  }))
 }
 
 /// A media file can be used as a cover directly if it's classified as an

@@ -1,0 +1,14 @@
+# Cloudflare Pages / Workers static assets. Next dev headers mirror these rules.
+/launcher-catalog.toml
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: application/toml; charset=utf-8
+
+/launcher-catalog.toml.sig
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: text/plain; charset=utf-8
+
+/launcher-app-icons/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable

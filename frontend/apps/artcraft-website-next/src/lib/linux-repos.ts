@@ -1,5 +1,7 @@
+import { ARTCRAFT_STUDIO_RELEASE, artcraftStudioDownloads } from "./artcraft-studio";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
+import { unstable_cache } from "next/cache";
 import {
   CRAFTING_APPS,
   craftAppName,
@@ -12,6 +14,7 @@ import {
 import {
   CRAFT_LAUNCHER_RELEASE,
 } from "./crafting-app-releases";
+import { isRepoSigningConfigured } from "./repo-signing";
 
 export const RPM_REPO_TIMESTAMP = 1730000000;
 export const PACMAN_REPO_TIMESTAMP = 1730000000;
@@ -39,6 +42,9 @@ export type LinuxPackageAssetMeta = {
   size: number;
   sha256: string;
   installedSize: number;
+  depends?: string[];
+  provides?: string[];
+  optdepends?: string[];
 };
 
 export type LinuxRepoApp = {
@@ -63,6 +69,8 @@ export type LinuxRepoApp = {
     sha256: string;
     requires: RpmRequire[];
     installedSize: number;
+    /** The release publishes a signature for this package, so dnf can verify it. */
+    signed: boolean;
   }[];
   archAssets: {
     arch: ArchPackageArch;
@@ -70,6 +78,13 @@ export type LinuxRepoApp = {
     size: number;
     sha256: string;
     installedSize: number;
+    depends: string[];
+    /** `provides` lines exactly as the package's .PKGINFO declares them. */
+    provides: string[];
+    /** `optdepend` lines exactly as the package's .PKGINFO declares them. */
+    optdepends: string[];
+    /** The release publishes a .sig for this package, so pacman can verify it. */
+    signed: boolean;
   }[];
 };
 
@@ -93,15 +108,8 @@ export function escapeXml(unsafe: string): string {
  */
 export function getRequestBaseUrl(request: Request): string {
   const url = new URL(request.url);
-  // Check the request URL hostname first (direct requests or Netlify edge URL)
-  if (url.protocol === "https:" && /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname)) {
-    return url.origin;
-  }
-  if ((url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.protocol === "http:") {
-    return url.origin;
-  }
-
-  // If running behind a reverse proxy (e.g. AWS Lambda / Netlify Function), inspect forwarded host
+  // A local reverse proxy (scripts/test-distro-repos.sh) forwards to the Next server, and Flatpak
+  // has to be given the proxy's URL: it speaks HTTP/2 cleartext, which the Next server drops.
   const fwdHost = request.headers.get("x-forwarded-host");
   if (fwdHost && /^deploy-preview-\d+--artcraft-website-next\.netlify\.app(?::\d+)?$/.test(fwdHost)) {
     return `https://${fwdHost}`;
@@ -109,6 +117,21 @@ export function getRequestBaseUrl(request: Request): string {
   if (fwdHost && /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(fwdHost)) {
     const proto = request.headers.get("x-forwarded-proto") || (url.protocol ? url.protocol.replace(":", "") : "http");
     return `${proto}://${fwdHost}`;
+  }
+
+  // Check the request URL hostname (direct requests or Netlify/Cloudflare edge URL)
+  if (
+    url.protocol === "https:" &&
+    (url.hostname === "getartcraft.com" ||
+      url.hostname === "getartcraft.dev" ||
+      url.hostname.endsWith(".getartcraft.dev") ||
+      url.hostname.endsWith(".workers.dev") ||
+      /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname))
+  ) {
+    return url.origin;
+  }
+  if ((url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.protocol === "http:") {
+    return url.origin;
   }
 
   return "https://getartcraft.com";
@@ -119,6 +142,8 @@ export function getRequestBaseUrl(request: Request): string {
  * Uncatalogued filenames return null to preserve clean 404 behavior and block unauthorized redirects.
  */
 export function resolvePackageDownloadUrl(filename: string): string | null {
+  const studio = artcraftStudioDownloads().find((asset) => asset.fileName === filename);
+  if (studio) return studio.href;
   if (CRAFT_LAUNCHER_RELEASE) {
     const launcherDownloads = craftLauncherDownloads();
     const match = launcherDownloads.find((d) => d.fileName === filename);
@@ -133,7 +158,53 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
     if (match) return match.href;
   }
 
+  // Signature assets sit next to the package they cover and are not part of the download manifest,
+  // so derive them from the package they sign instead of listing every signature separately.
+  const signatureSuffix = PACKAGE_SIGNATURE_SUFFIXES.find((suffix) => filename.endsWith(suffix));
+  if (signatureSuffix) {
+    const signedUrl = resolvePackageDownloadUrl(filename.slice(0, -signatureSuffix.length));
+    if (signedUrl) return `${signedUrl}${signatureSuffix}`;
+  }
+
   return null;
+}
+
+/** Suffixes of the detached signatures release workflows publish beside their packages. */
+const PACKAGE_SIGNATURE_SUFFIXES = [".sig", ".asc"] as const;
+
+/**
+ * Whether the release actually publishes `filename` as a detached signature. The redirect would
+ * otherwise point clients at a release asset that does not exist, which pacman reports as a failed
+ * signature download.
+ */
+export async function isPackageSignaturePublished(filename: string): Promise<boolean> {
+  if (!PACKAGE_SIGNATURE_SUFFIXES.some((suffix) => filename.endsWith(suffix))) {
+    return false;
+  }
+
+  const releases: Array<{ repo: string; version: string }> = [{ repo: "artcraft", version: ARTCRAFT_STUDIO_RELEASE.version }];
+  if (CRAFT_LAUNCHER_RELEASE) {
+    releases.push({ repo: "craft-launcher", version: CRAFT_LAUNCHER_RELEASE.version });
+  }
+  for (const app of CRAFTING_APPS) {
+    const release = craftAppRelease(app);
+    if (release) {
+      releases.push({ repo: app.slug, version: release.version });
+    }
+  }
+
+  for (const release of releases) {
+    try {
+      const sums = await getShaSums(release.repo, release.version);
+      if (sums.has(filename)) {
+        return true;
+      }
+    } catch {
+      // A release whose checksums cannot be read publishes nothing verifiable.
+    }
+  }
+
+  return false;
 }
 
 export function handlePackageDownloadRedirect(pathSegments: string[] | undefined): Response {
@@ -164,7 +235,7 @@ async function getShaSums(repo: string, version: string): Promise<Map<string, st
   let promise = shaSumsCache.get(key);
   if (!promise) {
     promise = (async () => {
-      const url = `https://github.com/storytold/${repo}/releases/download/v${version}/SHA256SUMS.txt`;
+      const url = `https://github.com/storytold/${repo}/releases/download/${repo === "artcraft" ? "artcraft-v" : "v"}${version}/SHA256SUMS.txt`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
       if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
       const text = await res.text();
@@ -212,20 +283,55 @@ async function fetchHeadPackageSize(downloadUrl: string, filename: string): Prom
   return size;
 }
 
-/**
- * Fallback installed size resolution for Arch packages where .PKGINFO is placed after usr/bin.
- */
-function resolveArchFallbackInstalledSize(filename: string, size: number): number {
-  if (filename.includes("designcraft-0.15.2")) {
-    return filename.includes("aarch64") ? 222699462 : 240682966;
-  }
-  return Math.round(size * 1.95);
-}
+type ArchPkgInfo = {
+  size: number;
+  installedSize: number;
+  depends: string[];
+  provides: string[];
+  optdepends: string[];
+  /** True when .PKGINFO could not be read and these values are only estimates. */
+  estimated?: boolean;
+};
 
 /**
- * Fast 128KB Range request to extract .PKGINFO uncompressed size from an Arch .pkg.tar.zst package.
+ * Only used when a package ships no .PKGINFO at all; a guessed dependency pacman does not find in
+ * the package is enough to make it refuse the install, so keep this to what the packages declare.
+ * libxkbcommon-x11 is deliberately absent: every published package already declares it through
+ * craft-common-actions' Arch builder, and adding a dependency pacman cannot match would make it
+ * refuse the install.
  */
-async function extractArchPkgInfo(downloadUrl: string): Promise<{ size: number; installedSize: number }> {
+const DEFAULT_PACMAN_DEPENDS = [
+  "glibc",
+  "gcc-libs",
+  "hicolor-icon-theme",
+  "libxkbcommon",
+  "vulkan-icd-loader",
+];
+
+/** Only used when a package's .PKGINFO could not be read; mirrors craft-common-actions' PKGBUILD. */
+const DEFAULT_PACMAN_OPTDEPENDS = [
+  "alsa-lib: sound support",
+  "pipewire-alsa: audio playback and recording via PipeWire",
+  "pulseaudio: audio playback and recording via PulseAudio",
+  "wayland: native Wayland display support",
+  "libx11: X11 and XWayland display support",
+  "libxcursor: X11 cursor handling",
+  "libxi: X11 input handling",
+  "libxrandr: X11 display resolution handling",
+  "libglvnd: GPU rendering through EGL",
+  "mesa: GPU rendering through EGL",
+  "vulkan-driver: GPU rendering through Vulkan",
+  "xdg-desktop-portal: native desktop integration and file dialogs",
+  "cups: printing support",
+];
+
+/**
+ * Fast 128KB Range request to extract .PKGINFO fields from an Arch .pkg.tar.zst package.
+ * The prefix is fed through the tar-aware scanner, so a .PKGINFO that straddles the 128KB mark
+ * (or sits behind the binaries) yields nothing rather than half its fields.
+ */
+async function extractArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfo> {
+  const empty: ArchPkgInfo = { size: 0, installedSize: 0, depends: [], provides: [], optdepends: [] };
   try {
     const { Decompress } = await import("fzstd");
     const rangeRes = await fetch(downloadUrl, {
@@ -237,45 +343,217 @@ async function extractArchPkgInfo(downloadUrl: string): Promise<{ size: number; 
     const size = sizeMatch ? Number.parseInt(sizeMatch[1], 10) : 0;
 
     const buf = new Uint8Array(await rangeRes.arrayBuffer());
-    const chunks: Buffer[] = [];
+    const scanner = createPkgInfoScanner();
+    let fields: ArchPkgInfoFields | null = null;
     const d = new Decompress((chunk) => {
-      chunks.push(Buffer.from(chunk));
+      if (!fields) {
+        fields = scanner.push(Buffer.from(chunk));
+      }
     });
     try {
       d.push(buf, false);
     } catch {
       // Partial stream EOF expected
     }
-    const text = Buffer.concat(chunks).toString("utf-8");
-    const isizeMatch = text.match(/size = (\d+)/);
-    const installedSize = isizeMatch ? Number.parseInt(isizeMatch[1], 10) : 0;
 
-    return { size, installedSize };
+    const captured = fields as ArchPkgInfoFields | null;
+    return captured ? { size, ...captured } : { ...empty, size };
   } catch {
-    return { size: 0, installedSize: 0 };
+    return empty;
+  }
+}
+
+type ArchPkgInfoFields = {
+  installedSize: number;
+  depends: string[];
+  provides: string[];
+  optdepends: string[];
+};
+
+function parsePkgInfoText(text: string): ArchPkgInfoFields | null {
+  const isizeMatch = text.match(/^size = (\d+)$/m);
+  const installedSize = isizeMatch ? Number.parseInt(isizeMatch[1], 10) : 0;
+  if (!installedSize) {
+    return null;
+  }
+  const values = (key: string) => [...text.matchAll(new RegExp(`^${key} = (.+)$`, "gm"))].map((m) => m[1].trim());
+  return {
+    installedSize,
+    depends: values("depend"),
+    provides: values("provides"),
+    optdepends: values("optdepend"),
+  };
+}
+
+/**
+ * Walks the tar archive inside a package to find .PKGINFO when it is not in the first 128KB.
+ * Some packages put their binaries before .PKGINFO, so the Range probe cannot see it.
+ * Exported so tests can feed a tar archive without a network round trip.
+ */
+export function createPkgInfoScanner() {
+  let buffer: Buffer = Buffer.alloc(0);
+  let mode: "header" | "data" | "pad" = "header";
+  let remaining = 0;
+  let padBytes = 0;
+  let entrySize = 0;
+  let capture: Buffer[] | null = null;
+
+  function finishEntry(): ArchPkgInfoFields | null {
+    mode = "header";
+    if (!capture) {
+      return null;
+    }
+    const text = Buffer.concat(capture).toString("utf-8");
+    capture = null;
+    return parsePkgInfoText(text);
+  }
+
+  return {
+    push(chunk: Buffer): ArchPkgInfoFields | null {
+      buffer = buffer.length ? Buffer.concat([buffer, chunk]) : chunk;
+
+      for (;;) {
+        if (mode === "pad") {
+          const take = Math.min(padBytes, buffer.length);
+          buffer = buffer.subarray(take);
+          padBytes -= take;
+          if (padBytes > 0) {
+            return null;
+          }
+          mode = "header";
+          continue;
+        }
+
+        if (mode === "data") {
+          const take = Math.min(remaining, buffer.length);
+          if (capture) {
+            capture.push(buffer.subarray(0, take));
+          }
+          buffer = buffer.subarray(take);
+          remaining -= take;
+          if (remaining > 0) {
+            return null;
+          }
+          padBytes = (512 - (entrySize % 512)) % 512;
+          const finished = finishEntry();
+          if (finished) {
+            return finished;
+          }
+          mode = padBytes > 0 ? "pad" : "header";
+          continue;
+        }
+
+        if (buffer.length < 512) {
+          return null;
+        }
+        const header = buffer.subarray(0, 512);
+        buffer = buffer.subarray(512);
+        const name = header.toString("utf-8", 0, 100).replace(/\0[\s\S]*$/, "");
+        if (!name) {
+          return null; // end of archive
+        }
+        const sizeText = header.toString("utf-8", 124, 136).replace(/[\0 ]+$/, "").trim();
+        entrySize = Number.parseInt(sizeText, 8) || 0;
+        if (name.replace(/^\.\//, "") === ".PKGINFO") {
+          capture = [];
+        }
+        remaining = entrySize;
+        if (remaining === 0) {
+          const finished = finishEntry();
+          if (finished) {
+            return finished;
+          }
+          padBytes = 0;
+          continue;
+        }
+        mode = "data";
+      }
+    },
+  };
+}
+
+/**
+ * Reads .PKGINFO from a package tar stream, walking entries until it is found.
+ */
+export async function readArchPkgInfoFromStream(
+  stream: ReadableStream<Uint8Array>,
+): Promise<ArchPkgInfoFields | null> {
+  const { Decompress } = await import("fzstd");
+  const scanner = createPkgInfoScanner();
+  const reader = stream.getReader();
+  let result: ArchPkgInfoFields | null = null;
+
+  const decoder = new Decompress((chunk) => {
+    if (!result) {
+      result = scanner.push(Buffer.from(chunk));
+    }
+  });
+
+  try {
+    while (!result) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      decoder.push(value, false);
+    }
+  } catch {
+    // The download is cancelled once .PKGINFO has been read, which rejects the reader.
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+
+  return result;
+}
+
+/**
+ * Downloads a package until .PKGINFO is read. Only used when the Range probe cannot see it.
+ */
+async function downloadArchPkgInfo(downloadUrl: string): Promise<ArchPkgInfoFields | null> {
+  try {
+    const res = await fetch(downloadUrl, { signal: AbortSignal.timeout(60_000) });
+    if (!res.ok || !res.body) {
+      return null;
+    }
+    return await readArchPkgInfoFromStream(res.body);
+  } catch {
+    return null;
   }
 }
 
 /**
- * Computes size and installed uncompressed size for an Arch Linux (.pkg.tar.zst) package asset.
+ * Computes size, installed uncompressed size and depends for an Arch Linux (.pkg.tar.zst) package asset.
  */
-async function fetchArchPackageSizes(
-  downloadUrl: string,
-  filename: string,
-): Promise<{ size: number; installedSize: number }> {
+async function fetchArchPackageInfo(downloadUrl: string, filename: string): Promise<ArchPkgInfo> {
   const extracted = await extractArchPkgInfo(downloadUrl);
-  let size = extracted.size;
-  let installedSize = extracted.installedSize;
+  const size = extracted.size || await fetchHeadPackageSize(downloadUrl, filename);
 
-  if (!size) {
-    size = await fetchHeadPackageSize(downloadUrl, filename);
+  if (extracted.installedSize) {
+    return {
+      size,
+      installedSize: extracted.installedSize,
+      depends: extracted.depends,
+      provides: extracted.provides,
+      optdepends: extracted.optdepends,
+    };
   }
 
-  if (!installedSize) {
-    installedSize = resolveArchFallbackInstalledSize(filename, size);
+  const downloaded = await downloadArchPkgInfo(downloadUrl);
+  if (downloaded) {
+    return { size, ...downloaded };
   }
 
-  return { size, installedSize };
+  // Last resort: pacman 7 compares these values against the package and refuses to install on a mismatch.
+  console.warn(`Unable to read .PKGINFO for ${filename}; pacman will reject it if the estimated metadata is wrong`);
+  return {
+    size,
+    installedSize: Math.round(size * 1.95),
+    depends: DEFAULT_PACMAN_DEPENDS,
+    provides: [],
+    optdepends: [],
+    estimated: true,
+  };
 }
 
 /**
@@ -291,41 +569,93 @@ async function fetchValidatedSha256(repo: string, version: string, filename: str
 }
 
 /**
+ * Reads metadata (size, SHA-256 digest, installed size) for a package asset straight from
+ * GitHub: its SHA256SUMS.txt entry, plus a Range probe into the package for .PKGINFO.
+ */
+type ComputedPackageMetadata = LinuxPackageAssetMeta & { estimated?: boolean };
+
+async function computePackageMetadata(
+  filename: string,
+  repo: string,
+  version: string,
+  knownSha256?: string,
+): Promise<ComputedPackageMetadata> {
+  const downloadUrl = resolvePackageDownloadUrl(filename);
+  if (!downloadUrl) {
+    throw new Error(`Package asset not found in release catalog: ${filename}`);
+  }
+
+  const sha256 = knownSha256 ?? await fetchValidatedSha256(repo, version, filename);
+
+  if (filename.endsWith(".pkg.tar.zst")) {
+    const archInfo = await fetchArchPackageInfo(downloadUrl, filename);
+    return { sha256, ...archInfo };
+  }
+
+  const size = await fetchHeadPackageSize(downloadUrl, filename);
+  const divisor = filename.endsWith(".deb") ? 1024 : 1;
+  const installedSize = Math.round(size * 1.95 / divisor);
+
+  return { size, sha256, installedSize };
+}
+
+/**
+ * Estimated Arch metadata must never reach the shared cache: pacman rejects a package whose
+ * database entry disagrees with it, and the estimate would outlive the GitHub outage that caused
+ * it. Throwing keeps unstable_cache from storing the value while still letting the caller serve it.
+ */
+class EstimatedArchMetadataError extends Error {
+  constructor(readonly metadata: ComputedPackageMetadata) {
+    super("Not caching estimated Arch package metadata");
+  }
+}
+
+/**
+ * Keeps that metadata in Next's data cache, so it survives the process: a fresh instance (or a
+ * new deploy) serves the DB without re-reading every package's .PKGINFO. Cache keys include the
+ * filename and the SHA-256 digest from SHA256SUMS.txt, so a new release and a same-name re-upload
+ * are both misses.
+ */
+const durablePackageMetadata = unstable_cache(
+  async (filename: string, repo: string, version: string, sha256: string) => {
+    const metadata = await computePackageMetadata(filename, repo, version, sha256);
+    if (metadata.estimated) {
+      throw new EstimatedArchMetadataError(metadata);
+    }
+    return metadata;
+  },
+  ["linux-package-metadata"],
+  { revalidate: 60 * 60 * 24 },
+);
+
+/**
  * Dynamically computes metadata (size, SHA-256 digest, installed size) for a package asset.
- * Fetches SHA256SUMS.txt and HTTP metadata on demand and caches in memory.
+ * Fetches SHA256SUMS.txt and HTTP metadata on demand and caches in memory and in the data cache.
  */
 export async function getLinuxPackageMetadata(
   filename: string,
   repo: string,
   version: string,
 ): Promise<LinuxPackageAssetMeta> {
-  let promise = packageMetaCache.get(filename);
+  const sha256 = await fetchValidatedSha256(repo, version, filename);
+  // Include the digest so a same-name re-upload is a miss in the per-process cache too.
+  const cacheKey = `${filename}:${sha256}`;
+  let promise = packageMetaCache.get(cacheKey);
   if (!promise) {
     promise = (async () => {
-      const downloadUrl = resolvePackageDownloadUrl(filename);
-      if (!downloadUrl) {
-        throw new Error(`Package asset not found in release catalog: ${filename}`);
+      try {
+        return await durablePackageMetadata(filename, repo, version, sha256);
+      } catch (error) {
+        if (error instanceof EstimatedArchMetadataError) {
+          // Serve the estimate now, but leave it to the per-process cache rather than persisting it.
+          return error.metadata;
+        }
+        // The data cache can be unavailable (no cache handler, disabled in preview); read directly.
+        return computePackageMetadata(filename, repo, version, sha256);
       }
-
-      const sha256 = await fetchValidatedSha256(repo, version, filename);
-
-      let size = 0;
-      let installedSize = 0;
-
-      if (filename.endsWith(".pkg.tar.zst")) {
-        const archSizes = await fetchArchPackageSizes(downloadUrl, filename);
-        size = archSizes.size;
-        installedSize = archSizes.installedSize;
-      } else {
-        size = await fetchHeadPackageSize(downloadUrl, filename);
-        const divisor = filename.endsWith(".deb") ? 1024 : 1;
-        installedSize = Math.round(size * 1.95 / divisor);
-      }
-
-      return { size, sha256, installedSize };
     })();
-    packageMetaCache.set(filename, promise);
-    promise.catch(() => packageMetaCache.delete(filename));
+    packageMetaCache.set(cacheKey, promise);
+    promise.catch(() => packageMetaCache.delete(cacheKey));
   }
   return promise;
 }
@@ -373,14 +703,19 @@ async function buildDebAssets(
     candidates.map(async ({ debArch, fileArch }) => {
       const filename = `${name}-${version}-linux-${fileArch}.deb`;
       const meta = await getLinuxPackageMetadata(filename, repo, version);
+      const glibcVer = debArch === "riscv64" ? "2.39" : "2.35";
+      let depends = defaultDepends;
+      if (name === "artcraft") {
+        depends = `libc6 (>= ${glibcVer}), libgcc-s1, libgtk-3-0, libwebkit2gtk-4.1-0, libssl3`;
+      } else if (name === "artcraft-launcher" && debArch === "riscv64") {
+        depends = "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
+      }
       return {
         arch: debArch,
         filename,
         size: meta.size,
         sha256: meta.sha256,
-        depends: (name === "artcraft-launcher" && debArch === "riscv64")
-          ? "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1"
-          : defaultDepends,
+        depends,
         recommends: defaultRecommends,
         installedSize: meta.installedSize,
       };
@@ -389,6 +724,33 @@ async function buildDebAssets(
 
   return results;
 }
+
+/**
+ * Once the repository requires signatures, it must not advertise a package no client can verify:
+ * dnf and pacman reject it, and a client that skips verification installs it unverified. Releases
+ * list their detached signatures in SHA256SUMS.txt, so anything without one is withheld until the
+ * next signed release instead of breaking the whole repository.
+ */
+export async function withholdUnsignedPackages<T extends { filename: string; signed: boolean }>(
+  assets: T[],
+): Promise<T[]> {
+  if (!(await isRepoSigningConfigured())) {
+    return assets;
+  }
+  return assets.filter((asset) => {
+    if (asset.signed) return true;
+    if (!reportedUnsignedPackages.has(asset.filename)) {
+      reportedUnsignedPackages.add(asset.filename);
+      console.warn(
+        `Withholding ${asset.filename}: the repository requires signatures but the release publishes none for it`,
+      );
+    }
+    return false;
+  });
+}
+
+/** Each withheld package is worth reporting once; catalog builds repeat on every request. */
+const reportedUnsignedPackages = new Set<string>();
 
 async function buildRpmAssets(
   name: string,
@@ -403,13 +765,17 @@ async function buildRpmAssets(
     candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.rpm`;
       const meta = await getLinuxPackageMetadata(filename, repo, version);
-      const glibcVer = (name === "artcraft-launcher" && arch === "riscv64") ? "2.39" : "2.35";
+      const glibcVer = (["artcraft-launcher", "artcraft"].includes(name) && arch === "riscv64") ? "2.39" : "2.35";
       const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
         ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
         : [];
       const requires: RpmRequire[] = [
         { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
-        ...COMMON_RPM_REQUIRES,
+        ...(name === "artcraft" ? [
+          { name: "libgtk-3.so.0()(64bit)" },
+          { name: "libwebkit2gtk-4.1.so.0()(64bit)" },
+          { name: "libssl.so.3()(64bit)" },
+        ] : COMMON_RPM_REQUIRES),
         ...audioRequires,
       ];
       return {
@@ -419,11 +785,13 @@ async function buildRpmAssets(
         sha256: meta.sha256,
         requires,
         installedSize: meta.installedSize,
+        // The release workflow signs each RPM and publishes the detached signature next to it.
+        signed: sums.has(`${filename}.asc`),
       };
     })
   );
 
-  return results;
+  return withholdUnsignedPackages(results);
 }
 
 async function buildArchAssets(
@@ -445,13 +813,27 @@ async function buildArchAssets(
         size: meta.size,
         sha256: meta.sha256,
         installedSize: meta.installedSize,
+        depends: meta.depends ?? DEFAULT_PACMAN_DEPENDS,
+        provides: meta.provides ?? [],
+        optdepends: meta.optdepends ?? [],
+        // pacman verifies the detached `.pkg.tar.zst.sig` beside each package.
+        signed: sums.has(`${filename}.sig`),
       };
     })
   );
 
-  return results;
+  return withholdUnsignedPackages(results);
 }
 let cachedAllAppsPromise: Promise<LinuxRepoApp[]> | null = null;
+
+/**
+ * Resets module-level Linux repository catalog, checksum, and metadata caches for isolated unit tests.
+ */
+export function resetLinuxRepoCachesForTests(): void {
+  cachedAllAppsPromise = null;
+  shaSumsCache.clear();
+  packageMetaCache.clear();
+}
 
 /**
  * Dynamically builds the repository catalog informed by crafting-apps and crafting-app-releases.
@@ -464,6 +846,20 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
 
   const compute = async (): Promise<LinuxRepoApp[]> => {
     const appPromises: Promise<LinuxRepoApp | null>[] = [];
+
+    // Studio uses the same signed package catalog as the native suite.
+    appPromises.push((async () => {
+      const version = ARTCRAFT_STUDIO_RELEASE.version;
+      const [debAssets, rpmAssets, archAssets] = await Promise.all([
+        includeDeb ? buildDebAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+        includeRpm ? buildRpmAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+        includeArch ? buildArchAssets("artcraft", "artcraft", version) : Promise.resolve([]),
+      ]);
+      if (!debAssets.length && !rpmAssets.length && !archAssets.length) return null;
+      return { slug: "artcraft", name: "artcraft", version,
+        description: "ArtCraft Studio: AI image and video creation.", section: "graphics",
+        debAssets, rpmAssets, archAssets };
+    })());
 
     // Craft Launcher
     if (CRAFT_LAUNCHER_RELEASE) {
@@ -638,18 +1034,24 @@ export async function generateAptRelease(date: Date = APT_REPO_DATE): Promise<st
   ].join("\n");
 }
 
-export function generateAptSourcesList(baseUrl: string): string {
-  return `deb [trusted=yes] ${baseUrl}/apt stable main\n`;
+/** Keyring the apt sources point at; the guide installs it there before the first update. */
+export const APT_KEYRING_PATH = "/etc/apt/keyrings/artcraft.gpg";
+
+export async function generateAptSourcesList(baseUrl: string): Promise<string> {
+  if (!(await isRepoSigningConfigured())) {
+    return `deb [trusted=yes] ${baseUrl}/apt stable main\n`;
+  }
+  return `deb [signed-by=${APT_KEYRING_PATH}] ${baseUrl}/apt stable main\n`;
 }
 
-export function generateAptSourcesDeb822(baseUrl: string): string {
+export async function generateAptSourcesDeb822(baseUrl: string): Promise<string> {
   return [
     "Types: deb",
     `URIs: ${baseUrl}/apt`,
     "Suites: stable",
     "Components: main",
     "Architectures: amd64 arm64 riscv64",
-    "Trusted: yes",
+    (await isRepoSigningConfigured()) ? `Signed-By: ${APT_KEYRING_PATH}` : "Trusted: yes",
     "",
   ].join("\n");
 }
@@ -769,13 +1171,25 @@ export async function getRpmRepomdXml(archFilter?: string): Promise<string> {
   return generateRpmRepomdXml(primaryBuffer, primaryGzBuffer, RPM_REPO_TIMESTAMP);
 }
 
-export function generateRpmRepoConfig(baseUrl: string): string {
-  return `[artcraft]
+export async function generateRpmRepoConfig(baseUrl: string): Promise<string> {
+  if (!(await isRepoSigningConfigured())) {
+    return `[artcraft]
 name=ArtCraft Linux Packages
 baseurl=${baseUrl}/rpm
 enabled=1
 gpgcheck=0
 repo_gpgcheck=0
+`;
+  }
+  return `[artcraft]
+# Signed metadata and signed packages: dnf verifies repomd.xml against its signature, imports the
+# key below, and verifies the OpenPGP header signature inside every package it downloads.
+name=ArtCraft Linux Packages
+baseurl=${baseUrl}/rpm
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=${baseUrl}/keys/artcraft.asc
 `;
 }
 
@@ -831,33 +1245,25 @@ export function buildTar(
   return Buffer.concat(blocks);
 }
 
+/**
+ * Returns the Pacman package name for a catalogued Linux app (`ai.artcraft.app` for ArtCraft Studio,
+ * and `ai.storyteller.<name>` for the Craft Launcher and Crafting Apps).
+ */
+function pacmanPkgName(app: LinuxRepoApp): string {
+  return app.slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${app.name}`;
+}
+
 export function generatePacmanDesc(
   app: LinuxRepoApp,
   asset: LinuxRepoApp["archAssets"][number],
   timestamp: number = PACMAN_REPO_TIMESTAMP,
 ): string {
-  const pkgname = `ai.storyteller.${app.name}`;
-  const provides = app.name === "designcraft" ? "designcraft" : `${app.name}=${app.version}-1`;
-  // These releases declare the X11 keyboard library in their package metadata.
-  const needsXkbcommonX11 = (app.name === "artcraft-launcher" && app.version === "0.13.0")
-    || (app.name === "texturecraft" && app.version === "0.2.0");
-  const optdepends = app.name === "designcraft"
-    ? ""
-    : `%OPTDEPENDS%
-alsa-lib: sound support
-pipewire-alsa: audio playback and recording via PipeWire
-pulseaudio: audio playback and recording via PulseAudio
-wayland: native Wayland display support
-libx11: X11 and XWayland display support
-libxcursor: X11 cursor handling
-libxi: X11 input handling
-libxrandr: X11 display resolution handling
-libglvnd: GPU rendering through EGL
-mesa: GPU rendering through EGL
-vulkan-driver: GPU rendering through Vulkan
-xdg-desktop-portal: native desktop integration and file dialogs
-cups: printing support
-`;
+  const pkgname = pacmanPkgName(app);
+  // pacman compares these against the package's own .PKGINFO, so mirror what the package declares
+  // and fall back to the shared builder's lists only when .PKGINFO could not be read.
+  const provides = asset.provides.length > 0 ? asset.provides : [`${app.name}=${app.version}-1`];
+  const optdepends = asset.optdepends.length > 0 ? asset.optdepends : DEFAULT_PACMAN_OPTDEPENDS;
+  const optdependsSection = optdepends.length > 0 ? `%OPTDEPENDS%\n${optdepends.join("\n")}\n` : "";
 
   return `%FILENAME%
 ${asset.filename}
@@ -904,16 +1310,12 @@ ${app.name}-bin
 ${app.name}-git
 
 %PROVIDES%
-${provides}
+${provides.join("\n")}
 
 %DEPENDS%
-glibc
-gcc-libs
-hicolor-icon-theme
-libxkbcommon
-${needsXkbcommonX11 ? "libxkbcommon-x11\n" : ""}vulkan-icd-loader
+${asset.depends.join("\n")}
 
-${optdepends}`.trimEnd() + "\n";
+${optdependsSection}`.trimEnd() + "\n";
 }
 
 export async function generatePacmanDb(
@@ -927,7 +1329,7 @@ export async function generatePacmanDb(
     const asset = app.archAssets.find((a) => a.arch === arch);
     if (!asset) continue;
 
-    const dirName = `ai.storyteller.${app.name}-${app.version}-1`;
+    const dirName = `${pacmanPkgName(app)}-${app.version}-1`;
     entries.push(
       {
         name: `${dirName}/`,
@@ -947,9 +1349,17 @@ export async function generatePacmanDb(
   return gzipSync(tarBuffer);
 }
 
-export function generatePacmanRepoConfig(baseUrl: string): string {
-  return `[artcraft]
+export async function generatePacmanRepoConfig(baseUrl: string): Promise<string> {
+  if (!(await isRepoSigningConfigured())) {
+    return `[artcraft]
 SigLevel = Optional TrustAll
+Server = ${baseUrl}/arch/$arch
+`;
+  }
+  return `[artcraft]
+# Import the key before syncing, otherwise pacman rejects the repository:
+#   sudo pacman-key --add /tmp/artcraft.asc && sudo pacman-key --lsign-key <fingerprint>
+SigLevel = Required DatabaseRequired
 Server = ${baseUrl}/arch/$arch
 `;
 }

@@ -91,7 +91,7 @@ export const PromptFullscreenModal = ({
   const showCounter =
     promptLength !== undefined && maxPromptLength !== undefined;
   const overLimit =
-    showCounter && isFinite(maxPromptLength) && promptLength > maxPromptLength;
+    showCounter && Number.isFinite(maxPromptLength) && promptLength > maxPromptLength;
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Focus the editor and drop the caret at the end once the overlay opens.
@@ -142,7 +142,7 @@ export const PromptFullscreenModal = ({
               }`}
             >
               {promptLength} /{" "}
-              {isFinite(maxPromptLength) ? maxPromptLength : "∞"}
+              {Number.isFinite(maxPromptLength) ? maxPromptLength : "∞"}
             </span>
           </div>
         )}

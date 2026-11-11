@@ -8,6 +8,7 @@ pub const ARTCRAFT_WEBSITE_WWW: Domain = domain!("www.getartcraft.com");
 
 /// Browser web application.
 pub const ARTCRAFT_WEBAPP: Domain = domain!("app.getartcraft.com");
+pub const ARTCRAFT_WEBAPP_NEW: Domain = domain!("app-new.getartcraft.com");
 
 /// Desktop app landing page.
 pub const ARTCRAFT_DESKTOP: Domain = domain!("desktop.getartcraft.com");
@@ -35,6 +36,7 @@ mod tests {
   #[test]
   fn webapp() {
     assert_eq!(ARTCRAFT_WEBAPP.https_link_without_path(), "https://app.getartcraft.com");
+    assert_eq!(ARTCRAFT_WEBAPP_NEW.https_link_without_path(), "https://app-new.getartcraft.com");
   }
 
   #[test]

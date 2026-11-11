@@ -37,7 +37,7 @@ log = "0.4.14"
 strum.workspace = true
 
 # Bigger pieces
-tokio = { version = "1.38.0", features = ["macros"] }
+tokio = { version = "1.38.0", features = ["macros", "fs"] }
 sqlx = { version = "0.7.4", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
 elasticsearch.workspace = true
 
