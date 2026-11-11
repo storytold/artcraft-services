@@ -7,6 +7,7 @@ use log::{debug, info};
 use crate::error::fal_error::FalError;
 use crate::requests::core_api::queue::Queue;
 use crate::requests::core_api::queue_response::QueueResponse;
+use crate::requests::core_api::fal_queue_urls::fal_queue_urls;
 use crate::requests::core_api::webhook_response::WebhookResponse;
 
 /// Host for synchronous ("run and wait") requests.
@@ -163,7 +164,15 @@ impl<Params: Serialize, Response: DeserializeOwned> FalRequest<Params, Response>
       return Err(error.into());
     }
 
-    let payload: WebhookResponse = response.error_for_status()?.json().await?;
+    let mut payload: WebhookResponse = response.error_for_status()?.json().await?;
+
+    // Keep where the request can be polled, so a result whose webhook never arrives can still be
+    // fetched. FAL's response may not include the URLs; they follow from the endpoint.
+    if let Some(request_id) = payload.request_id.as_deref() {
+      let (status_url, response_url) = fal_queue_urls(&self.queue_base_url, &self.endpoint, request_id);
+      payload.status_url.get_or_insert(status_url);
+      payload.response_url.get_or_insert(response_url);
+    }
 
     Ok(payload)
   }
@@ -338,6 +347,41 @@ mod tests {
         .map(|(_, v)| v.into_owned())
         .expect("fal_webhook param");
       assert_eq!(decoded, WEBHOOK_URL);
+    }
+  }
+
+  mod queue_url_tests {
+    use super::*;
+
+    /// A webhook submit response that only names the request.
+    const REQUEST_ID_ONLY_BODY: &str = r#"{"request_id": "01a082d7", "gateway_request_id": "01a082d7"}"#;
+
+    #[tokio::test]
+    async fn queue_urls_in_the_response_are_kept() {
+      let (base_url, _captured) = spawn_capture_server(QUEUE_RESPONSE_BODY).await;
+
+      let response = new_request()
+        .with_queue_base_url(base_url)
+        .queue_webhook(WEBHOOK_URL)
+        .await
+        .expect("queue_webhook should succeed");
+
+      assert_eq!(response.status_url.as_deref(), Some("https://queue.fal.run/fal-ai/nano-banana-pro/requests/01a082d7/status"));
+      assert_eq!(response.response_url.as_deref(), Some("https://queue.fal.run/fal-ai/nano-banana-pro/requests/01a082d7"));
+    }
+
+    #[tokio::test]
+    async fn queue_urls_missing_from_the_response_are_derived_from_the_endpoint() {
+      let (base_url, _captured) = spawn_capture_server(REQUEST_ID_ONLY_BODY).await;
+
+      let response = new_request()
+        .with_queue_base_url(base_url.clone())
+        .queue_webhook(WEBHOOK_URL)
+        .await
+        .expect("queue_webhook should succeed");
+
+      assert_eq!(response.status_url, Some(format!("{base_url}/fal-ai/nano-banana-pro/requests/01a082d7/status")));
+      assert_eq!(response.response_url, Some(format!("{base_url}/fal-ai/nano-banana-pro/requests/01a082d7")));
     }
   }
 
