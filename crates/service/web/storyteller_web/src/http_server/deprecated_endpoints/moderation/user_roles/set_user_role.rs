@@ -13,6 +13,7 @@ use mysql_queries::queries::users::user_roles::set_user_role::set_user_role;
 
 use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
 use crate::http_server::web_utils::response_success_helpers::simple_json_success;
 use crate::state::server_state::ServerState;
 
@@ -33,22 +34,9 @@ pub async fn set_user_role_handler(
   request: web::Json<SetUserRoleRequest>,
   server_state: web::Data<Arc<ServerState>>) -> Result<HttpResponse, CommonWebError>
 {
-  let maybe_user_session = server_state
-      .session_checker
-      .maybe_get_user_session(&http_request, &server_state.mysql_pool)
-      .await
-      .map_err(|e| {
-        warn!("Session checker error: {:?}", e);
-        CommonWebError::from_error(e)
-      })?;
-
-  let user_session = match maybe_user_session {
-    Some(session) => session,
-    None => {
-      warn!("not logged in");
-      return Err(CommonWebError::NotAuthorized);
-    }
-  };
+  // NB: require_user_session rejects banned callers, who keep their role and sessions.
+  let user_session = require_user_session(
+    &http_request, &server_state.session_checker, &server_state.mysql_pool).await?;
 
   // TODO: This is not the correct permission
   if !user_session.can_ban_users {

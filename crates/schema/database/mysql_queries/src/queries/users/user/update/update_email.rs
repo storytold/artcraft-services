@@ -34,6 +34,12 @@ impl Display for UpdateEmailError {
   }
 }
 
+/// Change the user's email address and mark it unconfirmed.
+///
+/// This also bumps `password_version`, which every outstanding password
+/// reset is bound to (see `lookup_password_reset_request`). A reset link
+/// sent to the previous address therefore stops working, and can't be used
+/// to mark the new, unverified address as confirmed.
 pub async fn update_email<'e, 't>(
   args: UpdateEmailArgs<'e, 't>
 ) -> Result<(), UpdateEmailError>
@@ -48,6 +54,7 @@ SET
   email_is_synthetic = false,
   email_gravatar_hash = ?,
   ip_address_last_update = ?,
+  password_version = password_version + 1,
   version = version + 1
 WHERE
   token = ?

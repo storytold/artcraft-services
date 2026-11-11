@@ -46,6 +46,7 @@ LEFT OUTER JOIN user_roles
   ON users.user_role_slug = user_roles.slug
 WHERE user_sessions.token = ?
   AND user_sessions.deleted_at IS NULL
+  AND (user_sessions.expires_at IS NULL OR user_sessions.expires_at > UTC_TIMESTAMP())
   AND users.user_deleted_at IS NULL
   AND users.mod_deleted_at IS NULL
 LIMIT 1

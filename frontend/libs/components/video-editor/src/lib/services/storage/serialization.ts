@@ -1,3 +1,4 @@
+import type { EditorProject } from "../../adapters/types";
 import type { MediaAsset } from "../../media/types";
 import type { TProject } from "../../project/types";
 import type { AudioTrack, TScene } from "../../timeline/types";
@@ -64,6 +65,27 @@ export function deserializeProjectDocument(
   }
 
   return null;
+}
+
+// Deserializes a document returned by a ProjectStorageAdapter and binds the
+// project to the id the adapter loaded it under. The document body is
+// untrusted (it can be authored by anyone who can upload a project file), so
+// its embedded `metadata.id` must never pick the target of later saves:
+// otherwise opening a crafted document could redirect autosaves onto a
+// different project the viewer owns.
+export function deserializeStoredProject(
+  envelope: EditorProject | null,
+): { project: TProject; media: MediaAssetData[] } | null {
+  if (!envelope) return null;
+  const document = deserializeProjectDocument(envelope.data);
+  if (!document) return null;
+  return {
+    ...document,
+    project: {
+      ...document.project,
+      metadata: { ...document.project.metadata, id: envelope.id },
+    },
+  };
 }
 
 export function mediaAssetToData(asset: MediaAsset): MediaAssetData {

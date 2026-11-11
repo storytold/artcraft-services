@@ -67,8 +67,18 @@ pub async fn download_media_file<P: AsRef<Path>>(
   // 3. Download the bytes from the CDN.
   let bytes = download_bytes(cdn_url).await?;
 
-  // 4. Write to disk.
-  let mut file = fs::File::create(&output_path)
+  // 4. Write to disk. NB: Remove any existing entry (a symlink is removed, not followed) and create
+  // exclusively, so a planted link can't redirect the write onto another file.
+  match fs::remove_file(&output_path) {
+    Err(err) if err.kind() != std::io::ErrorKind::NotFound =>
+      return Err(StorytellerError::Client(ClientError::IoError(err))),
+    _ => {}
+  }
+
+  let mut file = fs::OpenOptions::new()
+    .write(true)
+    .create_new(true)
+    .open(&output_path)
     .map_err(|err| StorytellerError::Client(ClientError::IoError(err)))?;
 
   file.write_all(&bytes)
@@ -127,7 +137,15 @@ fn derive_filename_from_url(url: &Url, media_token: &MediaFileToken) -> String {
     .and_then(|ext| ext.to_str())
     .unwrap_or("bin");
 
-  format!("{}.{}", media_token.as_str(), extension)
+  // NB: The token and extension come from the request and the server; keep them to filename-safe
+  // characters so neither can add path separators or `..`.
+  format!("{}.{}", filename_safe(media_token.as_str()), filename_safe(extension))
+}
+
+fn filename_safe(value: &str) -> String {
+  value.chars()
+    .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+    .collect()
 }
 
 #[cfg(test)]
@@ -146,6 +164,13 @@ mod tests {
     let url = Url::parse("https://cdn.example.com/files/abc123").unwrap();
     let token = MediaFileToken::new_from_str("mf_test123");
     assert_eq!(derive_filename_from_url(&url, &token), "mf_test123.bin");
+  }
+
+  #[test]
+  fn derive_filename_from_url_cannot_traverse() {
+    let url = Url::parse("https://cdn.example.com/files/abc123.png").unwrap();
+    let token = MediaFileToken::new_from_str("../../etc/cron.d/x");
+    assert_eq!(derive_filename_from_url(&url, &token), "______etc_cron_d_x.png");
   }
 
   #[test]

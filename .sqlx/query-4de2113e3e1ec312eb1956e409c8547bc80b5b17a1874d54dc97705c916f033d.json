@@ -1,0 +1,36 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT file_size_bytes, checksum_sha2 FROM media_files WHERE token = ?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "file_size_bytes",
+        "type_info": {
+          "type": "Long",
+          "flags": "NOT_NULL",
+          "char_set": 63,
+          "max_size": 10
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "checksum_sha2",
+        "type_info": {
+          "type": "String",
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 224,
+          "max_size": 256
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4de2113e3e1ec312eb1956e409c8547bc80b5b17a1874d54dc97705c916f033d"
+}

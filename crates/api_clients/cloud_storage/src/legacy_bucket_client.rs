@@ -71,7 +71,11 @@ impl LegacyBucketClient {
 
     let mut bucket = Bucket::new(&bucket_name, region, credentials)?;
 
-    bucket.set_request_timeout(bucket_request_timeout);
+    // NB: `set_request_timeout` does not reach the tokio HTTP client (built in the constructor),
+    // so a stalled peer could hang a transfer forever. `with_request_timeout` rebuilds the client.
+    if let Some(timeout) = bucket_request_timeout {
+      bucket = bucket.with_request_timeout(timeout)?;
+    }
 
     match s3_endpoint {
       "https://storage.googleapis.com" => {
@@ -103,10 +107,10 @@ impl LegacyBucketClient {
   }
 
   pub async fn upload_file(&self, object_name: &str, bytes: &[u8]) -> anyhow::Result<()> {
-    debug!("Filename for bucket: {}", object_name);
+    debug!("Filename for bucket: {:?}", object_name);
 
     let object_name = self.get_rooted_object_name(object_name)?;
-    debug!("Rooted filename for bucket: {}", object_name);
+    debug!("Rooted filename for bucket: {:?}", object_name);
 
     let response = self.bucket.put_object(&object_name, bytes).await?;
 
@@ -120,15 +124,15 @@ impl LegacyBucketClient {
       warn!("failed upload body: {}", body);
     }
 
-    info!("Successfully uploaded file to bucket: {}", object_name);
+    info!("Successfully uploaded file to bucket: {:?}", object_name);
 
     Ok(())
   }
 
   pub async fn upload_file_with_content_type_process(&self, object_name: &str, bytes: &[u8], content_type: &str) -> AnyhowResult<()> {
-    info!("Filename for bucket: {}", object_name);
+    info!("Filename for bucket: {:?}", object_name);
     let object_name = self.get_rooted_object_name(object_name)?;
-    info!("Rooted filename for bucket: {}", object_name);
+    info!("Rooted filename for bucket: {:?}", object_name);
     let response = self.bucket.put_object_with_content_type(&object_name, bytes, content_type).await?;
     let body_bytes = response.bytes();
     let code = response.status_code();
@@ -145,10 +149,10 @@ impl LegacyBucketClient {
 
   #[deprecated = "Use upload_file instead above it returns an error we can surface and act on. upload_file_with_content_type_process"]
   pub async fn upload_file_with_content_type(&self, object_name: &str, bytes: &[u8], content_type: &str) -> anyhow::Result<()> {
-    info!("Filename for bucket: {}", object_name);
+    info!("Filename for bucket: {:?}", object_name);
 
     let object_name = self.get_rooted_object_name(object_name)?;
-    info!("Rooted filename for bucket: {}", object_name);
+    info!("Rooted filename for bucket: {:?}", object_name);
 
     let response = self.bucket.put_object_with_content_type(&object_name, bytes, content_type).await;
 

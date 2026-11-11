@@ -167,18 +167,7 @@ pub async fn set_user_rating_handler(
       .map(|rating| rating.rating_value)
       .unwrap_or(UserRatingValue::Neutral);
 
-  let mut maybe_rating_action =
-      match (existing_rating_value, request.rating_value) {
-        (UserRatingValue::Neutral, UserRatingValue::Neutral) => None,
-        (UserRatingValue::Neutral, UserRatingValue::Positive) => Some(RatingsAction::NeutralToPositive),
-        (UserRatingValue::Neutral, UserRatingValue::Negative) => Some(RatingsAction::NeutralToNegative),
-        (UserRatingValue::Positive, UserRatingValue::Neutral) => Some(RatingsAction::PositiveToNeutral),
-        (UserRatingValue::Positive, UserRatingValue::Positive) => None,
-        (UserRatingValue::Positive, UserRatingValue::Negative) => Some(RatingsAction::PositiveToNegative),
-        (UserRatingValue::Negative, UserRatingValue::Neutral) => Some(RatingsAction::NegativeToNeutral),
-        (UserRatingValue::Negative, UserRatingValue::Positive) => Some(RatingsAction::NeutralToPositive),
-        (UserRatingValue::Negative, UserRatingValue::Negative) => None,
-      };
+  let maybe_rating_action = ratings_action_for_change(existing_rating_value, request.rating_value);
 
   if let Some(rating_action) = maybe_rating_action {
 
@@ -239,4 +228,53 @@ pub async fn set_user_rating_handler(
   };
 
   Ok(Json(response))
+}
+
+/// Which `entity_stats` counter change a user's rating change requires.
+fn ratings_action_for_change(existing: UserRatingValue, new: UserRatingValue) -> Option<RatingsAction> {
+  match (existing, new) {
+    (UserRatingValue::Neutral, UserRatingValue::Neutral) => None,
+    (UserRatingValue::Neutral, UserRatingValue::Positive) => Some(RatingsAction::NeutralToPositive),
+    (UserRatingValue::Neutral, UserRatingValue::Negative) => Some(RatingsAction::NeutralToNegative),
+    (UserRatingValue::Positive, UserRatingValue::Neutral) => Some(RatingsAction::PositiveToNeutral),
+    (UserRatingValue::Positive, UserRatingValue::Positive) => None,
+    (UserRatingValue::Positive, UserRatingValue::Negative) => Some(RatingsAction::PositiveToNegative),
+    (UserRatingValue::Negative, UserRatingValue::Neutral) => Some(RatingsAction::NegativeToNeutral),
+    (UserRatingValue::Negative, UserRatingValue::Positive) => Some(RatingsAction::NegativeToPositive),
+    (UserRatingValue::Negative, UserRatingValue::Negative) => None,
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use enums::by_table::user_ratings::rating_value::UserRatingValue::{Negative, Neutral, Positive};
+  use mysql_queries::queries::entity_stats::upsert_entity_stats_on_ratings_event::RatingsAction;
+
+  use super::ratings_action_for_change;
+
+  #[test]
+  fn unchanged_ratings_do_not_touch_counts() {
+    assert!(ratings_action_for_change(Neutral, Neutral).is_none());
+    assert!(ratings_action_for_change(Positive, Positive).is_none());
+    assert!(ratings_action_for_change(Negative, Negative).is_none());
+  }
+
+  #[test]
+  fn changes_from_neutral() {
+    assert!(matches!(ratings_action_for_change(Neutral, Positive), Some(RatingsAction::NeutralToPositive)));
+    assert!(matches!(ratings_action_for_change(Neutral, Negative), Some(RatingsAction::NeutralToNegative)));
+  }
+
+  #[test]
+  fn changes_from_positive() {
+    assert!(matches!(ratings_action_for_change(Positive, Neutral), Some(RatingsAction::PositiveToNeutral)));
+    assert!(matches!(ratings_action_for_change(Positive, Negative), Some(RatingsAction::PositiveToNegative)));
+  }
+
+  #[test]
+  fn changes_from_negative() {
+    assert!(matches!(ratings_action_for_change(Negative, Neutral), Some(RatingsAction::NegativeToNeutral)));
+    // Must also remove the old negative vote, not only add a positive one.
+    assert!(matches!(ratings_action_for_change(Negative, Positive), Some(RatingsAction::NegativeToPositive)));
+  }
 }

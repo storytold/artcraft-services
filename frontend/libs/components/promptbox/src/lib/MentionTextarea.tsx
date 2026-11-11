@@ -15,6 +15,7 @@ import { DynamicIcon } from "@storyteller/icons";
 import { useEnterToGenerateStore } from "./promptStore";
 import { MentionChipMenu } from "./MentionChipMenu";
 import { DeckPreviewModal } from "./deck/DeckCard";
+import { sanitizeCssColor } from "./cssColor";
 
 export interface MentionItem {
   label: string;
@@ -678,7 +679,11 @@ export const MentionTextarea = forwardRef<HTMLDivElement, MentionTextareaProps>(
     // Case-insensitive so users can type "@image1" and still get it tagged
     // when the canonical label is "@Image1".
     const mentionRegex = useMemo(() => {
-      const labels = mentionItems.map((item) => item.label);
+      // An empty label would match the empty string and the exec() loops in
+      // buildHTML never advance past a zero-length match.
+      const labels = mentionItems
+        .map((item) => item.label)
+        .filter((label) => label.length > 0);
       if (labels.length === 0) return null;
       const sorted = [...labels].sort((a, b) => b.length - a.length);
       const pattern = sorted.map((l) => escapeRegex(l)).join("|");
@@ -686,10 +691,13 @@ export const MentionTextarea = forwardRef<HTMLDivElement, MentionTextareaProps>(
     }, [mentionItems]);
 
     // Case-insensitive lookup table for colorMap so "@image1" finds "@Image1".
+    // Colors are interpolated into innerHTML, so only plain CSS color values
+    // are kept; anything else is dropped (the mention renders uncolored).
     const lowerColorMap = useMemo(() => {
       const m: Record<string, string> = {};
       for (const [k, v] of Object.entries(colorMap)) {
-        m[k.toLowerCase()] = v;
+        const color = sanitizeCssColor(v);
+        if (color) m[k.toLowerCase()] = color;
       }
       return m;
     }, [colorMap]);
@@ -759,7 +767,7 @@ export const MentionTextarea = forwardRef<HTMLDivElement, MentionTextareaProps>(
     const buildChipHTML = useCallback(
       (item: MentionItem, matchText: string): string => {
         const color = lowerColorMap[matchText.toLowerCase()];
-        const colorStyle = color ? ` style="color:${color}"` : "";
+        const colorStyle = color ? ` style="color:${escapeHTML(color)}"` : "";
         return (
           `<span contenteditable="false" draggable="false"` +
           ` data-mention="${escapeHTML(matchText)}"` +
@@ -807,7 +815,7 @@ export const MentionTextarea = forwardRef<HTMLDivElement, MentionTextareaProps>(
             html += buildChipHTML(item, fullMatch);
             endsWithChip = true;
           } else if (color) {
-            html += `<span style="color:${color}">${escapeHTML(fullMatch)}</span>`;
+            html += `<span style="color:${escapeHTML(color)}">${escapeHTML(fullMatch)}</span>`;
             endsWithChip = false;
           } else {
             html += escapeHTML(fullMatch);
@@ -1314,6 +1322,7 @@ export const MentionTextarea = forwardRef<HTMLDivElement, MentionTextareaProps>(
       const chipType = chipMenuItem?.type ?? "character";
       return mentionItems.filter(
         (i) =>
+          i.label.length > 0 &&
           i.type === chipType &&
           (chipMenu.token
             ? i.token !== chipMenu.token

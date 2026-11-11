@@ -40,6 +40,12 @@ function cdnProxyPlugin() {
             return;
           }
           const [, host, assetPath = '/', query = ''] = match;
+          // Only a bare hostname: no userinfo or port.
+          if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(host)) {
+            res.statusCode = 400;
+            res.end('Bad /__cdn host');
+            return;
+          }
           const upstream = await fetch(`https://${host}${assetPath}${query}`, {
             method: req.method === 'HEAD' ? 'HEAD' : 'GET',
             headers: req.headers.range
@@ -58,6 +64,14 @@ function cdnProxyPlugin() {
             const value = upstream.headers.get(header);
             if (value) res.setHeader(header, value);
           }
+          // The upstream bytes are served from the app's own origin, so they
+          // must never run as an active document here: an HTML or SVG
+          // response opened directly would otherwise get script access to
+          // the app's storage and session. Assets loaded via fetch()/<img>
+          // are unaffected by these headers.
+          res.setHeader('content-security-policy', "sandbox; default-src 'none'");
+          res.setHeader('x-content-type-options', 'nosniff');
+          res.setHeader('content-disposition', 'attachment');
           const body = Buffer.from(await upstream.arrayBuffer());
           res.end(body);
         } catch (e) {

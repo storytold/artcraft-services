@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "\nINSERT INTO voice_conversion_models\nSET\n  token = ?,\n  model_type = ?,\n  title = ?,\n  description_markdown = '',\n  description_rendered_html = '',\n  creator_user_token = ?,\n  ip_address_creation = ?,\n  ip_address_last_update = ?,\n  creator_set_visibility = ?,\n  original_download_url = ?,\n  has_index_file = ?,\n  private_bucket_hash = ?,\n  private_bucket_object_name = ?,\n  file_size_bytes = ?,\n  maybe_migration_new_model_weights_token = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 13
+    },
+    "nullable": []
+  },
+  "hash": "67ac759a041071e63347137fc8a83db0eb01d6286ffa70482141a5cd548b6037"
+}

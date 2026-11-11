@@ -4,6 +4,7 @@ use enums::by_table::media_files::media_file_type::MediaFileType;
 use enums::by_table::model_weights::weights_category::WeightsCategory;
 use enums::by_table::model_weights::weights_types::WeightsType;
 use enums::by_table::user_bookmarks::user_bookmark_entity_type::UserBookmarkEntityType;
+use enums::common::visibility::Visibility;
 use errors::AnyhowResult;
 
 use crate::queries::users::user_bookmarks::list_user_bookmarks_result::RawUserBookmarkRecord;
@@ -27,6 +28,11 @@ pub struct ListUserBookmarksForUserArgs<'a> {
     pub page_size: usize,
     pub page_index: usize,
     pub sort_ascending: bool,
+    /// The logged-in user viewing the list, if any. Bookmarked private
+    /// media files are only listed for their creator.
+    pub maybe_viewer_user_token: Option<&'a str>,
+    /// Moderators see every bookmark, including private and deleted media.
+    pub viewer_is_moderator: bool,
     pub mysql_pool: &'a MySqlPool,
 }
 
@@ -99,6 +105,8 @@ fn query_builder<'a>(
     page_index: usize,
     page_size: usize,
     sort_ascending: bool,
+    maybe_viewer_user_token: Option<&'a str>,
+    viewer_is_moderator: bool,
     select_fields: &'a str,
 ) -> QueryBuilder<'a, MySql> {
 
@@ -195,6 +203,22 @@ LEFT OUTER JOIN zs_voices ON zs_voices.token = f.entity_token
 
     query_builder.push(" AND f.deleted_at IS NULL ");
 
+    // Bookmarks are listed publicly, so a bookmarked media file must pass
+    // the same visibility and deletion rules as the media file itself.
+    // Rows that aren't media bookmarks have no joined media_files row.
+    if !viewer_is_moderator {
+        query_builder.push(" AND (media_files.token IS NULL OR (\
+            media_files.user_deleted_at IS NULL \
+            AND media_files.mod_deleted_at IS NULL \
+            AND (media_files.creator_set_visibility <> ");
+        query_builder.push_bind(Visibility::Private.to_str());
+        if let Some(viewer_user_token) = maybe_viewer_user_token {
+            query_builder.push(" OR media_files.maybe_creator_user_token = ");
+            query_builder.push_bind(viewer_user_token);
+        }
+        query_builder.push("))) ");
+    }
+
     if sort_ascending {
         query_builder.push(" ORDER BY f.created_at ASC ");
     } else {
@@ -224,6 +248,8 @@ pub async fn list_user_bookmarks_by_maybe_entity_type(
         0,
         0,
         args.sort_ascending,
+        args.maybe_viewer_user_token,
+        args.viewer_is_moderator,
         count_fields.as_str(),
     );
 
@@ -242,6 +268,8 @@ pub async fn list_user_bookmarks_by_maybe_entity_type(
         args.page_index,
         args.page_size,
         args.sort_ascending,
+        args.maybe_viewer_user_token,
+        args.viewer_is_moderator,
         result_fields,
     );
 
@@ -261,4 +289,35 @@ pub async fn list_user_bookmarks_by_maybe_entity_type(
         current_page: args.page_index,
         total_page_count: number_of_pages,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::query_builder;
+
+    fn build_sql(maybe_viewer: Option<&str>, is_moderator: bool) -> String {
+        query_builder(None, None, None, None, Some("someone"), true, 0, 10, false,
+            maybe_viewer, is_moderator, "f.token").sql().to_string()
+    }
+
+    #[test]
+    fn anonymous_viewer_gets_private_and_deleted_media_filtered() {
+        let sql = build_sql(None, false);
+        assert!(sql.contains("media_files.creator_set_visibility <> ?"));
+        assert!(sql.contains("media_files.user_deleted_at IS NULL"));
+        assert!(sql.contains("media_files.mod_deleted_at IS NULL"));
+        assert!(!sql.contains("media_files.maybe_creator_user_token = ?"));
+    }
+
+    #[test]
+    fn logged_in_viewer_can_see_own_private_media() {
+        let sql = build_sql(Some("U:VIEWER"), false);
+        assert!(sql.contains("media_files.creator_set_visibility <> ? OR media_files.maybe_creator_user_token = ?"));
+    }
+
+    #[test]
+    fn moderator_is_not_filtered() {
+        let sql = build_sql(Some("U:MOD"), true);
+        assert!(!sql.contains("creator_set_visibility"));
+    }
 }

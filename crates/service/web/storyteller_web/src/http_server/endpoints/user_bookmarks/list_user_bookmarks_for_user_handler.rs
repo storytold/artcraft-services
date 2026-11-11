@@ -18,7 +18,7 @@ use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::state::server_state::ServerState;
 use actix_web::error::ResponseError;
 use actix_web::http::StatusCode;
-use actix_web::web::{Json, Path, Query};
+use actix_web::web::{Path, Query};
 use actix_web::{web, HttpRequest, HttpResponse};
 use artcraft_api_defs::common::responses::media_links::MediaLinks;
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
@@ -187,11 +187,27 @@ pub async fn list_user_bookmarks_for_user_handler(
   path: Path<ListUserBookmarksPathInfo>,
   query: Query<ListUserBookmarksQueryData>,
   server_state: web::Data<Arc<ServerState>>
-) -> Result<Json<ListUserBookmarksForUserSuccessResponse>, ListUserBookmarksForUserError>
+) -> Result<HttpResponse, ListUserBookmarksForUserError>
 {
   let sort_ascending = query.sort_ascending.unwrap_or(false);
   let page_size = query.page_size.unwrap_or(25);
   let page_index = query.page_index.unwrap_or(0);
+
+  let maybe_user_session = server_state
+      .session_checker
+      .maybe_get_user_session(&http_request, &server_state.mysql_pool)
+      .await
+      .unwrap_or_else(|e| {
+        warn!("Session checker error: {:?}", e);
+        None
+      });
+
+  let maybe_viewer_user_token = maybe_user_session.as_ref()
+      .map(|session| session.user_token.as_str());
+
+  let viewer_is_moderator = maybe_user_session.as_ref()
+      .map(|session| session.can_delete_other_users_tts_results)
+      .unwrap_or(false);
 
   let query_results =
       list_user_bookmarks_by_maybe_entity_type(ListUserBookmarksForUserArgs{
@@ -203,6 +219,8 @@ pub async fn list_user_bookmarks_for_user_handler(
         sort_ascending,
         page_size,
         page_index,
+        maybe_viewer_user_token,
+        viewer_is_moderator,
         mysql_pool: &server_state.mysql_pool,
       }).await;
 
@@ -348,5 +366,9 @@ pub async fn list_user_bookmarks_for_user_handler(
     }
   };
 
-  Ok(Json(response))
+  // The body depends on who is asking (private/deleted media for the owner or a moderator),
+  // so a shared cache must never replay it to another viewer.
+  Ok(HttpResponse::Ok()
+      .insert_header(("Cache-Control", "private, no-store"))
+      .json(response))
 }

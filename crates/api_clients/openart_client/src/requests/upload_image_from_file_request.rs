@@ -25,6 +25,9 @@ use tokio::io::AsyncReadExt;
 /// There's a better way to implement this.
 const INITIAL_BUFFER_SIZE : usize = 1024*1024;
 
+/// Upper bound on the file we will buffer (images/short clips); anything larger is rejected.
+const MAX_UPLOAD_BYTES: u64 = 256 * 1024 * 1024;
+
 const UPLOAD_URL: &str = "https://openart.ai/api/media/upload_raw_image";
 
 pub async fn upload_image_from_file_request<P: AsRef<Path>>(
@@ -42,11 +45,26 @@ pub async fn upload_image_from_file_request<P: AsRef<Path>>(
       .await
       .map_err(|err| OpenArtError::Client(ClientError::IoError(err)))?;
   
+  // NB: Refuse devices/FIFOs (endless streams), then read at most one byte past the cap so a
+  // file that grows or lies about its size is still detected without unbounded allocation.
+  let is_regular_file = file.metadata()
+      .await
+      .map_err(|err| OpenArtError::Client(ClientError::IoError(err)))?
+      .is_file();
+
+  if !is_regular_file {
+    return Err(OpenArtError::Client(ClientError::Other("Upload path is not a regular file".to_string())));
+  }
+
   let mut file_bytes = Vec::with_capacity(INITIAL_BUFFER_SIZE);
-  
-  file.read_to_end(&mut file_bytes)
+
+  (&mut file).take(MAX_UPLOAD_BYTES + 1).read_to_end(&mut file_bytes)
       .await
       .map_err(|err| OpenArtError::Client(ClientError::IoError(err)))?;
+
+  if file_bytes.len() as u64 > MAX_UPLOAD_BYTES {
+    return Err(OpenArtError::Client(ClientError::Other(format!("File exceeds the {MAX_UPLOAD_BYTES} byte upload limit"))));
+  }
 
   // TODO: Read file magic bytes first, then fall back to this.
   let mime_type = match file_path.as_ref().extension().and_then(|e| e.to_str()) {
