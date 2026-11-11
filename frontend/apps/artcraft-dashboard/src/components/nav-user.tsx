@@ -5,6 +5,7 @@ import {
   IconMoon,
 } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getIdenticonUrl } from "@/lib/identicon";
@@ -37,11 +38,16 @@ export function NavUser() {
   const identiconSrc = getIdenticonUrl(user.username || user.email);
 
   const handleLogout = async () => {
-    try {
-      const api = new UsersApi();
-      await api.Logout();
-    } catch {
-      // proceed with local logout regardless
+    // Only show the login page once the server has revoked the session. If
+    // the request fails, the session cookie still works, so say so instead
+    // of looking logged out.
+    const response = await new UsersApi().Logout();
+    if (!response.success) {
+      toast.error("Log out failed. Your session is still active.", {
+        description: response.errorMessage,
+        action: { label: "Retry", onClick: () => void handleLogout() },
+      });
+      return;
     }
     logoutState();
   };
