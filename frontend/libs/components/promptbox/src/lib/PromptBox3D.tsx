@@ -328,7 +328,7 @@ export const PromptBox3D = ({
     if (onBeforeSubmit && !onBeforeSubmit()) return;
     const trimmed = prompt.trim();
     if (!trimmed) return;
-    if (isFinite(maxLen) && trimmed.length > maxLen) {
+    if (Number.isFinite(maxLen) && trimmed.length > maxLen) {
       toast.error(`Prompt exceeds the ${maxLen} character limit for this model`);
       return;
     }
@@ -341,7 +341,7 @@ export const PromptBox3D = ({
     if (onBeforeSubmit && !onBeforeSubmit()) {
       return;
     }
-    if (isFinite(maxLen) && prompt.length > maxLen) {
+    if (Number.isFinite(maxLen) && prompt.length > maxLen) {
       toast.error(
         `Prompt exceeds the ${maxLen} character limit for this model`,
       );
@@ -747,9 +747,9 @@ export const PromptBox3D = ({
               />
               <PromptFullscreenButton onClick={openFullscreen} />
               <span
-                className={`absolute -bottom-1 right-0 text-[10px] tabular-nums ${isFinite(maxLen) && prompt.length > maxLen ? "text-red-500" : "text-base-fg/40"}`}
+                className={`absolute -bottom-1 right-0 text-[10px] tabular-nums ${Number.isFinite(maxLen) && prompt.length > maxLen ? "text-red-500" : "text-base-fg/40"}`}
               >
-                {prompt.length} / {isFinite(maxLen) ? maxLen : "∞"}
+                {prompt.length} / {Number.isFinite(maxLen) ? maxLen : "∞"}
               </span>
             </div>
           </div>

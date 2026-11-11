@@ -39,8 +39,8 @@ export function countFromLabel(
   batchSizeMax?: number,
 ): number | null {
   const maxCount = batchSizeMax ?? DEFAULT_GENERATION_COUNT;
-  let count = parseInt(label, 10);
-  if (isNaN(count)) return null;
+  let count = Number.parseInt(label, 10);
+  if (Number.isNaN(count)) return null;
   if (count < 1 || count > maxCount) {
     count = Math.min(Math.max(1, count), maxCount);
   }
