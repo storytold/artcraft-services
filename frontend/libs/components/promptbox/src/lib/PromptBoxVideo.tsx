@@ -52,6 +52,7 @@ import {
 } from "./PromptFullscreenModal";
 import { PromptFullscreenButton } from "./PromptFullscreenButton";
 import { PromptClearAllButton } from "./PromptClearAllButton";
+import { PromptLengthCounter, isOverPromptLimit } from "./PromptLengthCounter";
 
 declare global {
   interface Window {
@@ -1026,7 +1027,7 @@ export const PromptBoxVideo = ({
       toast.error("Please enter a prompt to generate video");
       return;
     }
-    if (Number.isFinite(maxLen) && prompt.length > maxLen) {
+    if (isOverPromptLimit(prompt.length, maxLen)) {
       toast.error(
         `Prompt exceeds the ${maxLen} character limit for this model`,
       );
@@ -1395,11 +1396,7 @@ export const PromptBoxVideo = ({
                 />
               )}
               <PromptFullscreenButton onClick={openFullscreen} />
-              <span
-                className={`absolute -bottom-1 right-0 text-[10px] tabular-nums ${Number.isFinite(maxLen) && prompt.length > maxLen ? "text-red-500" : "text-base-fg/40"}`}
-              >
-                {prompt.length} / {Number.isFinite(maxLen) ? maxLen : "∞"}
-              </span>
+              <PromptLengthCounter prompt={prompt} maxLen={maxLen} />
             </div>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
