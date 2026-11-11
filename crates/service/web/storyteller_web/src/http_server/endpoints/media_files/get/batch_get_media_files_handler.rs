@@ -33,6 +33,7 @@ use crate::http_server::endpoints::media_files::common_responses::live_portrait:
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
 use crate::http_server::web_utils::bucket_urls::bucket_url_string_from_media_path::bucket_url_string_from_media_path;
 use crate::state::server_state::ServerState;
+use crate::util::lookup::media_read_policy;
 
 // =============== Request ===============
 
@@ -216,12 +217,16 @@ pub async fn batch_get_media_files_handler(
       .await?;
 
   let mut show_deleted_results = false;
+  let mut viewer_user_token: Option<String> = None;
 
   if let Some(user_session) = maybe_user_session {
     // NB: Moderators can see deleted results.
     // Original creators cannot see them (unless they're moderators!)
     show_deleted_results = user_session.can_delete_other_users_tts_results;
+    viewer_user_token = Some(user_session.user_token.as_str().to_string());
   }
+
+  let is_mod = show_deleted_results;
 
   let tokens = query.tokens.iter()
       .map(|token| MediaFileToken::new_from_str(&token))
@@ -246,6 +251,16 @@ pub async fn batch_get_media_files_handler(
   let media_domain = get_media_domain(&http_request);
 
   let media_files = media_files.into_iter()
+      // NB: Private media is readable only by its creator and by moderators. Records the caller
+      // may not read are dropped rather than reported, so a batch of guesses discloses nothing.
+      .filter(|result| {
+        media_read_policy::ensure_may_read_media(
+          &result.creator_set_visibility,
+          result.maybe_creator_user_token.as_ref().map(|token| token.as_str()),
+          viewer_user_token.as_deref(),
+          is_mod,
+        ).is_ok()
+      })
       .map(|result| {
         let public_bucket_path = MediaFileBucketPath::from_object_hash(
           &result.public_bucket_directory_hash,

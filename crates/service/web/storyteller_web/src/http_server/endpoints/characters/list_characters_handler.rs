@@ -76,7 +76,7 @@ pub async fn list_characters_handler(
   let media_records = if media_tokens_to_lookup.is_empty() {
     vec![]
   } else {
-    batch_get_media_files_by_tokens_with_connection(&mut mysql_connection, &media_tokens_to_lookup, false)
+    batch_get_media_files_by_tokens_with_connection(&mut mysql_connection, &media_tokens_to_lookup, false, &crate::util::lookup::media_read_policy::scope_for_user_token(user_token, false))
         .await
         .unwrap_or_else(|err| {
           warn!("Failed to look up media files for characters: {:?}", err);

@@ -51,7 +51,7 @@ mod test {
   #[test]
   fn not_just_unknown() {
     assert_eq!(get_scoped_media_classes(Some("unknown")), None);
-    assert_eq!(get_scoped_media_classes(Some("unknown,,")), None);
+    assert_eq!(get_scoped_media_classes(Some("unknown,")), None);
   }
 
   #[test]

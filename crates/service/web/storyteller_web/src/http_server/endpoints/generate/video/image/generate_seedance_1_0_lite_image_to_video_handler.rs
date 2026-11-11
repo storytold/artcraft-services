@@ -124,6 +124,7 @@ pub async fn generate_seedance_1_0_lite_image_to_video_handler(
   let media_files = fetch_all_required_media_files(
     &mut mysql_connection,
     &tokens,
+    &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
   ).await?;
 
   for media_file in media_files.iter() {
