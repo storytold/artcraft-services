@@ -148,7 +148,7 @@ pub async fn set_media_file_cover_image_handler(
         media_file.creator_set_visibility,
         media_file.maybe_creator_user_token.as_ref(),
         &user_session.user_token,
-        maybe_parent_creator_user_token.as_ref(),
+        Some(maybe_parent_creator_user_token.as_ref()),
       );
 
       if !may_use_image {
