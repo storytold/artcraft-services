@@ -18,9 +18,9 @@ class CatalogExportValidation(unittest.TestCase):
             root = Path(temporary)
             manifest = root / "crates/core/catalog.toml"
             manifest.parent.mkdir(parents=True)
-            manifest.write_text('# Source header\n\n[[apps]]\nid = "example"\nicon_url = "old"\nicon_sha256 = "old"\n')
+            manifest.write_text('# Source header\n\n[[apps]]\nid = "éxample"\nicon_url="old"\n  icon_sha256 = "old"\n', encoding="utf-8")
             result = catalog_sync.extract_catalog(root)
-            self.assertIn('id = "example"', result)
+            self.assertIn('id = "éxample"', result)
             self.assertNotIn("icon_url", result)
             self.assertNotIn("icon_sha256", result)
 

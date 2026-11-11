@@ -42,11 +42,11 @@ def extract_catalog(root):
     """Read the bundled TOML after launcher #1115, or compile legacy Rust data."""
     bundled = root / "crates/core/catalog.toml"
     if bundled.exists():
-        lines = bundled.read_text().splitlines()
+        lines = bundled.read_text(encoding="utf-8").splitlines()
         while lines and (not lines[0].strip() or lines[0].lstrip().startswith("#")):
             lines.pop(0)
         # Recompute content-addressed URLs/hashes from the actual source assets below.
-        return "\n" + "\n".join(line for line in lines if not line.startswith(("icon_url = ", "icon_sha256 = "))) + "\n"
+        return "\n" + "\n".join(line for line in lines if not re.match(r'^[ \t]*(?:icon_url|icon_sha256)[ \t]*=', line)) + "\n"
     # Compile the real source modules, including desktop metadata, rather than parse Rust.
     modules = {
         "catalog": root / "crates/core/src/catalog.rs",
@@ -60,7 +60,7 @@ def extract_catalog(root):
         'pub enum Os { FreeBsd, Linux, MacOs, Windows }\n'
         + "".join(f'#[path = {json.dumps(str(path))}] pub mod {name};\n' for name, path in modules.items())
         + 'pub use catalog::CraftApp;\n'
-        + (APP / "scripts/export-launcher-catalog.rs").read_text().replace(
+        + (APP / "scripts/export-launcher-catalog.rs").read_text(encoding="utf-8").replace(
             'use artcraft_launcher_core::{catalog, details, desktop_entry};', '')
     )
     executable = root / "export"
@@ -92,7 +92,7 @@ def main():
         if len(ids) != len(set(ids)):
             raise ValueError("Duplicate app IDs")
         outputs = {}
-        attribution = (root / "ATTRIBUTION.md").read_text().splitlines()
+        attribution = (root / "ATTRIBUTION.md").read_text(encoding="utf-8").splitlines()
         rows = []
         for app in parsed["apps"]:
             app_id = app["id"]
