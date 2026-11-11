@@ -9,6 +9,7 @@ use artcraft_api_defs::prompts::get_prompt::{
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use enums::by_table::prompt_context_items::prompt_context_semantic_type::PromptContextSemanticType;
 use log::{error, warn};
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::batch_get_media_files_by_tokens_with_connection;
 use mysql_queries::queries::prompt_context_items::list_prompt_context_items::list_prompt_context_items;
 use mysql_queries::queries::prompts::get_prompt::get_prompt_from_connection;
 
@@ -49,6 +50,7 @@ pub async fn get_prompt_handler(
     })?;
 
   let is_moderator = maybe_user_session
+    .as_ref()
     .map(|session| session.can_ban_users)
     .unwrap_or(false);
 
@@ -123,7 +125,27 @@ pub async fn get_prompt_handler(
     Vec::new()
   });
 
-  let items = items.iter().filter_map(|item| {
+  // NB: A prompt records the media it was built from, but that media keeps its own visibility: a
+  // private reference image must not be reachable through the prompt that used it.
+  let readable_media_tokens = {
+    let tokens = items.iter().map(|item| item.media_token.clone()).collect::<Vec<_>>();
+
+    if tokens.is_empty() {
+      std::collections::HashSet::new()
+    } else {
+      batch_get_media_files_by_tokens_with_connection(
+        &mut mysql_connection,
+        &tokens,
+        false,
+        &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
+      ).await.unwrap_or_else(|e| {
+        warn!("Error resolving prompt context media visibility: {:?}", e);
+        Vec::new()
+      }).into_iter().map(|record| record.token).collect::<std::collections::HashSet<_>>()
+    }
+  };
+
+  let items = items.iter().filter(|item| readable_media_tokens.contains(&item.media_token)).filter_map(|item| {
     let bucket_path = MediaFileBucketPath::from_object_hash(
       &item.public_bucket_directory_hash,
       item.maybe_public_bucket_prefix.as_deref(),
