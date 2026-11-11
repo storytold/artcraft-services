@@ -91,6 +91,8 @@ pub async fn set_media_file_cover_image_handler(
     }
   };
 
+  let maybe_parent_creator_user_token = media_file.maybe_creator_user_token.clone();
+
   let is_creator = media_file.maybe_creator_user_token
       .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
 
@@ -142,22 +144,23 @@ pub async fn set_media_file_cover_image_handler(
         return Err(CommonWebError::NotFound);
       }
 
-      let can_use_image = media_file.media_type.is_image();
-
-      if !can_use_image {
-        return Err(CommonWebError::BadInputWithSimpleMessage("Invalid media file token.".to_string()));
-      }
-
       let may_use_image = may_use_as_cover_image(
         media_file.creator_set_visibility,
         media_file.maybe_creator_user_token.as_ref(),
         &user_session.user_token,
+        maybe_parent_creator_user_token.as_ref(),
       );
 
       if !may_use_image {
         // Same response as a missing token, so private tokens are not confirmed to exist.
         warn!("User may not use private media file as a cover: {:?}", media_file_token);
         return Err(CommonWebError::NotFound);
+      }
+
+      let can_use_image = media_file.media_type.is_image();
+
+      if !can_use_image {
+        return Err(CommonWebError::BadInputWithSimpleMessage("Invalid media file token.".to_string()));
       }
 
       maybe_set_media_file_token = Some(media_file.token);

@@ -135,22 +135,23 @@ pub async fn set_model_weight_cover_image_handler(
       //let can_use_image = media_file.creator_set_visibility == Visibility::Public
       //    && media_file.media_type == MediaFileType::Image;
 
-      let can_use_image = media_file.media_type.is_image();
-
-      if !can_use_image {
-        return Err(CommonWebError::BadInputWithSimpleMessage("Invalid media file token.".to_string()));
-      }
-
       let may_use_image = may_use_as_cover_image(
         media_file.creator_set_visibility,
         media_file.maybe_creator_user_token.as_ref(),
         &user_session.user_token,
+        None,
       );
 
       if !may_use_image {
         // Same response as a missing token, so private tokens are not confirmed to exist.
         warn!("User may not use private media file as a cover: {:?}", media_file_token);
         return Err(CommonWebError::NotFound);
+      }
+
+      let can_use_image = media_file.media_type.is_image();
+
+      if !can_use_image {
+        return Err(CommonWebError::BadInputWithSimpleMessage("Invalid media file token.".to_string()));
       }
 
       maybe_set_media_file_token = Some(media_file.token);
