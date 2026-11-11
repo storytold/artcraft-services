@@ -12,6 +12,7 @@ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_m
 use crate::http_server::endpoints::omni_api::job_status::record_to_payload::record_to_payload;
 use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
 use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
+use crate::util::lookup::hide_unreadable_job_results::hide_unreadable_job_results;
 use crate::state::server_state::ServerState;
 
 /// Get the status for a single job (Omni API, API-key authenticated).
@@ -43,7 +44,7 @@ pub async fn omni_api_get_job_status_handler(
   // banned owner is rejected inside `require_api_key_user`. Drop the connection before the job
   // lookups below so we don't hold a pool slot idle.
   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
-  require_api_key_user(&http_request, &mut *mysql_connection).await?;
+  let api_user = require_api_key_user(&http_request, &mut *mysql_connection).await?;
   drop(mysql_connection);
 
   if path.token.as_str().trim() == "None" {
@@ -56,7 +57,7 @@ pub async fn omni_api_get_job_status_handler(
     &server_state.mysql_pool,
   ).await;
 
-  let record = match maybe_status {
+  let mut record = match maybe_status {
     Ok(Some(record)) => record,
     Ok(None) => return Err(CommonWebError::NotFound),
     Err(err) => {
@@ -64,6 +65,14 @@ pub async fn omni_api_get_job_status_handler(
       return Err(CommonWebError::from_anyhow_error(err));
     }
   };
+
+  // NB: A job token alone must not reveal another user's private (or deleted) result.
+  hide_unreadable_job_results(
+    std::slice::from_mut(&mut record),
+    Some(&api_user.user_token),
+    false,
+    &server_state.mysql_pool,
+  ).await.map_err(CommonWebError::from_anyhow_error)?;
 
   if record.is_keepalive_required {
     // NB: This used to SET the job's *extra status* key instead of the keepalive key, which

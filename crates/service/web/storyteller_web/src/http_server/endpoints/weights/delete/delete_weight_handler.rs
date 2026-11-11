@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 use mysql_queries::queries::model_weights::delete_weights::{
   delete_weights_as_mod,
   delete_weights_as_user,
+  undelete_weights_as_mod,
   undelete_weights_as_user
 };
 use mysql_queries::queries::model_weights::get::get_weight::get_weight_by_token;
@@ -135,7 +136,7 @@ pub async fn delete_weight_handler(
           ).await
         }
         DeleteRole::AsMod => {
-          undelete_weights_as_user(
+          undelete_weights_as_mod(
            &ModelWeightToken::new_from_str(&path.weight_token),
             &server_state.mysql_pool
           ).await

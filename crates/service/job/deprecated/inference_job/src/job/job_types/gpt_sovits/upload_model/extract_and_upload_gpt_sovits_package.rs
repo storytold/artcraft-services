@@ -12,6 +12,9 @@ use hashing::sha256::sha256_hash_bytes::sha256_hash_bytes;
 use crate::job::job_types::gpt_sovits::model_package::model_package::{GptSovitsPackageDetails, GptSovitsPackageError, GptSovitsPackageFile, GptSovitsPackageFileType};
 use crate::job::job_types::gpt_sovits::upload_model::get_gptsovits_zip_entries::get_gptsovits_zip_entries;
 
+/// Cap on one decompressed archive entry (model checkpoints are the largest legitimate content).
+const MAX_ENTRY_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
 pub async fn extract_and_upload_gpt_sovits_package_files(
   zip_container_file_bytes: &[u8],
   bucket_client: &LegacyBucketClient,
@@ -49,11 +52,17 @@ pub async fn extract_and_upload_gpt_sovits_package_files(
 
     let mut zip_item_bytes = Vec::new();
 
-    file.read_to_end(&mut zip_item_bytes)
+    // NB: The declared size is attacker-controlled, so cap the actual decompressed bytes.
+    (&mut file).take(MAX_ENTRY_BYTES + 1).read_to_end(&mut zip_item_bytes)
       .map_err(|err| {
         error!("Problem reading file from archive: {:?}", err);
         GptSovitsPackageError::ExtractionError
       })?;
+
+    if zip_item_bytes.len() as u64 > MAX_ENTRY_BYTES {
+      error!("Archive entry exceeds {MAX_ENTRY_BYTES} bytes when decompressed: {:?}", entry);
+      return Err(GptSovitsPackageError::ExtractionError);
+    }
 
     match entry.package_type {
       GptSovitsPackageFileType::GptModel => {

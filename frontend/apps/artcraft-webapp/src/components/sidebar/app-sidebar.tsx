@@ -267,7 +267,7 @@ export function AppSidebar() {
               <img
                 src="/images/artcraft-logo-2.png"
                 alt="ArtCraft"
-                className="h-5 w-auto shrink-0"
+                className="st-wordmark h-5 w-auto shrink-0"
               />
             </Link>
           )}

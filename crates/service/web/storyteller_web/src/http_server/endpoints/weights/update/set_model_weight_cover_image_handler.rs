@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 
 use enums::by_table::media_files::media_file_type::MediaFileType;
 use http_server_common::request::get_request_ip::get_request_ip;
+use enums::common::visibility::Visibility;
 use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
 use mysql_queries::queries::model_weights::edit::set_model_weight_cover_image::{set_model_weight_cover_image, UpdateArgs};
 use mysql_queries::queries::model_weights::get::get_weight::get_weight_by_token;
@@ -16,6 +17,7 @@ use tokens::tokens::model_weights::ModelWeightToken;
 
 use crate::state::server_state::ServerState;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::endpoints::media_files::helpers::may_use_as_cover_image::may_use_as_cover_image;
 
 #[derive(Deserialize, ToSchema)]
 pub struct SetModelWeightCoverImageRequest {
@@ -133,6 +135,19 @@ pub async fn set_model_weight_cover_image_handler(
 
       //let can_use_image = media_file.creator_set_visibility == Visibility::Public
       //    && media_file.media_type == MediaFileType::Image;
+
+      let may_use_image = may_use_as_cover_image(
+        media_file.creator_set_visibility,
+        media_file.maybe_creator_user_token.as_ref(),
+        &user_session.user_token,
+        None,
+      );
+
+      if !may_use_image {
+        // Same response as a missing token, so private tokens are not confirmed to exist.
+        warn!("User may not use private media file as a cover: {:?}", media_file_token);
+        return Err(CommonWebError::NotFound);
+      }
 
       let can_use_image = media_file.media_type.is_image();
 

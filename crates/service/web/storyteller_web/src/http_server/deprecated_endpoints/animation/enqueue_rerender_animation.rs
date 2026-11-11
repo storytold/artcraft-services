@@ -28,6 +28,7 @@ use tokens::tokens::users::UserToken;
 use crate::configs::plans::get_correct_plan_for_session::get_correct_plan_for_session;
 use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::state::server_state::ServerState;
+use crate::util::job_input_access::{can_use_media_file_input, JobInputRequester};
 
 /// Debug requests can get routed to special "debug-only" workers, which can
 /// be used to trial new code, run debugging, etc.
@@ -175,6 +176,24 @@ pub async fn enqueue_rerender_animation_handler(
         .as_ref()
         .map(|token| ModelWeightToken::new_from_str(token.as_str()))
         .ok_or_else(|| EnqueueRerenderAnimationError::BadInput("sd model not fully specified".to_string()))?;
+
+    // ==================== INPUT ACCESS ==================== //
+
+    drop(mysql_connection);
+
+    if let Some(ref token) = request.video_source {
+        let requester = JobInputRequester::from_session(maybe_user_session.as_ref());
+        let can_use_input = can_use_media_file_input(token, requester, &server_state.mysql_pool)
+            .await
+            .map_err(|err| {
+                warn!("Error checking video source access: {:?}", err);
+                EnqueueRerenderAnimationError::ServerError
+            })?;
+        if !can_use_input {
+            warn!("Video source not usable by requester: {:?}", token);
+            return Err(EnqueueRerenderAnimationError::BadInput("video source not found".to_string()));
+        }
+    }
 
     let ip_address = get_request_ip(&http_request);
 

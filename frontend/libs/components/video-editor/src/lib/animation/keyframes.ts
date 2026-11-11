@@ -1,6 +1,7 @@
 import type {
   AnimationChannel,
   ChannelData,
+  CompositeChannelData,
   AnimationInterpolation,
   AnimationPath,
   DiscreteAnimationChannel,
@@ -164,9 +165,58 @@ function setChannelInData({
   }
   const components = isCompositeChannelData(data) ? { ...data } : {};
   if (channel && hasChannelKeys({ channel })) {
-    components[componentKey] = channel;
+    // defineProperty, not assignment: a "__proto__" key must not set the prototype.
+    Object.defineProperty(components, componentKey, { value: channel, enumerable: true, writable: true, configurable: true });
   } else {
     delete components[componentKey];
+  }
+  return Object.keys(components).length > 0 ? components : undefined;
+}
+
+// Applies several component updates to channel data in one pass, with the
+// same result as chaining setChannelInData for each update in order. Loops
+// over every component of a property must use this: chaining
+// setChannelInData copies and re-counts the whole component record on each
+// step, which is quadratic in the number of stored components.
+export function setChannelsInData({
+  data,
+  updates,
+}: {
+  data: ChannelData | undefined;
+  updates: Iterable<[string, AnimationChannel | undefined]>;
+}): ChannelData | undefined {
+  let applied = false;
+  let leaf: { channel: AnimationChannel | undefined } | null = null;
+  let components: CompositeChannelData = isCompositeChannelData(data)
+    ? { ...data }
+    : {};
+  if (isLeafChannelData(data)) {
+    leaf = { channel: data };
+  }
+  for (const [componentKey, channel] of updates) {
+    applied = true;
+    if (componentKey === "value") {
+      leaf = { channel };
+      continue;
+    }
+    if (leaf) {
+      // A leaf is replaced by a fresh component record, as setChannelInData
+      // does when handed non-composite data.
+      leaf = null;
+      components = {};
+    }
+    if (channel && hasChannelKeys({ channel })) {
+      // defineProperty, not assignment: a "__proto__" key must not set the prototype.
+      Object.defineProperty(components, componentKey, { value: channel, enumerable: true, writable: true, configurable: true });
+    } else {
+      delete components[componentKey];
+    }
+  }
+  if (!applied) {
+    return data;
+  }
+  if (leaf) {
+    return leaf.channel;
   }
   return Object.keys(components).length > 0 ? components : undefined;
 }
@@ -1267,28 +1317,24 @@ export function splitAnimationsAtTime({
     const leftBoundaryId = generateUUID();
     const rightBoundaryId = generateUUID();
 
-    for (const [componentKey, channel] of getChannelDataEntries({ data })) {
-      const splitResult = splitChannelAtTime({
-        channel,
-        splitTime,
-        leftBoundaryId,
-        rightBoundaryId,
-        shouldIncludeSplitBoundary,
+    const { leftUpdates, rightUpdates } = splitChannelDataAtTime({
+      data,
+      splitTime,
+      leftBoundaryId,
+      rightBoundaryId,
+      shouldIncludeSplitBoundary,
+    });
+    if (leftUpdates.length > 0) {
+      leftAnimations[propertyPath] = setChannelsInData({
+        data: leftAnimations[propertyPath],
+        updates: leftUpdates,
       });
-      if (splitResult.leftChannel) {
-        leftAnimations[propertyPath] = setChannelInData({
-          data: leftAnimations[propertyPath],
-          componentKey,
-          channel: splitResult.leftChannel,
-        });
-      }
-      if (splitResult.rightChannel) {
-        rightAnimations[propertyPath] = setChannelInData({
-          data: rightAnimations[propertyPath],
-          componentKey,
-          channel: splitResult.rightChannel,
-        });
-      }
+    }
+    if (rightUpdates.length > 0) {
+      rightAnimations[propertyPath] = setChannelsInData({
+        data: rightAnimations[propertyPath],
+        updates: rightUpdates,
+      });
     }
   }
 
@@ -1296,6 +1342,45 @@ export function splitAnimationsAtTime({
     leftAnimations: toAnimation({ animations: leftAnimations }),
     rightAnimations: toAnimation({ animations: rightAnimations }),
   };
+}
+
+// Splits every component of a property's channel data, returning the
+// component updates for each side (only components that have a channel on
+// that side), in component order.
+function splitChannelDataAtTime({
+  data,
+  splitTime,
+  leftBoundaryId,
+  rightBoundaryId,
+  shouldIncludeSplitBoundary,
+}: {
+  data: ChannelData;
+  splitTime: MediaTime;
+  leftBoundaryId: string;
+  rightBoundaryId: string;
+  shouldIncludeSplitBoundary: boolean;
+}): {
+  leftUpdates: Array<[string, AnimationChannel]>;
+  rightUpdates: Array<[string, AnimationChannel]>;
+} {
+  const leftUpdates: Array<[string, AnimationChannel]> = [];
+  const rightUpdates: Array<[string, AnimationChannel]> = [];
+  for (const [componentKey, channel] of getChannelDataEntries({ data })) {
+    const splitResult = splitChannelAtTime({
+      channel,
+      splitTime,
+      leftBoundaryId,
+      rightBoundaryId,
+      shouldIncludeSplitBoundary,
+    });
+    if (splitResult.leftChannel) {
+      leftUpdates.push([componentKey, splitResult.leftChannel]);
+    }
+    if (splitResult.rightChannel) {
+      rightUpdates.push([componentKey, splitResult.rightChannel]);
+    }
+  }
+  return { leftUpdates, rightUpdates };
 }
 
 export function removeElementKeyframe({
@@ -1316,15 +1401,13 @@ export function removeElementKeyframe({
   if (isLeafChannelData(data)) {
     nextAnimations[propertyPath] = removeKeyframe({ channel: data, keyframeId });
   } else if (isCompositeChannelData(data)) {
-    let nextData: ChannelData | undefined = data;
-    for (const [componentKey, channel] of Object.entries(data)) {
-      nextData = setChannelInData({
-        data: nextData,
+    nextAnimations[propertyPath] = setChannelsInData({
+      data,
+      updates: Object.entries(data).map(([componentKey, channel]) => [
         componentKey,
-        channel: removeKeyframe({ channel, keyframeId }),
-      });
-    }
-    nextAnimations[propertyPath] = nextData;
+        removeKeyframe({ channel, keyframeId }),
+      ]),
+    });
   }
   return toAnimation({
     animations: nextAnimations,
@@ -1355,15 +1438,13 @@ export function retimeElementKeyframe({
       time,
     });
   } else if (isCompositeChannelData(data)) {
-    let nextData: ChannelData | undefined = data;
-    for (const [componentKey, channel] of Object.entries(data)) {
-      nextData = setChannelInData({
-        data: nextData,
+    nextAnimations[propertyPath] = setChannelsInData({
+      data,
+      updates: Object.entries(data).map(([componentKey, channel]) => [
         componentKey,
-        channel: retimeKeyframe({ channel, keyframeId, time }),
-      });
-    }
-    nextAnimations[propertyPath] = nextData;
+        retimeKeyframe({ channel, keyframeId, time }),
+      ]),
+    });
   }
   return toAnimation({
     animations: nextAnimations,

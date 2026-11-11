@@ -4,8 +4,9 @@ use actix_web::web::{Json, Path, Query};
 use actix_web::{web, HttpRequest};
 use artcraft_api_defs::media_file::list::user_media_file_list_item::MediaFileForUserListItem;
 use enums::common::view_as::ViewAs;
-use log::info;
+use log::{info, warn};
 use std::time::Instant;
+use mysql_queries::queries::users::user::get::get_user_token_by_username::get_user_token_by_username;
 use mysql_queries::queries::media_files::list::list_media_files_for_user::{list_media_files_for_user, ListMediaFileForUserArgs};
 use mysql_queries::queries::media_files::list::count_media_files_for_user::{count_media_files_for_user, CountMediaFilesForUserArgs};
 use mysql_queries::queries::media_files::list::user_media_file_filters::UserMediaFileFilters;
@@ -112,10 +113,19 @@ pub async fn list_media_files_for_user_handler(
     &server_state.flags
   );
 
+  // NB: Usernames can be released and reassigned while a cached session still carries the old
+  // name, so author access is bound to the immutable user token of the account being listed.
+  let maybe_target_user_token = get_user_token_by_username(&path.username, &server_state.mysql_pool)
+      .await
+      .map_err(|err| {
+        warn!("Error resolving username {:?}: {:?}", path.username, err);
+        CommonWebError::from_anyhow_error(err)
+      })?;
+
   match maybe_user_session {
     None => {},
     Some(session) => {
-      is_author = session.username == path.username;
+      is_author = maybe_target_user_token.as_ref() == Some(&session.user_token);
       is_mod = session.can_ban_users;
     },
   };
@@ -159,7 +169,7 @@ pub async fn list_media_files_for_user_handler(
     sort_ascending,
     mysql_executor: &server_state.mysql_pool,
   }).await?;
-  info!("Listed legacy user media: username={} page={} count_ms={} page_ms={}",
+  info!("Listed legacy user media: username={:?} page={} count_ms={} page_ms={}",
     path.username, page_index, count_ms, page_started.elapsed().as_millis());
 
   let media_domain = get_media_domain(&http_request);

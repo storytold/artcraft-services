@@ -5,15 +5,18 @@ import type {
   ElementAnimations,
   ElementKeyframe,
 } from "./types";
-import { formatLinearRgba } from "../params";
+import { formatLinearRgba, type ParamValue } from "../params";
 import {
   getChannelEntriesFromData,
   isAnimationStorageKey,
 } from "./channel-data";
 import {
-  getChannelValueAtTime,
+  getNormalizedDiscreteChannelValueAtTime,
+  getNormalizedScalarChannelValueAtTime,
   getScalarSegmentInterpolation,
   isScalarChannel,
+  normalizeDiscreteChannel,
+  normalizeScalarChannel,
 } from "./interpolation";
 import { isAnimationPath } from "./path";
 
@@ -112,65 +115,94 @@ function getPreferredChannelKeyframeMatch({
   );
 }
 
-function getChannelValue({
+type ChannelValueAtTime = (time: number) => ParamValue;
+
+/**
+ * Returns an evaluator equivalent to getChannelValueAtTime for this channel,
+ * normalizing (copying and sorting) the keys once rather than on every
+ * query.
+ */
+function createChannelEvaluator({
   channel,
-  time,
 }: {
   channel: AnimationChannel;
-  time: number;
-}) {
+}): ChannelValueAtTime {
   const fallbackValue = getChannelFallbackValue({ channel });
+  if (channel.keys.length === 0) {
+    return () => fallbackValue;
+  }
   if (typeof fallbackValue === "number") {
-    return getChannelValueAtTime({
-      channel: isScalarChannel(channel) ? channel : undefined,
+    if (!isScalarChannel(channel)) {
+      return () => fallbackValue;
+    }
+    const normalizedChannel = normalizeScalarChannel({ channel });
+    return (time) =>
+      getNormalizedScalarChannelValueAtTime({
+        normalizedChannel,
+        time,
+        fallbackValue,
+      });
+  }
+  if (
+    isScalarChannel(channel) ||
+    (typeof fallbackValue !== "string" && typeof fallbackValue !== "boolean")
+  ) {
+    return () => fallbackValue;
+  }
+  const normalizedChannel = normalizeDiscreteChannel({ channel });
+  return (time) =>
+    getNormalizedDiscreteChannelValueAtTime({
+      normalizedChannel,
       time,
       fallbackValue,
     });
-  }
-  return getChannelValueAtTime({
-    channel: !isScalarChannel(channel) ? channel : undefined,
-    time,
-    fallbackValue,
-  });
 }
 
-function getComposedChannelDataValueAtTime({
+type ComposedValueAtTime = (time: number) => ParamValue | null;
+
+/**
+ * Evaluator for the composed value of a property's channel data at a time
+ * (a single value, or an RGBA color from r/g/b/a components). Build it once
+ * per property when evaluating at many times.
+ */
+function createComposedValueEvaluator({
   data,
-  time,
 }: {
   data: ChannelData | undefined;
-  time: number;
-}) {
+}): ComposedValueAtTime {
   const entries = getChannelEntriesFromData({ data });
   if (entries.length === 0) {
-    return null;
+    return () => null;
   }
   if (entries.length === 1 && entries[0]?.[0] === "value") {
-    return getChannelValue({ channel: entries[0][1], time });
+    return createChannelEvaluator({ channel: entries[0][1] });
   }
 
-  const componentValues = Object.fromEntries(
-    entries.map(([componentKey, channel]) => [
-      componentKey,
-      getChannelValue({ channel, time }),
-    ]),
+  const evaluators = entries.map(
+    ([componentKey, channel]) =>
+      [componentKey, createChannelEvaluator({ channel })] as const,
   );
-  if (
-    typeof componentValues.r === "number" &&
-    typeof componentValues.g === "number" &&
-    typeof componentValues.b === "number" &&
-    typeof componentValues.a === "number"
-  ) {
-    return formatLinearRgba({
-      color: {
-        r: componentValues.r,
-        g: componentValues.g,
-        b: componentValues.b,
-        a: componentValues.a,
-      },
-    });
-  }
-  return null;
+  return (time) => {
+    const componentValues = Object.fromEntries(
+      evaluators.map(([componentKey, evaluate]) => [componentKey, evaluate(time)]),
+    );
+    if (
+      typeof componentValues.r === "number" &&
+      typeof componentValues.g === "number" &&
+      typeof componentValues.b === "number" &&
+      typeof componentValues.a === "number"
+    ) {
+      return formatLinearRgba({
+        color: {
+          r: componentValues.r,
+          g: componentValues.g,
+          b: componentValues.b,
+          a: componentValues.a,
+        },
+      });
+    }
+    return null;
+  };
 }
 
 function getKeyframeInterpolation({
@@ -186,18 +218,15 @@ function getKeyframeInterpolation({
 }
 
 function toElementKeyframe({
-  data,
+  evaluate,
   propertyPath,
   keyframeMatch,
 }: {
-  data: ChannelData | undefined;
+  evaluate: ComposedValueAtTime;
   propertyPath: AnimationPath;
   keyframeMatch: ChannelKeyframeMatch;
 }): ElementKeyframe | null {
-  const value = getComposedChannelDataValueAtTime({
-    data,
-    time: keyframeMatch.keyframe.time,
-  });
+  const value = evaluate(keyframeMatch.keyframe.time);
   if (value === null) {
     return null;
   }
@@ -231,11 +260,14 @@ export function getElementKeyframes({
         return [];
       }
 
+      // One evaluator per property: every listed keyframe is evaluated
+      // against the same normalized channels.
+      const evaluate = createComposedValueEvaluator({ data });
       return getUniqueChannelKeyframeMatches({
         data,
       }).flatMap((keyframeMatch) => {
         const keyframe = toElementKeyframe({
-          data,
+          evaluate,
           propertyPath,
           keyframeMatch,
         });
@@ -285,7 +317,7 @@ export function getKeyframeAtTime({
   }
 
   return toElementKeyframe({
-    data,
+    evaluate: createComposedValueEvaluator({ data }),
     propertyPath,
     keyframeMatch,
   });
@@ -315,7 +347,7 @@ export function getKeyframeById({
   }
 
   return toElementKeyframe({
-    data,
+    evaluate: createComposedValueEvaluator({ data }),
     propertyPath,
     keyframeMatch,
   });

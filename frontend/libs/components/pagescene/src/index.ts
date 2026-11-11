@@ -195,6 +195,7 @@ export { getSceneGenerationMetaData } from "./lib/sceneMetadata";
 // lib-internal state.
 export { AnonHintChip } from "./lib/comps/AnonHintChip";
 export { AssetMenu, AssetModal } from "./lib/comps/AssetMenu";
+export { clearAnimationLibraryAccountState } from "./lib/comps/AssetMenu/hooks/useAnimationLibrary";
 export { Controls3D } from "./lib/comps/Controls3D";
 export { ControlsTopButtons } from "./lib/comps/ControlsTopButtons";
 export { DragComponent } from "./lib/comps/DragComponent/DragComponent";

@@ -76,8 +76,8 @@ impl SoraInfo {
     Ok(SoraInfo {
       producer: "OpenAI".to_string(),
       model_name: find(data, SORA_MARKER).map(|_| "sora".to_string()),
-      created_description: find_description_containing(data, b"OpenAI")
-        .or_else(|| find_description_containing(data, b"Generated")),
+      created_description: crate::scan::find_cbor_description_containing(data, b"OpenAI")
+        .or_else(|| crate::scan::find_cbor_description_containing(data, b"Generated")),
       digital_source_type: text_after_key(data, b"digitalSourceType"),
       claim_generator: text_after_key(data, b"claim_generator"),
       manifest_id: find_prefixed_uuid(data, b"urn:c2pa:"),
@@ -87,19 +87,6 @@ impl SoraInfo {
   }
 }
 
-/// Find a CBOR `description` value whose text contains `needle`.
-fn find_description_containing(data: &[u8], needle: &[u8]) -> Option<String> {
-  let mut from = 0;
-  while let Some(i) = crate::scan::find_from(data, b"description", from) {
-    if let Some(text) = crate::scan::read_cbor_text(data, i + b"description".len()) {
-      if text.as_bytes().windows(needle.len()).any(|w| w == needle) {
-        return Some(text);
-      }
-    }
-    from = i + b"description".len();
-  }
-  None
-}
 
 #[cfg(test)]
 mod tests {

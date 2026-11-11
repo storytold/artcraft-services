@@ -175,11 +175,10 @@ export class StoryTellerProxyScene {
           const shapeKey =
             (json_object.user_data?.shapeKey as string | undefined) ??
             json_object.object_name;
-          const newScene = await this.scene.instantiate(shapeKey);
-          return {
-            json_object,
-            obj: this.scene.get_object_by_uuid(newScene.uuid),
-          };
+          // instantiate returns the object it added to the scene; use it
+          // directly instead of searching the scene for it by uuid.
+          const obj = await this.scene.instantiate(shapeKey);
+          return { json_object, obj };
         }
         if (token === "DirectionalLight") {
           return { json_object, obj: this.scene._create_base_lighting() };
@@ -216,12 +215,9 @@ export class StoryTellerProxyScene {
           return { json_object, obj };
         }
         if (token.includes("Image::")) {
-          const prim = await this.scene.instantiate(token);
-          const obj = this.scene.get_object_by_uuid(prim.uuid);
-          if (obj) {
-            obj.name = json_object.object_name;
-            obj.userData["name"] = json_object.object_name;
-          }
+          const obj = await this.scene.instantiate(token);
+          obj.name = json_object.object_name;
+          obj.userData["name"] = json_object.object_name;
           return { json_object, obj };
         }
         return { json_object, obj: undefined };
@@ -289,10 +285,12 @@ export class StoryTellerProxyScene {
       if (json_object.user_data?.skeletonVisible !== undefined) {
         obj.userData["skeletonVisible"] = json_object.user_data.skeletonVisible;
       }
+      // Restore through the object reference: the uuid-based setters search
+      // the whole scene, which made restoring n objects O(n^2).
       if (json_object.visible !== undefined) {
-        this.scene.setVisible(obj.uuid, json_object.visible);
+        this.scene.setObjectVisible(obj, json_object.visible);
       }
-      this.scene.setColor(obj.uuid, json_object.color);
+      this.scene.setObjectColor(obj, json_object.color);
     }
 
     this.scene._createGrid();

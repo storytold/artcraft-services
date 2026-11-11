@@ -6,6 +6,10 @@ use crate::configs::reserved_names::RESERVED_SUBSTRINGS;
 use crate::configs::reserved_names::RESERVED_USERNAMES;
 
 pub fn is_reserved_username(username: &str) -> bool {
+  // NB: Accounts are stored trimmed and lowercased, so compare the same way.
+  let username = username.trim().to_lowercase();
+  let username = username.as_str();
+
   static RESERVED_USERNAMES_SET : Lazy<HashSet<String>> = Lazy::new(|| RESERVED_USERNAMES.lines()
     .map(|line| line.trim())
     .filter(|line| !(line.starts_with("#") || line.is_empty()))
@@ -48,6 +52,12 @@ mod tests {
     assert_eq!(is_reserved_username("username"), true);
     assert_eq!(is_reserved_username("thread"), true);
     assert_eq!(is_reserved_username("test"), true);
+  }
+
+  #[test]
+  fn reserved_usernames_are_case_and_space_insensitive() {
+    assert_eq!(is_reserved_username("Vocodes"), true);
+    assert_eq!(is_reserved_username(" USERNAME "), true);
   }
 
   #[test]

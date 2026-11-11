@@ -27,6 +27,9 @@ pub async fn lookup_video_thumbnail_info_by_tokens(
 
   let result = batch_get_media_file_thumbnails_by_tokens(BatchGetMediaFileThumbnailsByTokensArgs {
     candidate_tokens: tokens,
+    // Only the thumbnail version and timestamp are returned, for files the
+    // caller already resolved; no URLs come out of this lookup.
+    maybe_restrict_private_to_creator: None,
     mysql_executor: mysql_pool,
     phantom: PhantomData,
   }).await;

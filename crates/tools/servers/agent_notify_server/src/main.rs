@@ -14,10 +14,11 @@ use std::sync::Arc;
 
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpServer, guard, web};
 
 use crate::audio_player::spawn_audio_player;
 use crate::config::{DEFAULT_CONFIG_PATH, NotifyConfig};
+use crate::endpoints::not_cross_site;
 use crate::endpoints::alert_handlers::{
   alert_await_handler, alert_beep_handler, alert_done_handler,
 };
@@ -36,6 +37,11 @@ pub mod server_state;
 
 const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1:43110";
 const DEFAULT_RUST_LOG: &str = "info,actix_web=info";
+
+/// Playback mutations: POST only, and never on behalf of another web site.
+fn mutation() -> actix_web::Route {
+  web::post().guard(guard::fn_guard(not_cross_site))
+}
 
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
@@ -68,13 +74,13 @@ async fn main() -> anyhow::Result<()> {
       .app_data(Data::new(state.clone()))
       .wrap(Logger::default())
       .route("/", web::get().to(root_handler))
-      .route("/alert_beep", web::get().to(alert_beep_handler))
-      .route("/alert_done", web::get().to(alert_done_handler))
-      .route("/alert_await", web::get().to(alert_await_handler))
-      .route("/loop_beep", web::get().to(loop_beep_handler))
-      .route("/loop_done", web::get().to(loop_done_handler))
-      .route("/loop_await", web::get().to(loop_await_handler))
-      .route("/stop", web::get().to(stop_handler))
+      .route("/alert_beep", mutation().to(alert_beep_handler))
+      .route("/alert_done", mutation().to(alert_done_handler))
+      .route("/alert_await", mutation().to(alert_await_handler))
+      .route("/loop_beep", mutation().to(loop_beep_handler))
+      .route("/loop_done", mutation().to(loop_done_handler))
+      .route("/loop_await", mutation().to(loop_await_handler))
+      .route("/stop", mutation().to(stop_handler))
       .route("/state", web::get().to(state_handler))
   })
   .bind(&bind_address)?

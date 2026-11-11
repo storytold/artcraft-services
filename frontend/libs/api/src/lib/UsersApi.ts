@@ -162,19 +162,25 @@ export class UsersApi extends ApiManager {
   }
 
   public Logout(): Promise<ApiResponse<null>> {
-    clearSignedSession();
+    // The stored session is what the request sends as its `session` header
+    // when cookies are blocked, so it has to stay in place until the server
+    // has seen the request. Clear it afterwards whatever the outcome.
     const endpoint = `${this.getApiSchemeAndHost()}/v1/logout`;
     return this.post<null, { success: boolean; error_message?: string }>({
       endpoint: endpoint,
     })
       .then((response) => ({
         success: response.success,
+        errorMessage: response.error_message,
       }))
       .catch((err) => {
         return {
           success: false,
           errorMessage: err.message,
         };
+      })
+      .finally(() => {
+        clearSignedSession();
       });
   }
 
