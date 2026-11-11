@@ -34,9 +34,6 @@ pub async fn logout_handler(
   internal_session_cache_purge: web::Data<dyn InternalSessionCachePurge>,
 ) -> Result<HttpResponse, CommonWebError>
 {
-  // Best effort to delete Redis session cache
-  internal_session_cache_purge.best_effort_purge_session_cache(&http_request);
-
   let maybe_session = session_cookie_manager
       .decode_session_payload_from_request(&http_request)
       .map_err(|e| {
@@ -47,6 +44,10 @@ pub async fn logout_handler(
   if let Some(session) = maybe_session {
     let _r = delete_user_session(&session.session_token, &mysql_pool).await;
   }
+
+  // NB: Purge the session cache only after the database revocation. Purging first let a concurrent
+  // request re-cache the still-valid session, which then outlived the logout until its TTL.
+  internal_session_cache_purge.best_effort_purge_session_cache(&http_request);
 
   let mut delete_cookie = match http_request.cookie("session") {
     Some(cookie) => {
