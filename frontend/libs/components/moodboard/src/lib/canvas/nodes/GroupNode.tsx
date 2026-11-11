@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import Konva from "konva";
 import { Group, Rect } from "react-konva";
 import { useShallow } from "zustand/react/shallow";
@@ -10,6 +10,9 @@ import { TextNode } from "./TextNode";
 
 interface Props {
   node: GroupNodeData;
+  // Ids of the groups this one is nested in; a child that is already an
+  // ancestor would recurse forever.
+  ancestorIds?: ReadonlySet<string>;
   selected: boolean;
   onSelect: (
     id: string,
@@ -23,8 +26,12 @@ interface Props {
 // skip work when nothing else about them changed.
 const NO_OP_SELECT = () => {};
 
-const GroupNodeInner = ({ node, selected, onSelect }: Props) => {
+const GroupNodeInner = ({ node, ancestorIds, selected, onSelect }: Props) => {
   const drag = useNodeDrag(node.id);
+  const lineage = useMemo(
+    () => new Set([...(ancestorIds ?? []), node.id]),
+    [ancestorIds, node.id],
+  );
 
   // Subscribe only to this group's own children, with a shallow compare on
   // the returned array. Avoids re-rendering every group whenever any node
@@ -94,10 +101,12 @@ const GroupNodeInner = ({ node, selected, onSelect }: Props) => {
         }
         // Nested groups not exercised in phase 1, but render recursively for future.
         if (child.kind === "group") {
+          if (lineage.has(child.id)) return null;
           return (
             <GroupNode
               key={child.id}
               node={child}
+              ancestorIds={lineage}
               selected={false}
               onSelect={NO_OP_SELECT}
             />
