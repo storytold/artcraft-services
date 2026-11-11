@@ -63,6 +63,45 @@ describe("loadFromSceneJson", () => {
 
     expect(scene.get_object_by_uuid("box-uuid")).toBeDefined();
   });
+
+  it("restores primitives through their object references, not scene-wide uuid searches", async () => {
+    const scene = makeScene();
+    const proxy = new StoryTellerProxyScene(2, scene);
+    const boxes = Array.from({ length: 50 }, (_, i) => ({
+      ...BOX_JSON,
+      object_uuid: `box-${i}`,
+      visible: false,
+      color: "#FF0000",
+    }));
+    const searches = vi.spyOn(scene.scene, "getObjectByProperty");
+
+    await proxy.loadFromSceneJson(boxes as never, "m_1", 2, makeTicket());
+
+    expect(searches).not.toHaveBeenCalled();
+    searches.mockRestore();
+    const restored = scene.get_object_by_uuid("box-49") as THREE.Mesh;
+    expect(restored.visible).toBe(false);
+    expect(restored.userData["color"]).toBe("#FF0000");
+    expect((restored.material as THREE.MeshPhongMaterial).color.getHexString()).toBe("ff0000");
+  });
+
+  it("colors a point light shape's attached light", async () => {
+    const scene = makeScene();
+    const proxy = new StoryTellerProxyScene(2, scene);
+    const lightJson = {
+      ...BOX_JSON,
+      object_name: "Point Light",
+      object_uuid: "light-uuid",
+      color: "#00FF00",
+      user_data: { shapeKey: "PointLight", shapeType: "PointLight" },
+    };
+
+    await proxy.loadFromSceneJson([lightJson] as never, "m_1", 2, makeTicket());
+
+    const marker = scene.get_object_by_uuid("light-uuid")!;
+    const light = marker.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+    expect(light.color.getHexString()).toBe("00ff00");
+  });
 });
 
 function makeScene(): Scene {
