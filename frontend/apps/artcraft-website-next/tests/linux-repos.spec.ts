@@ -328,7 +328,12 @@ test.describe("Linux Package Repositories (APT, RPM & Pacman)", () => {
   test("provides metadata and catalog for /linux setup page", async () => {
     const apps = await getLinuxRepoApps();
     // ArtCraft Studio, the launcher, and every Craft app that publishes Linux packages.
-    expect(apps).toHaveLength(18);
+    expect(apps).toHaveLength(19);
+    const anicraftApp = apps.find((app) => app.slug === "anicraft");
+    expect(anicraftApp?.version).toBe(catalogRelease("anicraft").version);
+    expect(anicraftApp?.debAssets).toHaveLength(3);
+    expect(anicraftApp?.rpmAssets).toHaveLength(3);
+    expect(anicraftApp?.archAssets).toHaveLength(2);
     const studioApp = apps.find((app) => app.slug === "artcraft");
     expect(studioApp).toBeDefined();
     expect(studioApp?.debAssets).toHaveLength(3);
