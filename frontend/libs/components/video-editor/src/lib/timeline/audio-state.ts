@@ -1,3 +1,9 @@
+import { isLeafChannelData } from "../animation/channel-data";
+import {
+  getNormalizedScalarChannelValueAtTime,
+  isScalarChannel,
+  normalizeScalarChannel,
+} from "../animation/interpolation";
 import { hasKeyframesForPath } from "../animation/keyframe-query";
 import { resolveNumberAtTime } from "../animation/values";
 import { VOLUME_DB_MAX, VOLUME_DB_MIN } from "./audio-constants";
@@ -10,6 +16,11 @@ import { TICKS_PER_SECOND } from "../wasm";
 // gain bars match what you'll hear).
 
 const DEFAULT_STEP_SECONDS = 1 / 60;
+
+// Most gain points one buildAudioGainAutomation call produces (10 minutes at
+// the default 60 Hz step). Longer spans are sampled with a wider step so a
+// long clip from a project document cannot queue millions of ramps.
+export const MAX_AUDIO_GAIN_AUTOMATION_POINTS = 36_000;
 
 export type AudioCapableElement = Extract<
   TimelineElement,
@@ -79,6 +90,47 @@ export function resolveEffectiveAudioGain({
   return dBToLinear(resolvedDb);
 }
 
+/**
+ * Returns a function equivalent to resolveEffectiveAudioGain for one element
+ * at varying local times, with the volume channel normalized once up front.
+ * Per-sample callers (export mixing, gain automation) must use this:
+ * normalizing per call re-copies and re-sorts every key each time.
+ */
+export function createAudioGainResolver({
+  element,
+  trackMuted = false,
+}: {
+  element: AudioCapableElement;
+  trackMuted?: boolean;
+}): (localTime: number) => number {
+  if (trackMuted || isElementMuted({ element })) {
+    return () => 0;
+  }
+
+  const data = element.animations?.volume;
+  if (
+    !isLeafChannelData(data) ||
+    !isScalarChannel(data) ||
+    data.keys.length === 0
+  ) {
+    // No keyframed scalar volume: the gain does not vary with time.
+    const gain = resolveEffectiveAudioGain({ element, localTime: 0 });
+    return () => gain;
+  }
+
+  const normalizedChannel = normalizeScalarChannel({ channel: data });
+  const baseDb = getElementVolume({ element });
+  return (localTime) =>
+    dBToLinear(
+      getNormalizedScalarChannelValueAtTime({
+        normalizedChannel,
+        // Same tick rounding and clamping as resolveNumberAtTime.
+        time: Math.max(0, Math.round(localTime * TICKS_PER_SECOND)),
+        fallbackValue: baseDb,
+      }),
+    );
+}
+
 export function buildWaveformGainSamples({
   element,
   count,
@@ -87,9 +139,10 @@ export function buildWaveformGainSamples({
   count: number;
 }): number[] {
   const durationSeconds = element.duration / TICKS_PER_SECOND;
+  const resolveGain = createAudioGainResolver({ element });
   return Array.from({ length: count }, (_, i) => {
     const localTime = ((i + 0.5) / count) * durationSeconds;
-    return resolveEffectiveAudioGain({ element, localTime });
+    return resolveGain(localTime);
   });
 }
 
@@ -106,33 +159,43 @@ export function buildAudioGainAutomation({
   toLocalTime: number;
   stepSeconds?: number;
 }): Array<{ localTime: number; gain: number }> {
-  const startTime = Math.max(0, fromLocalTime);
-  const endTime = Math.max(startTime, toLocalTime);
-  const safeStep =
+  const startTime = Number.isFinite(fromLocalTime)
+    ? Math.max(0, fromLocalTime)
+    : 0;
+  const endTime = Number.isFinite(toLocalTime)
+    ? Math.max(startTime, toLocalTime)
+    : startTime;
+  const requestedStep =
     Number.isFinite(stepSeconds) && stepSeconds > 0
       ? stepSeconds
       : DEFAULT_STEP_SECONDS;
-  const points: Array<{ localTime: number; gain: number }> = [];
+  const safeStep = Math.max(
+    requestedStep,
+    (endTime - startTime) / (MAX_AUDIO_GAIN_AUTOMATION_POINTS - 1),
+  );
+  const resolveGain = createAudioGainResolver({ element, trackMuted });
+  const times: number[] = [];
 
-  for (let localTime = startTime; localTime < endTime; localTime += safeStep) {
-    points.push({
-      localTime,
-      gain: resolveEffectiveAudioGain({
-        element,
-        trackMuted,
-        localTime,
-      }),
-    });
+  for (let index = 0; ; index++) {
+    const localTime = startTime + index * safeStep;
+    if (localTime >= endTime) break;
+    times.push(localTime);
   }
 
-  points.push({
-    localTime: endTime,
-    gain: resolveEffectiveAudioGain({
-      element,
-      trackMuted,
-      localTime: endTime,
-    }),
-  });
+  // A widened step could step over a short dip, so keyframe times are always sampled (bounded like the grid).
+  if (safeStep > requestedStep) {
+    const data = element.animations?.volume;
+    if (isLeafChannelData(data) && isScalarChannel(data)) {
+      const keyTimes = data.keys
+        .map((key) => key.time / TICKS_PER_SECOND)
+        .filter((time) => time > startTime && time < endTime)
+        .slice(0, MAX_AUDIO_GAIN_AUTOMATION_POINTS);
+      times.push(...keyTimes);
+      times.sort((left, right) => left - right);
+    }
+  }
 
-  return points;
+  times.push(endTime);
+
+  return times.map((localTime) => ({ localTime, gain: resolveGain(localTime) }));
 }
