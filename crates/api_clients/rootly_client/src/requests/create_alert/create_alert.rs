@@ -80,7 +80,7 @@ pub struct CreateAlertSuccess {
 pub async fn create_alert(args: CreateAlertArgs) -> Result<CreateAlertSuccess, RootlyError> {
   let url = format!("{}/alerts", ROOTLY_API_BASE_URL);
 
-  info!("Creating Rootly alert: source={}, summary={}", args.source, args.summary);
+  info!("Creating Rootly alert: source={:?}, summary={:?}", args.source, args.summary);
 
   let labels = args.labels.map(|pairs| {
     pairs.into_iter().map(|(key, value)| CreateAlertLabel { key, value }).collect()
