@@ -11,7 +11,7 @@ import { UpdateProjectSettingsCommand } from "../../commands/project";
 import { getRaisedProjectFpsForImportedMedia } from "../../fps/utils";
 import { rehydrateProjectMedia } from "../../media/rehydrate";
 import {
-  deserializeProjectDocument,
+  deserializeStoredProject,
   mediaAssetToData,
   serializeProjectDocument,
 } from "../../services/storage/serialization";
@@ -105,9 +105,7 @@ export class ProjectManager {
     try {
       const envelope =
         await this.editor.adapters.projectStorage.loadProject(id);
-      const document = envelope
-        ? deserializeProjectDocument(envelope.data)
-        : null;
+      const document = deserializeStoredProject(envelope);
       this.active = document?.project ?? null;
       this.notify();
       return this.active;
@@ -134,9 +132,7 @@ export class ProjectManager {
     try {
       const envelope =
         await this.editor.adapters.projectStorage.loadProject(id);
-      const document = envelope
-        ? deserializeProjectDocument(envelope.data)
-        : null;
+      const document = deserializeStoredProject(envelope);
       if (!document) {
         return null;
       }
@@ -267,9 +263,7 @@ export class ProjectManager {
 
     // Background project: rewrite its stored document.
     const envelope = await this.editor.adapters.projectStorage.loadProject(id);
-    const document = envelope
-      ? deserializeProjectDocument(envelope.data)
-      : null;
+    const document = deserializeStoredProject(envelope);
     if (!document) return;
 
     const renamed: TProject = {
