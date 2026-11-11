@@ -32,3 +32,5 @@ mod weights_routes;
 pub (super) mod add_application_routes;
 #[cfg(test)]
 mod user_media_endpoint_tests;
+#[cfg(test)]
+mod weights_delete_endpoint_tests;
