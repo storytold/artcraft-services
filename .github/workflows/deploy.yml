@@ -2,7 +2,7 @@ name: Trigger Cloudflare deploy
 
 on:
   push:
-    branches: [cloudflare-dev]
+    branches: [main, cloudflare-dev]
   workflow_dispatch:
 
 permissions: {}
@@ -15,10 +15,13 @@ jobs:
       - name: Verify target branch
         if: github.event_name == 'workflow_dispatch'
         run: |
-          if [ "${GITHUB_REF}" != "refs/heads/cloudflare-dev" ]; then
-            echo "Manual deploy hook runs must target refs/heads/cloudflare-dev (got ${GITHUB_REF})" >&2
-            exit 1
-          fi
+          case "${GITHUB_REF}" in
+            refs/heads/main|refs/heads/cloudflare-dev) ;;
+            *)
+              echo "Manual deploy hook runs must target main or cloudflare-dev (got ${GITHUB_REF})" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Trigger Cloudflare build
         env:

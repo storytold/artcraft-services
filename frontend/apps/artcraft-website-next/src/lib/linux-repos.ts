@@ -124,6 +124,8 @@ export function getRequestBaseUrl(request: Request): string {
     url.protocol === "https:" &&
     (url.hostname === "getartcraft.com" ||
       url.hostname === "getartcraft.dev" ||
+      url.hostname.endsWith(".getartcraft.dev") ||
+      url.hostname.endsWith(".workers.dev") ||
       /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname))
   ) {
     return url.origin;

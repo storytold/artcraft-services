@@ -80,6 +80,8 @@ function getRequestBaseUrl(request) {
     url.protocol === "https:" &&
     (url.hostname === "getartcraft.com" ||
       url.hostname === "getartcraft.dev" ||
+      url.hostname.endsWith(".getartcraft.dev") ||
+      url.hostname.endsWith(".workers.dev") ||
       /^deploy-preview-\d+--artcraft-website-next\.netlify\.app$/.test(url.hostname))
   ) {
     return url.origin;
@@ -613,11 +615,17 @@ export default {
 
     // 4. Pre-generated keys, OCI signatures & Linux repository files + binary redirects
     if (pathname === "/keys/artcraft.asc") {
+      if (!SIGNING_CONFIGURED) {
+        return new Response("Not found", { status: 404 });
+      }
       return serveStaticAssetWithHeaders(request, env, pathname, "application/pgp-keys; charset=utf-8", {
         "Content-Disposition": 'inline; filename="artcraft.asc"',
       });
     }
     if (pathname === "/keys/artcraft.gpg") {
+      if (!SIGNING_CONFIGURED) {
+        return new Response("Not found", { status: 404 });
+      }
       return serveStaticAssetWithHeaders(request, env, pathname, "application/pgp-keys");
     }
     if (pathname.startsWith("/oci-signatures/")) {
