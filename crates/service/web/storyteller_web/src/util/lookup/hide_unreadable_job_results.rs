@@ -4,7 +4,7 @@ use enums::common::visibility::Visibility;
 use errors::AnyhowResult;
 use mysql_queries::queries::generic_inference::web::job_status::GenericInferenceJobStatus;
 use log::warn;
-use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::batch_get_media_files_by_tokens;
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens, MediaReadScope};
 use sqlx::MySqlPool;
 use tokens::tokens::media_files::MediaFileToken;
 use tokens::tokens::users::UserToken;
@@ -29,7 +29,11 @@ pub async fn hide_unreadable_job_results(
   }
 
   // NB: Soft-deleted media is not returned unless the viewer is a moderator.
-  let media = match batch_get_media_files_by_tokens(mysql_pool, &media_tokens, is_moderator).await {
+  let scope = MediaReadScope {
+    viewer_user_token: maybe_viewer_user_token.map(|token| token.as_str()),
+    is_mod: is_moderator,
+  };
+  let media = match batch_get_media_files_by_tokens(mysql_pool, &media_tokens, is_moderator, &scope).await {
     Ok(media) => media,
     Err(err) => {
       // Fail closed: the status stays, the results go.
