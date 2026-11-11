@@ -42,7 +42,9 @@ jobs:
             TARGET_SHA="$PR_HEAD_SHA"
             SHORT_SHA="${TARGET_SHA:0:7}"
             BRANCH_SLUG="$(echo "${BRANCH_NAME}" | tr '/_.' '-' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+//g; s/^-+|-+$//g')"
-            DEPLOY_URL="https://${BRANCH_SLUG}.getartcraft.dev"
+            # A DNS label is at most 63 characters: past that the preview host is not this slug, so wait for the bot comment's URL instead.
+            DEPLOY_URL=""
+            if [[ ${#BRANCH_SLUG} -le 63 ]]; then DEPLOY_URL="https://${BRANCH_SLUG}.getartcraft.dev"; fi
             echo "Awaiting Cloudflare deploy preview for PR #${PR_NUMBER} (branch ${BRANCH_NAME}, commit ${TARGET_SHA})..."
           else
             TARGET_SHA="$COMMIT_SHA"
@@ -54,12 +56,12 @@ jobs:
           for i in {1..90}; do
             # For PRs, extract the preview URL directly from the Cloudflare bot comment if present for this commit
             if [[ "$EVENT_NAME" == "pull_request" ]]; then
-              CF_URL=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" 2>/dev/null | jq -r --arg sha "$SHORT_SHA" '
-                [ .[] |
+              CF_URL=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" 2>/dev/null | jq -rs --arg sha "$SHORT_SHA" '
+                [ .[][] |
                   select(.user.login == "cloudflare-workers-and-pages[bot]") |
                   select(.body | contains("(commit " + $sha + ")")) |
                   .body |
-                  capture("Preview URL:\\s*(?<urls>[^\\n\\r]+)") |
+                  capture("Preview URL:\\s*(?<urls>[^\\n\\r]+)")? |
                   .urls |
                   [scan("https://[a-zA-Z0-9.-]+\\.(?:getartcraft\\.dev|workers\\.dev)")] |
                   .[]
@@ -71,8 +73,10 @@ jobs:
             fi
 
             # Check Workers Builds check run status on this commit
-            CHECK_DATA=$(gh api "repos/${REPO}/commits/${TARGET_SHA}/check-runs" \
-              --jq '[.check_runs[] | select(.name == "Workers Builds: artcraft-services" or (.name | test("Workers Builds|Cloudflare")))] | first' 2>/dev/null || true)
+            # Every page, the exact "Workers Builds: artcraft-services" run first, then any other Cloudflare build run
+            CHECK_DATA=$(gh api --paginate "repos/${REPO}/commits/${TARGET_SHA}/check-runs?per_page=100" 2>/dev/null | jq -s '
+              [.[].check_runs[]] | (map(select(.name == "Workers Builds: artcraft-services")) + map(select(.name | test("Workers Builds|Cloudflare")))) | first // empty
+            ' 2>/dev/null || true)
 
             CHECK_STATUS=$(echo "$CHECK_DATA" | jq -r '.status // empty' 2>/dev/null || true)
             CHECK_CONCLUSION=$(echo "$CHECK_DATA" | jq -r '.conclusion // empty' 2>/dev/null || true)
