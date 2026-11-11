@@ -147,10 +147,9 @@ jobs:
                         asset =>
                           (repo !== launcher.repo ||
                             !asset.startsWith("{slug}-cli-")) &&
-                          // Match AniCraft's custom download list: these builds are not published.
+                          // Match AniCraft's custom download list: no web ZIP is published.
                           (repo !== "anicraft" ||
-                            (!asset.includes("-windows-x86") &&
-                              !asset.startsWith("{slug}-web-")))
+                            !asset.startsWith("{slug}-web-"))
                       )
                       .map(asset =>
                         asset
