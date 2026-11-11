@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 
 use enums::by_table::media_files::media_file_type::MediaFileType;
 use http_server_common::request::get_request_ip::get_request_ip;
+use enums::common::visibility::Visibility;
 use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
 use mysql_queries::queries::model_weights::edit::set_model_weight_cover_image::{set_model_weight_cover_image, UpdateArgs};
 use mysql_queries::queries::model_weights::get::get_weight::get_weight_by_token;
@@ -134,6 +135,13 @@ pub async fn set_model_weight_cover_image_handler(
 
       //let can_use_image = media_file.creator_set_visibility == Visibility::Public
       //    && media_file.media_type == MediaFileType::Image;
+
+      // Another user's private image must not become a (public) cover.
+      let is_owner = media_file.maybe_creator_user_token.as_ref()
+          .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
+      if media_file.creator_set_visibility == Visibility::Private && !is_owner {
+        return Err(CommonWebError::NotFound);
+      }
 
       let can_use_image = media_file.media_type.is_image();
 
