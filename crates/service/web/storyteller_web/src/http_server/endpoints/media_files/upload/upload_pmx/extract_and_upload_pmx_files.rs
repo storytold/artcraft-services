@@ -30,6 +30,7 @@ pub enum PmxError {
   InvalidArchive,
   TooManyFiles,
   ExtractionError,
+  TooLarge,
   NoPmxFile,
   UploadError,
   FileError,
@@ -105,7 +106,7 @@ pub async fn extract_and_upload_pmx_files(
 
     if zip_item_bytes.len() as u64 > limit {
       warn!("Archive member exceeds decompressed size budget");
-      return Err(PmxError::ExtractionError);
+      return Err(PmxError::TooLarge);
     }
     total_bytes += zip_item_bytes.len() as u64;
 
