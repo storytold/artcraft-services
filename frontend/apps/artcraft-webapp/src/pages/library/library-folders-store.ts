@@ -118,6 +118,8 @@ interface LibraryFoldersState {
   setContextMenu: (
     menu: { folderId: string; x: number; y: number } | null,
   ) => void;
+  /** Drop every cached folder and its media (account change). */
+  resetAccountState: () => void;
 }
 
 // ── Singletons + mappers ────────────────────────────────────────────────────
@@ -191,6 +193,17 @@ export const useLibraryFoldersStore = create<LibraryFoldersState>(
     newFolderModal: { open: false, parentId: null, addItemIds: [] },
     renameTarget: null,
     contextMenu: null,
+
+    resetAccountState: () => {
+      for (const key of Object.keys(folderCursors)) delete folderCursors[key];
+      set({
+        folders: [],
+        foldersLoaded: false,
+        activeFolderId: null,
+        folderMediaItems: {},
+        folderHasMore: {},
+      });
+    },
 
     loadFolders: async () => {
       try {
