@@ -39,6 +39,7 @@ jobs:
               "lightcraft",
               "pdfcraft",
               "effectcraft",
+              "anicraft",
               "designcraft",
               "figcraft",
               "texturecraft",
@@ -144,8 +145,12 @@ jobs:
                   : assetTemplates
                       .filter(
                         asset =>
-                          repo !== launcher.repo ||
-                          !asset.startsWith("{slug}-cli-")
+                          (repo !== launcher.repo ||
+                            !asset.startsWith("{slug}-cli-")) &&
+                          // Match AniCraft's custom download list: these builds are not published.
+                          (repo !== "anicraft" ||
+                            (!asset.includes("-windows-x86") &&
+                              !asset.startsWith("{slug}-web-")))
                       )
                       .map(asset =>
                         asset
