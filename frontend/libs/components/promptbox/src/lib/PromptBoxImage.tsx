@@ -36,6 +36,7 @@ import {
   type DroppedFiles,
 } from "./deck/usePromptBoxDrop";
 import { DeckAddAction, DeckItem } from "./deck/deckTypes";
+import { PromptLengthCounter, isOverPromptLimit } from "./PromptLengthCounter";
 
 interface PromptBoxImageProps {
   useJobContext: () => JobContextType;
@@ -350,7 +351,7 @@ export const PromptBoxImage = ({
       console.warn("Cannot generate image: prompt is empty");
       return;
     }
-    if (isFinite(maxLen) && prompt.length > maxLen) {
+    if (isOverPromptLimit(prompt.length, maxLen)) {
       toast.error(
         `Prompt exceeds the ${maxLen} character limit for this model`,
       );
@@ -491,11 +492,7 @@ export const PromptBoxImage = ({
                 onBlur={() => setIsFocused(false)}
               />
               <PromptFullscreenButton onClick={openFullscreen} />
-              <span
-                className={`absolute -bottom-1 right-0 text-[10px] tabular-nums ${isFinite(maxLen) && prompt.length > maxLen ? "text-red-500" : "text-base-fg/40"}`}
-              >
-                {prompt.length} / {isFinite(maxLen) ? maxLen : "∞"}
-              </span>
+              <PromptLengthCounter prompt={prompt} maxLen={maxLen} />
             </div>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">

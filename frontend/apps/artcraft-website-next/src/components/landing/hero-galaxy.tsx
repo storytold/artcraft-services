@@ -1051,7 +1051,7 @@ function GalaxyScene({
   );
   const prevC = useMemo(() => {
     const a = new Float32Array(cards.length);
-    a.fill(NaN);
+    a.fill(Number.NaN);
     return a;
   }, [cards]);
   // Local click punches in flight: which card, where on it (card UV), and
@@ -1899,7 +1899,7 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 // Raw sRGB components for shader uniforms, bypassing THREE.Color's working
 // color space conversion (the shader passes sRGB straight through).
 function hexToVec3(hex: string): THREE.Vector3 {
-  const n = parseInt(hex.replace("#", ""), 16);
+  const n = Number.parseInt(hex.replace("#", ""), 16);
   return new THREE.Vector3(
     ((n >> 16) & 255) / 255,
     ((n >> 8) & 255) / 255,
