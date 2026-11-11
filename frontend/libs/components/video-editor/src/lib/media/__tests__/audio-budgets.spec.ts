@@ -247,4 +247,27 @@ describe("buildAudioGainAutomation", () => {
     expect(points.length).toBeLessThanOrEqual(MAX_AUDIO_GAIN_AUTOMATION_POINTS + 1);
     expect(points[points.length - 1].localTime).toBe(10 * 3_600);
   });
+
+  test("keeps short volume changes when the step is widened", () => {
+    const dip = libraryAudio({
+      duration: ticks(3_600),
+      animations: {
+        volume: {
+          keys: [30.03, 30.05, 30.07].map((seconds, index) => ({
+            id: `d${index}`,
+            time: ticks(seconds),
+            value: index === 1 ? -40 : 0,
+            segmentToNext: "linear" as const,
+            tangentMode: "flat" as const,
+          })),
+        },
+      } as ElementAnimations,
+    }) as AudioCapableElement;
+    const points = buildAudioGainAutomation({ element: dip, fromLocalTime: 0, toLocalTime: 3_600 });
+    expect(points.length).toBeLessThanOrEqual(MAX_AUDIO_GAIN_AUTOMATION_POINTS + 4);
+    const bottom = points.find((point) => Math.abs(point.localTime - 30.05) < 1e-6);
+    expect(bottom?.gain).toBeCloseTo(resolveEffectiveAudioGain({ element: dip, localTime: 30.05 }), 10);
+    expect(bottom!.gain).toBeLessThan(0.05);
+    for (let i = 1; i < points.length; i++) expect(points[i].localTime).toBeGreaterThanOrEqual(points[i - 1].localTime);
+  });
 });

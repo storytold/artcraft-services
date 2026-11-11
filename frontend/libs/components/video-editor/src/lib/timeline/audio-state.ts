@@ -174,15 +174,28 @@ export function buildAudioGainAutomation({
     (endTime - startTime) / (MAX_AUDIO_GAIN_AUTOMATION_POINTS - 1),
   );
   const resolveGain = createAudioGainResolver({ element, trackMuted });
-  const points: Array<{ localTime: number; gain: number }> = [];
+  const times: number[] = [];
 
   for (let index = 0; ; index++) {
     const localTime = startTime + index * safeStep;
     if (localTime >= endTime) break;
-    points.push({ localTime, gain: resolveGain(localTime) });
+    times.push(localTime);
   }
 
-  points.push({ localTime: endTime, gain: resolveGain(endTime) });
+  // A widened step could step over a short dip, so keyframe times are always sampled (bounded like the grid).
+  if (safeStep > requestedStep) {
+    const data = element.animations?.volume;
+    if (isLeafChannelData(data) && isScalarChannel(data)) {
+      const keyTimes = data.keys
+        .map((key) => key.time / TICKS_PER_SECOND)
+        .filter((time) => time > startTime && time < endTime)
+        .slice(0, MAX_AUDIO_GAIN_AUTOMATION_POINTS);
+      times.push(...keyTimes);
+      times.sort((left, right) => left - right);
+    }
+  }
 
-  return points;
+  times.push(endTime);
+
+  return times.map((localTime) => ({ localTime, gain: resolveGain(localTime) }));
 }

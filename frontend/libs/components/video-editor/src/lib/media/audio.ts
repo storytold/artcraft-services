@@ -26,7 +26,7 @@ import type { MediaAsset } from "./types";
 import { applyAudioMasteringToBuffer } from "./audio-mastering";
 import { mediaSupportsAudio } from "./media-utils";
 import { computeRmsBuckets, type SampleBucket } from "./waveform-summary";
-import { shouldMaintainPitch } from "../retime/rate";
+import { clampRetimeRate, shouldMaintainPitch } from "../retime/rate";
 import { getSourceTimeAtClipTime } from "../retime/resolve";
 import { renderRetimedBuffer } from "../retime/audio-stretch";
 import type {
@@ -474,15 +474,21 @@ export async function createTimelineAudioBuffer({
   for (const element of audioElements) {
     if (element.muted) continue;
 
-    const renderedBuffer = shouldMaintainPitch({
+    const pitchPreserved = shouldMaintainPitch({
       rate: element.retime?.rate ?? 1,
       maintainPitch: element.retime?.maintainPitch,
-    })
+    });
+    // Pitch-preserving preparation is expensive, so only the part of the clip
+    // that lands inside the export is prepared (clip-local time `from`..`to`).
+    const from = Math.max(0, -element.startTime);
+    const to = Math.min(element.duration, durationSeconds - element.startTime);
+    if (pitchPreserved && !(to > from)) continue;
+    const renderedBuffer = pitchPreserved
       ? await renderRetimedBuffer({
           audioContext: context,
           sourceBuffer: element.buffer,
-          trimStart: element.trimStart,
-          clipDuration: element.duration,
+          trimStart: element.trimStart + from * clampRetimeRate({ rate: element.retime?.rate ?? 1 }),
+          clipDuration: to - from,
           retime: element.retime,
           maintainPitch: true,
         })
@@ -493,6 +499,7 @@ export async function createTimelineAudioBuffer({
       buffer: renderedBuffer ?? element.buffer,
       trimStart: renderedBuffer ? 0 : element.trimStart,
       retime: renderedBuffer ? undefined : element.retime,
+      bufferOffset: renderedBuffer ? from : 0,
       outputBuffer,
       outputLength,
       sampleRate,
@@ -872,6 +879,7 @@ function mixAudioChannels({
   buffer,
   trimStart,
   retime,
+  bufferOffset = 0,
   outputBuffer,
   outputLength,
   sampleRate,
@@ -880,6 +888,8 @@ function mixAudioChannels({
   buffer: AudioBuffer;
   trimStart: number;
   retime?: RetimeConfig;
+  /** Clip time at which `buffer` starts (a prepared buffer covering only part of the clip). */
+  bufferOffset?: number;
   outputBuffer: AudioBuffer;
   outputLength: number;
   sampleRate: number;
@@ -900,7 +910,7 @@ function mixAudioChannels({
   // Only walk the part of the clip that lands inside the output buffer. A
   // clip starting far before 0 (restored from a project document) used to
   // iterate every leading sample just to discard it.
-  const firstSample = Math.max(0, -outputStartSample);
+  const firstSample = Math.max(0, -outputStartSample, Math.ceil(bufferOffset * sampleRate));
   const endSample = Math.min(renderedLength, outputLength - outputStartSample);
   if (firstSample >= endSample) return;
 
@@ -921,7 +931,7 @@ function mixAudioChannels({
   for (let i = firstSample; i < endSample; i++) {
     const clipTime = i / sampleRate;
     const sourceTime =
-      safeTrimStart + getSourceTimeAtClipTime({ clipTime, retime });
+      safeTrimStart + getSourceTimeAtClipTime({ clipTime: clipTime - bufferOffset, retime });
     const sourceIndex = sourceTime * buffer.sampleRate;
     if (sourceIndex >= sourceLength) break;
 
