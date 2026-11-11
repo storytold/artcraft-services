@@ -71,10 +71,12 @@ fn redirect_policy(attempt: Attempt) -> wreq::redirect::Action {
 
 /// Downloads a (binary) file to memory. Good for images, etc. Not great for large files.
 pub async fn http_download_url_to_bytes(url: &str) -> Result<Bytes, DownloadFileToBytesError> {
-  match url.parse::<wreq::Uri>() {
-    Ok(uri) if !is_forbidden_destination(&uri) => {}
+  // Normalize like the client does (e.g. a space becomes %20), then validate and request that exact URL.
+  let url = match url::Url::parse(url).ok().and_then(|u| u.as_str().parse::<wreq::Uri>().ok()) {
+    Some(uri) if !is_forbidden_destination(&uri) => uri.to_string(),
     _ => return Err(DownloadFileToBytesError::ForbiddenDestination { url: url.to_string() }),
-  }
+  };
+  let url = url.as_str();
 
   let client = Client::builder()
       .gzip(true)
