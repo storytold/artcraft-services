@@ -193,7 +193,7 @@ function PlanCell({
       data-highlight={
         PLAN_STYLE[plan.slug]?.highlight || isCurrent ? "" : undefined
       }
-      className={`website-plan-card plan-${plan.colorScheme} flex flex-col`}
+      className={`st-keep-dark website-plan-card plan-${plan.colorScheme} flex flex-col`}
     >
       <CellIndexRow index={index}>
         {isCurrent ? (
@@ -270,7 +270,7 @@ function EnterpriseCell({ index }: { index: string }) {
   return (
     <article
       id="enterprise"
-      className="website-plan-card plan-enterprise flex flex-col"
+      className="st-keep-dark website-plan-card plan-enterprise flex flex-col"
     >
       <CellIndexRow index={index}>For teams</CellIndexRow>
 
