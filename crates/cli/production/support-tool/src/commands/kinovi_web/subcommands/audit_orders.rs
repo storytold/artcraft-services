@@ -1,10 +1,11 @@
-use std::fs::OpenOptions;
 use std::io::Write;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Args;
 use log::{info, warn};
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use kinovi_web_client::creds::kinovi_web_session::KinoviWebSession;
 use kinovi_web_client::requests::poll_orders::poll_orders::{
   poll_orders, OrderStatus, PollOrdersArgs, TaskStatus,
@@ -53,11 +54,11 @@ pub async fn run(state: &KinoviWebState, args: AuditOrdersArgs) -> anyhow::Resul
   let account_label = args.account.as_deref().unwrap_or(&state.cookies_env);
   let session = KinoviWebSession::from_cookies_string(state.cookies.clone());
 
-  let file_is_new = std::fs::metadata(&args.out).map(|m| m.len() == 0).unwrap_or(true);
-  let mut out = OpenOptions::new().create(true).append(true).open(&args.out)
+  let file_is_new = tokio::fs::metadata(&args.out).await.map(|m| m.len() == 0).unwrap_or(true);
+  let mut out = OpenOptions::new().create(true).append(true).open(&args.out).await
     .map_err(|err| anyhow!("Cannot open {}: {}", args.out, err))?;
   if file_is_new {
-    writeln!(out, "account,order_id,created_at,task_status,media_type,total_credits,result_count,fail_reason")?;
+    out.write_all(b"account,order_id,created_at,task_status,media_type,total_credits,result_count,fail_reason\n").await?;
   }
 
   let mut cursor = args.cursor;
@@ -80,6 +81,7 @@ pub async fn run(state: &KinoviWebState, args: AuditOrdersArgs) -> anyhow::Resul
     let newest = order_day(result.orders.first().unwrap());
     let oldest = order_day(result.orders.last().unwrap());
 
+    let mut page_rows: Vec<u8> = Vec::new();
     for order in &result.orders {
       let day = order_day(order);
       if args.end_date.as_deref().is_some_and(|end| day > end) {
@@ -90,10 +92,11 @@ pub async fn run(state: &KinoviWebState, args: AuditOrdersArgs) -> anyhow::Resul
         stats.skipped_before_window += 1;
         continue;
       }
-      write_order_row(&mut out, account_label, order)?;
+      write_order_row(&mut page_rows, account_label, order)?;
       stats.record(order);
     }
-    out.flush()?;
+    out.write_all(&page_rows).await?;
+    out.flush().await?;
 
     info!(
       "Page {}: {} orders ({} .. {}), written so far: {}, next cursor: {:?}",
