@@ -271,7 +271,7 @@ export default function CreateWorld() {
       const newImages: RefImage[] = items
         .slice(0, availableSlots)
         .map((item) => ({
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: item.thumbnail || item.fullImage || "",
           fullUrl: item.fullImage || undefined,
           file: new File([], "library-image"),
