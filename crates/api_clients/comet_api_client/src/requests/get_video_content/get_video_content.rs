@@ -116,7 +116,7 @@ pub async fn probe_video_failure_reason(
   reason.maybe_error_type = raw.error.error_type;
   reason.maybe_request_id = maybe_request_id;
 
-  info!("Comet video task {} failure probe: {:?}", args.task_id, reason);
+  info!("Comet video task {:?} failure probe: {:?}", args.task_id, reason);
 
   Ok(Some(reason))
 }
