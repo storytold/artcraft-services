@@ -138,10 +138,11 @@ pub async fn get_prompt_handler(
         &tokens,
         false,
         &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
-      ).await.unwrap_or_else(|e| {
+      ).await.map_err(|e| {
+        // NB: Fail the request rather than return a prompt with its readable context silently dropped.
         warn!("Error resolving prompt context media visibility: {:?}", e);
-        Vec::new()
-      }).into_iter().map(|record| record.token).collect::<std::collections::HashSet<_>>()
+        CommonWebError::from(e)
+      })?.into_iter().map(|record| record.token).collect::<std::collections::HashSet<_>>()
     }
   };
 
