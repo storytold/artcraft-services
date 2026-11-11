@@ -1,8 +1,9 @@
 # Hosted launcher catalog
 
 `public/launcher-catalog.toml` preserves the PR's `[[apps]]` schema and display
-order. The generated data comes from the launcher's compiled `catalog.rs`,
-`details.rs`, and `desktop_entry.rs`, including aliases, publisher and macOS
+order. The generated data comes from the launcher's bundled `catalog.toml` after
+launcher PR #1115, or its compiled `catalog.rs`, `details.rs`, and
+`desktop_entry.rs` on older revisions, including aliases, publisher and macOS
 signing metadata, app descriptions, features, screenshots, and desktop integration.
 An absent `mac_team` means the launcher must not install that app on macOS.
 `mac_bundle_name` is the primary macOS `.app` stem, independent of display name.

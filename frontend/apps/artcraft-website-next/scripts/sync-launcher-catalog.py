@@ -38,6 +38,36 @@ def attribution_row(lines, app_id):
     return row
 
 
+def extract_catalog(root):
+    """Read the bundled TOML after launcher #1115, or compile legacy Rust data."""
+    bundled = root / "crates/core/catalog.toml"
+    if bundled.exists():
+        lines = bundled.read_text().splitlines()
+        while lines and (not lines[0].strip() or lines[0].lstrip().startswith("#")):
+            lines.pop(0)
+        # Recompute content-addressed URLs/hashes from the actual source assets below.
+        return "\n" + "\n".join(line for line in lines if not line.startswith(("icon_url = ", "icon_sha256 = "))) + "\n"
+    # Compile the real source modules, including desktop metadata, rather than parse Rust.
+    modules = {
+        "catalog": root / "crates/core/src/catalog.rs",
+        "details": root / "crates/core/src/details.rs",
+        "desktop_entry": root / "crates/native/src/desktop_entry.rs",
+    }
+    wrapper = root / "export.rs"
+    wrapper.write_text(
+        '#![allow(dead_code)]\nextern crate self as artcraft_launcher_core;\n'
+        '#[derive(PartialEq)] pub enum PackageKind { Dmg }\n'
+        'pub enum Os { FreeBsd, Linux, MacOs, Windows }\n'
+        + "".join(f'#[path = {json.dumps(str(path))}] pub mod {name};\n' for name, path in modules.items())
+        + 'pub use catalog::CraftApp;\n'
+        + (APP / "scripts/export-launcher-catalog.rs").read_text().replace(
+            'use artcraft_launcher_core::{catalog, details, desktop_entry};', '')
+    )
+    executable = root / "export"
+    subprocess.run(["rustc", "--edition=2021", str(wrapper), "-o", str(executable)], check=True)
+    return subprocess.check_output([str(executable)]).decode()
+
+
 def main():
     """Generate or compare the committed catalog and icon assets."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -56,25 +86,7 @@ def main():
         archive = git(args.launcher, "archive", revision)
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
             tar.extractall(root, filter="data")
-        # Compile the real source modules, including desktop metadata, rather than parse Rust.
-        modules = {
-            "catalog": root / "crates/core/src/catalog.rs",
-            "details": root / "crates/core/src/details.rs",
-            "desktop_entry": root / "crates/native/src/desktop_entry.rs",
-        }
-        wrapper = root / "export.rs"
-        wrapper.write_text(
-            '#![allow(dead_code)]\nextern crate self as artcraft_launcher_core;\n'
-            '#[derive(PartialEq)] pub enum PackageKind { Dmg }\n'
-            'pub enum Os { FreeBsd, Linux, MacOs, Windows }\n'
-            + "".join(f'#[path = {json.dumps(str(path))}] pub mod {name};\n' for name, path in modules.items())
-            + 'pub use catalog::CraftApp;\n'
-            + (APP / "scripts/export-launcher-catalog.rs").read_text().replace(
-                'use artcraft_launcher_core::{catalog, details, desktop_entry};', '')
-        )
-        executable = root / "export"
-        subprocess.run(["rustc", "--edition=2021", str(wrapper), "-o", str(executable)], check=True)
-        catalog = subprocess.check_output([str(executable)]).decode()
+        catalog = extract_catalog(root)
         parsed = tomllib.loads(catalog)
         ids = [app["id"] for app in parsed["apps"]]
         if len(ids) != len(set(ids)):
