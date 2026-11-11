@@ -43,7 +43,7 @@ async fn each_users_bookmark_is_counted() {
   create_bookmark(&app, &state, &alice, &media_file).await;
   create_bookmark(&app, &state, &bob, &media_file).await;
 
-  assert_eq!(bookmark_count(&app, &media_file).await, 2);
+  assert_eq!(bookmark_count(&app, &state, &alice, &media_file).await, 2);
 }
 
 #[actix_web::test]
@@ -62,11 +62,11 @@ async fn deleting_a_bookmark_removes_only_that_users_count() {
   create_bookmark(&app, &state, &alice, &media_file).await;
   let bob_bookmark = create_bookmark(&app, &state, &bob, &media_file).await;
   delete_bookmark(&app, &state, &bob, &bob_bookmark).await;
-  assert_eq!(bookmark_count(&app, &media_file).await, 1);
+  assert_eq!(bookmark_count(&app, &state, &alice, &media_file).await, 1);
 
   // Deleting an already-deleted bookmark changes nothing.
   delete_bookmark(&app, &state, &bob, &bob_bookmark).await;
-  assert_eq!(bookmark_count(&app, &media_file).await, 1);
+  assert_eq!(bookmark_count(&app, &state, &alice, &media_file).await, 1);
 }
 
 #[actix_web::test]
@@ -85,7 +85,7 @@ async fn deleting_someone_elses_bookmark_does_not_change_the_count() {
   let alice_bookmark = create_bookmark(&app, &state, &alice, &media_file).await;
   delete_bookmark(&app, &state, &mallory, &alice_bookmark).await;
 
-  assert_eq!(bookmark_count(&app, &media_file).await, 1);
+  assert_eq!(bookmark_count(&app, &state, &alice, &media_file).await, 1);
 }
 
 #[actix_web::test]
@@ -104,14 +104,14 @@ async fn repeated_bookmark_and_delete_count_once() {
   // so delete with the token from the first.
   let bookmark = create_bookmark(&app, &state, &alice, &media_file).await;
   create_bookmark(&app, &state, &alice, &media_file).await;
-  assert_eq!(bookmark_count(&app, &media_file).await, 1);
+  assert_eq!(bookmark_count(&app, &state, &alice, &media_file).await, 1);
 
   delete_bookmark(&app, &state, &alice, &bookmark).await;
   delete_bookmark(&app, &state, &alice, &bookmark).await;
-  assert_eq!(bookmark_count(&app, &media_file).await, 0);
+  assert_eq!(bookmark_count(&app, &state, &alice, &media_file).await, 0);
 
   create_bookmark(&app, &state, &alice, &media_file).await;
-  assert_eq!(bookmark_count(&app, &media_file).await, 1);
+  assert_eq!(bookmark_count(&app, &state, &alice, &media_file).await, 1);
 }
 
 async fn test_state() -> (Arc<ServerState>, sqlx::MySqlPool) {
@@ -145,14 +145,17 @@ where
   assert_eq!(status, StatusCode::OK, "delete bookmark failed: {response}");
 }
 
-/// The stored `entity_stats.bookmark_count`, as the media file endpoint reports it.
-async fn bookmark_count<S, B>(app: &S, media_file: &MediaFileToken) -> u64
+/// The stored `entity_stats.bookmark_count`, as the media file endpoint reports it to `owner`
+/// (the fixture file is private, so only its owner can read it).
+async fn bookmark_count<S, B>(app: &S, state: &ServerState, owner: &TestUser, media_file: &MediaFileToken) -> u64
 where
   S: Service<Request, Response = ServiceResponse<B>, Error = actix_web::Error>,
   B: MessageBody,
   B::Error: Debug,
 {
-  let request = test::TestRequest::get().uri(&format!("/v1/media_files/file/{}", media_file.as_str()));
+  let request = test::TestRequest::get()
+    .uri(&format!("/v1/media_files/file/{}", media_file.as_str()))
+    .insert_header(("session", session(state, owner)));
   let response = test::call_service(app, request.to_request()).await;
   assert_eq!(response.status(), StatusCode::OK);
   let body: Value = test::read_body_json(response).await;
