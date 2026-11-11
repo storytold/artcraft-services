@@ -8,3 +8,6 @@ next-env.d.ts
 *.tsbuildinfo
 playwright-report/
 test-results/
+
+# Build-generated detached launcher catalog signature
+/public/launcher-catalog.toml.sig

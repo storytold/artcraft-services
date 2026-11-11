@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { signLauncherCatalog } from "./sign-launcher-catalog.mjs";
 
 const ROOT = process.cwd();
 const APP_DIR = join(ROOT, "src", "app");
@@ -75,3 +76,6 @@ execFileSync(process.execPath, ["--no-warnings", jitiBin, join(ROOT, "scripts", 
   stdio: "inherit",
   env: process.env,
 });
+
+// Sign the final exported bytes; missing/invalid secrets fail the deployment build.
+signLauncherCatalog(join(ROOT, "out"));
