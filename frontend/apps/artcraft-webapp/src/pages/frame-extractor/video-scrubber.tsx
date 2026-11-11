@@ -338,7 +338,7 @@ export const VideoScrubber = ({
                 value={volume}
                 onChange={(e) => {
                   const video = videoRef.current;
-                  if (video) video.volume = parseFloat(e.target.value);
+                  if (video) video.volume = Number.parseFloat(e.target.value);
                 }}
                 className="w-20 accent-white"
                 aria-label="Volume"

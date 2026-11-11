@@ -1,10 +1,11 @@
-use std::fs::OpenOptions;
 use std::io::Write;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Args;
 use log::info;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use kinovi_web_client::billing::get_billing_payments_history::{
   get_billing_payments_history, BillingPayment, GetBillingPaymentsHistoryArgs,
   DEFAULT_BILLING_PAGE_LIMIT,
@@ -39,11 +40,11 @@ pub async fn run(state: &KinoviWebState, args: AuditPaymentsArgs) -> anyhow::Res
   let account_label = args.account.as_deref().unwrap_or(&state.cookies_env);
   let session = KinoviWebSession::from_cookies_string(state.cookies.clone());
 
-  let file_is_new = std::fs::metadata(&args.out).map(|m| m.len() == 0).unwrap_or(true);
-  let mut out = OpenOptions::new().create(true).append(true).open(&args.out)
+  let file_is_new = tokio::fs::metadata(&args.out).await.map(|m| m.len() == 0).unwrap_or(true);
+  let mut out = OpenOptions::new().create(true).append(true).open(&args.out).await
     .map_err(|err| anyhow!("Cannot open {}: {}", args.out, err))?;
   if file_is_new {
-    writeln!(out, "account,payment_id,created_at,amount_usd,credits_earned,status,payment_type,product_name,transaction_id")?;
+    out.write_all(b"account,payment_id,created_at,amount_usd,credits_earned,status,payment_type,product_name,transaction_id\n").await?;
   }
 
   let mut offset: u64 = 0;
@@ -67,13 +68,15 @@ pub async fn run(state: &KinoviWebState, args: AuditPaymentsArgs) -> anyhow::Res
       break;
     }
 
+    let mut page_rows: Vec<u8> = Vec::new();
     for payment in &page.payments {
-      write_payment_row(&mut out, account_label, payment)?;
+      write_payment_row(&mut page_rows, account_label, payment)?;
       rows += 1;
       total_amount += payment.amount_usd;
       total_credits += payment.credits_earned;
     }
-    out.flush()?;
+    out.write_all(&page_rows).await?;
+    out.flush().await?;
 
     info!(
       "Page {} (offset {}): {} payments; running ${:.2} / {} credits (server total {})",

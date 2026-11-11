@@ -95,12 +95,12 @@ export const PromptBoxVFX = ({
 
       setSourceUploading(true);
       await uploadVideo({
-        title: `vfx-source-${Math.random().toString(36).slice(2, 10)}`,
+        title: `vfx-source-${Math.random().toString(36).slice(2, 10)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
         assetFile: file,
         progressCallback: (state) => {
           if (state.status === UploaderStates.success && state.data) {
             setSource({
-              id: Math.random().toString(36).slice(2),
+              id: Math.random().toString(36).slice(2), // NOSONAR: UI-only id or cosmetic value, never a secret.
               url: previewUrl,
               mediaToken: state.data,
             });
@@ -136,12 +136,12 @@ export const PromptBoxVFX = ({
 
       setUploading(true);
       await uploadImage({
-        title: `vfx-${kind}-${Math.random().toString(36).slice(2, 10)}`,
+        title: `vfx-${kind}-${Math.random().toString(36).slice(2, 10)}`, // NOSONAR: UI-only id or cosmetic value, never a secret.
         assetFile: file,
         progressCallback: (state) => {
           if (state.status === UploaderStates.success && state.data) {
             setRef({
-              id: Math.random().toString(36).slice(2),
+              id: Math.random().toString(36).slice(2), // NOSONAR: UI-only id or cosmetic value, never a secret.
               url: previewUrl,
               mediaToken: state.data,
             });
@@ -183,7 +183,7 @@ export const PromptBoxVFX = ({
         return;
       }
       const ref = {
-        id: Math.random().toString(36).slice(2),
+        id: Math.random().toString(36).slice(2), // NOSONAR: UI-only id or cosmetic value, never a secret.
         url: item.fullImage || item.thumbnail || "",
         mediaToken: item.id,
       };

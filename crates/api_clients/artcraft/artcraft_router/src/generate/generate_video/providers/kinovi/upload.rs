@@ -22,7 +22,7 @@ pub(crate) async fn upload_to_kinovi_web(
   let extension = upload_extension(source_url, maybe_local_path);
 
   let file_bytes = match maybe_local_path {
-    Some(local_path) => match std::fs::read(local_path) {
+    Some(local_path) => match tokio::fs::read(local_path).await {
       Ok(bytes) => {
         info!("Reusing predownloaded file for kinovi upload: {}", source_url);
         bytes
