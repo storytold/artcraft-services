@@ -38,7 +38,7 @@ export const Create3dModal = ({ onModelComplete }: Create3dModalProps = {}) => {
   // Listen for generation complete events
   useEffect(() => {
     let isUnmounted = false;
-    let unlisten: Promise<UnlistenFn>;
+    let unlisten: Promise<UnlistenFn> | undefined;
 
     const setup = async () => {
       unlisten = listen("generation-complete-event", (event: any) => {
@@ -102,7 +102,7 @@ export const Create3dModal = ({ onModelComplete }: Create3dModalProps = {}) => {
 
     return () => {
       isUnmounted = true;
-      if (unlisten) {
+      if (unlisten !== undefined) {
         unlisten.then((f) => f());
       }
     };

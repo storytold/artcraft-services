@@ -166,7 +166,7 @@ export default function HeroMasthead() {
     };
 
     const ready = document.fonts?.ready;
-    if (ready) ready.then(compute).catch(compute);
+    if (ready !== undefined) ready.then(compute).catch(compute);
     else compute();
     const ro = new ResizeObserver(compute);
     ro.observe(box);
