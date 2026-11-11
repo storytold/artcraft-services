@@ -121,7 +121,7 @@ impl PagerClient {
         .clone()
         .unwrap_or_else(|| "unknown".to_string());
 
-    debug!("Sending page via Rootly (source={}): {}", source, notification.title);
+    debug!("Sending page via Rootly (source={:?}): {:?}", source, notification.title);
 
     let labels = self.build_labels(notification);
 

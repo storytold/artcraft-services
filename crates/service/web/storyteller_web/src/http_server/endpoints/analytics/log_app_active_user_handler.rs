@@ -145,7 +145,7 @@ pub async fn log_app_active_user_handler(
 
 fn validate_app_session_token_format(app_session_token: &AppSessionToken) -> Result<(), CommonWebError> {
   if !app_session_token.as_str().starts_with(AppSessionToken::token_prefix()) {
-    warn!("App session token has invalid prefix: {}", app_session_token.as_str());
+    warn!("App session token has invalid prefix: {:?}", app_session_token.as_str());
     return Err(CommonWebError::BadInputWithSimpleMessage("Invalid app session token format".to_string()));
   }
   
