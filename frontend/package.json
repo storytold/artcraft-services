@@ -2,7 +2,9 @@
   "name": "@frontend/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "build:webapp": "bash apps/artcraft-webapp/script/build_cloudflare.sh"
+  },
   "private": true,
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

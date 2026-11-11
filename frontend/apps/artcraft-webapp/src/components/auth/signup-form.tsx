@@ -61,7 +61,9 @@ export const SignupForm = ({
     const emailPrefix = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
     // Ensure we don't exceed max length (7 chars from email + 3 digits = 10 total)
     const truncatedPrefix = emailPrefix.substring(0, 7);
-    const randomSuffix = Math.floor(Math.random() * 900) + 100; // 100-999
+    const suffixBuf = new Uint32Array(1);
+    crypto.getRandomValues(suffixBuf);
+    const randomSuffix = (suffixBuf[0] % 900) + 100; // 100-999
     const generatedUsername = `${truncatedPrefix}${randomSuffix}`;
 
     const response = await api.Signup({

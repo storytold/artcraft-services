@@ -448,19 +448,18 @@ export const ImagePromptRow = ({
         break;
       }
 
-      const uploadId = Math.random().toString(36).substring(7);
+      const uploadId = Math.random().toString(36).substring(7); // NOSONAR: UI-only id or cosmetic value, never a secret.
       setUploadingVideo({ id: uploadId, file });
 
       if (uploadVideo) {
+        const titleSuffix = Math.random().toString(36).substring(2, 15); // NOSONAR: UI-only id or cosmetic value, never a secret.
         await uploadVideo({
-          title: `reference-video-${Math.random()
-            .toString(36)
-            .substring(2, 15)}`,
+          title: `reference-video-${titleSuffix}`,
           assetFile: file,
           progressCallback: (newState) => {
             if (newState.status === UploaderStates.success && newState.data) {
               const refVideo: RefVideo = {
-                id: Math.random().toString(36).substring(7),
+                id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
                 url: URL.createObjectURL(file),
                 file,
                 mediaToken: newState.data,
@@ -480,7 +479,7 @@ export const ImagePromptRow = ({
         });
       } else {
         const refVideo: RefVideo = {
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: URL.createObjectURL(file),
           file,
           mediaToken: "",
@@ -562,19 +561,18 @@ export const ImagePromptRow = ({
         break;
       }
 
-      const uploadId = Math.random().toString(36).substring(7);
+      const uploadId = Math.random().toString(36).substring(7); // NOSONAR: UI-only id or cosmetic value, never a secret.
       setUploadingAudio({ id: uploadId, file });
 
       if (uploadAudio) {
+        const titleSuffix = Math.random().toString(36).substring(2, 15); // NOSONAR: UI-only id or cosmetic value, never a secret.
         await uploadAudio({
-          title: `reference-audio-${Math.random()
-            .toString(36)
-            .substring(2, 15)}`,
+          title: `reference-audio-${titleSuffix}`,
           assetFile: file,
           progressCallback: (newState) => {
             if (newState.status === UploaderStates.success && newState.data) {
               const refAudio: RefAudio = {
-                id: Math.random().toString(36).substring(7),
+                id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
                 url: URL.createObjectURL(file),
                 file,
                 mediaToken: newState.data,
@@ -592,7 +590,7 @@ export const ImagePromptRow = ({
         });
       } else {
         const refAudio: RefAudio = {
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: URL.createObjectURL(file),
           file,
           mediaToken: "",
@@ -629,7 +627,7 @@ export const ImagePromptRow = ({
         : files.slice(0, availableSlots);
 
     filesToProcess.forEach(async (file) => {
-      const uploadId = Math.random().toString(36).substring(7);
+      const uploadId = Math.random().toString(36).substring(7); // NOSONAR: UI-only id or cosmetic value, never a secret.
       if (uploadTarget === "end") {
         setUploadingEnd({ id: uploadId, file, previewUrl: "" });
       } else {
@@ -680,10 +678,9 @@ export const ImagePromptRow = ({
       };
 
       if (uploadImage) {
+        const titleSuffix = Math.random().toString(36).substring(2, 15); // NOSONAR: UI-only id or cosmetic value, never a secret.
         await uploadImage({
-          title: `reference-image-${Math.random()
-            .toString(36)
-            .substring(2, 15)}`,
+          title: `reference-image-${titleSuffix}`,
           assetFile: file,
           progressCallback: (newState) => {
             if (newState.status === UploaderStates.success && newState.data) {
@@ -767,7 +764,7 @@ export const ImagePromptRow = ({
           }
           currentTotal += duration;
           newVideos.push({
-            id: Math.random().toString(36).substring(7),
+            id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
             url: item.fullImage,
             file: new File([], "library-video"),
             mediaToken: item.id,
@@ -794,7 +791,7 @@ export const ImagePromptRow = ({
       const item = selectedItems[0];
       if (item && item.fullImage) {
         setEndFrameImage?.({
-          id: Math.random().toString(36).substring(7),
+          id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
           url: item.fullImage,
           file: new File([], "library-image"),
           mediaToken: item.id,
@@ -818,7 +815,7 @@ export const ImagePromptRow = ({
     selectedItems.slice(0, availableSlots).forEach((item) => {
       if (!item.fullImage) return;
       newRefs.push({
-        id: Math.random().toString(36).substring(7),
+        id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
         url: item.fullImage,
         file: new File([], "library-image"),
         mediaToken: item.id,

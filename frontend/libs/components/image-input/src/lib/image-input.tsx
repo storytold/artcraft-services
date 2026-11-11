@@ -47,7 +47,7 @@ export function ImageInput({
     const reader = new FileReader();
     reader.onloadend = () => {
       const newImage: ImageFile = {
-        id: Math.random().toString(36).substring(7),
+        id: Math.random().toString(36).substring(7), // NOSONAR: UI-only id or cosmetic value, never a secret.
         url: reader.result as string,
         file: file,
       };

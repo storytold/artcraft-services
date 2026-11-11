@@ -69,7 +69,7 @@ impl GoogleDriveDownloadCommand {
 
     let temp_filename = format!("{}/{}", temp_dir_path, file_name);
 
-    info!("Downloading {} to: {}", download_url, temp_filename);
+    info!("Downloading {:?} to: {:?}", download_url, temp_filename);
 
     let mut command = format!("{} --url \"{}\" --output_filename {}",
                               &self.download_script,
@@ -93,7 +93,7 @@ impl GoogleDriveDownloadCommand {
       command = docker_options.to_command_string(&command);
     }
 
-    info!("Running command: {}", command);
+    info!("Running command: {:?}", command);
 
     let result = Command::new("sh")
         .arg("-c")
@@ -124,7 +124,7 @@ impl GoogleDriveDownloadCommand {
     let temp_filename = random_crockford_token(10);
     let temp_filename = format!("{}/{}.bin", temp_dir_path, temp_filename);
 
-    info!("Downloading {} to: {}", download_url, temp_filename);
+    info!("Downloading {:?} to: {:?}", download_url, temp_filename);
 
     let mut command = format!("{} --url \"{}\" --output_filename {}",
                           &self.download_script,
@@ -148,7 +148,7 @@ impl GoogleDriveDownloadCommand {
       command = docker_options.to_command_string(&command);
     }
 
-    info!("Running command: {}", command);
+    info!("Running command: {:?}", command);
 
     let result = Command::new("sh")
       .arg("-c")
