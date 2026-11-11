@@ -126,7 +126,7 @@ pub async fn list_media_files_for_user_v2_handler(
   let has_more = records.len() > page_size;
   records.truncate(page_size);
   info!(
-    "Listed list_v2 user media: username={} page={} page_ms={}",
+    "Listed list_v2 user media: username={:?} page={} page_ms={}",
     path.username,
     page_index,
     page_started.elapsed().as_millis()
