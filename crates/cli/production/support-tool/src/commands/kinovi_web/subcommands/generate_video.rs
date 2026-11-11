@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
@@ -27,7 +28,9 @@ use tokens::tokens::media_files::MediaFileToken;
 
 use super::super::state::KinoviWebState;
 
-const DEFAULT_DOWNLOAD_PATH: &str = "/tmp/media_files";
+/// Default cache location, relative to `$HOME`. NB: Not a shared `/tmp` path, where another local
+/// user could pre-create the directory and plant files or symlinks.
+const DEFAULT_DOWNLOAD_PATH_UNDER_HOME: &str = ".cache/storyteller-support-tool/media_files";
 
 // ── Args ──
 
@@ -71,7 +74,8 @@ pub struct GenerateVideoArgs {
   #[arg(long)]
   pub localhost: bool,
 
-  /// Directory to cache downloaded media files. [default: /tmp/media_files]
+  /// Directory to cache downloaded media files. Must be private to the current user (mode 0700).
+  /// [default: ~/.cache/storyteller-support-tool/media_files]
   #[arg(long)]
   pub download_path: Option<String>,
 
@@ -213,16 +217,38 @@ fn resolve_download_dir(maybe_path: Option<&str>) -> anyhow::Result<PathBuf> {
       }
       p
     }
-    None => PathBuf::from(DEFAULT_DOWNLOAD_PATH),
+    None => std::env::var_os("HOME")
+      .map(|home| PathBuf::from(home).join(DEFAULT_DOWNLOAD_PATH_UNDER_HOME))
+      .ok_or_else(|| anyhow!("HOME is not set; pass --download_path"))?,
   };
 
   if !dir.exists() {
     info!("Creating download directory: {:?}", dir);
-    fs::create_dir_all(&dir)
+    fs::DirBuilder::new()
+      .recursive(true)
+      .mode(0o700)
+      .create(&dir)
       .map_err(|err| anyhow!("Failed to create download directory {:?}: {}", dir, err))?;
   }
 
+  ensure_private_directory(&dir)?;
+
   Ok(dir)
+}
+
+/// Cached files are read and uploaded with the operator's authority, so the cache must not be
+/// writable (or even readable) by anyone else. An owner-only directory belonging to someone else
+/// is unreadable to us, so the mode check alone rules out foreign-controlled caches.
+fn ensure_private_directory(dir: &Path) -> anyhow::Result<()> {
+  let metadata = fs::symlink_metadata(dir)
+    .map_err(|err| anyhow!("Cannot inspect download directory {:?}: {}", dir, err))?;
+  if !metadata.is_dir() {
+    return Err(anyhow!("Download path {:?} is not a directory (symlinks are not accepted)", dir));
+  }
+  if metadata.permissions().mode() & 0o077 != 0 {
+    return Err(anyhow!("Download directory {:?} must be private to you (chmod 700)", dir));
+  }
+  Ok(())
 }
 
 // ── Media token parsing ──
@@ -311,8 +337,12 @@ fn find_cached_file(download_dir: &Path, token: &MediaFileToken) -> Option<Downl
     let filename_str = filename.to_string_lossy();
     if filename_str.starts_with(&prefix) {
       let path = entry.path();
+      // NB: `symlink_metadata` so a link to some other file is never treated as a cached download.
+      let metadata = fs::symlink_metadata(&path).ok()?;
+      if !metadata.is_file() {
+        continue;
+      }
       // Skip zero-byte files — treat as incomplete downloads.
-      let metadata = fs::metadata(&path).ok()?;
       if metadata.len() == 0 {
         continue;
       }
@@ -476,4 +506,32 @@ async fn generate(
   }
 
   Ok(())
+}
+
+#[cfg(test)]
+mod download_dir_tests {
+  use std::os::unix::fs::PermissionsExt;
+
+  use super::ensure_private_directory;
+
+  #[test]
+  fn only_private_directories_are_accepted() {
+    let dir = std::env::temp_dir().join(format!("support-tool-cache-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(ensure_private_directory(&dir).is_ok());
+
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o777)).unwrap();
+    assert!(ensure_private_directory(&dir).is_err());
+
+    let link = dir.with_extension("link");
+    let _ = std::fs::remove_file(&link);
+    std::os::unix::fs::symlink(&dir, &link).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(ensure_private_directory(&link).is_err());
+
+    std::fs::remove_file(&link).unwrap();
+    std::fs::remove_dir(&dir).unwrap();
+  }
 }
