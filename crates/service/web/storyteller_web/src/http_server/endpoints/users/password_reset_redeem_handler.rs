@@ -38,6 +38,7 @@ pub enum PasswordResetRedemptionError {
     /// Account does not exist or reset token is wrong.
     InvalidRedemption,
     PasswordsDoNotMatch,
+    PasswordTooLong,
     Internal,
 }
 
@@ -46,6 +47,7 @@ impl PasswordResetRedemptionError {
         match self {
             Self::InvalidRedemption => "The redemption code is invalid, has already been redeemed, or has been replaced by a newer code.",
             Self::PasswordsDoNotMatch => "The passwords do not match.",
+            Self::PasswordTooLong => "The password is too long (at most 72 bytes).",
             Self::Internal => "An internal error occurred. Please try again later.",
         }
     }
@@ -54,6 +56,7 @@ impl PasswordResetRedemptionError {
         match self {
             Self::InvalidRedemption => StatusCode::BAD_REQUEST,
             Self::PasswordsDoNotMatch => StatusCode::BAD_REQUEST,
+            Self::PasswordTooLong => StatusCode::BAD_REQUEST,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -116,6 +119,10 @@ pub async fn password_reset_redeem_handler(
 
     if new_password != request.new_password_validation.trim() {
         return Err(PasswordResetRedemptionError::PasswordsDoNotMatch.into());
+    }
+
+    if new_password.len() > password::constants::BCRYPT_MAX_PASSWORD_BYTES {
+        return Err(PasswordResetRedemptionError::PasswordTooLong.into());
     }
 
     let result = lookup_password_reset_request(&request.reset_token, &mysql_pool).await
