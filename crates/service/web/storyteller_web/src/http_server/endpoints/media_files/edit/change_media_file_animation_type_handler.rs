@@ -80,6 +80,15 @@ pub async fn change_media_file_animation_type_handler(
         }
     };
 
+    // Authorize before any validation that reveals stored metadata.
+    let is_creator = media_file.maybe_creator_user_token
+        .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
+
+    if !is_creator && !is_mod {
+        warn!("user is not allowed to edit this media_file: {:?}", user_session.user_token);
+        return Err(CommonWebError::NotAuthorized);
+    }
+
     match media_file.maybe_engine_category {
         // These types are allowed to have animation, others are not
         Some(MediaFileEngineCategory::Animation) => {}
@@ -97,14 +106,6 @@ pub async fn change_media_file_animation_type_handler(
     {
         return Err(CommonWebError::BadInputWithSimpleMessage(
             "animation type can only be cleared for character types".to_string()));
-    }
-
-    let is_creator = media_file.maybe_creator_user_token
-        .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
-
-    if !is_creator && !is_mod {
-        warn!("user is not allowed to edit this media_file: {:?}", user_session.user_token);
-        return Err(CommonWebError::NotAuthorized);
     }
 
     let query_result = update_media_file_animation_type(
