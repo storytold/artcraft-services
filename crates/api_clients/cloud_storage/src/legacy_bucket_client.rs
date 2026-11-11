@@ -71,7 +71,11 @@ impl LegacyBucketClient {
 
     let mut bucket = Bucket::new(&bucket_name, region, credentials)?;
 
-    bucket.set_request_timeout(bucket_request_timeout);
+    // NB: `set_request_timeout` does not reach the tokio HTTP client (built in the constructor),
+    // so a stalled peer could hang a transfer forever. `with_request_timeout` rebuilds the client.
+    if let Some(timeout) = bucket_request_timeout {
+      bucket = bucket.with_request_timeout(timeout)?;
+    }
 
     match s3_endpoint {
       "https://storage.googleapis.com" => {

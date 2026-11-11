@@ -37,10 +37,10 @@ pub async fn delete_user_files(args: &Args, mysql: &Pool<MySql>) -> AnyhowResult
 }
 
 pub async fn delete_all_files(username: &str, mysql: &Pool<MySql>) -> AnyhowResult<()> {
-  let mut page_index = 0;
-
   loop {
-    info!("Querying page {page_index} of files...");
+    // NB: Deleted files drop out of this listing, so the next batch is always the first page.
+    // (Advancing an offset skipped every other batch.)
+    info!("Querying next batch of files...");
 
     let media_files = list_media_files_for_user(ListMediaFileForUserArgs {
       filters: UserMediaFileFilters {
@@ -52,7 +52,7 @@ pub async fn delete_all_files(username: &str, mysql: &Pool<MySql>) -> AnyhowResu
         view_as: ViewAs::Moderator,
       },
       limit: 100,
-      offset: page_index * 100,
+      offset: 0,
       sort_ascending: false,
       mysql_executor: mysql,
     }).await?;
@@ -65,8 +65,6 @@ pub async fn delete_all_files(username: &str, mysql: &Pool<MySql>) -> AnyhowResu
       info!("Deleting file: {:?}", &file.token);
       delete_media_file_as_mod(&file.token, ECHELON_USER_TOKEN, mysql).await?;
     }
-
-    page_index += 1;
 
     thread::sleep(Duration::from_millis(1000));
   }
