@@ -169,7 +169,7 @@ pub async fn list_media_files_for_user_handler(
     sort_ascending,
     mysql_executor: &server_state.mysql_pool,
   }).await?;
-  info!("Listed legacy user media: username={} page={} count_ms={} page_ms={}",
+  info!("Listed legacy user media: username={:?} page={} count_ms={} page_ms={}",
     path.username, page_index, count_ms, page_started.elapsed().as_millis());
 
   let media_domain = get_media_domain(&http_request);
