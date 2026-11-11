@@ -344,7 +344,7 @@ jobs:
 
       - name: Create or update pull request
         id: create-pr
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        uses: step-security/create-pull-request@50c103da2b9ca12cd5bc013fc6931051a5aa872b # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: automation/update-craft-release-versions
