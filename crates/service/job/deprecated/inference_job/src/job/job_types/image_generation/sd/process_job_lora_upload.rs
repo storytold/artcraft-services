@@ -1,4 +1,3 @@
-use std::fs::read_to_string;
 use std::time::Duration;
 
 use actix_web::dev::ResourcePath;
@@ -169,7 +168,7 @@ pub async fn process_job_lora_upload(
 
     let error = ProcessSingleJobError::Other(anyhow!("CommandExitStatus: {:?}", exit_status));
 
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
       warn!("Captured stderr output: {}", contents);
 
       //match categorize_error(&contents)  {

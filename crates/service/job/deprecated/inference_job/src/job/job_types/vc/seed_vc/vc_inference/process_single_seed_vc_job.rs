@@ -1,4 +1,3 @@
-use std::fs::read_to_string;
 use std::time::Instant;
 
 use anyhow::anyhow;
@@ -65,12 +64,12 @@ pub async fn process_single_seed_vc_inference_job(
   let output_file_path = output_dir.join("vc_out.wav");
 
   if !output_dir.exists() {
-    std::fs::create_dir_all(&output_dir)
+    tokio::fs::create_dir_all(&output_dir).await
       .map_err(|err| ProcessSingleJobError::IoError(err))?;
   }
 
   if output_file_path.exists() {
-    std::fs::remove_file(&output_file_path)
+    tokio::fs::remove_file(&output_file_path).await
       .map_err(|err| ProcessSingleJobError::IoError(err))?;
   }
 
@@ -252,10 +251,10 @@ pub async fn process_single_seed_vc_inference_job(
   info!("Checking that inference output files exist...");
 
   if let Err(err) = check_file_exists(&output_file_path) {
-    if let Ok(contents) = read_to_string(&stdout_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stdout_output_file).await {
       error!("Captured stdout output: {}", contents);
     }
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
       error!("Captured stderr output: {}", contents);
     }
     return Err(ProcessSingleJobError::Other(err));

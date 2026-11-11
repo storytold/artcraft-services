@@ -1,6 +1,5 @@
 use std::fs::read_to_string;
 use std::path::Path;
-use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
@@ -72,7 +71,7 @@ pub async fn process_live_portrait_job(
   let output_file_path = work_temp_dir.path().join("output.mp4");
 
   if !output_dir.exists() {
-    std::fs::create_dir_all(&output_dir)
+    tokio::fs::create_dir_all(&output_dir).await
         .map_err(|err| ProcessSingleJobError::IoError(err))?;
   }
 
@@ -157,11 +156,11 @@ pub async fn process_live_portrait_job(
   info!("Inference took duration to complete: {:?}", &inference_duration);
 
   // check stdout for success and check if file exists
-  if let Ok(contents) = read_to_string(&stdout_output_file) {
+  if let Ok(contents) = tokio::fs::read_to_string(&stdout_output_file).await {
     info!("Captured stduout output: {}", contents);
   }
 
-  if let Ok(contents) = read_to_string(&stderr_output_file) {
+  if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
     info!("Captured stderr output: {}", contents);
   }
 
@@ -338,7 +337,7 @@ pub async fn process_live_portrait_job(
 
   if let Some(sleep_millis) = job_payload.sleep_millis {
     info!("Sleeping for millis: {sleep_millis}");
-    thread::sleep(Duration::from_millis(sleep_millis));
+    tokio::time::sleep(Duration::from_millis(sleep_millis)).await;
   }
 
   // ==================== GENERATE THUMBNAILS ==================== //

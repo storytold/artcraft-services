@@ -1,4 +1,3 @@
-use std::fs::read_to_string;
 use std::time::Instant;
 
 use anyhow::{anyhow, Error};
@@ -194,7 +193,7 @@ pub async fn process_job(args: RerenderProcessJobArgs<'_>) -> Result<JobSuccessR
 
     let config_path = work_temp_dir.path().join("config.json");
     let config_json = serde_json::to_string(&config).unwrap();
-    std::fs::write(&config_path, config_json).unwrap();
+    tokio::fs::write(&config_path, config_json).await.unwrap();
 
     // ==================== RUN INFERENCE SCRIPT ==================== //
     let stderr_output_file = work_temp_dir.path().join("stderr.txt");
@@ -216,7 +215,7 @@ pub async fn process_job(args: RerenderProcessJobArgs<'_>) -> Result<JobSuccessR
 
         let error = ProcessSingleJobError::Other(anyhow!("CommandExitStatus: {:?}", command_exit_status));
 
-        if let Ok(contents) = read_to_string(&stderr_output_file) {
+        if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
             warn!("Captured stderr output: {}", contents);
         }
 

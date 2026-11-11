@@ -223,7 +223,7 @@ pub async fn process_single_job(
 
   let text_input_fs_path = temp_dir.path().join("inference_input.txt");
 
-  std::fs::write(&text_input_fs_path, &cleaned_inference_text)
+  tokio::fs::write(&text_input_fs_path, &cleaned_inference_text).await
       .map_err(|e| ProcessSingleJobError::from_io_error(e))?;
 
   // ==================== RUN INFERENCE ==================== //

@@ -27,7 +27,6 @@ use mysql_queries::queries::generic_inference::job::list_available_generic_infer
 use mysql_queries::utils::transactor::Transactor;
 use mysql_queries::queries::generic_inference::job::count_untried_jobs_of_type::count_untried_jobs_of_type;
 use mysql_queries::queries::generic_inference::job::count_untried_jobs_of_type::CountUntriedJobsOfTypeArgs;
-use std::fs::read_to_string;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use sqlx::MySqlPool;
@@ -336,11 +335,11 @@ pub async fn process_single_studio_gen2_job(
   }
 
   // check stdout for success and check if file exists
-  if let Ok(contents) = read_to_string(&stdout_output_file) {
+  if let Ok(contents) = tokio::fs::read_to_string(&stdout_output_file).await {
     info!("Captured stdout output: {}", contents);
   }
 
-  if let Ok(contents) = read_to_string(&stderr_output_file) {
+  if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
     info!("Captured stderr output: {}", contents);
   }
 
@@ -355,7 +354,7 @@ pub async fn process_single_studio_gen2_job(
 
     //error!("Inference failed: {:?}", command_exit_status);
 
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
       warn!("Captured stderr output: {}", contents);
     }
 

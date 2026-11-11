@@ -238,7 +238,7 @@ async fn main() -> AnyhowResult<()> {
   let scoped_job_type_execution = ScopedJobTypeExecution::new_from_env()?;
   let scoped_model_type_execution = ScopedModelTypeExecution::new_from_env()?;
 
-  let build_sha = std::fs::read_to_string("/GIT_SHA")
+  let build_sha = tokio::fs::read_to_string("/GIT_SHA").await
       .unwrap_or(String::from("unknown"))
       .trim()
       .to_string();

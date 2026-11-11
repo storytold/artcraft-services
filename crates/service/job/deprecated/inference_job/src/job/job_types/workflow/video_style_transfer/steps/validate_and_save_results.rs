@@ -1,4 +1,3 @@
-use std::thread;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -155,7 +154,7 @@ pub async fn validate_and_save_results(args: SaveResultsArgs<'_>) -> Result<Medi
 
   if let Some(sleep_millis) = args.comfy_args.sleep_millis {
     info!("Sleeping for millis: {sleep_millis}");
-    thread::sleep(Duration::from_millis(sleep_millis));
+    tokio::time::sleep(Duration::from_millis(sleep_millis)).await;
   }
 
   // ==================== SAVE RECORDS ==================== //

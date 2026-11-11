@@ -71,7 +71,7 @@ r2d2_redis.workspace = true
 
 # Runtime
 # NB: We switched to Tokio from `async-std` for broader ecosystem support.
-tokio = { version = "1.40.0", features = ["macros", "sync"] }
+tokio = { version = "1.40.0", features = ["macros", "sync", "fs", "time"] }
 tokio-util.workspace = true
 tokio-stream = "0.1.16"
 

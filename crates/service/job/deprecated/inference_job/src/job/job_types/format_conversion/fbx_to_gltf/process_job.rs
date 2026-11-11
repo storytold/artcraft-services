@@ -1,4 +1,3 @@
-use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -150,7 +149,7 @@ pub async fn process_job(args: FbxToGltfJobArgs<'_>) -> Result<JobSuccessResult,
 
     let error = ProcessSingleJobError::Other(anyhow!("CommandExitStatus: {:?}", command_exit_status));
 
-    if let Ok(contents) = read_to_string(&stderr_output_file) {
+    if let Ok(contents) = tokio::fs::read_to_string(&stderr_output_file).await {
       warn!("Captured stderr output: {}", contents);
 
       //match categorize_error(&contents)  {
