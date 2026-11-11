@@ -26,10 +26,11 @@ const RODIN_MAX_REFERENCE_IMAGES: usize = 5;
 pub fn validate_mesh_request(
   request: &OmniGenMeshCostAndGenerateRequest,
 ) -> Result<(), CommonWebError> {
-  // Model presence is enforced later during hydration; nothing to validate without it.
+  // Without a model the reference-count limit below cannot apply, and media resolution
+  // runs before hydration would reject it; fail here with the same message hydration uses.
   let model = match request.model {
     Some(model) => model,
-    None => return Ok(()),
+    None => return Err(bad_input("model is required".to_string())),
   };
 
   let reference_image_count = request.reference_image_media_tokens.as_ref().map_or(0, |t| t.len());
@@ -299,6 +300,16 @@ mod tests {
       };
       assert!(validate_mesh_request(&request).is_err());
     }
+  }
+
+  #[test]
+  fn rejects_missing_model() {
+    let request = OmniGenMeshCostAndGenerateRequest {
+      model: None,
+      reference_image_media_tokens: Some(vec![media_token(); 100]),
+      ..base_request(CommonMeshModel::Hunyuan3d3)
+    };
+    assert!(validate_mesh_request(&request).is_err());
   }
 
   mod sketch_tests {
