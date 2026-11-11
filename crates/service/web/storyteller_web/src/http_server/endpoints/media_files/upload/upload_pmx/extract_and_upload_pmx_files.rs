@@ -21,11 +21,16 @@ static ALLOWED_EXTENSIONS : Lazy<HashSet<&'static str>> = Lazy::new(|| {
   ])
 });
 
+/// Decompressed-size budgets (zip bombs). Generous for real PMX models plus textures.
+const MAX_MEMBER_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
+
 #[derive(Debug)]
 pub enum PmxError {
   InvalidArchive,
   TooManyFiles,
   ExtractionError,
+  TooLarge,
   NoPmxFile,
   UploadError,
   FileError,
@@ -74,6 +79,7 @@ pub async fn extract_and_upload_pmx_files(
   info!("Reading archive contents...");
 
   let entries = get_relevant_zip_entries(&mut archive)?;
+  let mut total_bytes: u64 = 0;
 
   for entry in entries.iter() {
     info!("Entry: {:?}", entry);
@@ -90,11 +96,19 @@ pub async fn extract_and_upload_pmx_files(
 
     let mut zip_item_bytes = Vec::new();
 
-    file.read_to_end(&mut zip_item_bytes)
+    // Read at most one byte past the budget so an over-budget member is detected without expanding it.
+    let limit = MAX_MEMBER_BYTES.min(MAX_TOTAL_BYTES - total_bytes);
+    (&mut file).take(limit + 1).read_to_end(&mut zip_item_bytes)
         .map_err(|err| {
           error!("Problem reading file from archive: {:?}", err);
           PmxError::ExtractionError
         })?;
+
+    if zip_item_bytes.len() as u64 > limit {
+      warn!("Archive member exceeds decompressed size budget");
+      return Err(PmxError::TooLarge);
+    }
+    total_bytes += zip_item_bytes.len() as u64;
 
     if entry.is_pmx {
       bucket_client.upload_file_with_content_type(
