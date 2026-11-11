@@ -184,6 +184,12 @@ fn get_relevant_zip_entries(archive: &mut ZipArchive<BufReader<Cursor<&[u8]>>>) 
       None => return Err(PmxError::FileError),
       Some(name) => name,
     };
+    if enclosed_name
+        .components()
+        .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
+      return Err(PmxError::FileError);
+    }
 
     if filename_lowercase.ends_with(".pmx") {
       entries.push(PmxZipEntryDetail {
@@ -264,17 +270,32 @@ fn remove_useless_leading_directories(mut entries: Vec<PmxZipEntryDetail>) -> Re
     if remove_parent {
       entries = entries.into_iter()
           .map(|entry| {
-            let new_path = entry.enclosed_name.strip_prefix(&parent)
-                .map(|path| path.to_path_buf())
-                .unwrap_or_else(|_err| entry.enclosed_name.clone());
+            // NB: `enclosed_name` may hold inner `..` (e.g. `a/../b`), which stripping `a` turns into
+            // `../b`. Only keep a stripped name made of plain components, else the storage path
+            // could leave the asset's directory.
+            let maybe_new_path = entry.enclosed_name.strip_prefix(&parent)
+                .ok()
+                .filter(|path| path.components().all(|c| matches!(c, std::path::Component::Normal(_))))
+                .map(|path| path.to_path_buf());
             PmxZipEntryDetail {
               enclosed_name: entry.enclosed_name,
-              maybe_better_alternative_output_name: Some(new_path),
+              maybe_better_alternative_output_name: maybe_new_path,
               file_size: entry.file_size,
               is_pmx: entry.is_pmx,
             }
           })
           .collect::<Vec<PmxZipEntryDetail>>();
+    }
+  }
+
+  let mut destinations = HashSet::with_capacity(entries.len());
+  for entry in &entries {
+    let destination = entry
+        .maybe_better_alternative_output_name
+        .as_ref()
+        .unwrap_or(&entry.enclosed_name);
+    if !destinations.insert(destination.clone()) {
+      return Err(PmxError::FileError);
     }
   }
 

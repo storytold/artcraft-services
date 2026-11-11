@@ -78,14 +78,11 @@ pub async fn terminate_inference_job_handler(
     }
   };
 
-  let maybe_user_tokens = maybe_user_session
-      .as_ref()
-      .and_then(|session| Some(session.user_token.clone()))
-      .zip(job_status.user_details.maybe_creator_user_token.clone());
-
-  if let Some((session_user_token, job_user_token)) = maybe_user_tokens {
-    if session_user_token != job_user_token {
-      return Err(CommonWebError::NotAuthorized);
+  if let Some(job_user_token) = job_status.user_details.maybe_creator_user_token.as_ref() {
+    // Account-owned jobs need the owning session; a shared IP is not proof of ownership.
+    match maybe_user_session.as_ref() {
+      Some(session) if &session.user_token == job_user_token => {}
+      _ => return Err(CommonWebError::NotAuthorized),
     }
   } else {
     let ip_address = get_request_ip(&http_request);

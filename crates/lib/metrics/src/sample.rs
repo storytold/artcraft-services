@@ -19,6 +19,8 @@ pub struct RequestSample {
 pub struct CounterSample {
   pub metric: String,
   pub tags: Vec<String>,
+  /// Amount this sample adds to its group's count.
+  pub count: u64,
   pub timestamp_secs: i64,
 }
 

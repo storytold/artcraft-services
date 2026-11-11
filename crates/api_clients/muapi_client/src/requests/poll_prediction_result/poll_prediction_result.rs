@@ -69,7 +69,7 @@ pub async fn poll_prediction_result(
 ) -> Result<PollPredictionResultApiResponse, MuapiError> {
   let url = format!("{}/{}/result", PREDICTIONS_BASE_URL, args.request_id.as_str());
 
-  info!("Polling Muapi prediction result: {}", url);
+  info!("Polling Muapi prediction result: {:?}", url);
 
   let api_key = args.session.api_key.as_str();
 

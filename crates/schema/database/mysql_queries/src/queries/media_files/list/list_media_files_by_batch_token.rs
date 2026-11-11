@@ -52,6 +52,9 @@ pub struct MediaFileListItem {
   pub maybe_thumbnail_version: Option<u8>,
 
   pub creator_set_visibility: Visibility,
+  /// The token of the user who created the file, when they were logged in. Used to decide whether
+  /// a private record may be shown to the requester.
+  pub maybe_creator_user_token: Option<String>,
 
   pub is_user_upload: bool,
   pub is_intermediate_system_file: bool,
@@ -78,6 +81,9 @@ pub struct ListMediaFileByBatchArgs<'a> {
   pub page_index: usize,
   pub sort_ascending: bool,
   pub view_as: ViewAs,
+  /// The requester's user token. For `ViewAs::Author`, other users' private records are excluded
+  /// from both the count and the page.
+  pub maybe_viewer_user_token: Option<&'a str>,
   pub mysql_pool: &'a MySqlPool,
 }
 
@@ -91,6 +97,7 @@ pub async fn list_media_files_by_batch_token(args: ListMediaFileByBatchArgs<'_>)
     0,
     args.sort_ascending,
     args.view_as,
+    args.maybe_viewer_user_token,
     count_fields.as_str(),
   );
 
@@ -106,6 +113,7 @@ pub async fn list_media_files_by_batch_token(args: ListMediaFileByBatchArgs<'_>)
     args.page_size,
     args.sort_ascending,
     args.view_as,
+    args.maybe_viewer_user_token,
     result_fields.as_str(),
   );
 
@@ -132,6 +140,7 @@ pub async fn list_media_files_by_batch_token(args: ListMediaFileByBatchArgs<'_>)
           maybe_public_bucket_extension: record.maybe_public_bucket_extension,
           maybe_thumbnail_version: record.maybe_thumbnail_version,
           creator_set_visibility: record.creator_set_visibility,
+          maybe_creator_user_token: record.maybe_creator_user_token,
           is_user_upload: i8_to_bool(record.is_user_upload),
           is_intermediate_system_file: i8_to_bool(record.is_intermediate_system_file),
           maybe_title: record.maybe_title,
@@ -185,6 +194,7 @@ fn select_result_fields() -> String {
     m.maybe_thumbnail_version,
 
     m.creator_set_visibility,
+    m.maybe_creator_user_token,
 
     m.is_user_upload,
     m.is_intermediate_system_file,
@@ -218,6 +228,7 @@ fn query_builder<'a>(
   page_size: usize,
   sort_ascending: bool,
   view_as: ViewAs,
+  maybe_viewer_user_token: Option<&'a str>,
   select_fields: &'a str,
 ) -> QueryBuilder<'a, MySql> {
 
@@ -243,9 +254,20 @@ LEFT OUTER JOIN prompts
   query_builder.push_bind(batch_token);
 
   match view_as {
-    ViewAs::Author | ViewAs::Moderator => {
+    ViewAs::Moderator => {
       // NB(bt): Actually, mods don't want to see deleted files. We'll improve the moderator UI later.
       query_builder.push(" AND m.user_deleted_at IS NULL AND m.mod_deleted_at IS NULL ");
+    }
+    ViewAs::Author => {
+      query_builder.push(" AND m.user_deleted_at IS NULL AND m.mod_deleted_at IS NULL ");
+      // Private records belong to their creator only; filter before COUNT and LIMIT.
+      query_builder.push(" AND (m.creator_set_visibility <> ");
+      query_builder.push_bind(Visibility::Private.to_str());
+      if let Some(viewer) = maybe_viewer_user_token {
+        query_builder.push(" OR m.maybe_creator_user_token = ");
+        query_builder.push_bind(viewer);
+      }
+      query_builder.push(") ");
     }
     ViewAs::AnotherUser => {
       query_builder.push(" AND m.user_deleted_at IS NULL AND m.mod_deleted_at IS NULL ");
@@ -296,6 +318,7 @@ struct MediaFileListItemInternal {
   maybe_thumbnail_version: Option<u8>,
 
   creator_set_visibility: Visibility,
+  maybe_creator_user_token: Option<String>,
 
   is_user_upload: i8,
   is_intermediate_system_file: i8,
@@ -346,6 +369,7 @@ impl FromRow<'_, MySqlRow> for MediaFileListItemInternal {
       maybe_public_bucket_extension: row.try_get("maybe_public_bucket_extension")?,
       maybe_thumbnail_version: row.try_get("maybe_thumbnail_version")?,
       creator_set_visibility: Visibility::try_from_mysql_row(row, "creator_set_visibility")?,
+      maybe_creator_user_token: row.try_get("maybe_creator_user_token")?,
       is_user_upload: row.try_get("is_user_upload")?,
       is_intermediate_system_file: row.try_get("is_intermediate_system_file")?,
       maybe_title: row.try_get("maybe_title")?,

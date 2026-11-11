@@ -92,6 +92,12 @@ pub async fn delete_tts_model_handler(
   }
 
   if !is_mod {
+    // NB: Owners still need the role's explicit permission to delete their own models.
+    if !user_session.can_delete_own_tts_models {
+      warn!("user is not allowed to delete their own models: {:?}", user_session.user_token);
+      return Err(CommonWebError::NotAuthorized);
+    }
+
     if tts_model.is_locked_from_user_modification || tts_model.is_locked_from_use {
       warn!("user is not allowed to delete models (locked): {:?}", user_session.user_token);
       return Err(CommonWebError::NotAuthorized);

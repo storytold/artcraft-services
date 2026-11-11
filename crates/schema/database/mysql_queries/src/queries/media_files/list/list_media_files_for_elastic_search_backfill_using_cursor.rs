@@ -282,6 +282,12 @@ LEFT OUTER JOIN users
 LEFT OUTER JOIN media_files as cover_image
     ON cover_image.token = m.maybe_cover_image_media_file_token
 
+  AND cover_image.user_deleted_at IS NULL
+
+  AND cover_image.mod_deleted_at IS NULL
+
+  AND (cover_image.creator_set_visibility <> 'private' OR cover_image.maybe_creator_user_token = m.maybe_creator_user_token)
+
 LEFT OUTER JOIN featured_items
     ON featured_items.entity_type = "media_file"
     AND featured_items.deleted_at IS NULL

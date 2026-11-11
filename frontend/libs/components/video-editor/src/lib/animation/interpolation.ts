@@ -260,7 +260,28 @@ export function getScalarChannelValueAtTime({
     return fallbackValue;
   }
 
-  const normalizedChannel = normalizeScalarChannel({ channel });
+  return getNormalizedScalarChannelValueAtTime({
+    normalizedChannel: normalizeScalarChannel({ channel }),
+    time,
+    fallbackValue,
+  });
+}
+
+/**
+ * getScalarChannelValueAtTime for a channel already passed through
+ * normalizeScalarChannel. Callers evaluating one channel at many times
+ * normalize once and use this: normalizing per query re-copies and re-sorts
+ * every key, which made keyframe listings quadratic in the key count.
+ */
+export function getNormalizedScalarChannelValueAtTime({
+  normalizedChannel,
+  time,
+  fallbackValue,
+}: {
+  normalizedChannel: ScalarAnimationChannel;
+  time: number;
+  fallbackValue: number;
+}): number {
   const firstKey = normalizedChannel.keys[0];
   const lastKey = normalizedChannel.keys[normalizedChannel.keys.length - 1];
   if (!firstKey || !lastKey) {
@@ -293,8 +314,13 @@ export function getScalarChannelValueAtTime({
     return lastKey.value;
   }
 
+  // Keys are sorted: start at the pair ending at the first key at or after
+  // `time` instead of scanning from the beginning.
   for (
-    let keyIndex = 0;
+    let keyIndex = Math.max(
+      0,
+      lowerBoundByTime({ keys: normalizedChannel.keys, time }) - 1,
+    );
     keyIndex < normalizedChannel.keys.length - 1;
     keyIndex++
   ) {
@@ -305,56 +331,67 @@ export function getScalarChannelValueAtTime({
     }
 
     if (
-      !isWithinTimePair({
+      isWithinTimePair({
         time,
         leftTime: leftKey.time,
         rightTime: rightKey.time,
       })
     ) {
-      continue;
+      return getScalarSegmentValueAtTime({ leftKey, rightKey, time });
     }
-
-    if (leftKey.segmentToNext === "step") {
-      return leftKey.value;
-    }
-
-    const span = rightKey.time - leftKey.time;
-    if (span === 0) {
-      return rightKey.value;
-    }
-
-    const progress = clamp({
-      value: (time - leftKey.time) / span,
-      min: 0,
-      max: 1,
-    });
-    if (leftKey.segmentToNext === "linear") {
-      return lerpNumber({
-        leftValue: leftKey.value,
-        rightValue: rightKey.value,
-        progress,
-      });
-    }
-
-    const curveProgress = solveBezierProgressForTime({
-      time,
-      leftKey,
-      rightKey,
-    });
-    const rightHandle =
-      leftKey.rightHandle ?? getDefaultRightHandle({ leftKey, rightKey });
-    const leftHandle =
-      rightKey.leftHandle ?? getDefaultLeftHandle({ leftKey, rightKey });
-    return getBezierPoint({
-      progress: curveProgress,
-      p0: leftKey.value,
-      p1: leftKey.value + rightHandle.dv,
-      p2: rightKey.value + leftHandle.dv,
-      p3: rightKey.value,
-    });
   }
 
   return lastKey.value;
+}
+
+// Value inside the segment from leftKey to rightKey, for a time within it.
+function getScalarSegmentValueAtTime({
+  leftKey,
+  rightKey,
+  time,
+}: {
+  leftKey: ScalarAnimationKey;
+  rightKey: ScalarAnimationKey;
+  time: number;
+}): number {
+  if (leftKey.segmentToNext === "step") {
+    return leftKey.value;
+  }
+
+  const span = rightKey.time - leftKey.time;
+  if (span === 0) {
+    return rightKey.value;
+  }
+
+  const progress = clamp({
+    value: (time - leftKey.time) / span,
+    min: 0,
+    max: 1,
+  });
+  if (leftKey.segmentToNext === "linear") {
+    return lerpNumber({
+      leftValue: leftKey.value,
+      rightValue: rightKey.value,
+      progress,
+    });
+  }
+
+  const curveProgress = solveBezierProgressForTime({
+    time,
+    leftKey,
+    rightKey,
+  });
+  const rightHandle =
+    leftKey.rightHandle ?? getDefaultRightHandle({ leftKey, rightKey });
+  const leftHandle =
+    rightKey.leftHandle ?? getDefaultLeftHandle({ leftKey, rightKey });
+  return getBezierPoint({
+    progress: curveProgress,
+    p0: leftKey.value,
+    p1: leftKey.value + rightHandle.dv,
+    p2: rightKey.value + leftHandle.dv,
+    p3: rightKey.value,
+  });
 }
 
 export function getDiscreteChannelValueAtTime({
@@ -370,15 +407,66 @@ export function getDiscreteChannelValueAtTime({
     return fallbackValue;
   }
 
-  const normalizedChannel = normalizeDiscreteChannel({ channel });
-  let currentValue = fallbackValue;
-  for (const key of normalizedChannel.keys) {
-    if (time < key.time) {
-      break;
-    }
-    currentValue = key.value;
+  return getNormalizedDiscreteChannelValueAtTime({
+    normalizedChannel: normalizeDiscreteChannel({ channel }),
+    time,
+    fallbackValue,
+  });
+}
+
+/** getDiscreteChannelValueAtTime for an already-normalized channel. */
+export function getNormalizedDiscreteChannelValueAtTime({
+  normalizedChannel,
+  time,
+  fallbackValue,
+}: {
+  normalizedChannel: Channel<DiscreteValue>;
+  time: number;
+  fallbackValue: DiscreteValue;
+}): DiscreteValue {
+  // The value of the last key before the first key with time < key.time
+  // (keys are sorted by time). Searching on that exact predicate keeps the
+  // result identical to a front-to-back scan for every query, including a
+  // NaN time, which never compares below a key and so yields the last key.
+  const index =
+    firstKeyAfterTime({ keys: normalizedChannel.keys, time }) - 1;
+  return index >= 0 ? normalizedChannel.keys[index].value : fallbackValue;
+}
+
+// First index whose key time is >= `time`; keys.length if none.
+function lowerBoundByTime({
+  keys,
+  time,
+}: {
+  keys: ReadonlyArray<{ time: number }>;
+  time: number;
+}): number {
+  let low = 0;
+  let high = keys.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (keys[mid].time < time) low = mid + 1;
+    else high = mid;
   }
-  return currentValue;
+  return low;
+}
+
+// First index whose key satisfies `time < key.time`; keys.length if none.
+function firstKeyAfterTime({
+  keys,
+  time,
+}: {
+  keys: ReadonlyArray<{ time: number }>;
+  time: number;
+}): number {
+  let low = 0;
+  let high = keys.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (!(time < keys[mid].time)) low = mid + 1;
+    else high = mid;
+  }
+  return low;
 }
 
 export function getChannelValueAtTime({

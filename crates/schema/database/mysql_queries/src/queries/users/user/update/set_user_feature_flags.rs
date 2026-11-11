@@ -25,6 +25,9 @@ pub struct SetUserFeatureFlagArgs<'a> {
 }
 
 pub async fn set_user_feature_flags(args: SetUserFeatureFlagArgs<'_>) -> AnyhowResult<()> {
+  // NB: The flag change and its audit record commit together; an unauditable change is rolled back.
+  let mut transaction = args.mysql_pool.begin().await?;
+
   let query_result = sqlx::query!(
         r#"
 UPDATE users
@@ -38,24 +41,25 @@ LIMIT 1
       args.maybe_feature_flags,
       args.subject_user_token,
     )
-      .execute(args.mysql_pool)
+      .execute(&mut *transaction)
       .await;
 
   if let Err(err) = query_result {
     return Err(anyhow!("error with query: {:?}", err));
   }
 
-  // NB: fail open
-  let _r = insert_audit_log(InsertAuditLogArgs {
+  insert_audit_log(InsertAuditLogArgs {
     entity: &AuditLogEntity::User(args.subject_user_token.clone()),
     entity_action: AuditLogEntityAction::EditFeatures,
     maybe_actor_user_token: args.maybe_mod_user_token,
     maybe_actor_anonymous_visitor_token: None,
     actor_ip_address: &args.ip_address,
     is_actor_moderator: true,
-    mysql_executor: args.mysql_pool,
+    mysql_executor: &mut *transaction,
     phantom: Default::default(),
-  }).await;
+  }).await.map_err(|err| anyhow!("error inserting audit log: {:?}", err))?;
+
+  transaction.commit().await?;
 
   Ok(())
 }

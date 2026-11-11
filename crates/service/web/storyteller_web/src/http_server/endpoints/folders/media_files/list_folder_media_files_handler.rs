@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -19,6 +20,12 @@ use enums::common::visibility::Visibility;
 use mysql_queries::queries::folders::folder::get_folder_for_owner::{
   get_folder_for_owner, GetFolderForOwnerArgs,
 };
+use mysql_queries::queries::folders::media_files::filter_existing_media_file_tokens::{
+  filter_existing_media_file_tokens, FilterExistingMediaFileTokensArgs,
+};
+use mysql_queries::queries::folders::media_files::find_media_files_with_unreadable_cover::{
+  find_media_files_with_unreadable_cover, FindMediaFilesWithUnreadableCoverArgs,
+};
 use mysql_queries::queries::folders::media_files::list_folder_media_files::{
   list_folder_media_files, FolderMediaFileRow, ListFolderMediaFilesArgs,
 };
@@ -39,6 +46,8 @@ use crate::state::server_state::ServerState;
 const CURSOR_NAME: &str = "folder_mf";
 const DEFAULT_LIMIT: u32 = 100;
 const MAX_LIMIT: u32 = 1000;
+/// Whole pages of inaccessible files skipped per request before an empty page is returned.
+const MAX_EMPTY_PAGE_SKIPS: u32 = 10;
 
 // ── Response shape ──
 
@@ -153,34 +162,102 @@ pub async fn list_folder_media_files_handler(
     }
   };
 
-  let rows = list_folder_media_files(ListFolderMediaFilesArgs {
-    folder_token: &path.folder_token,
-    maybe_cursor_id,
-    limit,
-    mysql_executor: &mut *conn,
-    phantom: PhantomData,
-  }).await.map_err(|err| {
-    warn!("list_folder_media_files failed: {:?}", err);
-    CommonWebError::from_error(err)
-  })?;
-
-  // Only hand out a next-page cursor when this page was full. A short page
-  // means the list is exhausted, and emitting a cursor anyway would make
-  // clients fetch one guaranteed-empty trailing page.
-  let maybe_cursor = if rows.len() == limit as usize {
-    rows.last()
-        .map(|last| server_state.opaque_cursors.encode_last_id_cursor(CURSOR_NAME, last.media_file_id))
-        .transpose()?
-  } else {
-    None
-  };
-
   let media_domain = get_media_domain(&http_request);
   let server_environment = server_state.server_environment;
 
-  let media_files = rows.into_iter()
-    .map(|row| folder_media_file_row_to_list_item(row, media_domain, server_environment))
-    .collect();
+  // Folder membership is stored when a file is added, and the file's (or its cover's) visibility
+  // may have changed since, so every page is re-checked against the viewer. When a whole page is
+  // inaccessible, keep reading forward so clients are not handed an empty page with a cursor.
+  // shortcut: bounded at MAX_EMPTY_PAGE_SKIPS pages, then an empty page with a cursor is returned.
+  let mut maybe_cursor_id = maybe_cursor_id;
+  let mut skipped_pages = 0;
+
+  let (media_files, maybe_cursor) = loop {
+    let rows = list_folder_media_files(ListFolderMediaFilesArgs {
+      folder_token: &path.folder_token,
+      maybe_cursor_id,
+      limit,
+      mysql_executor: &mut *conn,
+      phantom: PhantomData,
+    }).await.map_err(|err| {
+      warn!("list_folder_media_files failed: {:?}", err);
+      CommonWebError::from_error(err)
+    })?;
+
+    // Only hand out a next-page cursor when this page was full. A short page
+    // means the list is exhausted, and emitting a cursor anyway would make
+    // clients fetch one guaranteed-empty trailing page. The cursor comes from the unfiltered page.
+    let maybe_last_id = if rows.len() == limit as usize {
+      rows.last().map(|last| last.media_file_id)
+    } else {
+      None
+    };
+
+    let private_tokens: Vec<MediaFileToken> = rows.iter()
+        .filter(|row| row.creator_set_visibility == Visibility::Private)
+        .map(|row| row.media_file_token.clone())
+        .collect();
+
+    let readable_private_tokens: HashSet<MediaFileToken> = if private_tokens.is_empty() {
+      HashSet::new()
+    } else {
+      filter_existing_media_file_tokens(FilterExistingMediaFileTokensArgs {
+        candidate_tokens: &private_tokens,
+        viewer_user_token: &user_session.user_token,
+        mysql_executor: &mut *conn,
+        phantom: PhantomData,
+      }).await.map_err(|err| {
+        warn!("filter_existing_media_file_tokens failed: {:?}", err);
+        CommonWebError::from_error(err)
+      })?.into_iter().collect()
+    };
+
+    let mut rows: Vec<FolderMediaFileRow> = rows.into_iter()
+        .filter(|row| row.creator_set_visibility != Visibility::Private
+            || readable_private_tokens.contains(&row.media_file_token))
+        .collect();
+
+    // A public file can carry another user's private image as its cover; drop the cover, keep the file.
+    let unreadable_cover_tokens: HashSet<MediaFileToken> = if rows.is_empty() {
+      HashSet::new()
+    } else {
+      let tokens: Vec<MediaFileToken> = rows.iter().map(|row| row.media_file_token.clone()).collect();
+      find_media_files_with_unreadable_cover(FindMediaFilesWithUnreadableCoverArgs {
+        media_file_tokens: &tokens,
+        viewer_user_token: &user_session.user_token,
+        mysql_executor: &mut *conn,
+        phantom: PhantomData,
+      }).await.map_err(|err| {
+        warn!("find_media_files_with_unreadable_cover failed: {:?}", err);
+        CommonWebError::from_error(err)
+      })?.into_iter().collect()
+    };
+
+    for row in rows.iter_mut().filter(|row| unreadable_cover_tokens.contains(&row.media_file_token)) {
+      row.maybe_cover_public_bucket_directory_hash = None;
+      row.maybe_cover_public_bucket_prefix = None;
+      row.maybe_cover_public_bucket_extension = None;
+    }
+
+    let nothing_to_show = rows.is_empty();
+
+    match maybe_last_id {
+      Some(last_id) if nothing_to_show && skipped_pages < MAX_EMPTY_PAGE_SKIPS => {
+        skipped_pages += 1;
+        maybe_cursor_id = Some(last_id);
+      }
+      _ => {
+        let maybe_cursor = maybe_last_id
+            .map(|last_id| server_state.opaque_cursors.encode_last_id_cursor(CURSOR_NAME, last_id))
+            .transpose()?;
+        break (rows, maybe_cursor);
+      }
+    }
+  };
+
+  let media_files = media_files.into_iter()
+      .map(|row| folder_media_file_row_to_list_item(row, media_domain, server_environment))
+      .collect();
 
   Ok(Json(ListFolderMediaFilesSuccessResponse {
     success: true,

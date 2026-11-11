@@ -12,11 +12,14 @@ import { snapshotTransform, writeTransform } from "./actions/snapshots";
 import { TimelineEditAction } from "./actions/TimelineEditAction";
 import { sampleTrackAt } from "../timeline/interpolation";
 import {
+  clampTimelineDuration,
   cloneTimeline,
   DEFAULT_EASING,
   DEFAULT_TIMELINE_DURATION,
   DEFAULT_TIMELINE_FPS,
   DEFAULT_TRANSITION_GAP,
+  MAX_TIMELINE_DURATION,
+  MIN_TIMELINE_DURATION,
   type ClipLane,
   type ClipStrip,
   type EasingSpec,
@@ -153,14 +156,18 @@ export class TimelineController {
     this.timeline = cloneTimeline(data);
     // Backfill defensively so legacy/partial saved timelines don't break the
     // frame-quantized UI (which assumes a valid fps) or produce a 0 duration.
-    if (!this.timeline.fps || this.timeline.fps <= 0) {
+    if (
+      !Number.isFinite(this.timeline.fps) ||
+      this.timeline.fps <= 0
+    ) {
       this.timeline.fps = DEFAULT_TIMELINE_FPS;
     }
-    if (!this.timeline.duration || this.timeline.duration <= 0) {
-      this.timeline.duration = DEFAULT_TIMELINE_DURATION;
-    }
+    // Same supported range as interactive edits (setDuration): the document
+    // is untrusted, and UI such as the ruler scales with the duration.
+    this.timeline.duration = clampTimelineDuration(this.timeline.duration);
     if (!Array.isArray(this.timeline.tracks)) this.timeline.tracks = [];
     if (!Array.isArray(this.timeline.clipLanes)) this.timeline.clipLanes = [];
+    this.refitClipLanes(this.timeline.duration);
     this.saved = cloneTimeline(this.timeline);
     this.playhead = Math.min(this.playhead, this.timeline.duration);
     this.syncClipLanes();
@@ -197,22 +204,32 @@ export class TimelineController {
   // trimming one computed a NEGATIVE max duration (clamping it to a frame).
   setDuration(seconds: number): void {
     if (!this.timeline || !Number.isFinite(seconds)) return;
-    const duration = Math.max(1, Math.min(60, seconds));
+    const duration = Math.max(
+      MIN_TIMELINE_DURATION,
+      Math.min(MAX_TIMELINE_DURATION, seconds),
+    );
     this.timeline.duration = duration;
     if (this.playhead > duration) {
       this.playhead = duration;
     }
-    // Ascending order so earlier strips claim room first; a strip longer
-    // than the whole timeline shrinks to fit, and resolveFreeStart re-snaps
-    // anything now out of range into the nearest free slot.
+    if (this.refitClipLanes(duration)) this.syncClipLanes();
+    this.evaluate();
+    this.emitChanged();
+    this.emitPlayhead();
+  }
+
+  private refitClipLanes(duration: number): boolean {
+    if (!this.timeline) return false;
+    // Earlier strips claim room first; oversized strips shrink and out-of-range
+    // strips move to the nearest free slot, matching interactive duration edits.
     const lanes = [...this.timeline.clipLanes].sort(
       (a, b) => a.strip.startTime - b.strip.startTime,
     );
-    let lanesChanged = false;
+    let changed = false;
     for (const lane of lanes) {
       const strip = lane.strip;
       if (strip.startTime + strip.duration <= duration) continue;
-      lanesChanged = true;
+      changed = true;
       if (strip.duration > duration) {
         strip.duration = duration;
         strip.autoDuration = false;
@@ -223,14 +240,9 @@ export class TimelineController {
         strip.startTime,
         strip.duration,
       );
-      // No free slot in the shrunken timeline: park the strip flush with the
-      // end; overlaps (if any) resolve on the next add/move like restore's.
       strip.startTime = freeStart ?? Math.max(0, duration - strip.duration);
     }
-    if (lanesChanged) this.syncClipLanes();
-    this.evaluate();
-    this.emitChanged();
-    this.emitPlayhead();
+    return changed;
   }
 
   // Advanced once per frame from editor.renderSingleFrame().

@@ -14,6 +14,7 @@ use tokens::tokens::media_files::MediaFileToken;
 
 use crate::http_server::common_requests::media_file_token_path_info::MediaFileTokenPathInfo;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::endpoints::media_files::helpers::may_use_as_cover_image::may_use_as_cover_image;
 use artcraft_api_defs::common::responses::simple_generic_json_success::SimpleGenericJsonSuccess;
 use crate::state::server_state::ServerState;
 
@@ -90,6 +91,8 @@ pub async fn set_media_file_cover_image_handler(
     }
   };
 
+  let maybe_parent_creator_user_token = media_file.maybe_creator_user_token.clone();
+
   let is_creator = media_file.maybe_creator_user_token
       .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
 
@@ -138,6 +141,19 @@ pub async fn set_media_file_cover_image_handler(
 
       if media_file.creator_set_visibility == Visibility::Private && !is_cover_image_creator && !is_mod {
         warn!("user cannot use private media file as cover image: {:?}", media_file_token);
+        return Err(CommonWebError::NotFound);
+      }
+
+      let may_use_image = may_use_as_cover_image(
+        media_file.creator_set_visibility,
+        media_file.maybe_creator_user_token.as_ref(),
+        &user_session.user_token,
+        Some(maybe_parent_creator_user_token.as_ref()),
+      );
+
+      if !may_use_image {
+        // Same response as a missing token, so private tokens are not confirmed to exist.
+        warn!("User may not use private media file as a cover: {:?}", media_file_token);
         return Err(CommonWebError::NotFound);
       }
 
