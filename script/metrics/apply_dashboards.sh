@@ -40,7 +40,7 @@ APP_KEY_FILE="secrets/datadog_app_key.txt"
 DRY_RUN=0
 
 # -------- args --------
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
     --site) DD_SITE="$2"; shift 2 ;;
@@ -58,11 +58,11 @@ BASE="https://${DD_SITE}"
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 1; }
 
-if [ ! -s "$API_KEY_FILE" ]; then
+if [[ ! -s "$API_KEY_FILE" ]]; then
   echo "missing or empty API key file: $API_KEY_FILE" >&2
   exit 1
 fi
-if [ ! -s "$APP_KEY_FILE" ]; then
+if [[ ! -s "$APP_KEY_FILE" ]]; then
   cat >&2 <<EOF
 Missing or empty application key file: $APP_KEY_FILE
 
@@ -77,7 +77,7 @@ fi
 DD_API_KEY=$(tr -d '[:space:]' < "$API_KEY_FILE")
 DD_APP_KEY=$(tr -d '[:space:]' < "$APP_KEY_FILE")
 
-if [ ! -d "$DASH_DIR" ]; then
+if [[ ! -d "$DASH_DIR" ]]; then
   echo "no such directory: $DASH_DIR" >&2
   exit 1
 fi
@@ -87,7 +87,7 @@ shopt -s nullglob
 # organized by category without changing this script.
 files=()
 while IFS= read -r f; do files+=("$f"); done < <(find "$DASH_DIR" -type f -name '*.json' | sort)
-if [ ${#files[@]} -eq 0 ]; then
+if [[ ${#files[@]} -eq 0 ]]; then
   echo "no dashboard JSON files in $DASH_DIR" >&2
   exit 0
 fi
@@ -108,7 +108,7 @@ for file in "${files[@]}"; do
 
   existing_id=$(jq -r '.id // empty' "$file")
 
-  if [ -n "$existing_id" ]; then
+  if [[ -n "$existing_id" ]]; then
     method="PUT"
     url="${BASE}/api/v1/dashboard/${existing_id}"
     echo "   updating existing dashboard id=${existing_id}"
@@ -118,7 +118,7 @@ for file in "${files[@]}"; do
     echo "   creating new dashboard"
   fi
 
-  if [ "$DRY_RUN" -eq 1 ]; then
+  if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "   [dry-run] would ${method} ${url}"
     continue
   fi
@@ -138,14 +138,14 @@ for file in "${files[@]}"; do
     --data-binary "$payload" || echo "000")
   echo "$curl_status" > "$http_status_file"
 
-  if [ "$curl_status" -lt 200 ] || [ "$curl_status" -ge 300 ]; then
+  if [[ "$curl_status" -lt 200 ]] || [[ "$curl_status" -ge 300 ]]; then
     echo "   ✗ HTTP $curl_status"
     sed 's/^/      /' "$response_file" >&2
     exit_code=1
   else
-    if [ "$method" = "POST" ]; then
+    if [[ "$method" = "POST" ]]; then
       new_id=$(jq -r '.id // empty' "$response_file")
-      if [ -n "$new_id" ]; then
+      if [[ -n "$new_id" ]]; then
         tmp=$(mktemp)
         jq --arg id "$new_id" '. + {id: $id}' "$file" > "$tmp" && mv "$tmp" "$file"
         echo "   ✓ created (id=${new_id}), id written back to $file"
@@ -163,7 +163,7 @@ for file in "${files[@]}"; do
 done
 
 echo
-if [ "$exit_code" -eq 0 ]; then
+if [[ "$exit_code" -eq 0 ]]; then
   echo "All dashboards applied."
 else
   echo "Finished with errors. See output above."
