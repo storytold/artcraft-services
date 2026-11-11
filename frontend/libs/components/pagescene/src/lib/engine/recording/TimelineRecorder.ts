@@ -31,6 +31,25 @@ export interface RecordOptions {
   signal?: { cancelled: boolean };
 }
 
+// The editor supports timelines of 1..60 s (TimelineController.setDuration);
+// an uploaded scene is not trusted to respect that, and every frame is
+// rendered and encoded in memory, so the recorder clamps independently.
+export const MAX_RECORD_SECONDS = 60;
+export const MAX_RECORD_FPS = 120;
+
+export function recordingFrameBudget(timeline: {
+  fps: number;
+  duration: number;
+}): { fps: number; frameCount: number } {
+  const fps = Number.isFinite(timeline.fps) && timeline.fps > 0
+    ? Math.min(MAX_RECORD_FPS, timeline.fps)
+    : 30;
+  const duration = Number.isFinite(timeline.duration)
+    ? Math.min(MAX_RECORD_SECONDS, Math.max(0, timeline.duration))
+    : 0;
+  return { fps, frameCount: Math.max(1, Math.round(duration * fps)) };
+}
+
 export async function recordTimeline(
   editor: Editor,
   opts: RecordOptions = {},
@@ -42,8 +61,7 @@ export async function recordTimeline(
   const camera = editor.cameraController.camera;
   if (!timeline || !renderer || !canvas || !camera) return null;
 
-  const fps = timeline.fps || 30;
-  const frameCount = Math.max(1, Math.round(timeline.duration * fps));
+  const { fps, frameCount } = recordingFrameBudget(timeline);
 
   // Freeze the realtime loop so our seek+render stepping isn't fought by the
   // per-frame tick, then always restore it.
