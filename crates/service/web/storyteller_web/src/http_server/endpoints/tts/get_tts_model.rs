@@ -206,7 +206,7 @@ pub async fn get_tts_model_handler(
       get_tts_model().await
     }
     Ok(mut redis_ttl_cache) => {
-      let cache_key = RedisCacheKeys::get_tts_model_for_info_migration_endpoint(&path.token);
+      let cache_key = RedisCacheKeys::get_tts_model_for_info_migration_endpoint(&path.token, show_deleted_models);
       redis_ttl_cache.lazy_load_if_not_cached(&cache_key, move || {
         get_tts_model()
       }).await
@@ -224,6 +224,12 @@ pub async fn get_tts_model_handler(
 
   if let Some(user_session) = &maybe_user_session {
     is_original_author = user_session.user_token.as_str().to_string() == model.creator_user_token();
+  }
+
+  // NB: Private models are readable only by their creator and moderators. `NotFound` so that a
+  // private token's existence isn't confirmed. Checked after the cache so stale entries can't skip it.
+  if model.creator_set_visibility() == Visibility::Private && !is_original_author && !is_moderator {
+    return Err(CommonWebError::NotFound);
   }
 
   // NB(bt, 2024-01-20): Removing to make porting easier.

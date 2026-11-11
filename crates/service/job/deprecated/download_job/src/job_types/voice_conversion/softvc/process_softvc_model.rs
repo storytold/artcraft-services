@@ -7,7 +7,6 @@ use log::{info, warn};
 use tempdir::TempDir;
 
 use enums::by_table::voice_conversion_models::voice_conversion_model_type::VoiceConversionModelType;
-use enums::common::visibility::Visibility;
 use errors::AnyhowResult;
 use filesys::check_file_exists::check_file_exists;
 use filesys::file_deletion::safe_delete_directory::safe_delete_directory;
@@ -107,7 +106,7 @@ pub async fn process_softvc_model<'a, 'b>(
     file_size_bytes: file_metadata.file_size_bytes,
     creator_user_token: &job.creator_user_token,
     creator_ip_address: &job.creator_ip_address,
-    creator_set_visibility: Visibility::Public, // TODO: All models default to public at start
+    creator_set_visibility: job.creator_set_visibility,
     has_index_file: false,
     private_bucket_hash: &private_bucket_hash,
     private_bucket_object_name: &model_bucket_path,

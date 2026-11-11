@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 
 use enums::by_table::media_files::media_file_type::MediaFileType;
 use http_server_common::request::get_request_ip::get_request_ip;
+use enums::common::visibility::Visibility;
 use mysql_queries::queries::media_files::get::get_media_file::get_media_file;
 use mysql_queries::queries::model_weights::edit::set_model_weight_cover_image::{set_model_weight_cover_image, UpdateArgs};
 use mysql_queries::queries::model_weights::get::get_weight::get_weight_by_token;

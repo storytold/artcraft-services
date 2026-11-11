@@ -20,12 +20,12 @@ normal = ["workspace-build-acceleration"]
 # Internal
 datetimes = { path = "../../../../lib/data/datetimes" }
 easyenv = { path = "../../../../lib/easyenv" }
-enums = { workspace = true, default-features = false, features = [] }
+enums = { workspace = true }
 errors = { path = "../../../../lib/errors" }
 mysql_queries = { path = "../../../../schema/database/mysql_queries" }
 shared_env_var_config.workspace = true
 reusable_types = { path = "../../../../schema/public/reusable_types" }
-tokens = { workspace = true, default-features = false, features = [] }
+tokens = { workspace = true }
 
 # Workspace hack (faster compile times)
 workspace-build-acceleration = { version = "0.1", path = "../../../../workspace-build-acceleration" }

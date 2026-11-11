@@ -81,11 +81,44 @@ export function deserializeMoodboardDocument(
       items: document.board.items ?? {},
       sections: document.board.sections ?? [],
     },
-    canvas: {
+    canvas: pruneCanvasGraph({
       ...EMPTY_CANVAS_DOCUMENT,
       ...(document.canvas ?? {}),
-    },
+    }),
   };
+}
+
+// Deepest group/card nesting a loaded document may use. The renderer recurses
+// through childIds, so the loaded graph must be a bounded forest.
+export const MAX_CANVAS_NESTING_DEPTH = 16;
+
+// Normalizes a loaded canvas into a forest: every node is reachable from at
+// most one parent (first reference wins), self/ancestor references are
+// dropped, and nesting is capped. Without this a small document whose groups
+// reference each other (or share descendants) renders without bound.
+export function pruneCanvasGraph(
+  canvas: MoodboardCanvasDocument,
+): MoodboardCanvasDocument {
+  const nodes: Record<string, MoodboardNode> = { ...canvas.nodes };
+  const claimed = new Set<string>();
+
+  const visit = (id: string, depth: number): boolean => {
+    const node = nodes[id];
+    if (!node || claimed.has(id) || depth > MAX_CANVAS_NESTING_DEPTH) {
+      return false;
+    }
+    claimed.add(id);
+    if (node.kind === "group" || node.kind === "card") {
+      const childIds = node.childIds.filter((child) => visit(child, depth + 1));
+      if (childIds.length !== node.childIds.length) {
+        nodes[id] = { ...node, childIds };
+      }
+    }
+    return true;
+  };
+
+  const rootOrder = canvas.rootOrder.filter((id) => visit(id, 0));
+  return { ...canvas, nodes, rootOrder };
 }
 
 // Rendered in place of media whose token couldn't be resolved (deleted from

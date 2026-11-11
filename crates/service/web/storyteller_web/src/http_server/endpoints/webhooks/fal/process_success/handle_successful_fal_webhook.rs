@@ -11,6 +11,7 @@ use pager::client::pager::Pager;
 use sqlx::pool::PoolConnection;
 use sqlx::MySql;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::endpoints::omni_gen::shared_utils::sora_latency_metrics::maybe_record_sora_fal_job_completion;
 use crate::state::server_state::ServerState;
 
 use super::process_audio_payload::process_audio_payload;
@@ -176,6 +177,16 @@ pub async fn handle_successful_fal_webhook(
   } else {
     warn!("No media token found in payload for request_id {} / job {:?}", request_id, job.job_token);
   }
+
+  // Issue #1069 investigation: Sora wall-clock by plan (no behavior change).
+  maybe_record_sora_fal_job_completion(
+    &server_state.metrics,
+    &job.job_token,
+    job.maybe_creator_user_token.as_ref(),
+    job.created_at,
+    "success",
+    mysql_connection,
+  ).await;
 
   Ok(SimpleGenericJsonSuccess::wrapped(true))
 }

@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use actix_web::HttpRequest;
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use log::{error, warn};
-use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::batch_get_media_files_by_tokens_with_connection;
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens_with_connection, MediaReadScope};
 use server_environment::ServerEnvironment;
 use sqlx::pool::PoolConnection;
 use sqlx::MySql;
@@ -30,6 +30,7 @@ pub async fn lookup_media_files_as_cdn_url_list_and_map(
   server_environment: ServerEnvironment,
   maybe_media_cdn_override_url: Option<&str>,
   tokens: &[MediaFileToken],
+  scope: &MediaReadScope<'_>,
 ) -> Result<MediaFilesAsCdnUrlListAndMap, CommonWebError> {
   const CAN_SEE_DELETED: bool = false;
 
@@ -54,6 +55,7 @@ pub async fn lookup_media_files_as_cdn_url_list_and_map(
     mysql_connection,
     &unique_tokens,
     CAN_SEE_DELETED,
+    scope,
   ).await;
 
   let media_files = match result {

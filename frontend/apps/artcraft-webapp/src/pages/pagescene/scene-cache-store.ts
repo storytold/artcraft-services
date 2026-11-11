@@ -42,6 +42,8 @@ interface SceneCacheStore {
   // i.e. same tab only.
   lastVisitedSceneToken: string | undefined;
   setLastVisitedSceneToken: (token: string | undefined) => void;
+  /** Drop every cached scene and the last-scene link (account change). */
+  resetAccountState: () => void;
 }
 
 const keyOf = (token: string | undefined) => token ?? PLAYGROUND_KEY;
@@ -100,6 +102,8 @@ export const useSceneCacheStore = create<SceneCacheStore>()(
       lastVisitedSceneToken: undefined,
       setLastVisitedSceneToken: (token) =>
         set({ lastVisitedSceneToken: token }),
+      resetAccountState: () =>
+        set({ entries: {}, lastVisitedSceneToken: undefined }),
     }),
     {
       name: "artcraft-webapp-pagescene-cache",

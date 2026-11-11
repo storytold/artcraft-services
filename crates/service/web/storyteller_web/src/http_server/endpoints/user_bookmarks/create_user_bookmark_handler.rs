@@ -157,7 +157,7 @@ pub async fn create_user_bookmark_handler(
       })?;
 
   let maybe_existing_user_bookmark = get_user_bookmark_transactional_locking(
-    BookmarkIdentifier::EntityTypeAndToken(&entity_token),
+    BookmarkIdentifier::UserAndEntity(&user_session.user_token, &entity_token),
     &mut *transaction
   ).await
       .map_err(|err| {

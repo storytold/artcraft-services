@@ -5,7 +5,9 @@ use sqlx::{Executor, MySql, QueryBuilder};
 
 use enums::by_table::media_files::media_file_class::MediaFileClass;
 use enums::by_table::media_files::media_file_type::MediaFileType;
+use enums::common::visibility::Visibility;
 use tokens::tokens::media_files::MediaFileToken;
+use tokens::tokens::users::UserToken;
 
 /// Minimal columns the folder-thumbnail builder needs from `media_files`.
 #[derive(Debug, Clone)]
@@ -26,6 +28,10 @@ where
   E: 'e + Executor<'c, Database = MySql>,
 {
   pub candidate_tokens: &'e [MediaFileToken],
+  /// When set, private media files are only returned if this user created
+  /// them. Pass the viewer whenever the result is shown to a user (e.g.
+  /// folder thumbnails); `None` skips the visibility check.
+  pub maybe_restrict_private_to_creator: Option<&'e UserToken>,
   pub mysql_executor: E,
   pub phantom: PhantomData<&'c E>,
 }
@@ -58,9 +64,18 @@ where
        created_at \
      FROM media_files \
      WHERE user_deleted_at IS NULL \
-       AND mod_deleted_at IS NULL \
-       AND token IN (",
+       AND mod_deleted_at IS NULL ",
   );
+
+  if let Some(viewer_user_token) = args.maybe_restrict_private_to_creator {
+    builder.push(" AND (creator_set_visibility <> ");
+    builder.push_bind(Visibility::Private.to_str());
+    builder.push(" OR maybe_creator_user_token = ");
+    builder.push_bind(viewer_user_token.as_str());
+    builder.push(") ");
+  }
+
+  builder.push(" AND token IN (");
 
   let mut separated = builder.separated(", ");
   for token in args.candidate_tokens {

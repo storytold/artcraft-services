@@ -1,6 +1,5 @@
 use anyhow::bail;
 use log::{error, info};
-use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -60,8 +59,10 @@ pub fn ffmpeg_trim_and_resample(args: Args<'_>) -> AnyhowResult<()> {
   if !output.status.success() {
     error!("bad exit status: {}", output.status);
 
-    let _r = std::io::stdout().write_all(&output.stdout);
-    let _r = std::io::stderr().write_all(&output.stderr);
+    // Debug-format (escaped) and truncated: ffmpeg echoes uploaded-file metadata, which may hold newlines.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let tail: String = stderr.chars().rev().take(4096).collect::<Vec<_>>().into_iter().rev().collect();
+    error!("ffmpeg stderr (last 4096 chars): {:?}", tail);
 
     bail!("ffmpeg failed: {:?}", output.status.to_string());
   }

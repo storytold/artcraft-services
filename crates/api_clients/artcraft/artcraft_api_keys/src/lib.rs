@@ -46,7 +46,9 @@ impl ArtcraftApiKey {
   /// The redacted form used by both `Debug` and `Display`: the first
   /// [`REDACTED_PREFIX_CHAR_COUNT`] characters followed by an ellipsis.
   fn redacted(&self) -> String {
-    let prefix: String = self.0.chars().take(REDACTED_PREFIX_CHAR_COUNT).collect();
+    // A key this short would be mostly or entirely revealed by the prefix, so show none of it.
+    let shown = if self.0.chars().count() > 2 * REDACTED_PREFIX_CHAR_COUNT { REDACTED_PREFIX_CHAR_COUNT } else { 0 };
+    let prefix: String = self.0.chars().take(shown).collect();
     format!("{prefix}…")
   }
 }
@@ -97,8 +99,9 @@ mod tests {
   }
 
   #[test]
-  fn shorter_than_prefix_is_printed_in_full() {
+  fn short_keys_are_fully_redacted() {
     let key = ArtcraftApiKey::new_from_str("abc");
-    assert_eq!(format!("{key}"), "abc…");
+    assert_eq!(format!("{key}"), "…");
+    assert_eq!(format!("{key:?}"), "ArtcraftApiKey(\"…\")");
   }
 }

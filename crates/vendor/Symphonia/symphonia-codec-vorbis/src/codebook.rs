@@ -15,6 +15,12 @@ use symphonia_core::io::{
 
 use super::common::*;
 
+/// Upper bound on the number of `f32` values in a single codebook's VQ lookup table
+/// (`entries * dimensions`). Both counts come from the untrusted setup header, so without this
+/// bound a few bytes could request a multi-gigabyte allocation. Real-world codebooks are orders of
+/// magnitude smaller than this limit.
+const MAX_VQ_LOOKUP_LEN: u64 = 1 << 20;
+
 /// As defined in section 9.2.2 of the Vorbis I specification.
 ///
 /// `float32_unpack` is intended to translate the packed binary representation of a Vorbis
@@ -44,8 +50,10 @@ fn lookup1_values(entries: u32, dimensions: u16) -> u32 {
     // value = lower[entries ^ (1 / dimensions)]
     let value = (entries as f32).powf(1.0f32 / f32::from(dimensions)).floor() as u32;
 
-    assert!(value.pow(u32::from(dimensions)) <= entries);
-    assert!((value + 1).pow(u32::from(dimensions)) > entries);
+    // `pow` overflows for large dimensions (e.g. 2^32); an overflow means the power exceeds any
+    // possible `entries`, so treat it as "greater than entries".
+    assert!(value.checked_pow(u32::from(dimensions)).map_or(false, |p| p <= entries));
+    assert!((value + 1).checked_pow(u32::from(dimensions)).map_or(true, |p| p > entries));
 
     value
 }
@@ -310,6 +318,17 @@ impl VorbisCodebook {
                 let value_bits = bs.read_bits_leq32(4)? + 1;
                 let sequence_p = bs.read_bool()?;
 
+                // The VQ lookup table has `entries * dimensions` values. Reject zero dimensions
+                // (`lookup1_values` is undefined for them) and tables over the budget before
+                // allocating anything.
+                if codebook_dimensions == 0 {
+                    return decode_error("vorbis: codebook with a VQ lookup has zero dimensions");
+                }
+                let vq_len = u64::from(codebook_entries) * u64::from(codebook_dimensions);
+                if vq_len > MAX_VQ_LOOKUP_LEN {
+                    return decode_error("vorbis: codebook VQ lookup table too large");
+                }
+
                 // Lookup type is either 1 or 2 as per outer match.
                 let lookup_values = match lookup_type {
                     1 => lookup1_values(codebook_entries, codebook_dimensions),
@@ -393,7 +412,69 @@ impl VorbisCodebook {
 
 #[cfg(test)]
 mod tests {
-    use super::{ilog, lookup1_values, synthesize_codewords};
+    use symphonia_core::io::BitReaderRtl;
+
+    use super::{ilog, lookup1_values, synthesize_codewords, VorbisCodebook};
+
+    /// Packs little-endian bit fields (value, width) the way the Vorbis setup header does.
+    fn pack_bits(fields: &[(u32, u32)]) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut acc = 0u64;
+        let mut n = 0;
+        for &(value, width) in fields {
+            acc |= u64::from(value) << n;
+            n += width;
+            while n >= 8 {
+                out.push(acc as u8);
+                acc >>= 8;
+                n -= 8;
+            }
+        }
+        if n > 0 {
+            out.push(acc as u8);
+        }
+        out
+    }
+
+    /// A minimal codebook header: length-ordered code lengths of 1 bit, then a VQ lookup section.
+    fn codebook_with_lookup(entries: u32, dimensions: u16, lookup_type: u32) -> Vec<u8> {
+        pack_bits(&[
+            (0x564342, 24),              // sync
+            (u32::from(dimensions), 16), // dimensions
+            (entries, 24),               // entries
+            (1, 1),                      // length ordered
+            (0, 5),                      // first code length - 1
+            (entries, ilog(entries)),    // all entries have that length
+            (lookup_type, 4),            // lookup type
+            (0, 32),                     // min value
+            (0, 32),                     // delta value
+            (0, 4),                      // value bits - 1
+            (0, 1),                      // sequence_p
+            (0, 32),                     // padding so multiplicand reads never hit EOF first
+        ])
+    }
+
+    #[test]
+    fn reject_oversized_vq_lookup_table() {
+        // 64 entries x 65535 dimensions in a ~30 byte header would otherwise allocate
+        // entries * dimensions f32s (16 MiB) per codebook; larger entries overflow u32 for type 2.
+        for lookup_type in [1, 2] {
+            let buf = codebook_with_lookup(64, 65535, lookup_type);
+            let mut bs = BitReaderRtl::new(&buf);
+            assert!(VorbisCodebook::read(&mut bs).is_err());
+        }
+        let buf = codebook_with_lookup(64, 0, 1);
+        let mut bs = BitReaderRtl::new(&buf);
+        assert!(VorbisCodebook::read(&mut bs).is_err());
+    }
+
+    #[test]
+    fn lookup1_values_large_dimensions_do_not_overflow() {
+        // Within budget, but 2^65535 overflows the sanity-check `pow` in `lookup1_values`.
+        let buf = codebook_with_lookup(2, 65535, 1);
+        let mut bs = BitReaderRtl::new(&buf);
+        assert!(VorbisCodebook::read(&mut bs).is_ok());
+    }
 
     #[test]
     fn verify_ilog() {

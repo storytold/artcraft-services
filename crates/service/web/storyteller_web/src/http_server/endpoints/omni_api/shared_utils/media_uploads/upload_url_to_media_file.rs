@@ -48,7 +48,7 @@ pub async fn upload_url_to_media_file(
   let file_bytes = http_download_url_to_bytes(url)
     .await
     .map_err(|err| {
-      warn!("Failed to download media URL {}: {:?}", url, err);
+      warn!("Failed to download media URL {:?}: {:?}", url, err);
       CommonWebError::BadInputWithSimpleMessage(format!("Failed to download URL: {}", url))
     })?;
 
@@ -57,7 +57,7 @@ pub async fn upload_url_to_media_file(
   let mimetype = get_mimetype_for_bytes(file_bytes.as_ref())
     .map(|mimetype| mimetype.to_string())
     .ok_or_else(|| {
-      warn!("Could not determine mimetype for URL: {}", url);
+      warn!("Could not determine mimetype for URL: {:?}", url);
       CommonWebError::BadInputWithSimpleMessage(
         format!("Could not determine file type for URL: {}", url))
     })?;
@@ -95,7 +95,7 @@ pub async fn upload_url_to_media_file(
 
   let hash = sha256_hash_bytes(file_bytes.as_ref())
     .map_err(|err| {
-      warn!("Problem hashing bytes for URL {}: {:?}", url, err);
+      warn!("Problem hashing bytes for URL {:?}: {:?}", url, err);
       CommonWebError::server_error_with_message("Could not hash downloaded file")
     })?;
 
@@ -151,7 +151,7 @@ pub async fn upload_url_to_media_file(
   })
     .await
     .map_err(|err| {
-      warn!("Failed to insert media file from URL {}: {:?}", url, err);
+      warn!("Failed to insert media file from URL {:?}: {:?}", url, err);
       CommonWebError::server_error_with_message("Could not save downloaded file")
     })?;
 

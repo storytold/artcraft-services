@@ -21,6 +21,7 @@ import { usePageSceneStore } from "../../PageSceneStore";
 import {
   DEFAULT_EASING,
   DEFAULT_TIMELINE_FPS,
+  MAX_TIMELINE_DURATION,
 } from "../../engine/timeline/types";
 import {
   formatTimecode,
@@ -35,6 +36,8 @@ import { MotionPopover } from "./MotionPopover";
 import { DurationLabel } from "./DurationLabel";
 
 // Lane geometry: label column (w-32=8rem) + gap-3(0.75rem) … gap-3 + add-btn(w-7=1.75rem).
+// One tick per second at the longest supported duration, plus the end tick.
+const MAX_RULER_TICKS = MAX_TIMELINE_DURATION + 1;
 const LANE_LEFT = "8.75rem";
 const LANE_RIGHT = "2.5rem";
 
@@ -430,7 +433,12 @@ export const TimelineEditor = () => {
                 ruler into a solid smear. */}
             {(() => {
               const subsPerSecond = duration <= 15 ? 4 : duration <= 30 ? 2 : 1;
-              const count = Math.floor(duration * subsPerSecond) + 1;
+              // Independent cap on DOM nodes, in case a duration outside the
+              // supported range ever reaches the store.
+              const count = Math.min(
+                Math.max(0, Math.floor(duration * subsPerSecond) + 1),
+                MAX_RULER_TICKS,
+              );
               return Array.from({ length: count }, (_, i) => {
                 const t = i / subsPerSecond;
                 const isSecond = i % subsPerSecond === 0;

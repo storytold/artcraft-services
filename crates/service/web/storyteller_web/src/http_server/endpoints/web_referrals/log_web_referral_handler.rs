@@ -109,7 +109,7 @@ pub async fn log_web_referral_handler(
     CommonWebError::from_error(e)
   })?;
 
-  info!("Recorded web referral: {}", referral_url);
+  info!("Recorded web referral: {:?}", referral_url);
 
   // Build response, setting the AVT cookie if we minted a new one.
   let response = LogWebReferralResponse {
