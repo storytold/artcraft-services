@@ -83,7 +83,7 @@ const SetPassword = () => {
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              handleSetPassword();
+              void handleSetPassword();
             }}
           >
             {error && (

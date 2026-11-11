@@ -152,7 +152,7 @@ export function ExploreMedia() {
     } else {
       // Fetch single media file for direct URL access
       const api = new MediaApi();
-      api.GetMediaFile(mediaToken).then((res) => {
+      void api.GetMediaFile(mediaToken).then((res) => {
         if (res.success && res.data) {
           setSelectedItem(res.data as unknown as ExploreMediaFile);
         }

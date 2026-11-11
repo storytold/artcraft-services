@@ -36,7 +36,7 @@ export function usePromptPrefillFromOutput(
     if (!outputToken) return;
     let cancelled = false;
 
-    (async () => {
+    void (async () => {
       try {
         const mediaResp = await new MediaFilesApi().GetMediaFileByToken({
           mediaFileToken: outputToken,

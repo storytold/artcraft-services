@@ -36,7 +36,7 @@ export function BillingSection({ onCloseModal }: BillingSectionProps) {
         if (!cancelled) setIsLoading(false);
       }
     };
-    fetchSubscription();
+    void fetchSubscription();
     return () => {
       cancelled = true;
     };

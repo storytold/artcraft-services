@@ -204,7 +204,7 @@ export function BulkBanUsersDialog({
               disabled={isSubmitting}
               onClick={(e) => {
                 e.preventDefault();
-                handleConfirm();
+                void handleConfirm();
               }}
             >
               {isSubmitting ? (

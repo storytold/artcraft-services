@@ -64,7 +64,7 @@ const CheckoutSuccess = () => {
       setIsCheckingOnboarding(false);
     };
 
-    checkOnboarding();
+    void checkOnboarding();
   }, [searchParams]);
 
   if (isCheckingOnboarding) {

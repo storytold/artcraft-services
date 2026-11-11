@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    checkSession();
+    void checkSession();
   }, []);
 
   const loginState = (userData: UserInfo) => {

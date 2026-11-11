@@ -195,7 +195,7 @@ const CopyPromptButton = ({ prompt }: { prompt: string }) => {
         aria-label="Copy prompt"
         onClick={(e) => {
           e.stopPropagation();
-          navigator.clipboard.writeText(prompt);
+          void navigator.clipboard.writeText(prompt);
           setCopied(true);
           setTimeout(() => setCopied(false), 3000);
         }}
@@ -930,11 +930,11 @@ export const TaskQueue = () => {
       }
     };
 
-    load();
+    void load();
     const intervalId = setInterval(load, 5000);
 
     const handleTaskUpdate = () => {
-      if (!cancelled) load();
+      if (!cancelled) void load();
     };
     window.addEventListener("task-queue-update", handleTaskUpdate);
 

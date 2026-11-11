@@ -105,7 +105,7 @@ export default function MediaDetails({ media, prompt, promptLoading, dimensions 
             {prompt?.maybe_positive_prompt && (
               <button type="button" className="text-muted hover:text-ink" aria-label={copied === "prompt" ? "Prompt copied" : "Copy prompt"}
                 onClick={() => {
-                  copy(prompt.maybe_positive_prompt!, "prompt");
+                  void copy(prompt.maybe_positive_prompt!, "prompt");
                   trackEvent("copy_prompt", { media_type: kind });
                 }}>
                 {copied === "prompt" ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
@@ -149,7 +149,7 @@ export default function MediaDetails({ media, prompt, promptLoading, dimensions 
           <ArrowDownToLineIcon aria-hidden className="h-4 w-4" />{downloading ? "Downloading" : "Download file"}
         </Button>
         <Button variant="secondary" className="w-full" onClick={() => {
-          copy(`${SHARE_URL_BASE}${encodeURIComponent(media.token)}`, "link");
+          void copy(`${SHARE_URL_BASE}${encodeURIComponent(media.token)}`, "link");
           trackEvent("share", { method: "copy_link", content_type: kind, item_id: media.token });
         }}>
           {copied === "link" ? <CheckIcon aria-hidden className="h-4 w-4" /> : <CopyIcon aria-hidden className="h-4 w-4" />}
