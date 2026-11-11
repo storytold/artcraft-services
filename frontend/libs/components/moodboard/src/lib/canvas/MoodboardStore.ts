@@ -290,14 +290,23 @@ export const useMoodboardStore = create<MoodboardState>((set, get) => ({
     if (selectedIds.size === 0) return;
     get().pushHistory();
     set((s) => {
+      // Iterative walk that visits each node once: restored documents can
+      // share descendants between containers or contain cycles, and a naive
+      // recursive walk would repeat work exponentially (or overflow).
       const removed = new Set<string>();
-      const collect = (id: string) => {
+      const stack = [...selectedIds];
+      while (stack.length > 0) {
+        const id = stack.pop() as string;
+        if (removed.has(id)) continue;
         const n = s.nodes[id];
-        if (!n) return;
+        if (!n) continue;
         removed.add(id);
-        if (n.kind === "group" || n.kind === "card") n.childIds.forEach(collect);
-      };
-      selectedIds.forEach(collect);
+        if (n.kind === "group" || n.kind === "card") {
+          for (const childId of n.childIds) {
+            if (!removed.has(childId)) stack.push(childId);
+          }
+        }
+      }
 
       const nodes: Record<string, MoodboardNode> = {};
       Object.entries(s.nodes).forEach(([id, n]) => {
