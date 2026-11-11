@@ -40,6 +40,20 @@ export function captureCanvasDocument(): MoodboardCanvasDocument {
   });
 }
 
+// Stored documents are untrusted input: a zero, negative, or non-finite
+// spacing would stall the background grid's draw loop. Large spacing is
+// valid (the grid, snapping and fit-to-grid take it); the background caps its
+// own dot count.
+const MIN_GRID_SPACING = 1;
+
+export function sanitizeGridSpacing(spacing: unknown): number {
+  return typeof spacing === "number" &&
+    Number.isFinite(spacing) &&
+    spacing >= MIN_GRID_SPACING
+    ? spacing
+    : EMPTY_CANVAS_DOCUMENT.gridSpacing;
+}
+
 // Replaces the live canvas. Restores nodes, order, viewport (pan + zoom),
 // grid spacing, and snap; selection and undo history reset. canvasSize is
 // deliberately not applied — the stage re-measures its container. Runs with
@@ -55,7 +69,7 @@ export function applyCanvasDocument(
       rootOrder: [...doc.rootOrder],
       selectedIds: new Set(),
       viewport: structuredClone(doc.viewport),
-      gridSpacing: doc.gridSpacing,
+      gridSpacing: sanitizeGridSpacing(doc.gridSpacing),
       snapEnabled: doc.snapEnabled,
     });
   });

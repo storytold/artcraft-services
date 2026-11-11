@@ -49,7 +49,7 @@ pub async fn get_tts_model_info_migration(
   } else {
     let maybe_model = get_tts_model_by_token_using_connection(
       &token,
-      true,
+      can_see_deleted,
       mysql_connection
     ).await?;
 

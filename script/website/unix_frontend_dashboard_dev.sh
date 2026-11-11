@@ -8,7 +8,7 @@
 root_dir=$(pwd)
 dashboard_path="${root_dir}/frontend/apps/artcraft-dashboard"
 
-if [ ! -d "${dashboard_path}" ]; then
+if [[ ! -d "${dashboard_path}" ]]; then
   echo "ERROR: dashboard directory not found at: ${dashboard_path}"
   echo "Run this script from the repository root."
   exit 1

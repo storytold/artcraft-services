@@ -5,9 +5,18 @@ import { TICKS_PER_SECOND } from "../../wasm";
 import { TIMELINE_RULER_HEIGHT_PX } from "./layout";
 import { DEFAULT_FPS } from "../../fps/defaults";
 import { useEditor } from "../../editor/use-editor";
-import { getRulerConfig, shouldShowLabel } from "../ruler-utils";
+import {
+  clampRenderedTickRange,
+  getRulerConfig,
+  shouldShowLabel,
+} from "../ruler-utils";
 import { useScrollPosition } from "../hooks/use-scroll-position";
 import { TimelineTick } from "./timeline-tick";
+
+// Upper bound on ticks rendered at once. Tick spacing is at least 18px, so
+// the viewport itself always fits; when the scroll buffer pushes the range
+// past this, clampRenderedTickRange trims the buffer, never the viewport.
+const MAX_RENDERED_RULER_TICKS = 2000;
 
 interface TimelineRulerProps {
   zoomLevel: number;
@@ -62,14 +71,23 @@ export function TimelineRuler({
   const visibleEndTimeSeconds =
     (scrollLeft + viewportWidth + bufferPx) / pixelsPerSecond;
 
-  const startTickIndex = Math.max(
-    0,
-    Math.floor(visibleStartTimeSeconds / tickIntervalSeconds),
-  );
-  const endTickIndex = Math.min(
-    tickCount - 1,
-    Math.ceil(visibleEndTimeSeconds / tickIntervalSeconds),
-  );
+  const { startTickIndex, endTickIndex } = clampRenderedTickRange({
+    startTickIndex: Math.max(
+      0,
+      Math.floor(visibleStartTimeSeconds / tickIntervalSeconds),
+    ),
+    endTickIndex: Math.min(
+      tickCount - 1,
+      Math.ceil(visibleEndTimeSeconds / tickIntervalSeconds),
+    ),
+    viewportStartTickIndex: Math.floor(
+      scrollLeft / pixelsPerSecond / tickIntervalSeconds,
+    ),
+    viewportEndTickIndex: Math.ceil(
+      (scrollLeft + viewportWidth) / pixelsPerSecond / tickIntervalSeconds,
+    ),
+    maxTicks: MAX_RENDERED_RULER_TICKS,
+  });
 
   const timelineTicks: Array<JSX.Element> = [];
   for (

@@ -10,7 +10,7 @@ const sha256 = (body: string) => `sha256:${createHash("sha256").update(body).dig
 /** Labels as `flatpak build-bundle --oci` writes them into an image config. */
 function imageLabels(repo: string, tag: string): Record<string, string> {
   const slug = repo.split("/")[1];
-  const appId = `ai.storyteller.${slug === "craft-launcher" ? "artcraft-launcher" : slug}`;
+  const appId = slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${slug === "craft-launcher" ? "artcraft-launcher" : slug}`;
   const arch = tag.endsWith("-aarch64") ? "aarch64" : "x86_64";
   return {
     "org.flatpak.ref": `app/${appId}/${arch}/stable`,
@@ -96,6 +96,10 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     );
     expect(launcher?.Images[0].Tags).toContain("stable-x86_64");
 
+    const studio = index.Results.find((r) => r.Repository === "storytold/artcraft");
+    expect(studio?.Images).toHaveLength(2);
+    expect(studio?.Images[0].Labels["org.flatpak.ref"]).toBe("app/ai.artcraft.app/x86_64/stable");
+
     const pdfcraft = index.Results.find((r) => r.Name === "storytold/pdfcraft");
     expect(pdfcraft).toBeDefined();
     expect(pdfcraft?.Repository).toBe("storytold/pdfcraft");
@@ -106,8 +110,13 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     // image's own rather than a guess.
     expect(pdfcraftX86?.Labels).toEqual(imageLabels("storytold/pdfcraft", pdfcraftX86?.Tags[0] ?? ""));
 
-    // The website's catalog owns release versions; no OCI build exists for Craft Anything yet.
-    expect(index.Results.find((r) => r.Repository === "storytold/craft-anything")).toBeUndefined();
+    for (const slug of ["craft-anything", "texturecraft", "materialcraft"]) {
+      const repo = index.Results.find((r) => r.Repository === `storytold/${slug}`);
+      expect(repo?.Images).toHaveLength(2);
+      for (const image of repo?.Images ?? []) {
+        expect(image.Labels).toEqual(imageLabels(`storytold/${slug}`, image.Tags[0]));
+      }
+    }
   });
 
   test("filters by architecture and repository before resolving manifests", async () => {

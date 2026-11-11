@@ -58,6 +58,10 @@ use crate::http_server::endpoints::omni_gen::generate::video::insert_db_job::ins
 use crate::http_server::endpoints::omni_gen::generate::video::insert_db_job::shared_job_args::SharedJobArgs;
 use crate::http_server::endpoints::omni_gen::generate::video::pipeline_v2::run_pipeline_v2::{run_pipeline_v2, RunPipelineV2Args};
 use crate::http_server::endpoints::omni_gen::shared_utils::kinovi_account::KinoviAccount;
+use crate::http_server::endpoints::omni_gen::shared_utils::sora_latency_metrics::{
+  duration_tag, model_tag_from_video_model, record_sora_enqueue, resolution_tag,
+  resolve_plan_tag_for_user_in_transaction,
+};
 use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
 use crate::state::server_state::ServerState;
 use crate::util::lookup::lookup_media_files_as_cdn_url_list_and_map::lookup_media_files_as_cdn_url_list_and_map;
@@ -393,6 +397,18 @@ server_state.maybe_media_cdn_override_url.as_deref(),
           transaction: &mut transaction,
         },
       }).await?;
+
+      // Issue #1069 investigation: Sora enqueue volume by plan (no behavior change).
+      if let Some(model) = request.model.and_then(model_tag_from_video_model) {
+        let plan = resolve_plan_tag_for_user_in_transaction(user_token, &mut transaction).await;
+        record_sora_enqueue(
+          &server_state.metrics,
+          model,
+          plan,
+          resolution_tag(request.resolution),
+          duration_tag(request.duration_seconds),
+        );
+      }
 
       (
         token.clone(), 

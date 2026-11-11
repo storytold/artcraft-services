@@ -12,6 +12,20 @@ import { Model3DParams } from "../utilities/render3DModel";
 let baseImageLoadGen = 0;
 
 // LineNode type — ordering in PageDraw is by position in drawNodes array (zIndex ignored there)
+// Most coordinates a single imported stroke may carry. Konva walks `points`
+// as a synchronous loop, so an object that merely declares a huge length
+// would stall the editor.
+export const MAX_LINE_POINTS = 100_000;
+
+export const isValidLineNode = (node: unknown): node is LineNode => {
+  const points = (node as Partial<LineNode> | null)?.points;
+  return (
+    Array.isArray(points) &&
+    points.length <= MAX_LINE_POINTS &&
+    points.every((value) => typeof value === "number" && Number.isFinite(value))
+  );
+};
+
 export type LineNode = {
   id: string;
   type: "line";
@@ -322,7 +336,7 @@ export interface SceneState {
 }
 
 export const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 9);
+  return Math.random().toString(36).substring(2, 9); // NOSONAR: UI-only id or cosmetic value, never a secret.
 };
 
 // Add a flag to prevent saving state during restoration
@@ -1131,7 +1145,13 @@ export const useSceneStore = create<SceneState>((set, get, store) => ({
 
       const base64ToFile = (base64: string, filename: string): File => {
         const arr = base64.split(",");
-        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+        // Linear header parse: `data:<mime>;base64`. The previous regex rescanned
+        // overlapping suffixes of a malformed header (quadratic on ~100 KB).
+        const colon = arr[0].indexOf(":");
+        const semi = colon >= 0 ? arr[0].indexOf(";", colon + 1) : -1;
+        const mime =
+          (colon >= 0 && semi > colon ? arr[0].slice(colon + 1, semi) : "") ||
+          "image/png";
         const bstr = atob(arr[1]);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
@@ -1141,10 +1161,10 @@ export const useSceneStore = create<SceneState>((set, get, store) => ({
         return new File([u8arr], filename, { type: mime });
       };
 
-      const restoredDrawNodes = (sceneData.drawNodes || []).map(
+      const restoredDrawNodes = (sceneData.drawNodes || []).flatMap(
         (nodeData: SerializedNodeData & { imageDataUrl?: string } | LineNode) => {
           if (nodeData.type === "line") {
-            return nodeData as LineNode;
+            return isValidLineNode(nodeData) ? [nodeData as LineNode] : [];
           }
 
           const shapeData = nodeData as SerializedNodeData & { imageDataUrl?: string };
@@ -1176,7 +1196,9 @@ export const useSceneStore = create<SceneState>((set, get, store) => ({
 
       set({
         drawNodes: restoredDrawNodes,
-        inpaintLineNodes: sceneData.inpaintLineNodes || [],
+        inpaintLineNodes: (sceneData.inpaintLineNodes || []).filter(
+          isValidLineNode,
+        ),
         selectedNodeIds: [],
         brushColor: sceneData.brushColor || "#000000",
         brushSize: sceneData.brushSize || 5,

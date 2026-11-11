@@ -2,83 +2,135 @@ name: Linux package repository tools
 
 on:
   pull_request:
-    paths:
-      - 'frontend/apps/artcraft-website-next/**'
-      - '.github/workflows/linux-distro-tools.yml'
   push:
     branches: [main]
-    paths:
-      - 'frontend/apps/artcraft-website-next/**'
-      - '.github/workflows/linux-distro-tools.yml'
 
 permissions:
   contents: read
 
 jobs:
   wait-for-deploy:
-    name: Wait for Netlify deploy
+    name: Wait for Cloudflare deploy
     runs-on: ubuntu-latest
     permissions:
       contents: read
       statuses: read
-    timeout-minutes: 15
+      checks: read
+    timeout-minutes: 20
     outputs:
-      preview-url: ${{ steps.wait.outputs.preview_url }}
+      deploy-url: ${{ steps.wait.outputs.deploy_url }}
     steps:
-      - name: Await Netlify Deploy Preview
+      - name: Await Cloudflare deploy
         id: wait
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BRANCH_NAME: ${{ github.head_ref }}
+          COMMIT_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            PREVIEW_URL="https://deploy-preview-${PR_NUMBER}--artcraft-website-next.netlify.app"
+          # The distro tests below run against a real deployment, never a server started here.
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            TARGET_SHA="$PR_HEAD_SHA"
+            SHORT_SHA="${TARGET_SHA:0:7}"
+            BRANCH_SLUG="$(echo "${BRANCH_NAME}" | tr '/_.' '-' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+//g; s/^-+|-+$//g')"
+            # A DNS label is at most 63 characters: past that the preview host is not this slug, so wait for the bot comment's URL instead.
+            DEPLOY_URL=""
+            if [[ ${#BRANCH_SLUG} -le 63 ]]; then DEPLOY_URL="https://${BRANCH_SLUG}.getartcraft.dev"; fi
+            echo "Awaiting Cloudflare deploy preview for PR #${PR_NUMBER} (branch ${BRANCH_NAME}, commit ${TARGET_SHA})..."
+          else
+            TARGET_SHA="$COMMIT_SHA"
+            SHORT_SHA="${TARGET_SHA:0:7}"
+            DEPLOY_URL="https://getartcraft.com"
+            echo "Testing the production deployment of ${TARGET_SHA} at ${DEPLOY_URL}..."
+          fi
 
-            echo "Awaiting Netlify deploy preview for PR #${PR_NUMBER} (commit ${HEAD_SHA}) at ${PREVIEW_URL}..."
-            for i in {1..90}; do
-              STATUS=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/statuses" \
-                --jq '[.[] | select(.context == "netlify/artcraft-website-next/deploy-preview")][0].state' 2>/dev/null || true)
+          FAILURE_GRACE_SECONDS=120
+          failure_started_at=""
+          for i in {1..90}; do
+            # For PRs, extract the preview URL directly from the Cloudflare bot comment if present for this commit
+            if [[ "$EVENT_NAME" == "pull_request" ]]; then
+              CF_URL=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" 2>/dev/null | jq -rs --arg sha "$SHORT_SHA" '
+                [ .[][] |
+                  select(.user.login == "cloudflare-workers-and-pages[bot]") |
+                  select(.body | contains("(commit " + $sha + ")")) |
+                  .body |
+                  capture("Preview URL:\\s*(?<urls>[^\\n\\r]+)")? |
+                  .urls |
+                  [scan("https://[a-zA-Z0-9.-]+\\.(?:getartcraft\\.dev|workers\\.dev)")] |
+                  .[]
+                ] | (map(select(contains("getartcraft.dev"))) | first) // first // empty
+              ' 2>/dev/null || true)
+              if [[ -n "$CF_URL" ]]; then
+                DEPLOY_URL="$CF_URL"
+              fi
+            fi
 
-              if [[ "$STATUS" == "failure" || "$STATUS" == "error" ]]; then
-                echo "Error: Netlify deploy preview reported failure!" >&2
+            # Check Workers Builds check run status on this commit
+            # Every page, the exact "Workers Builds: artcraft-services" run first, then any other Cloudflare build run
+            CHECK_DATA=$(gh api --paginate "repos/${REPO}/commits/${TARGET_SHA}/check-runs?per_page=100" 2>/dev/null | jq -s '
+              [.[].check_runs[]] | (map(select(.name == "Workers Builds: artcraft-services")) + map(select(.name | test("^Workers Builds")))) | first // empty
+            ' 2>/dev/null || true)
+
+            CHECK_STATUS=$(echo "$CHECK_DATA" | jq -r '.status // empty' 2>/dev/null || true)
+            CHECK_CONCLUSION=$(echo "$CHECK_DATA" | jq -r '.conclusion // empty' 2>/dev/null || true)
+
+            if [[ "$CHECK_CONCLUSION" == "failure" || "$CHECK_CONCLUSION" == "timed_out" || "$CHECK_CONCLUSION" == "cancelled" ]]; then
+              # Cloudflare may retry a failed build for this commit shortly afterward.
+              if [[ -z "$failure_started_at" ]]; then
+                failure_started_at=$SECONDS
+                echo "Cloudflare reported ${CHECK_CONCLUSION}; allowing ${FAILURE_GRACE_SECONDS}s for a retry..."
+              fi
+              if (( SECONDS - failure_started_at >= FAILURE_GRACE_SECONDS )); then
+                echo "Error: the Cloudflare deploy check still reports ${CHECK_CONCLUSION} after the ${FAILURE_GRACE_SECONDS}s grace period!" >&2
                 exit 1
               fi
+            elif [[ "$CHECK_STATUS" == "in_progress" || "$CHECK_STATUS" == "queued" || "$CHECK_CONCLUSION" == "success" ]]; then
+              failure_started_at=""
+            fi
 
-              if [[ "$STATUS" == *"success"* ]] && curl -sf -o /dev/null "${PREVIEW_URL}/apt/artcraft.sources" 2>/dev/null; then
-                echo "Netlify preview is live and responsive for ${HEAD_SHA} at ${PREVIEW_URL} (attempt $i)!"
-                echo "Warming up package repository endpoints..."
-                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/apt/dists/stable/Release" 2>/dev/null || true
-                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/rpm/repodata/repomd.xml" 2>/dev/null || true
-                curl -sf -m 60 -o /dev/null "${PREVIEW_URL}/arch/x86_64/artcraft.db" 2>/dev/null || true
-                echo "preview_url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
+            ready=0
+            [[ "$CHECK_STATUS" == "completed" && "$CHECK_CONCLUSION" == "success" ]] && ready=1
 
-              echo "Attempt $i/90: Waiting for Netlify deploy preview (commit status: ${STATUS:-waiting})..."
-              sleep 10
-            done
+            if [[ "$ready" == "1" ]] && curl -sf -o /dev/null "${DEPLOY_URL}/apt/artcraft.sources" 2>/dev/null; then
+              echo "Deployment is live and responsive at ${DEPLOY_URL} (attempt $i)!"
+              echo "Warming up package repository endpoints..."
+              curl -sf -m 60 -o /dev/null "${DEPLOY_URL}/apt/dists/stable/Release" 2>/dev/null || true
+              curl -sf -m 60 -o /dev/null "${DEPLOY_URL}/rpm/repodata/repomd.xml" 2>/dev/null || true
+              curl -sf -m 60 -o /dev/null "${DEPLOY_URL}/arch/x86_64/artcraft.db" 2>/dev/null || true
+              echo "deploy_url=${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
 
-            echo "Error: Timed out waiting for Netlify preview (${PREVIEW_URL})" >&2
-            exit 1
-          else
-            echo "Push to main branch. Setting local build fallback."
-            echo "preview_url=" >> "$GITHUB_OUTPUT"
-          fi
+            echo "Attempt $i/90: waiting for ${DEPLOY_URL} (check: ${CHECK_STATUS:-waiting}/${CHECK_CONCLUSION:-pending})..."
+            sleep 10
+          done
+
+          echo "Error: timed out waiting for ${DEPLOY_URL} (${TARGET_SHA})" >&2
+          exit 1
 
   test-distro-tools:
     name: ${{ matrix.name }}
     needs: wait-for-deploy
+    if: needs.wait-for-deploy.outputs.deploy-url != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: "Ubuntu 26.04 (APT)"
             distro: ubuntu
+          - name: "Debian (APT)"
+            distro: debian
           - name: "Fedora 45 (DNF)"
             distro: fedora
+          - name: "RHEL (DNF)"
+            distro: rhel
+          # libzypp rejects hostnames containing "--", so this leg reaches a deploy preview through
+          # the script's forwarder while every other leg talks to the deployment directly.
           - name: "openSUSE Tumbleweed (Zypper)"
             distro: opensuse
           - name: "Flatpak OCI Remote"
@@ -94,12 +146,12 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
+      # manifest-info.mjs runs on jiti, so the tests need the dependencies even though the site
+      # itself comes from the deployment.
       - name: Install dependencies
         run: npm ci --ignore-scripts
-      - name: Build local Next.js server (if testing without Netlify preview)
-        if: needs.wait-for-deploy.outputs.preview-url == ''
-        run: |
-          ./node_modules/.bin/next typegen
-          npm run build
+      - name: Test OCI signature verification
+        if: matrix.distro == 'flatpak'
+        run: node --test scripts/verify-flatpak-signatures.test.mjs
       - name: Verify repository via ${{ matrix.name }}
-        run: ./scripts/test-distro-repos.sh ${{ matrix.distro }} "${{ needs.wait-for-deploy.outputs.preview-url }}"
+        run: ./scripts/test-distro-repos.sh ${{ matrix.distro }} "${{ needs.wait-for-deploy.outputs.deploy-url }}"

@@ -9,8 +9,9 @@ impl RedisCacheKeys {
     format!("get_tts_model:{}", model_token)
   }
 
-  pub fn get_tts_model_for_info_migration_endpoint(model_token: &str) -> String {
-    format!("get_tts_inf1:{}", model_token)
+  /// The cached record depends on whether the viewer may see deleted models, so that is part of the key.
+  pub fn get_tts_model_for_info_migration_endpoint(model_token: &str, can_see_deleted: bool) -> String {
+    format!("get_tts_inf1:{}:{}", model_token, if can_see_deleted { "del" } else { "pub" })
   }
 
   pub fn get_tts_model_for_inference_migration_endpoint(model_token: &str) -> String {

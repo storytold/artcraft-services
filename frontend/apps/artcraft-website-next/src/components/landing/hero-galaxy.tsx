@@ -1,19 +1,25 @@
 "use client";
 
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { trackEvent } from "@/lib/analytics";
+import {
+  CRAFTING_APPS,
+  craftAppIconUrl,
+  craftAppName,
+  craftAppPath,
+} from "@/lib/crafting-apps";
 import { SEEDANCE_SHOWCASE } from "@/lib/landing-data";
 import { webglAvailable } from "@/lib/webgl-support";
 import { introClock, introTuner } from "@/lib/intro";
 import { watchThemeColors, type ThemeColors } from "@/lib/theme-colors";
 import { useTunerStore } from "@/lib/tuner";
 import {
-  galaxyLayoutTuner,
-  galaxyMobileTuner,
-  galaxyMotionTuner,
-  galaxyLookTuner,
-  galaxyPointerTuner,
+  GALAXY_TUNERS,
+  appsIconTuner,
+  type GalaxyVariant,
 } from "./hero-galaxy-tunables";
 
 // The hero galaxy: showcase cards swirling out of the centered wordmark
@@ -35,6 +41,15 @@ import {
 // Decode budget: only the sharp outer cards' clips hold live decoders;
 // inner blurred cards freeze on a primed first frame. Reduced-motion,
 // no-JS, hidden-tab, and WebGL-failure visitors get the plain poster.
+//
+// The `apps` variant runs the same instrument with the Crafting Apps' icons:
+// square tiles instead of 16:9 footage, drawn by ICON_FRAG (their shape comes
+// from the art's alpha), with no decoders to budget. Crisp icons can't sit
+// behind the copy the way soft footage does, so a keep-out pocket around the
+// text stack hides them: they surface from behind it. An app is never on
+// stage twice: a tile claims a free app while invisible and gives it back once
+// hidden, and stays invisible if every app is taken. Hovering a tile lifts it
+// and names it; clicking opens its app page.
 
 const FOV = 30;
 
@@ -57,6 +72,18 @@ const TICK_LEN = 12;
 // Target tau knob governs only the behavioral ease (sizing pin, paint
 // order, decode priority, wobble kill), which is what slow tunings want.
 const CLEAR_TAU_S = 0.12;
+
+// How fast a tile that claims an app mid-field fades in.
+const CLAIM_TAU_S = 0.25;
+
+const POISSON_TAPS = /* glsl */ `
+  const vec2 TAPS[12] = vec2[12](
+    vec2(-0.326, -0.406), vec2(-0.840, -0.074), vec2(-0.696, 0.457),
+    vec2(-0.203, 0.621), vec2(0.962, -0.195), vec2(0.473, -0.480),
+    vec2(0.519, 0.767), vec2(0.185, -0.893), vec2(0.507, 0.064),
+    vec2(0.896, 0.412), vec2(-0.322, -0.933), vec2(-0.792, -0.598)
+  );
+`;
 
 const CARD_VERT = /* glsl */ `
   uniform float uCurve;
@@ -102,12 +129,7 @@ const CARD_FRAG = /* glsl */ `
   in vec2 vUv;
   out vec4 outColor;
 
-  const vec2 TAPS[12] = vec2[12](
-    vec2(-0.326, -0.406), vec2(-0.840, -0.074), vec2(-0.696, 0.457),
-    vec2(-0.203, 0.621), vec2(0.962, -0.195), vec2(0.473, -0.480),
-    vec2(0.519, 0.767), vec2(0.185, -0.893), vec2(0.507, 0.064),
-    vec2(0.896, 0.412), vec2(-0.322, -0.933), vec2(-0.792, -0.598)
-  );
+  ${POISSON_TAPS}
 
   void main() {
     // Local click punches: a soft gaussian ring pushes the texture
@@ -163,6 +185,69 @@ const CARD_FRAG = /* glsl */ `
   }
 `;
 
+// An icon tile. The texture is premultiplied, so blur and mips never pick up
+// the black under the transparent corners, and the output blends premultiplied.
+// The quad is larger than the tile (uQuad) to leave room for the shadow: a
+// rounded-square falloff tinted with the art's average color (its last mip).
+const ICON_FRAG = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform float uBlur;
+  uniform float uTexA;
+  uniform float uAlpha;
+  uniform float uAber;
+  uniform float uQuad;
+  uniform float uShadowA;
+  uniform float uShadowSpread;
+  uniform float uShadowDrop;
+  uniform float uShadowTone;
+  uniform float uTileRadius;
+  in vec2 vUv;
+  out vec4 outColor;
+
+  ${POISSON_TAPS}
+
+  // Clamp-to-edge would smear the tile's border across the shadow margin.
+  float inside(vec2 uv) {
+    vec2 s = step(vec2(0.0), uv) * step(uv, vec2(1.0));
+    return s.x * s.y;
+  }
+
+  void main() {
+    vec2 uv = (vUv - 0.5) * uQuad + 0.5;
+    vec4 col;
+    if (uBlur > 0.0008) {
+      // Explicit LOD: the per-pixel rotation would wreck the derivatives
+      // automatic mip selection relies on.
+      float a = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.545) * 6.2832;
+      mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));
+      float lod = max(0.0, log2(uBlur * 256.0) - 1.0);
+      col = textureLod(uMap, uv, lod) * inside(uv);
+      for (int i = 0; i < 12; i++) {
+        vec2 tap = uv + rot * TAPS[i] * uBlur;
+        col += textureLod(uMap, tap, lod) * inside(tap);
+      }
+      col /= 13.0;
+    } else {
+      vec2 d = uv - 0.5;
+      vec2 shift = d * dot(d, d) * 4.0 * uAber;
+      vec4 r = texture(uMap, uv + shift) * inside(uv + shift);
+      vec4 g = texture(uMap, uv) * inside(uv);
+      vec4 b = texture(uMap, uv - shift) * inside(uv - shift);
+      // Averaged alpha: a channel shifted off the tile must thin the edge, not
+      // leave a dark rim at full opacity.
+      col = vec4(r.r, g.g, b.b, (r.a + g.a + b.a) / 3.0);
+    }
+
+    vec2 p = abs(uv - vec2(0.5, 0.5 - uShadowDrop)) - (0.5 - uTileRadius);
+    float dEdge = length(max(p, vec2(0.0))) + min(max(p.x, p.y), 0.0) - uTileRadius;
+    float shadow = uShadowA * (1.0 - smoothstep(-uShadowSpread, uShadowSpread, dEdge));
+    vec4 avg = textureLod(uMap, vec2(0.5), 8.0);
+    vec3 tint = avg.rgb / max(avg.a, 0.001) * uShadowTone;
+
+    outColor = (col + vec4(tint, 1.0) * shadow * (1.0 - col.a)) * uAlpha * uTexA;
+  }
+`;
+
 // Pointer state in world px (origin at the hero center, y up), fed by the
 // container's handlers and consumed by the scene every frame. `clicks` is a
 // monotonic press counter the scene diffs to detect new clicks.
@@ -172,7 +257,8 @@ type GalaxyPointer = { x: number; y: number; active: boolean; clicks: number };
 // first frame the scene sees it (-1 until then).
 type GalaxyRipple = { x: number; y: number; start: number };
 
-export default function HeroGalaxy() {
+export default function HeroGalaxy({ variant }: { variant: GalaxyVariant }) {
+  const router = useRouter();
   const [ready, setReady] = useState(false);
   const [colors, setColors] = useState<ThemeColors | null>(null);
   const [onScreen, setOnScreen] = useState(true);
@@ -184,6 +270,9 @@ export default function HeroGalaxy() {
     clicks: 0,
   });
   const ripplesRef = useRef<GalaxyRipple[]>([]);
+  const labelRef = useRef<HTMLParagraphElement>(null);
+  // The app whose tile is under the cursor (`apps` variant), -1 for none.
+  const hoveredAppRef = useRef(-1);
 
   // Pointer in world coordinates; a press anywhere in the hero spawns a
   // dispersion ripple (they stack). The content layer above is
@@ -210,17 +299,27 @@ export default function HeroGalaxy() {
       r.push({ x: pointerRef.current.x, y: pointerRef.current.y, start: -1 });
       if (r.length > 8) r.shift();
     };
+    // shortcut: mouse only, a tap has no hover to read. Phones reach the same
+    // apps through the directory right below the hero.
+    const onClick = () => {
+      const app = CRAFTING_APPS[hoveredAppRef.current];
+      if (!app) return;
+      trackEvent("app_select", { app_name: app.slug });
+      router.push(craftAppPath(app));
+    };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerleave", onLeave);
     el.addEventListener("pointercancel", onLeave);
     el.addEventListener("pointerdown", onDown);
+    el.addEventListener("click", onClick);
     return () => {
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerleave", onLeave);
       el.removeEventListener("pointercancel", onLeave);
       el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("click", onClick);
     };
-  }, []);
+  }, [router]);
 
   // Gate: WebGL actually available (a failed context creation inside r3f is
   // an unhandled rejection CanvasBoundary can't catch), motion allowed, and
@@ -290,29 +389,51 @@ export default function HeroGalaxy() {
           >
             <FittedCamera />
             <GalaxyScene
+              variant={variant}
               colors={colors}
               onScreen={onScreen}
               pointer={pointerRef}
               ripples={ripplesRef}
+              container={containerRef}
+              label={labelRef}
+              hoveredApp={hoveredAppRef}
             />
           </Canvas>
         </CanvasBoundary>
+      )}
+      {variant === "apps" && (
+        <p
+          ref={labelRef}
+          className="hud-label pointer-events-none absolute top-1/2 left-1/2 z-10 bg-invert-bg px-2 py-1 font-bold whitespace-nowrap text-invert-fg opacity-0"
+        />
       )}
     </div>
   );
 }
 
 function GalaxyScene({
+  variant,
   colors,
   onScreen,
   pointer,
   ripples,
+  container,
+  label,
+  hoveredApp,
 }: {
+  variant: GalaxyVariant;
   colors: ThemeColors;
   onScreen: boolean;
   pointer: React.RefObject<GalaxyPointer>;
   ripples: React.RefObject<GalaxyRipple[]>;
+  container: React.RefObject<HTMLDivElement | null>;
+  label: React.RefObject<HTMLParagraphElement | null>;
+  hoveredApp: React.RefObject<number>;
 }) {
+  const isApps = variant === "apps";
+  const tuners = GALAXY_TUNERS[variant];
+  const poolSize = isApps ? CRAFTING_APPS.length : SEEDANCE_SHOWCASE.length;
+  const cardAspect = isApps ? 1 : 16 / 9;
   const size = useThree((s) => s.size);
   const rigRef = useRef<THREE.Group>(null);
   const cardRefs = useRef<(THREE.Mesh | null)[]>([]);
@@ -339,10 +460,11 @@ function GalaxyScene({
     boostCard: -1,
   });
 
-  // One <video>, one shared texture, and one cover-fit window per clip.
+  // One <video>, one shared texture, and one cover-fit window per clip. The
+  // apps variant has no <video>s: each icon is a plain image texture.
   const videos = useMemo(
     () =>
-      SEEDANCE_SHOWCASE.map((clip) => {
+      (isApps ? [] : SEEDANCE_SHOWCASE).map((clip) => {
         const v = document.createElement("video");
         v.src = clip.src;
         v.muted = true;
@@ -356,28 +478,36 @@ function GalaxyScene({
         v.preload = "metadata";
         return v;
       }),
-    [],
+    [isApps],
   );
   // Native aspect per clip — the per-frame cover-fit needs it because each
   // card's own panel aspect morphs over its journey (square at birth).
   const clipVA = useMemo(() => {
-    const a = new Float32Array(SEEDANCE_SHOWCASE.length);
-    a.fill(16 / 9);
+    const a = new Float32Array(poolSize);
+    a.fill(cardAspect);
     return a;
-  }, []);
-  const textures = useMemo(
-    () =>
-      videos.map((v, i) => {
-        const t = new THREE.VideoTexture(v);
-        const record = () => {
-          clipVA[i] = v.videoWidth / v.videoHeight || 16 / 9;
-        };
-        if (v.readyState >= 1) record();
-        else v.addEventListener("loadedmetadata", record, { once: true });
+  }, [poolSize, cardAspect]);
+  const iconReady = useMemo(() => new Uint8Array(poolSize), [poolSize]);
+  const textures = useMemo<THREE.Texture[]>(() => {
+    if (isApps) {
+      return CRAFTING_APPS.map((app, i) => {
+        const t = new THREE.TextureLoader().load(craftAppIconUrl(app), () => {
+          iconReady[i] = 1;
+        });
+        t.premultiplyAlpha = true;
         return t;
-      }),
-    [videos, clipVA],
-  );
+      });
+    }
+    return videos.map((v, i) => {
+      const t = new THREE.VideoTexture(v);
+      const record = () => {
+        clipVA[i] = v.videoWidth / v.videoHeight || 16 / 9;
+      };
+      if (v.readyState >= 1) record();
+      else v.addEventListener("loadedmetadata", record, { once: true });
+      return t;
+    });
+  }, [isApps, videos, clipVA, iconReady]);
 
   // Video lifecycle keyed to the pool alone. Re-arm sources on every run:
   // React strict mode (and any remount) runs the cleanup, which unloads the
@@ -431,7 +561,7 @@ function GalaxyScene({
   const [layoutVersion, setLayoutVersion] = useState(0);
   useEffect(() => {
     const snapshot = () =>
-      JSON.stringify([galaxyLayoutTuner.read(), galaxyMobileTuner.read()]);
+      JSON.stringify([tuners.layout.read(), tuners.mobile.read()]);
     let last = snapshot();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const unsubscribe = useTunerStore.subscribe(() => {
@@ -445,13 +575,13 @@ function GalaxyScene({
       clearTimeout(timer);
       unsubscribe();
     };
-  }, []);
+  }, [tuners]);
 
   // Structure: arm parameters plus the hairline underlay geometries. All in
   // world px (1 unit == 1 CSS px), origin at the viewport center.
   const layout = useMemo(() => {
-    const t = galaxyLayoutTuner.read();
-    const mb = galaxyMobileTuner.read();
+    const t = tuners.layout.read();
+    const mb = tuners.mobile.read();
     const area = (size.width * size.height) / 1e6;
     // Mobile profile: on small viewports the tuned desktop spiral is too
     // tight — consecutive cards along an arm sit radially close at sharper
@@ -473,6 +603,13 @@ function GalaxyScene({
           ),
         );
     const halfDiag = Math.hypot(size.width, size.height) / 2;
+    // offsetWidth/Height ignore the reveal transforms. The poster centers the
+    // stack in the hero, so it shares the galaxy's origin.
+    const stack = isApps
+      ? container.current?.parentElement?.querySelector<HTMLElement>(
+          "[data-reveal-group]",
+        )
+      : null;
     const rMax = (mobile ? mb.mobRMax : t.rMaxFrac) * halfDiag;
     const thetaMax = (mobile ? mb.mobTurns : t.turns) * Math.PI * 2;
     const b = rMax / thetaMax;
@@ -594,12 +731,14 @@ function GalaxyScene({
       slotsPerArm,
       mobile,
       mobDensityX: mb.mobDensityX,
+      keepW: (stack?.offsetWidth ?? 0) / 2,
+      keepH: (stack?.offsetHeight ?? 0) / 2,
       armGeoms,
       tickGeom,
       circGeom,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size.width, size.height, layoutVersion]);
+  }, [size.width, size.height, layoutVersion, tuners, isApps, container]);
   useEffect(
     () => () => {
       layout.armGeoms.forEach((g) => g.dispose());
@@ -614,11 +753,11 @@ function GalaxyScene({
   const cards = useMemo(
     () =>
       Array.from({ length: layout.cardN }, (_, i) => ({
-        clip: i % SEEDANCE_SHOWCASE.length,
+        clip: i % poolSize,
         arm: i % layout.arms,
         slot: Math.floor(i / layout.arms),
       })),
-    [layout],
+    [layout, poolSize],
   );
   // Index order is arm-aligned (arms deal round-robin), so anything that
   // reveals cards sequentially by index — the intro stagger, the governor
@@ -643,8 +782,9 @@ function GalaxyScene({
           new THREE.ShaderMaterial({
             glslVersion: THREE.GLSL3,
             vertexShader: CARD_VERT,
-            fragmentShader: CARD_FRAG,
+            fragmentShader: isApps ? ICON_FRAG : CARD_FRAG,
             transparent: true,
+            premultipliedAlpha: isApps,
             depthTest: false,
             depthWrite: false,
             uniforms: {
@@ -672,10 +812,16 @@ function GalaxyScene({
               uRadius: { value: 0 },
               uFrameCol: { value: new THREE.Vector3(0.5, 0.5, 0.5) },
               uFrameA: { value: 0 },
+              uQuad: { value: 1 },
+              uShadowA: { value: 0 },
+              uShadowSpread: { value: 0.2 },
+              uShadowDrop: { value: 0 },
+              uShadowTone: { value: 1 },
+              uTileRadius: { value: 0.19 },
             },
           }),
       ),
-    [cards, textures],
+    [cards, textures, isApps],
   );
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
 
@@ -890,9 +1036,22 @@ function GalaxyScene({
   const cardPhase = useMemo(() => new Float32Array(cards.length), [cards]);
   const cardTiltX = useMemo(() => new Float32Array(cards.length), [cards]);
   const cardTiltY = useMemo(() => new Float32Array(cards.length), [cards]);
+  // How clear of the keep-out pocket each card is: 0 hidden, 1 free.
+  const cardKeep = useMemo(() => new Float32Array(cards.length).fill(1), [cards]);
+  // App ownership: which card holds each app, and each card's eased presence.
+  const appOwner = useMemo(
+    () => new Int32Array(poolSize).fill(-1),
+    // A new roster starts with every app free.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cards, poolSize],
+  );
+  const cardShown = useMemo(
+    () => new Float32Array(cards.length).fill(isApps ? 0 : 1),
+    [cards, isApps],
+  );
   const prevC = useMemo(() => {
     const a = new Float32Array(cards.length);
-    a.fill(NaN);
+    a.fill(Number.NaN);
     return a;
   }, [cards]);
   // Local click punches in flight: which card, where on it (card UV), and
@@ -904,31 +1063,26 @@ function GalaxyScene({
   // Least-recently-shown ordering for clip reassignment at rebirth. Seeded
   // to match the initial round-robin deal.
   const clipLastUsed = useMemo(() => {
-    const a = new Float32Array(SEEDANCE_SHOWCASE.length);
+    const a = new Float32Array(poolSize);
     for (let i = 0; i < a.length; i++) a[i] = i;
     return a;
-  }, []);
+  }, [poolSize]);
 
   // Per-card readiness easing and per-clip decode bookkeeping, reused every
   // frame so the loop allocates nothing.
   const videoAlpha = useMemo(() => new Float32Array(cards.length), [cards]);
-  const clipBest = useMemo(
-    () => new Float32Array(SEEDANCE_SHOWCASE.length),
-    [],
-  );
-  const clipIdle = useMemo(
-    () => new Float32Array(SEEDANCE_SHOWCASE.length),
-    [],
-  );
-  const clipOrder = useMemo(() => SEEDANCE_SHOWCASE.map((_, i) => i), []);
+  const clipBest = useMemo(() => new Float32Array(poolSize), [poolSize]);
+  const clipIdle = useMemo(() => new Float32Array(poolSize), [poolSize]);
+  const clipOrder = useMemo(() => videos.map((_, i) => i), [videos]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
     const st = state.current;
     st.time += dt;
-    const mv = galaxyMotionTuner.read();
-    const lk = galaxyLookTuner.read();
-    const pt = galaxyPointerTuner.read();
+    const mv = tuners.motion.read();
+    const lk = tuners.look.read();
+    const pt = tuners.pointer.read();
+    const ic = appsIconTuner.read();
     const iv = introTuner.read();
     const t = st.time;
     const L = layout;
@@ -1063,6 +1217,7 @@ function GalaxyScene({
       // apart as the pool allows. Suspended during the rollout — the fast
       // stream would read as false wraps.
       if (
+        !isApps &&
         rollT >= 1 &&
         !Number.isNaN(prevC[i]) &&
         Math.abs(c - prevC[i]) > 0.5
@@ -1116,6 +1271,43 @@ function GalaxyScene({
       }
     }
 
+    // Stage management: a card on stage needs an app of its own. Cards hold
+    // their app until hidden or offscreen, so a claim or release is never seen.
+    if (isApps) {
+      const reachX = size.width / 2 + L.cardHCap;
+      const reachY = size.height / 2 + L.cardHCap;
+      for (let i = 0; i < cards.length; i++) {
+        const wx = cosS * cardPos[i * 2] - sinS * cardPos[i * 2 + 1];
+        const wy = sinS * cardPos[i * 2] + cosS * cardPos[i * 2 + 1];
+        const onStage =
+          liveRank[i] < liveN &&
+          cardKeep[i] > 0 &&
+          Math.abs(wx) < reachX &&
+          Math.abs(wy) < reachY;
+        const owned = appOwner[cards[i].clip] === i;
+        if (owned && !onStage) {
+          appOwner[cards[i].clip] = -1;
+          cardShown[i] = 0;
+        } else if (!owned && onStage) {
+          let free = -1;
+          for (let cl = 0; cl < poolSize; cl++) {
+            if (
+              appOwner[cl] < 0 &&
+              (free < 0 || clipLastUsed[cl] < clipLastUsed[free])
+            ) {
+              free = cl;
+            }
+          }
+          if (free >= 0) {
+            appOwner[free] = i;
+            cards[i].clip = free;
+            clipLastUsed[free] = ++st.useCounter;
+            materials[i].uniforms.uMap.value = textures[free];
+          }
+        }
+      }
+    }
+
     // Target pick: the card under the cursor — outermost wins on overlap,
     // and only that card is the target; everyone else returns to normal.
     // World-space point-in-rect test: the rig is spun, but cards stay
@@ -1145,9 +1337,9 @@ function GalaxyScene({
         const dxa = Math.abs(ptr.x - wxp);
         const dya = Math.abs(ptr.y - wyp);
         const Hc = cardH[cur];
-        inCore = dxa <= (Hc * 8) / 9 + margin && dya <= Hc / 2 + margin;
+        inCore = dxa <= (Hc * cardAspect) / 2 + margin && dya <= Hc / 2 + margin;
         const Hb = Hc * (cur === st.boostCard ? boostF : 1);
-        inBoost = dxa <= (Hb * 8) / 9 + margin && dya <= Hb / 2 + margin;
+        inBoost = dxa <= (Hb * cardAspect) / 2 + margin && dya <= Hb / 2 + margin;
       }
       if (inCore) {
         target = cur;
@@ -1157,12 +1349,13 @@ function GalaxyScene({
           if (i === cur) continue;
           const c = cardCyc[i];
           if (c < 0.04 || c <= bestC) continue;
+          if (cardKeep[i] * cardShown[i] < 0.5) continue;
           const H = cardH[i];
           if (H < 8) continue;
           const wxp = cosS * cardPos[i * 2] - sinS * cardPos[i * 2 + 1];
           const wyp = sinS * cardPos[i * 2] + cosS * cardPos[i * 2 + 1];
           if (
-            Math.abs(ptr.x - wxp) <= (H * 8) / 9 &&
+            Math.abs(ptr.x - wxp) <= (H * cardAspect) / 2 &&
             Math.abs(ptr.y - wyp) <= H / 2
           ) {
             bestC = c;
@@ -1191,7 +1384,7 @@ function GalaxyScene({
           cardH[ti] * (ti === st.boostCard ? boostF : 1),
         );
         const tAspect =
-          1 + (16 / 9 - 1) * smoothstep(0, lk.aspectEnd, cardCyc[ti]);
+          1 + (cardAspect - 1) * smoothstep(0, lk.aspectEnd, cardCyc[ti]);
         clickPool.current.push({
           card: ti,
           u: 0.5 + (ptr.x - twx) / (tH * tAspect),
@@ -1200,7 +1393,10 @@ function GalaxyScene({
         });
         if (clickPool.current.length > 8) clickPool.current.shift();
 
-        if (st.boostCard === st.targetI) {
+        // App tiles lift on hover and open on click: no boost to toggle.
+        if (isApps) {
+          st.boostOn = false;
+        } else if (st.boostCard === st.targetI) {
           st.boostOn = !st.boostOn;
         } else {
           st.boostCard = st.targetI;
@@ -1270,7 +1466,7 @@ function GalaxyScene({
         const j = liveOrder[k];
         if (j === i) continue;
         const m = Math.max(
-          (Math.abs(cardPos[j * 2] - x) * 9) / 16,
+          Math.abs(cardPos[j * 2] - x) / cardAspect,
           Math.abs(cardPos[j * 2 + 1] - y),
         );
         if (j === st.targetI && cardTargetK[j] > 0.3) {
@@ -1300,11 +1496,16 @@ function GalaxyScene({
       // state neighbors yield against) stays unboosted, so the enlarged
       // card may overlap its neighbors by design.
       const H =
-        Math.max(0.001, cardH[i]) * (i === st.boostCard ? boostF : 1);
+        Math.max(0.001, cardH[i]) *
+        (isApps
+          ? 1 + (pt.boostScale - 1) * tk
+          : i === st.boostCard
+            ? boostF
+            : 1);
       // Newborns are rounded squares that morph into 16:9 as they grow.
       // The neighbor separation above assumes the full 16:9 width, so the
       // narrower young cards are strictly safer.
-      const aspect = 1 + (16 / 9 - 1) * smoothstep(0, lk.aspectEnd, c);
+      const aspect = 1 + (cardAspect - 1) * smoothstep(0, lk.aspectEnd, c);
       const W = H * aspect;
 
       // Interaction: the target lock eases the card into a straight, clean,
@@ -1313,6 +1514,21 @@ function GalaxyScene({
       // sweeps; click ripples add rings of dispersion that stack.
       const wxp = cosS * x - sinS * y;
       const wyp = sinS * x + cosS * y;
+      // Signed distance from the tile's edge to the pocket's rectangle.
+      let keep = 1;
+      if (isApps) {
+        const qx = Math.abs(wxp) - L.keepW - ic.keepPad - H / 2;
+        const qy = Math.abs(wyp) - L.keepH - ic.keepPad - H / 2;
+        const edge =
+          Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
+          Math.min(Math.max(qx, qy), 0);
+        keep = smoothstep(0, L.mobile ? ic.keepBandMob : ic.keepBand, edge);
+        cardKeep[i] = keep;
+        cardShown[i] +=
+          ((appOwner[card.clip] === i ? 1 : 0) - cardShown[i]) *
+          (1 - Math.exp(-dt / CLAIM_TAU_S));
+        keep *= cardShown[i];
+      }
       let fall = 0;
       let tiltGX = 0;
       let tiltGY = 0;
@@ -1350,7 +1566,10 @@ function GalaxyScene({
       mesh.position.set(x, y, 0);
       // Upright while the system spins, plus the cursor-field lean.
       mesh.rotation.set(cardTiltX[i], cardTiltY[i], -st.spin);
-      mesh.scale.set(W, H, 1);
+      // App tiles draw their shadow in a margin around the tile.
+      const quad = isApps ? 1 + 2 * (ic.shadowSpread + ic.shadowDrop) : 1;
+      const surface = isApps ? ic.keepScale + (1 - ic.keepScale) * keep : 1;
+      mesh.scale.set(W * quad * surface, H * quad * surface, 1);
       // Outer paints over inner; the target lifts above everything.
       mesh.renderOrder = 10 + Math.round(c * 100) + Math.round(tk * 500);
 
@@ -1378,7 +1597,11 @@ function GalaxyScene({
         }
       }
 
-      const ready = videos[card.clip].readyState >= 2 ? 1 : 0;
+      const ready = isApps
+        ? iconReady[card.clip]
+        : videos[card.clip].readyState >= 2
+          ? 1
+          : 0;
       videoAlpha[i] += (ready - videoAlpha[i]) * (1 - Math.exp(-3 * dt));
       const va = videoAlpha[i];
 
@@ -1404,6 +1627,7 @@ function GalaxyScene({
         lk.blurMax * (1 - smoothstep(0, lk.blurEnd, c)) * (1 - ck),
         (1 - va) * lk.blurMax,
         (1 - waveK) * lk.blurMax,
+        (1 - keep) * lk.blurMax,
       );
       u.uTexA.value = va;
       u.uAber.value =
@@ -1444,13 +1668,44 @@ function GalaxyScene({
       u.uClickW.value = pt.clickWidth * Math.max(W, H);
       u.uRadius.value = Math.min(lk.cornerPx, H * 0.49);
       u.uFrameA.value = lk.frameAlpha;
-      u.uAlpha.value = lifecycle * waveK;
+      u.uAlpha.value = lifecycle * waveK * keep;
+      if (isApps) {
+        u.uQuad.value = quad;
+        u.uShadowA.value = ic.shadowAlpha;
+        u.uShadowSpread.value = ic.shadowSpread;
+        u.uShadowDrop.value = ic.shadowDrop;
+        u.uShadowTone.value = 1 + (ic.shadowTone - 1) * cs.light;
+        u.uTileRadius.value = ic.tileRadius;
+      }
 
       // A targeted card's clip outranks everything in the decode budget so
       // it plays immediately, wherever it is on the journey.
       const pri = tk > 0.05 ? 2 : c;
       if ((u.uAlpha.value > 0.04 || tk > 0.05) && pri > clipBest[card.clip]) {
         clipBest[card.clip] = pri;
+      }
+    }
+
+    // Name the tile under the cursor, tracking it as it settles.
+    if (isApps) {
+      const ti = st.targetI;
+      const app = ti >= 0 ? cards[ti].clip : -1;
+      const el = label.current;
+      if (app !== hoveredApp.current) {
+        hoveredApp.current = app;
+        if (container.current) {
+          container.current.style.cursor = app >= 0 ? "pointer" : "";
+        }
+        if (el) {
+          el.style.opacity = app >= 0 ? "1" : "0";
+          if (app >= 0) el.textContent = craftAppName(CRAFTING_APPS[app]);
+        }
+      }
+      if (el && ti >= 0) {
+        const lx = cosS * cardPos[ti * 2] - sinS * cardPos[ti * 2 + 1];
+        const ly = sinS * cardPos[ti * 2] + cosS * cardPos[ti * 2 + 1];
+        const below = (cardH[ti] * pt.boostScale) / 2 + ic.labelGap;
+        el.style.transform = `translate(calc(-50% + ${lx.toFixed(1)}px), ${(below - ly).toFixed(1)}px)`;
       }
     }
 
@@ -1493,8 +1748,8 @@ function GalaxyScene({
       // any visible pair sharing a clip closer than dedupPx, reassign the
       // blurrier card (the swap hides inside its birth blur) to the clip
       // whose current users sit furthest away, recency as tiebreak.
-      const dedupPx = galaxyLayoutTuner.read().dedupPx;
-      if (dedupPx > 0 && rollT >= 1) {
+      const dedupPx = tuners.layout.read().dedupPx;
+      if (!isApps && dedupPx > 0 && rollT >= 1) {
         const dedup2 = dedupPx * dedupPx;
         for (let a = 0; a < liveN; a++) {
           const i = liveOrder[a];
@@ -1644,7 +1899,7 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 // Raw sRGB components for shader uniforms, bypassing THREE.Color's working
 // color space conversion (the shader passes sRGB straight through).
 function hexToVec3(hex: string): THREE.Vector3 {
-  const n = parseInt(hex.replace("#", ""), 16);
+  const n = Number.parseInt(hex.replace("#", ""), 16);
   return new THREE.Vector3(
     ((n >> 16) & 255) / 255,
     ((n >> 8) & 255) / 255,

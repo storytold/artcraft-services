@@ -1,13 +1,12 @@
-import { AppleIcon, MonitorIcon } from "lucide-react";
 import { Accent } from "@/components/page/page-header";
 import { Button } from "@/components/ui";
 import { WEBAPP_URL } from "@/lib/links";
 import { SectionShell, SectionEyebrow } from "./section-shell";
 
 // Chapter break on the landing page: everything above it is the Crafting
-// Apps, everything below it (features, ownership, community, the closing
-// CTA) is ArtCraft Studio, the generative image and video app. A sunken,
-// centered title card so the switch of product reads at a glance.
+// Apps; this card is the door to ArtCraft Studio, the generative image and
+// video app, which has its own page at /studio. Sunken and centered so the
+// switch of product reads at a glance.
 export default function StudioIntro({ index }: { index: string }) {
   return (
     <SectionShell id="studio">
@@ -32,10 +31,8 @@ export default function StudioIntro({ index }: { index: string }) {
           or in the browser.
         </p>
         <div data-reveal className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button href="/download" size="lg">
-            <AppleIcon aria-hidden className="h-4 w-4" />
-            <MonitorIcon aria-hidden className="h-4 w-4" />
-            Download the studio
+          <Button href="/studio" size="lg">
+            Explore the studio
           </Button>
           <Button href={WEBAPP_URL} variant="secondary" size="lg">
             Use on web

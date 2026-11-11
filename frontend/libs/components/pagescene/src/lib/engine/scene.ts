@@ -14,6 +14,8 @@ import toast from "react-hot-toast";
 import { SplatMesh } from "@sparkjsdev/spark";
 import { ensureInternalBbox } from "./internalBbox";
 import {
+  applyGltfBudget,
+  assertSpzWithinBudget,
   collectObjectTextures,
   disposeObject3D,
 } from "@storyteller/ui-viewer-3d";
@@ -611,6 +613,12 @@ class Scene {
   setColor(object_uuid: string, hex_color: string) {
     const object = this.get_object_by_uuid(object_uuid);
     if (!object) return;
+    this.setObjectColor(object, hex_color);
+  }
+
+  // Same as setColor, for callers that already hold the object: avoids a
+  // whole-scene uuid search per call (scene loads restore every object).
+  setObjectColor(object: THREE.Object3D, hex_color: string) {
     object.userData["color"] = hex_color;
     // Deterministic, classification-based color (see instantiate, where
     // the persisted userData.isShape / shapeType marker is set):
@@ -631,8 +639,10 @@ class Scene {
       if (!isShape) return;
       if (c.material.color === undefined) return;
       c.material.color.set(picked);
-      if (c.name == "PointLight") {
-        const light = this.get_object_by_uuid(c.userData["light"]);
+      if (c.userData["shapeType"] == "PointLight") {
+        // instantiate attaches the light under its marker mesh, so look in
+        // this subtree rather than searching the whole scene.
+        const light = c.getObjectByProperty("uuid", c.userData["light"]);
         if (light) {
           (light as THREE.PointLight).color = new THREE.Color(hex_color);
         }
@@ -643,9 +653,13 @@ class Scene {
   setVisible(object_uuid: string, visible: boolean) {
     const object = this.get_object_by_uuid(object_uuid);
     if (object) {
-      object.visible = visible;
-      object.userData["visible"] = object.visible;
+      this.setObjectVisible(object, visible);
     }
+  }
+
+  setObjectVisible(object: THREE.Object3D, visible: boolean) {
+    object.visible = visible;
+    object.userData["visible"] = object.visible;
   }
 
   async loadMMDWithPlaceholder(
@@ -1041,7 +1055,9 @@ class Scene {
         reject(error);
         return;
       }
-      const glbLoader = new GLTFLoader();
+      // Reject accessor counts that would decode past the memory budget
+      // before GLTFLoader allocates for them.
+      const glbLoader = applyGltfBudget(new GLTFLoader());
       glbLoader.parse(
         buffer,
         "", // NB: No relative path to load additional assets!
@@ -1084,6 +1100,15 @@ class Scene {
         return;
       }
 
+      try {
+        // The SPZ decoder sizes its storage from the header's splat count.
+        await assertSpzWithinBudget(buffer);
+      } catch (error) {
+        console.error("Splat rejected:", error);
+        reject(error);
+        return;
+      }
+
       new SplatMesh({
         fileBytes: buffer,
         onLoad: (mesh) => {
@@ -1105,7 +1130,7 @@ class Scene {
     progress: (event: ProgressEvent) => void,
   ): Promise<GLTF> {
     return new Promise((resolve, reject) => {
-      const glbLoader = new GLTFLoader();
+      const glbLoader = applyGltfBudget(new GLTFLoader());
       glbLoader.load(
         media_url,
         (gltf) => {

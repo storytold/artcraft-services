@@ -22,13 +22,13 @@ The server listens on `127.0.0.1:43110` by default. Override with
 | Method | Path | Behavior |
 |--------|------|----------|
 | GET | `/` | Static HTML page listing the API. |
-| GET | `/alert_beep` | Play `alert_beep_sound` once (mixes over any active loop). |
-| GET | `/alert_done` | Play `alert_done_sound` once. |
-| GET | `/alert_await` | Play `alert_await_user_input_sound` once. |
-| GET | `/loop_beep` | Loop `alert_beep_sound`. Replaces any active loop. |
-| GET | `/loop_done` | Loop `alert_done_sound`. Replaces any active loop. |
-| GET | `/loop_await` | Loop `alert_await_user_input_sound`. Replaces any active loop. |
-| GET | `/stop` | Stop everything — loops *and* queued one-shots. |
+| POST | `/alert_beep` | Play `alert_beep_sound` once (mixes over any active loop). |
+| POST | `/alert_done` | Play `alert_done_sound` once. |
+| POST | `/alert_await` | Play `alert_await_user_input_sound` once. |
+| POST | `/loop_beep` | Loop `alert_beep_sound`. Replaces any active loop. |
+| POST | `/loop_done` | Loop `alert_done_sound`. Replaces any active loop. |
+| POST | `/loop_await` | Loop `alert_await_user_input_sound`. Replaces any active loop. |
+| POST | `/stop` | Stop everything — loops *and* queued one-shots. |
 | GET | `/state` | Read-only JSON snapshot of the audio engine and loaded config. Does **not** change playback. |
 
 Mixing rules:
@@ -37,6 +37,8 @@ Mixing rules:
 - Requesting a new loop replaces the prior loop.
 - `/stop` halts everything.
 - A missing config key makes the corresponding endpoint return `404`.
+- Playback endpoints are `POST` only and reject requests a browser sends on behalf of
+  another site (`Origin` / `Sec-Fetch-Site: cross-site`), so a web page cannot drive them.
 
 ### `/state` response shape
 
@@ -180,7 +182,7 @@ if ! probe; then
   fi
 fi
 
-curl -fsS -m 1 "http://127.0.0.1:$PORT/$endpoint" -o /dev/null
+curl -fsS -m 1 -X POST "http://127.0.0.1:$PORT/$endpoint" -o /dev/null
 ```
 
 ### `~/.claude/settings.json`

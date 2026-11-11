@@ -16,17 +16,18 @@ where
   T: Executor<'c, Database = MySql>,
 {
   let token = UserSessionToken::generate();
-  let inserted = sqlx::query!(
+  // NB: runtime query; FOR UPDATE takes the user's row lock so this insert is ordered against a password reset.
+  let inserted = sqlx::query(
     r#"
 INSERT INTO user_sessions (token, user_token, ip_address_creation, maybe_creation_type, expires_at)
 SELECT ?, token, ?, ?, NOW() + INTERVAL 1 YEAR FROM users
 WHERE token = ? AND is_banned = FALSE AND user_deleted_at IS NULL AND mod_deleted_at IS NULL
-"#,
-    token.as_str(),
-    args.ip_address,
-    UserWebSessionCreationType::DeviceApproval.to_str(),
-    args.user_token
-  )
+FOR UPDATE
+"#)
+    .bind(token.as_str())
+    .bind(args.ip_address)
+    .bind(UserWebSessionCreationType::DeviceApproval.to_str())
+    .bind(args.user_token)
     .execute(args.mysql_executor)
     .await?;
   if inserted.rows_affected() != 1 {

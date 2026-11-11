@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::thread;
 use std::time::Duration;
 
 use log::info;
@@ -17,6 +16,10 @@ use crate::util::constants::ECHELON_USER_TOKEN;
 pub async fn delete_all_anonymous_user_images(_args: &Args, mysql: &Pool<MySql>) -> AnyhowResult<()> {
   info!("delete anonymous user images");
 
+  // Uploads are stored with a concrete, MIME-derived type (Jpg, Png, ...);
+  // only old records use the coarse `Image` type. Select all of them.
+  let image_media_types = image_media_types();
+
   let mut page_index = 0;
   let mut maybe_offset = None;
 
@@ -25,7 +28,7 @@ pub async fn delete_all_anonymous_user_images(_args: &Args, mysql: &Pool<MySql>)
 
     let media_files = list_media_files(ListMediaFilesArgs {
       limit: 100,
-      maybe_filter_media_types: Some(&HashSet::from([MediaFileType::Image])),
+      maybe_filter_media_types: Some(&image_media_types),
       maybe_filter_media_classes: None,
       maybe_offset,
       cursor_is_reversed: false,
@@ -46,12 +49,9 @@ pub async fn delete_all_anonymous_user_images(_args: &Args, mysql: &Pool<MySql>)
         continue;
       }
 
-      match file.media_type {
-        MediaFileType::Image => {},
-        _ => {
-          info!("Skipping file: {:?} , which is not an image", &file.token);
-          continue;
-        }
+      if !file.media_type.is_image() {
+        info!("Skipping file: {:?} , which is not an image", &file.token);
+        continue;
       }
 
       info!("Deleting image file: {:?}", &file.token);
@@ -62,8 +62,34 @@ pub async fn delete_all_anonymous_user_images(_args: &Args, mysql: &Pool<MySql>)
 
     maybe_offset = media_files.last_id.map(|id| id as usize);
 
-    thread::sleep(Duration::from_millis(1000));
+    tokio::time::sleep(Duration::from_millis(1000)).await;
   }
 
   Ok(())
+}
+
+/// Every media type that `MediaFileType::is_image` accepts, so that the
+/// listing filter and the per-record check agree. The legacy `Image` type
+/// is deprecated but still present on old rows, which this must cover.
+#[allow(deprecated)]
+fn image_media_types() -> HashSet<MediaFileType> {
+  HashSet::from([
+    MediaFileType::Image,
+    MediaFileType::Jpg,
+    MediaFileType::Png,
+    MediaFileType::Gif,
+    MediaFileType::Webp,
+  ])
+}
+
+#[cfg(test)]
+mod tests {
+  use super::image_media_types;
+
+  #[test]
+  fn selection_covers_every_image_type() {
+    let types = image_media_types();
+    assert!(types.iter().all(|t| t.is_image()));
+    assert_eq!(types.len(), 5);
+  }
 }

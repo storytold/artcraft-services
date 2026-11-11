@@ -105,6 +105,14 @@ describe("webapp authentication bridge continuation", () => {
     expect(transport).toHaveBeenCalledTimes(2);
     expect(billing).not.toHaveBeenCalled();
   });
+
+  it("prefills the reset token from the link and removes it from the URL", async () => {
+    render(<MemoryRouter initialEntries={["/forgot-password/verify?token=secret_reset_token&from=%2Flogin%2Fdesktop"]}><Routes>
+      <Route path="/forgot-password/verify" element={<><VerifyReset /><Search /></>} />
+    </Routes></MemoryRouter>);
+    expect((screen.getByPlaceholderText("Enter verification code") as HTMLInputElement).value).toBe("secret_reset_token");
+    expect(await screen.findByText("?from=%2Flogin%2Fdesktop")).toBeTruthy();
+  });
 });
 
 function renderRoutes(login: React.ReactNode) {
@@ -118,4 +126,7 @@ function renderRoutes(login: React.ReactNode) {
 }
 function Location() {
   return <p>{useLocation().pathname}</p>;
+}
+function Search() {
+  return <p>{useLocation().search}</p>;
 }

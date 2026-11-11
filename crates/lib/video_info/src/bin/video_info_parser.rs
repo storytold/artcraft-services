@@ -103,9 +103,9 @@ fn run_single_file(filename: &str) -> ExitCode {
       print!("No recognized provenance (not Seedance, Veo, Sora, Dreamina, or Kling)");
       match video_info::encoder_tag(&bytes) {
         Some(enc) if enc.starts_with("Lavf") => {
-          println!(" — re-encoded through ffmpeg (encoder: {enc}), which strips provenance");
+          println!(" — re-encoded through ffmpeg (encoder: {}), which strips provenance", clean(&enc));
         }
-        Some(enc) => println!(" — encoder: {enc}"),
+        Some(enc) => println!(" — encoder: {}", clean(&enc)),
         None => println!(),
       }
     }
@@ -130,7 +130,7 @@ fn run_directory(dir: &str, truncate_names: bool) -> ExitCode {
     }
   };
   if files.is_empty() {
-    println!("no .mp4 files found in {dir}");
+    println!("no .mp4 files found in {}", clean(&dir));
     return ExitCode::SUCCESS;
   }
 
@@ -285,7 +285,7 @@ fn render_table(headers: &[&str], rows: &[[String; 6]]) {
     cells
       .iter()
       .enumerate()
-      .map(|(i, c)| format!("{:<width$}", c, width = widths[i]))
+      .map(|(i, c)| format!("{:<width$}", clean(c), width = widths[i]))
       .collect::<Vec<_>>()
       .join("  ")
   };
@@ -300,8 +300,16 @@ fn render_table(headers: &[&str], rows: &[[String; 6]]) {
 
 // ── Printing ──
 
+/// Metadata and filenames are untrusted: make control characters (ESC, CR, ...) visible
+/// instead of letting them drive the terminal.
+fn clean(value: &str) -> String {
+  value.chars()
+    .map(|c| if c.is_control() { c.escape_default().to_string() } else { c.to_string() })
+    .collect()
+}
+
 fn row(label: &str, value: &str) {
-  println!("  {label:>24} : {value}");
+  println!("  {label:>24} : {}", clean(value));
 }
 
 fn opt(label: &str, value: &Option<String>) {
@@ -404,4 +412,15 @@ fn print_kling(filename: &str, info: &KlingInfo) {
   opt("reserved code 2", &info.reserved_code_2);
   row("stream watermark", if info.has_stream_watermark { "yes" } else { "no" });
   opt("watermark uuid", &info.watermark_uuid);
+}
+
+#[cfg(test)]
+mod clean_tests {
+  use super::clean;
+
+  #[test]
+  fn control_characters_are_escaped() {
+    assert_eq!(clean("a\x1b[2Jb\r\nc"), "a\\u{1b}[2Jb\\r\\nc");
+    assert_eq!(clean("plain — text"), "plain — text");
+  }
 }

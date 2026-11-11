@@ -331,56 +331,67 @@ export function getNormalizedScalarChannelValueAtTime({
     }
 
     if (
-      !isWithinTimePair({
+      isWithinTimePair({
         time,
         leftTime: leftKey.time,
         rightTime: rightKey.time,
       })
     ) {
-      continue;
+      return getScalarSegmentValueAtTime({ leftKey, rightKey, time });
     }
-
-    if (leftKey.segmentToNext === "step") {
-      return leftKey.value;
-    }
-
-    const span = rightKey.time - leftKey.time;
-    if (span === 0) {
-      return rightKey.value;
-    }
-
-    const progress = clamp({
-      value: (time - leftKey.time) / span,
-      min: 0,
-      max: 1,
-    });
-    if (leftKey.segmentToNext === "linear") {
-      return lerpNumber({
-        leftValue: leftKey.value,
-        rightValue: rightKey.value,
-        progress,
-      });
-    }
-
-    const curveProgress = solveBezierProgressForTime({
-      time,
-      leftKey,
-      rightKey,
-    });
-    const rightHandle =
-      leftKey.rightHandle ?? getDefaultRightHandle({ leftKey, rightKey });
-    const leftHandle =
-      rightKey.leftHandle ?? getDefaultLeftHandle({ leftKey, rightKey });
-    return getBezierPoint({
-      progress: curveProgress,
-      p0: leftKey.value,
-      p1: leftKey.value + rightHandle.dv,
-      p2: rightKey.value + leftHandle.dv,
-      p3: rightKey.value,
-    });
   }
 
   return lastKey.value;
+}
+
+// Value inside the segment from leftKey to rightKey, for a time within it.
+function getScalarSegmentValueAtTime({
+  leftKey,
+  rightKey,
+  time,
+}: {
+  leftKey: ScalarAnimationKey;
+  rightKey: ScalarAnimationKey;
+  time: number;
+}): number {
+  if (leftKey.segmentToNext === "step") {
+    return leftKey.value;
+  }
+
+  const span = rightKey.time - leftKey.time;
+  if (span === 0) {
+    return rightKey.value;
+  }
+
+  const progress = clamp({
+    value: (time - leftKey.time) / span,
+    min: 0,
+    max: 1,
+  });
+  if (leftKey.segmentToNext === "linear") {
+    return lerpNumber({
+      leftValue: leftKey.value,
+      rightValue: rightKey.value,
+      progress,
+    });
+  }
+
+  const curveProgress = solveBezierProgressForTime({
+    time,
+    leftKey,
+    rightKey,
+  });
+  const rightHandle =
+    leftKey.rightHandle ?? getDefaultRightHandle({ leftKey, rightKey });
+  const leftHandle =
+    rightKey.leftHandle ?? getDefaultLeftHandle({ leftKey, rightKey });
+  return getBezierPoint({
+    progress: curveProgress,
+    p0: leftKey.value,
+    p1: leftKey.value + rightHandle.dv,
+    p2: rightKey.value + leftHandle.dv,
+    p3: rightKey.value,
+  });
 }
 
 export function getDiscreteChannelValueAtTime({
@@ -413,8 +424,12 @@ export function getNormalizedDiscreteChannelValueAtTime({
   time: number;
   fallbackValue: DiscreteValue;
 }): DiscreteValue {
-  // Last key with key.time <= time (keys are sorted by time).
-  const index = upperBoundByTime({ keys: normalizedChannel.keys, time }) - 1;
+  // The value of the last key before the first key with time < key.time
+  // (keys are sorted by time). Searching on that exact predicate keeps the
+  // result identical to a front-to-back scan for every query, including a
+  // NaN time, which never compares below a key and so yields the last key.
+  const index =
+    firstKeyAfterTime({ keys: normalizedChannel.keys, time }) - 1;
   return index >= 0 ? normalizedChannel.keys[index].value : fallbackValue;
 }
 
@@ -436,8 +451,8 @@ function lowerBoundByTime({
   return low;
 }
 
-// First index whose key time is > `time`; keys.length if none.
-function upperBoundByTime({
+// First index whose key satisfies `time < key.time`; keys.length if none.
+function firstKeyAfterTime({
   keys,
   time,
 }: {
@@ -448,7 +463,7 @@ function upperBoundByTime({
   let high = keys.length;
   while (low < high) {
     const mid = (low + high) >>> 1;
-    if (keys[mid].time <= time) low = mid + 1;
+    if (!(time < keys[mid].time)) low = mid + 1;
     else high = mid;
   }
   return low;

@@ -157,7 +157,7 @@ export const FaceCountPicker = ({
             onSelect(undefined);
             return;
           }
-          const n = parseFloat(item.label) * 1000;
+          const n = Number.parseFloat(item.label) * 1000;
           if (!Number.isNaN(n)) onSelect(n);
         }}
         mode="toggle"

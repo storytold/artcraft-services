@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { AppleIcon, LayoutGridIcon, MonitorIcon } from "lucide-react";
+import { AppleIcon, LayoutGridIcon } from "lucide-react";
 import AppIconRow from "@/components/apps/app-icon-row";
 import { LauncherDownloadButton } from "@/components/apps/app-downloads";
 import { craftLauncherRecommended } from "@/components/apps/launcher-callout";
+import { LinuxIcon, WindowsIcon } from "@/components/icons";
 import { Accent } from "@/components/page/page-header";
 import { Button } from "@/components/ui";
 import { CRAFT_LAUNCHER_NAME, craftLauncherDownloads, craftLauncherReleasePageUrl } from "@/lib/craft-launcher";
@@ -73,7 +74,8 @@ export default function FinalCta() {
         >
           <Button href="/download" size="lg">
             <AppleIcon aria-hidden className="h-4 w-4" />
-            <MonitorIcon aria-hidden className="h-4 w-4" />
+            <WindowsIcon className="h-4 w-4" />
+            <LinuxIcon className="h-4 w-4" />
             Download the studio
           </Button>
           <Button href={WEBAPP_URL} variant="secondary" size="lg">
@@ -81,7 +83,7 @@ export default function FinalCta() {
           </Button>
           {/* Same height as the launcher's platform line and downloads link
               (16 + 8 + 20px), so both cells' buttons line up side by side. */}
-          <p className="hud-label w-full text-faint md:min-h-11">macOS · Windows · Web</p>
+          <p className="hud-label w-full text-faint md:min-h-11">macOS · Windows · Linux · Web</p>
         </Choice>
       </div>
     </SectionShell>
