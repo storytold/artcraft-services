@@ -8,6 +8,8 @@ use log::{error, warn};
 use mysql_queries::queries::users::user_password_resets::change_password_from_password_reset::{change_password_from_password_reset, ChangePasswordFromPasswordResetArgs};
 use mysql_queries::queries::users::user_password_resets::lookup_password_reset_request::lookup_password_reset_request;
 use mysql_queries::queries::users::user_sessions::create_user_session::create_user_session;
+use redis_caching::redis_ttl_cache::RedisTtlCache;
+use redis_common::redis_cache_keys::RedisCacheKeys;
 use password::bcrypt_hash_password::bcrypt_hash_password;
 use serde::Deserialize;
 use sqlx::MySqlPool;
@@ -107,6 +109,7 @@ pub async fn password_reset_redeem_handler(
     request: web::Json<PasswordResetRedemptionRequest>,
     session_cookie_manager: web::Data<HttpUserSessionManager>,
     mysql_pool: web::Data<MySqlPool>,
+    redis_ttl_cache: web::Data<RedisTtlCache>,
 ) -> Result<HttpResponse, PasswordResetRedemptionErrorResponse> {
 
     let new_password = request.new_password.trim();
@@ -151,10 +154,24 @@ pub async fn password_reset_redeem_handler(
         mysql_transaction: transaction_and_state.transaction,
     }).await;
 
-    if let Err(err) = result {
-        error!("password reset error: {err}");
-        return Err(PasswordResetRedemptionError::Internal.into());
-    }
+    let revoked_session_tokens = match result {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            error!("password reset error: {err}");
+            return Err(PasswordResetRedemptionError::Internal.into());
+        }
+    };
+
+    // Revoked sessions would otherwise keep passing the Redis session cache until it expires.
+    // A session check that read its row before the commit can still fill the cache after this first
+    // purge, so purge again after a delay longer than a cache fill takes; anything later than that
+    // is bounded by the cache TTL.
+    purge_session_cache(&redis_ttl_cache, &revoked_session_tokens);
+    let delayed_cache = redis_ttl_cache.get_ref().clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(SESSION_CACHE_RECHECK_DELAY).await;
+        purge_session_cache(&delayed_cache, &revoked_session_tokens);
+    });
 
     let create_session_result =
         create_user_session(&transaction_and_state.reset_state.user_token.0, &ip_address, &mysql_pool).await;
@@ -200,4 +217,37 @@ pub async fn password_reset_redeem_handler(
         .cookie(session_cookie)
         .content_type("application/json")
         .body(body))
+}
+
+/// Longer than a session check's DB read plus Redis write normally takes.
+const SESSION_CACHE_RECHECK_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
+
+fn session_cache_keys(session_tokens: &[String]) -> Vec<String> {
+    session_tokens.iter()
+        .flat_map(|t| [RedisCacheKeys::session_record_user(t), RedisCacheKeys::session_record_light(t)])
+        .collect()
+}
+
+fn purge_session_cache(redis_ttl_cache: &RedisTtlCache, session_tokens: &[String]) {
+    match redis_ttl_cache.get_connection() {
+        Ok(mut redis) => {
+            for key in session_cache_keys(session_tokens) {
+                if let Err(err) = redis.delete_from_cache(&key) {
+                    warn!("failed to purge revoked session cache: {err}");
+                }
+            }
+        }
+        Err(err) => warn!("failed to purge revoked session cache (no redis connection): {err}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::session_cache_keys;
+
+    #[test]
+    fn purges_both_cache_entries_for_every_revoked_session() {
+        let keys = session_cache_keys(&["a".to_string(), "b".to_string()]);
+        assert_eq!(keys, vec!["ses_user:a", "ses_light:a", "ses_user:b", "ses_light:b"]);
+    }
 }
