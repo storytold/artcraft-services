@@ -17,6 +17,7 @@ use crate::http_server::endpoints::generate::common::probed_reference_videos::{
 use crate::http_server::endpoints::omni_gen::shared_utils::map_router_cost_error::map_router_cost_error;
 use crate::http_server::endpoints::omni_gen::generate::video::helpers::hydrate_router_request::hydrate_to_router_request;
 use crate::state::server_state::ServerState;
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::MediaReadScope;
 
 /// Estimate the cost of a video generation.
 #[utoipa::path(
@@ -113,6 +114,8 @@ async fn probe_input_seconds_best_effort(
       server_state.server_environment,
       server_state.maybe_media_cdn_override_url.as_deref(),
       &mut mysql_connection,
+      // NB: This quote endpoint is unauthenticated, so only media any reader may see is probed.
+      &MediaReadScope::ANONYMOUS,
     ).await {
       Ok(sources) => sources,
       Err(err) => {

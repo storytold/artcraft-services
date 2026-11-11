@@ -96,6 +96,7 @@ pub async fn create_character_handler(
     &mut mysql_connection,
     server_state.server_environment,
     &[request.image_media_token.clone()],
+    &crate::util::lookup::media_read_policy::scope_for_user_token(user_token, false),
   ).await?;
 
   let image_cdn_url = file_urls_by_token
