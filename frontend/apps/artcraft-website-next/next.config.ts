@@ -16,6 +16,27 @@ const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
   outputFileTracingRoot: __dirname,
   ...(!isStaticExport && {
+    // Production static exports use public/_headers on Cloudflare.
+    async headers() {
+      return [
+        ...["/launcher-catalog.toml", "/launcher-catalog.toml.sig"].map((source) => ({
+          source,
+          headers: [
+            { key: "Access-Control-Allow-Origin", value: "*" },
+            { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+            { key: "Content-Type", value: source.endsWith(".sig")
+              ? "text/plain; charset=utf-8" : "application/toml; charset=utf-8" },
+          ],
+        })),
+        {
+          source: "/launcher-app-icons/:path*",
+          headers: [
+            { key: "Access-Control-Allow-Origin", value: "*" },
+            { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          ],
+        },
+      ];
+    },
     async redirects() {
       return [
         // Legacy Stripe return paths from the Vite site; checkout now lives in
