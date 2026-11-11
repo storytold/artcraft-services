@@ -41,8 +41,15 @@ pub async fn logout_handler(
         CommonWebError::from_error(e)
       })?;
 
+  // Revocation must be durable before we report success: if the UPDATE
+  // fails, a copy of the session cookie would still be accepted.
   if let Some(session) = maybe_session {
-    let _r = delete_user_session(&session.session_token, &mysql_pool).await;
+    delete_user_session(&session.session_token, &mysql_pool)
+        .await
+        .map_err(|e| {
+          warn!("Failed to revoke session on logout: {:?}", e);
+          CommonWebError::from_anyhow_error(e)
+        })?;
   }
 
   // NB: Purge the session cache only after the database revocation. Purging first let a concurrent
