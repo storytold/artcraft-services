@@ -484,46 +484,8 @@ test_flatpak() {
     fi
   done
 
-  # Flatpak honours GPGKey from the remote descriptor, but no released flatpak takes a lookaside:
-  # there is no --signature-lookaside option and a flatpakrepo file cannot carry one. So check the
-  # lookaside at its source here, outside the container, where the quoting stays readable.
-  local descriptor lookaside registry_token digest signature_status
-
-  echo "--- Confirming the published descriptor advertises signing ---"
-  descriptor="$(curl -fsSL "$flatpak_url/artcraft-oci.flatpakrepo")"
-  grep -q "^GPGKey=" <<< "$descriptor" || {
-    echo "Error: the Flatpak remote descriptor publishes no GPG key!" >&2
-    exit 1
-  }
-  lookaside="$(sed -n 's/^SignatureLookaside=//p' <<< "$descriptor")"
-  [[ "$lookaside" == "$flatpak_url/oci-signatures" ]] || {
-    echo "Error: the Flatpak remote descriptor has no signature lookaside (got '$lookaside')!" >&2
-    exit 1
-  }
-
-  # OCI tags are per architecture, so the digest flatpak pulls is <branch>-<arch>.
-  registry_token="$(curl --proto '=https' -fsSL "https://ghcr.io/token?scope=repository:storytold/craft-anything:pull&service=ghcr.io" |
-    sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
-  digest="$(curl -fsSI -H "Authorization: Bearer $registry_token" \
-    -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json" \
-    "https://ghcr.io/v2/storytold/craft-anything/manifests/stable-x86_64" |
-    tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: //p')"
-  [[ -n "$digest" ]] || {
-    echo "Error: the registry reported no digest for storytold/craft-anything:stable-x86_64!" >&2
-    exit 1
-  }
-  # The lookaside uses the containers/image separate-storage layout: <repo>@sha256=<hex>.
-  signature_status="$(curl -s -o /tmp/artcraft-oci.sig -w '%{http_code}' \
-    "$lookaside/storytold/craft-anything@${digest/:/=}/signature-1")"
-  [[ "$signature_status" == "200" ]] || {
-    echo "Error: the lookaside serves no signature for $digest (HTTP $signature_status)!" >&2
-    exit 1
-  }
-  grep -q "\"docker-manifest-digest\":\"$digest\"" /tmp/artcraft-oci.sig || {
-    echo "Error: the lookaside signature does not cover $digest!" >&2
-    exit 1
-  }
-  echo "  ✓ The descriptor advertises the key and the lookaside serves a signature for $digest"
+  echo "--- Verifying signatures for every image in the deployed Flatpak index ---"
+  node "$SCRIPT_DIR/verify-flatpak-signatures.mjs" "$flatpak_url"
 
   # Use Ubuntu (glibc-based standard Linux container) for Flatpak tests
   $CONTAINER_TOOL run --rm --network host "$UBUNTU_IMAGE" bash -c '

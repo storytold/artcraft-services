@@ -145,5 +145,8 @@ jobs:
       # itself comes from the deployment.
       - name: Install dependencies
         run: npm ci --ignore-scripts
+      - name: Test OCI signature verification
+        if: matrix.distro == 'flatpak'
+        run: node --test scripts/verify-flatpak-signatures.test.mjs
       - name: Verify repository via ${{ matrix.name }}
         run: ./scripts/test-distro-repos.sh ${{ matrix.distro }} "${{ needs.wait-for-deploy.outputs.deploy-url }}"
