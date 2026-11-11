@@ -35,7 +35,9 @@ impl<S, B> Service<ServiceRequest> for DisabledEndpointFilterMiddleware<S>
   actix_service::forward_ready!(service);
 
   fn call(&self, request: ServiceRequest) -> Self::Future {
-    let endpoint = request.path();
+    // NB: Match on the path actix routes with (percent-decoded), not the raw URI path,
+    // so an encoded spelling like `/a%2Fb` or `/%61pi` can't slip past the filter.
+    let endpoint = request.match_info().as_str().to_string();
 
     // NB: Fail open.
     // We don't want our service to explode because we can't read our configs.
