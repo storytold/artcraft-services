@@ -55,7 +55,7 @@ export function ImpersonateUserDialog({
     setImpersonationToken(null);
 
     const modApi = new ModerationApi();
-    modApi.ImpersonateUser({ user_token: userToken }).then((resp) => {
+    void modApi.ImpersonateUser({ user_token: userToken }).then((resp) => {
       if (cancelled) return;
       if (resp.success && resp.data) {
         setImpersonationToken(resp.data.password_token);
@@ -71,7 +71,7 @@ export function ImpersonateUserDialog({
   }, [open, userToken]);
 
   const copy = (text: string, field: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
     });

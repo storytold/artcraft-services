@@ -102,18 +102,18 @@ export function TopSpenders() {
     setWindow(value);
     setSpenders([]);
     setNextOffset(null);
-    loadData(value);
+    void loadData(value);
   };
 
   const handleRefresh = () => {
     setSpenders([]);
     setNextOffset(null);
-    loadData(window);
+    void loadData(window);
   };
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData(DEFAULT_WINDOW);
+    void loadData(DEFAULT_WINDOW);
     return () => {
       cancelledRef.current = true;
     };
@@ -121,7 +121,7 @@ export function TopSpenders() {
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && nextOffset != null) {
-      loadData(window, nextOffset, true);
+      void loadData(window, nextOffset, true);
     }
   }, [window, nextOffset, isLoadingMore]);
 

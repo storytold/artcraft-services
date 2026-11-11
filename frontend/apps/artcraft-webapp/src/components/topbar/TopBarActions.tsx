@@ -73,8 +73,8 @@ export function TopBarActions({ className }: { className?: string }) {
 
   useEffect(() => {
     if (user) {
-      fetchCredits().then(setCredits);
-      fetchHasPaidPlan().then(setHasPaidPlan);
+      void fetchCredits().then(setCredits);
+      void fetchHasPaidPlan().then(setHasPaidPlan);
     } else {
       setCredits(null);
       setHasPaidPlan(null);
@@ -83,7 +83,7 @@ export function TopBarActions({ className }: { className?: string }) {
 
   useEffect(() => {
     const handler = () => {
-      fetchCredits().then(setCredits);
+      void fetchCredits().then(setCredits);
     };
     window.addEventListener("credits-change", handler);
     return () => window.removeEventListener("credits-change", handler);

@@ -104,7 +104,7 @@ export function UserSearch() {
         setSearchResult(foundUser);
 
         setIsWalletsLoading(true);
-        api.ListUserWallets(foundUser.token).then((walletResp) => {
+        void api.ListUserWallets(foundUser.token).then((walletResp) => {
           if (walletResp.success && walletResp.data) {
             setWallets(walletResp.data.wallets);
           }
@@ -122,7 +122,7 @@ export function UserSearch() {
 
   useEffect(() => {
     if (queryParam) {
-      performSearch(queryParam);
+      void performSearch(queryParam);
     }
   }, []);
 
@@ -137,7 +137,7 @@ export function UserSearch() {
   const copyProfileLink = () => {
     if (!searchResult) return;
     const profileUrl = `${window.location.origin}/user/profile/${searchResult.username}`;
-    navigator.clipboard.writeText(profileUrl).then(() => {
+    void navigator.clipboard.writeText(profileUrl).then(() => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     });
@@ -382,7 +382,7 @@ export function UserSearch() {
             onOpenChange={setGiveCreditsOpen}
             onSuccess={() => {
               const api = new ModerationApi();
-              api.ListUserWallets(searchResult.token).then((resp) => {
+              void api.ListUserWallets(searchResult.token).then((resp) => {
                 if (resp.success && resp.data) {
                   setWallets(resp.data.wallets);
                 }

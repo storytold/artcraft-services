@@ -53,7 +53,7 @@ export function DebugLogsAll() {
   const loadingRef = useRef(false);
 
   const copy = (value: string, id: string) => {
-    navigator.clipboard.writeText(value).then(() => {
+    void navigator.clipboard.writeText(value).then(() => {
       setCopiedId(id);
       setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 2000);
     });

@@ -87,12 +87,12 @@ export function ReferralsAnalytics() {
   const handleRefresh = () => {
     setReferrals([]);
     setNextCursor(null);
-    loadData();
+    void loadData();
   };
 
   useEffect(() => {
     cancelledRef.current = false;
-    loadData();
+    void loadData();
     return () => {
       cancelledRef.current = true;
     };
@@ -100,7 +100,7 @@ export function ReferralsAnalytics() {
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && nextCursor != null) {
-      loadData(nextCursor, true);
+      void loadData(nextCursor, true);
     }
   }, [nextCursor, isLoadingMore]);
 
