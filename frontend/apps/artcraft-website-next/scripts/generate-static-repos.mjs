@@ -26,7 +26,6 @@ import {
   resolvePackageDownloadUrl,
 } from "../src/lib/linux-repos.ts";
 import {
-  getSigningKeyDiagnostic,
   getSigningPublicKey,
   isRepoSigningConfigured,
   signCleartext,
@@ -50,12 +49,11 @@ function writeOut(relPath, content) {
 
 console.info("Generating static Linux repositories and Flatpak OCI catalog...");
 
-const [signingConfigured, publicKey, , flatpakIndex, signingDiagnostics] = await Promise.all([
+const [signingConfigured, publicKey, , flatpakIndex] = await Promise.all([
   isRepoSigningConfigured(),
   getSigningPublicKey(),
   getLinuxRepoApps({ deb: true, rpm: true, arch: true }),
   getFlatpakOciIndex(),
-  getSigningKeyDiagnostic(),
 ]);
 
 if (signingConfigured && !publicKey) {
@@ -233,7 +231,6 @@ writeFileSync(
   join(WORKER_DIR, "generated-catalog.mjs"),
   `// Generated at build time by scripts/generate-static-repos.mjs — do not edit by hand.
 export const SIGNING_CONFIGURED = ${JSON.stringify(signingConfigured)};
-export const SIGNING_DIAGNOSTICS = ${JSON.stringify(signingDiagnostics)};
 export const PUBLIC_KEY_BASE64 = ${JSON.stringify(
     publicKey ? Buffer.from(publicKey.binary).toString("base64") : null,
   )};

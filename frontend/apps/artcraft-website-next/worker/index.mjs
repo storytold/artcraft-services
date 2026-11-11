@@ -4,7 +4,6 @@ import {
   PACKAGE_REDIRECTS,
   PUBLIC_KEY_BASE64,
   SIGNING_CONFIGURED,
-  SIGNING_DIAGNOSTICS,
   TUTORIAL_REDIRECTS,
 } from "./generated-catalog.mjs";
 
@@ -617,23 +616,16 @@ export default {
     // 4. Pre-generated keys, OCI signatures & Linux repository files + binary redirects
     if (pathname === "/keys/artcraft.asc") {
       if (!SIGNING_CONFIGURED) {
-        return new Response(
-          `Not found: repository signing is not configured (diagnostics: ${JSON.stringify(SIGNING_DIAGNOSTICS)}, runtimeKeyPresent: ${Boolean(env.LINUX_SIGNING_KEY)})\n`,
-          {
-            status: 404,
-            headers: {
-              "Content-Type": "text/plain; charset=utf-8",
-              "X-Signing-Diagnostics": JSON.stringify(SIGNING_DIAGNOSTICS),
-              "X-Runtime-Key-Present": String(Boolean(env.LINUX_SIGNING_KEY)),
-            },
-          },
-        );
+        return new Response("Not found", { status: 404 });
       }
       return serveStaticAssetWithHeaders(request, env, pathname, "application/pgp-keys; charset=utf-8", {
         "Content-Disposition": 'inline; filename="artcraft.asc"',
       });
     }
     if (pathname === "/keys/artcraft.gpg") {
+      if (!SIGNING_CONFIGURED) {
+        return new Response("Not found", { status: 404 });
+      }
       return serveStaticAssetWithHeaders(request, env, pathname, "application/pgp-keys");
     }
     if (pathname.startsWith("/oci-signatures/")) {

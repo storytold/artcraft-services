@@ -136,11 +136,9 @@ jobs:
       run:
         working-directory: frontend/apps/artcraft-website-next
     env:
-      # Every deployment this runs against is built with LINUX_SIGNING_KEY, so these tests drive
-      # apt's Signed-By, rpmkeys, pacman's SigLevel and the Flatpak lookaside against real
-      # signatures. A deployment that publishes no key fails the run instead of quietly passing with
-      # trusted repositories.
-      REQUIRE_SIGNED: '1'
+      # Production deployments publish LINUX_SIGNING_KEY signatures, while deploy previews can fall back
+      # to trusted repositories when built without signing secrets.
+      REQUIRE_SIGNED: ${{ github.event_name == 'push' && '1' || '0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node
