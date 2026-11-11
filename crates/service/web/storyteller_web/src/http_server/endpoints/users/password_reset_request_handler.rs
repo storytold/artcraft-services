@@ -24,6 +24,10 @@ use crate::email::send_password_reset_email::{send_password_reset_email, SendPas
 use crate::http_server::requests::get_request_domain_branding::{get_request_domain_branding, DomainBranding};
 use crate::state::server_state::ServerState;
 
+/// Caps detached reset tasks so a slow database or mail provider can't pile them up without bound.
+const MAX_CONCURRENT_RESET_TASKS: usize = 64;
+static RESET_TASK_PERMITS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(MAX_CONCURRENT_RESET_TASKS);
+
 #[derive(Deserialize)]
 pub struct PasswordResetRequestedRequest {
     username_or_email: String,
@@ -112,6 +116,15 @@ pub async fn password_reset_request_handler(
     // NB: Everything below depends on whether the account exists (database writes, the email job,
     // and an external email send). Doing it in the background keeps the response time the same for
     // known and unknown accounts, so timing can't be used to enumerate them.
+    // NB: Shed load instead of queueing; the response stays the same either way.
+    let permit = match RESET_TASK_PERMITS.try_acquire() {
+        Ok(permit) => permit,
+        Err(_) => {
+            warn!("Too many password reset tasks in flight; dropping this request.");
+            return success_response();
+        }
+    };
+
     let ip_address = get_request_ip(&http_request);
     let domain_branding = get_request_domain_branding(&http_request)
         .unwrap_or(DomainBranding::GetArtCraft);
@@ -120,6 +133,7 @@ pub async fn password_reset_request_handler(
     let server_state = server_state.into_inner();
 
     actix_web::rt::spawn(async move {
+        let _permit = permit; // released when the task ends, even on panic
         let result = issue_password_reset(
             user, ip_address, &mysql_pool, &server_state, server_environment, domain_branding).await;
         if let Err(err) = result {
