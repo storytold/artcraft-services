@@ -93,6 +93,7 @@ pub struct GetWeightPathInfo {
         (status = 200, description = "Success Update", body = GetWeightResponse),
         (status = 400, description = "Bad input", body = CommonWebError),
         (status = 401, description = "Not authorized", body = CommonWebError),
+        (status = 404, description = "Weight not found, or not visible to the caller", body = CommonWebError),
         (status = 500, description = "Server error", body = CommonWebError),
     ),
     params(
@@ -136,7 +137,8 @@ pub async fn get_weight_handler(
         }
     };
 
-    // if the weight is private, only the creator can view it
+    // if the weight is private, only the creator (or a moderator) can view it.
+    // NB: `NotFound` rather than `NotAuthorized` so a private token's existence isn't confirmed.
     let is_private = weight.creator_set_visibility == Visibility::Private;
 
     if is_private {
@@ -144,15 +146,13 @@ pub async fn get_weight_handler(
             Some(session) => session,
             None => {
                 warn!("not logged in");
-                return Err(CommonWebError::NotAuthorized);
+                return Err(CommonWebError::NotFound);
             }
         };
 
-        let session_user_token = user_session.user_token.as_str().to_string();
-
-        if !is_mod && session_user_token.as_str() != user_session.user_token.as_str() {
+        if !is_mod && user_session.user_token != weight.creator_user_token {
             warn!("user is not allowed to view this weight: {:?}", user_session.user_token.as_str());
-            return Err(CommonWebError::NotAuthorized);
+            return Err(CommonWebError::NotFound);
         }
     }
 

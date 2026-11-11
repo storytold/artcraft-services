@@ -28,6 +28,7 @@ export type CraftAppSlug =
   | "lightcraft"
   | "pdfcraft"
   | "effectcraft"
+  | "anicraft"
   | "designcraft"
   | "figcraft"
   | "texturecraft"
@@ -110,6 +111,7 @@ export type CraftDownload = Omit<CraftReleaseAsset, "file"> & {
 };
 
 export const CRAFTING_APPS_GITHUB_ORG = "https://github.com/storytold";
+export const CRAFT_WIKI_URL = "https://craft.wiki";
 
 export const CRAFTING_APPS: CraftApp[] = [
   {
@@ -524,6 +526,77 @@ export const CRAFTING_APPS: CraftApp[] = [
     ],
   },
   {
+    slug: "anicraft",
+    prefix: "Ani",
+    category: "2D vector animation",
+    status: "Early alpha",
+    headline: ["Vector animation on a ", "timeline", " you know."],
+    pitch: "Open-source 2D vector animation, built in pure Rust.",
+    lede: "Draw on the stage, key it on the timeline and tween it with easing, in a native 2D vector animation studio written in pure Rust. Early alpha, open source, and yours.",
+    schemaCategory: "MultimediaApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "Familiar by design",
+        body: "Stage, tools, timeline, layers, keyframes, Properties and Library sit where animators expect them, with onion skinning for in-betweening.",
+      },
+      {
+        title: "Tweens that ease",
+        body: "Classic tweens with eight easing presets and custom ease curves, plus shape tweens that morph one vector contour into another.",
+      },
+      {
+        title: "Symbols and scenes",
+        body: "Graphic symbols and movie clips with nested timelines and loop modes, mask and guide layers, filters, blend modes and scenes.",
+      },
+      {
+        title: "Real vector tools",
+        body: "Pen, Pencil with curve fitting, shapes, text, Paint Bucket and Ink Bottle, with Bézier anchors and handles you edit point by point.",
+      },
+      {
+        title: "Open formats",
+        body: "Opens .fla and .xfl documents and imports SVG. Exports PNG sequences, GIF, SVG frames, sprite sheets, Lottie, and WebM or MP4 through your own FFmpeg.",
+      },
+      {
+        title: "Agent-ready",
+        body: "Every action is an engine command, so the CLI, a JSON-lines channel and an MCP server can draw, animate and export the way a person does.",
+      },
+    ],
+    // The README's 1600×940 captures, padded above the menu bar to 16:10.
+    shots: [
+      {
+        file: "hero.webp",
+        source: "shot-1-stage.png",
+        caption: "The sample animation on the timeline",
+        alt: "AniCraft with the sample animation open: the stage shows a ball, a star and a sun over hills at dusk; the timeline below has five layers with violet classic-tween spans, and the Properties panel shows the selected tween's easing curve",
+      },
+      {
+        file: "subselection.webp",
+        source: "shot-2-subselection.png",
+        caption: "Bézier anchors, Pen and Pencil",
+        alt: "AniCraft's Subselection tool showing anchor points and Bézier handles on a blue shape, next to a wavy line drawn with the Pencil; the Properties panel shows the shape's position, scale, fill and stroke",
+      },
+      {
+        file: "frames.webp",
+        source: "shot-3-frames.png",
+        caption: "Frame ranges across layers",
+        alt: "A block of frames selected across three layers in AniCraft's timeline, with the ball squashed mid-tween on the stage",
+      },
+      {
+        file: "transform.webp",
+        source: "shot-4-transform.png",
+        caption: "Free Transform on a symbol",
+        alt: "AniCraft's Free Transform on the ball with corner and edge handles; the Properties panel shows the symbol instance's position, scale, rotation, alpha and looping",
+      },
+      {
+        file: "palette.webp",
+        source: "shot-5-palette.png",
+        caption: "Every command, one search away",
+        alt: "AniCraft's command palette open over the stage, searching for key and listing the keyframe commands with their shortcuts",
+      },
+    ],
+  },
+  {
     slug: "designcraft",
     prefix: "Design",
     category: "Page layout & publishing",
@@ -853,76 +926,6 @@ export const CRAFTING_APPS: CraftApp[] = [
     ],
   },
   {
-    slug: "wordcraft",
-    prefix: "Word",
-    category: "Word processing",
-    status: "In development",
-    headline: ["A fast, open-source ", "word processor", ", rebuilt in pure Rust."],
-    pitch: "Fast, open-source word processing, rebuilt in pure Rust.",
-    lede: "The ribbon, styles, tables, track changes, references and mail merge in a native word processor that reads and writes .docx. Open source, offline, and fast.",
-    schemaCategory: "BusinessApplication",
-    platforms: ["macOS", "Windows", "Linux", "Web"],
-    rustVersion: "1.90",
-    features: [
-      {
-        title: "The ribbon you know",
-        body: "Tabs, groups, shortcuts and the live Styles gallery. Enter continues a list, Tab demotes it, and formatting works as your hands expect.",
-      },
-      {
-        title: "Real document formats",
-        body: "Opens and saves .docx natively, imports and exports .odt, .rtf, .html, .md and .txt, and exports clean PDF with selectable text.",
-      },
-      {
-        title: "Instant layout",
-        body: "Paragraph layout is cached: typing in a 188-page document re-lays it out in about 1.4 ms, with pages rendered on demand.",
-      },
-      {
-        title: "Track changes & review",
-        body: "Comment balloons in the margin, accept and reject changes, document comparison, plus offline spelling and grammar as you type.",
-      },
-      {
-        title: "Academic & business references",
-        body: "Generate tables of contents, footnotes, citations and bibliographies in APA, MLA, Chicago and IEEE styles, indexes, and captions.",
-      },
-      {
-        title: "Agent-ready commands",
-        body: "389 discrete commands drive the ribbon, keyboard shortcuts, a command-line tool, a JSON control channel and an MCP server.",
-      },
-    ],
-    shots: [
-      {
-        file: "hero.webp",
-        source: "hero.png",
-        caption: "The Open Studio Handbook — ribbon, styles and navigation",
-        alt: "WordCraft with the Home tab of the ribbon open over a two-page document titled The Open Studio Handbook, the Navigation pane on the left, and the Styles gallery showing live previews",
-      },
-      {
-        file: "review.webp",
-        source: "review.png",
-        caption: "Review and track changes",
-        alt: "WordCraft's Review tab with Track Changes on, inline insertions and deletions, and margin comment balloons",
-      },
-      {
-        file: "references.webp",
-        source: "references.png",
-        caption: "Table of contents and citations",
-        alt: "WordCraft's References tab showing a table of contents with dot leaders on page one and citations on page two",
-      },
-      {
-        file: "layout.webp",
-        source: "layout.png",
-        caption: "Drop caps and text wrap",
-        alt: "WordCraft layout tab showing a three-line drop cap, text wrapping around an object, and margin line numbers",
-      },
-      {
-        file: "dark.webp",
-        source: "dark.png",
-        caption: "Dark mode with formatting marks",
-        alt: "WordCraft in dark mode with the Insert tab open and formatting marks visible",
-      },
-    ],
-  },
-  {
     slug: "soundcraft",
     prefix: "Sound",
     category: "Digital audio workstation",
@@ -989,6 +992,76 @@ export const CRAFTING_APPS: CraftApp[] = [
         source: "surround.png",
         caption: "Immersive surround renderer",
         alt: "SoundCraft Renderer window displaying a 7.1.4 surround speaker layout and spatial panners",
+      },
+    ],
+  },
+  {
+    slug: "wordcraft",
+    prefix: "Word",
+    category: "Word processing",
+    status: "In development",
+    headline: ["A fast, open-source ", "word processor", ", rebuilt in pure Rust."],
+    pitch: "Fast, open-source word processing, rebuilt in pure Rust.",
+    lede: "The ribbon, styles, tables, track changes, references and mail merge in a native word processor that reads and writes .docx. Open source, offline, and fast.",
+    schemaCategory: "BusinessApplication",
+    platforms: ["macOS", "Windows", "Linux", "Web"],
+    rustVersion: "1.90",
+    features: [
+      {
+        title: "The ribbon you know",
+        body: "Tabs, groups, shortcuts and the live Styles gallery. Enter continues a list, Tab demotes it, and formatting works as your hands expect.",
+      },
+      {
+        title: "Real document formats",
+        body: "Opens and saves .docx natively, imports and exports .odt, .rtf, .html, .md and .txt, and exports clean PDF with selectable text.",
+      },
+      {
+        title: "Instant layout",
+        body: "Paragraph layout is cached: typing in a 188-page document re-lays it out in about 1.4 ms, with pages rendered on demand.",
+      },
+      {
+        title: "Track changes & review",
+        body: "Comment balloons in the margin, accept and reject changes, document comparison, plus offline spelling and grammar as you type.",
+      },
+      {
+        title: "Academic & business references",
+        body: "Generate tables of contents, footnotes, citations and bibliographies in APA, MLA, Chicago and IEEE styles, indexes, and captions.",
+      },
+      {
+        title: "Agent-ready commands",
+        body: "389 discrete commands drive the ribbon, keyboard shortcuts, a command-line tool, a JSON control channel and an MCP server.",
+      },
+    ],
+    shots: [
+      {
+        file: "hero.webp",
+        source: "hero.png",
+        caption: "The Open Studio Handbook — ribbon, styles and navigation",
+        alt: "WordCraft with the Home tab of the ribbon open over a two-page document titled The Open Studio Handbook, the Navigation pane on the left, and the Styles gallery showing live previews",
+      },
+      {
+        file: "review.webp",
+        source: "review.png",
+        caption: "Review and track changes",
+        alt: "WordCraft's Review tab with Track Changes on, inline insertions and deletions, and margin comment balloons",
+      },
+      {
+        file: "references.webp",
+        source: "references.png",
+        caption: "Table of contents and citations",
+        alt: "WordCraft's References tab showing a table of contents with dot leaders on page one and citations on page two",
+      },
+      {
+        file: "layout.webp",
+        source: "layout.png",
+        caption: "Drop caps and text wrap",
+        alt: "WordCraft layout tab showing a three-line drop cap, text wrapping around an object, and margin line numbers",
+      },
+      {
+        file: "dark.webp",
+        source: "dark.png",
+        caption: "Dark mode with formatting marks",
+        alt: "WordCraft in dark mode with the Insert tab open and formatting marks visible",
       },
     ],
   },
@@ -1237,6 +1310,7 @@ const COUNT_WORDS = [
   "Fourteen",
   "Fifteen",
   "Sixteen",
+  "Seventeen",
 ];
 
 /** "Seven" — the family size as a capitalized word, for headlines. */
@@ -1303,6 +1377,10 @@ export function craftAppPath(app: CraftApp): string {
 
 export function craftAppRepo(app: CraftApp): string {
   return `${CRAFTING_APPS_GITHUB_ORG}/${app.slug}`;
+}
+
+export function craftAppDocsUrl(app: CraftApp): string {
+  return `${CRAFT_WIKI_URL}/apps/${app.slug}/overview/`;
 }
 
 /** Site-relative path; use craftShotUrl for an <img> src. */

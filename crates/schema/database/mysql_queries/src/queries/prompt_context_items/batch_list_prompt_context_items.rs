@@ -4,9 +4,11 @@ use sqlx::pool::PoolConnection;
 use sqlx::{FromRow, MySql, QueryBuilder, Row};
 
 use enums::by_table::prompt_context_items::prompt_context_semantic_type::PromptContextSemanticType;
+use enums::common::visibility::Visibility;
 use enums::traits::mysql_from_row::MySqlFromRow;
 use tokens::tokens::media_files::MediaFileToken;
 use tokens::tokens::prompts::PromptToken;
+use tokens::tokens::users::UserToken;
 use tokens::traits::mysql_token_from_row::MySqlTokenFromRow;
 
 /// A prompt context item with its owning prompt token, for batch queries.
@@ -20,6 +22,9 @@ pub struct BatchPromptContextItem {
   /// Which video preview files exist. See `video_thumbnail_suffixes` in `bucket_paths`.
   pub maybe_thumbnail_version: Option<u8>,
   pub created_at: DateTime<Utc>,
+  /// The media keeps its own visibility: callers must hide private items from non-creators.
+  pub creator_set_visibility: Visibility,
+  pub maybe_creator_user_token: Option<UserToken>,
 }
 
 impl FromRow<'_, MySqlRow> for BatchPromptContextItem {
@@ -33,6 +38,8 @@ impl FromRow<'_, MySqlRow> for BatchPromptContextItem {
       maybe_public_bucket_extension: row.try_get("maybe_public_bucket_extension")?,
       maybe_thumbnail_version: row.try_get("maybe_thumbnail_version")?,
       created_at: row.try_get("created_at")?,
+      creator_set_visibility: Visibility::try_from_mysql_row(row, "creator_set_visibility")?,
+      maybe_creator_user_token: UserToken::try_from_mysql_row_nullable(row, "maybe_creator_user_token")?,
     })
   }
 }
@@ -57,7 +64,9 @@ SELECT
     m.maybe_public_bucket_prefix,
     m.maybe_public_bucket_extension,
     m.maybe_thumbnail_version,
-    m.created_at
+    m.created_at,
+    m.creator_set_visibility,
+    m.maybe_creator_user_token
 
 FROM prompt_context_items pci
 JOIN media_files m ON pci.media_token = m.token
@@ -69,6 +78,8 @@ WHERE pci.prompt_token IN (
     separated.push_bind(token.to_string());
   }
   separated.push_unseparated(") ");
+  // NB: Deleted media must not stay reachable through the prompts that used it.
+  query_builder.push(" AND m.user_deleted_at IS NULL AND m.mod_deleted_at IS NULL ");
 
   let query = query_builder.build_query_as::<BatchPromptContextItem>();
 

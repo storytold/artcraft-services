@@ -389,7 +389,7 @@ export function LauncherDownloadButton({
                 <>
                   {" · "}
                   <Link href="/linux" className="underline hover:text-ink">
-                    Repository Setup (Preview)
+                    Repository Setup
                   </Link>
                 </>
               )}
@@ -439,7 +439,7 @@ export function AppHeroOtherDownloadsLink() {
   );
 }
 
-function useDetectedDesktop(): DetectedDesktop | null {
+export function useDetectedDesktop(): DetectedDesktop | null {
   const [detected, setDetected] = useState<DetectedDesktop | null>(null);
   useEffect(() => {
     let active = true;

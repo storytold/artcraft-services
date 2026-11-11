@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use actix_web::HttpRequest;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use domains::artcraft::{ARTCRAFT_WEBAPP, ARTCRAFT_WEBSITE, ARTCRAFT_WEBSITE_WWW};
+use domains::artcraft::{ARTCRAFT_WEBAPP, ARTCRAFT_WEBAPP_NEW, ARTCRAFT_WEBSITE, ARTCRAFT_WEBSITE_WWW};
 use http_server_common::request::get_request_ip::get_request_ip;
 use rand::{
   rngs::{OsRng, StdRng},
@@ -19,6 +19,7 @@ use crate::http_server::common_responses::common_web_error::CommonWebError;
 const CODE_ALPHABET: &[u8] = b"BCDFGHJKLMNPQRSTVWXZ";
 const APPROVAL_ORIGINS: &[&str] = &[
   ARTCRAFT_WEBAPP.https_link_without_path(),
+  ARTCRAFT_WEBAPP_NEW.https_link_without_path(),
   ARTCRAFT_WEBSITE.https_link_without_path(),
   ARTCRAFT_WEBSITE_WWW.https_link_without_path(),
 ];

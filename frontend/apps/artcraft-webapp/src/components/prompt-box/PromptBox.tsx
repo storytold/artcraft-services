@@ -568,14 +568,14 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(
       if (videoRefsSupported) {
         groupHints.video =
           `${referenceVideos.length}/${maxVideoCount}` +
-          (isFinite(maxVideoRefDuration)
+          (Number.isFinite(maxVideoRefDuration)
             ? ` · ${totalVideoRefSeconds}/${maxVideoRefDuration}s`
             : "");
       }
       if (audioRefsSupported) {
         groupHints.audio =
           `${referenceAudios.length}/${maxAudioCount}` +
-          (isFinite(maxAudioRefDuration)
+          (Number.isFinite(maxAudioRefDuration)
             ? ` · ${totalAudioRefSeconds}/${maxAudioRefDuration}s`
             : "");
       }
@@ -933,14 +933,14 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(
                     className={twMerge(
                       // right-4 keeps the counter clear of the textarea's resize grip.
                       "pointer-events-none absolute -bottom-1 right-4 text-[10px] tabular-nums",
-                      isFinite(maxPromptLength) &&
+                      Number.isFinite(maxPromptLength) &&
                         prompt.length > maxPromptLength
                         ? "text-red-500"
                         : "text-base-fg/40",
                     )}
                   >
                     {prompt.length} /{" "}
-                    {isFinite(maxPromptLength) ? maxPromptLength : "∞"}
+                    {Number.isFinite(maxPromptLength) ? maxPromptLength : "∞"}
                   </div>
                 )}
               </div>

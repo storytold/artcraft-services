@@ -1,4 +1,3 @@
-use std::thread;
 use std::time::Duration;
 
 use itertools::Itertools;
@@ -40,7 +39,7 @@ impl QueryPair {
         break;
       }
 
-      thread::sleep(Duration::from_millis(1000));
+      tokio::time::sleep(Duration::from_millis(1000)).await;
     }
 
     Ok(())

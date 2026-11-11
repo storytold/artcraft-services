@@ -23,8 +23,8 @@ export const VideoGenerationCountPicker = ({
   }
 
   const onSelect = (item: PopoverItem) => {
-    const count = parseInt(item.label, 10);
-    if (!isNaN(count) && count >= 1 && count <= maxCount) {
+    const count = Number.parseInt(item.label, 10);
+    if (!Number.isNaN(count) && count >= 1 && count <= maxCount) {
       handleCountChange(count);
     }
   };

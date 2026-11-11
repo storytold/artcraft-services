@@ -26,7 +26,7 @@ export type CraftReleaseAsset = {
   /** One line on who should pick this file. */
   description: string;
   /** CPU architecture, used to choose between recommended Linux builds. */
-  arch?: "universal" | "x64" | "x86" | "x86_64" | "aarch64" | "riscv64";
+  arch?: "universal" | "x64" | "x86_64" | "aarch64" | "riscv64";
   /**
    * Offered as a platform's main download button. The first recommended
    * asset in a group is the default; a later one wins only when its `arch`
@@ -46,6 +46,7 @@ export type CraftRelease = {
 };
 
 // The file set every Crafting App publishes, in display order within each group.
+// Windows builds are x64 and ARM64 only; 32-bit Windows is no longer shipped.
 export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
   {
     file: "{slug}-{version}-macos-universal.dmg",
@@ -76,20 +77,6 @@ export const CRAFT_RELEASE_ASSETS: readonly CraftReleaseAsset[] = [
     label: "Portable (64-bit)",
     description: "Unzip and run, no install.",
     arch: "x64",
-  },
-  {
-    file: "{slug}-{version}-windows-x86.msi",
-    group: "Windows",
-    label: "Installer (32-bit)",
-    description: "Older 32-bit Windows.",
-    arch: "x86",
-  },
-  {
-    file: "{slug}-{version}-windows-x86-portable.zip",
-    group: "Windows",
-    label: "Portable (32-bit)",
-    description: "Unzip and run on 32-bit Windows.",
-    arch: "x86",
   },
   {
     file: "{slug}-{version}-windows-arm64.msi",
@@ -237,7 +224,7 @@ export function craftRelease(
 // every app above, and the /apps pages recommend it first. Its releases ship
 // the same file set minus the macOS CLI, named artcraft-launcher-*.
 export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
-  "0.13.0",
+  "0.15.0",
   CRAFT_RELEASE_ASSETS
     .filter((asset) => !asset.file.startsWith("{slug}-cli-"))
     // The launcher's RISC-V binary needs glibc 2.39, including in its tarball.
@@ -249,20 +236,24 @@ export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
 
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
-  photocraft: craftRelease("0.19.0"),
-  vectorcraft: craftRelease("0.20.0"),
-  filmcraft: craftRelease("0.16.0"),
-  lightcraft: craftRelease("0.17.0"),
-  pdfcraft: craftRelease("0.17.0"),
-  effectcraft: craftRelease("0.20.0"),
-  designcraft: craftRelease("0.16.0"),
-  figcraft: craftRelease("0.14.0"),
-  texturecraft: craftRelease("0.2.0"),
-  materialcraft: craftRelease("0.1.0"),
-  wordcraft: craftRelease("0.14.0"),
-  soundcraft: craftRelease("0.16.0"),
-  deckcraft: craftRelease("0.14.1"),
-  cadcraft: craftRelease("0.16.0"),
-  gridcraft: craftRelease("0.15.0"),
-  "craft-anything": craftRelease("0.2.0"),
+  photocraft: craftRelease("0.21.0"),
+  vectorcraft: craftRelease("0.22.0"),
+  filmcraft: craftRelease("0.18.0"),
+  lightcraft: craftRelease("0.19.0"),
+  pdfcraft: craftRelease("0.19.0"),
+  effectcraft: craftRelease("0.22.0"),
+  // AniCraft publishes no web ZIP build yet.
+  anicraft: craftRelease("0.1.0", CRAFT_RELEASE_ASSETS.filter(
+    (asset) => !asset.file.startsWith("{slug}-web-"),
+  )),
+  designcraft: craftRelease("0.18.0"),
+  figcraft: craftRelease("0.16.0"),
+  texturecraft: craftRelease("0.4.0"),
+  materialcraft: craftRelease("0.2.0"),
+  wordcraft: craftRelease("0.16.0"),
+  soundcraft: craftRelease("0.18.0"),
+  deckcraft: craftRelease("0.16.0"),
+  cadcraft: craftRelease("0.18.0"),
+  gridcraft: craftRelease("0.17.0"),
+  "craft-anything": craftRelease("0.5.0"),
 };

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
-use std::fs::OpenOptions;
 use std::io::Write;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Args;
 use log::info;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use kinovi_web_client::billing::get_credits_history::{
   get_credits_history, CreditHistoryEntry, GetCreditsHistoryArgs,
 };
@@ -54,11 +55,11 @@ pub async fn run(state: &KinoviWebState, args: AuditCreditsArgs) -> anyhow::Resu
   let account_label = args.account.as_deref().unwrap_or(&state.cookies_env);
   let session = KinoviWebSession::from_cookies_string(state.cookies.clone());
 
-  let file_is_new = std::fs::metadata(&args.out).map(|m| m.len() == 0).unwrap_or(true);
-  let mut out = OpenOptions::new().create(true).append(true).open(&args.out)
+  let file_is_new = tokio::fs::metadata(&args.out).await.map(|m| m.len() == 0).unwrap_or(true);
+  let mut out = OpenOptions::new().create(true).append(true).open(&args.out).await
     .map_err(|err| anyhow!("Cannot open {}: {}", args.out, err))?;
   if file_is_new {
-    writeln!(out, "account,entry_id,created_at,entry_type,credit_delta,order_id,product_name")?;
+    out.write_all(b"account,entry_id,created_at,entry_type,credit_delta,order_id,product_name\n").await?;
   }
 
   let mut offset = args.offset;
@@ -86,14 +87,16 @@ pub async fn run(state: &KinoviWebState, args: AuditCreditsArgs) -> anyhow::Resu
     let newest_day = page.entries.first().map(|e| day_of(e)).unwrap_or_default();
     let oldest_day = page.entries.last().map(|e| day_of(e)).unwrap_or_default();
 
+    let mut page_rows: Vec<u8> = Vec::new();
     for entry in &page.entries {
-      write_entry_row(&mut out, account_label, entry)?;
+      write_entry_row(&mut page_rows, account_label, entry)?;
       rows += 1;
       let tally = type_tallies.entry(entry.entry_type.as_str().to_string()).or_insert((0, 0));
       tally.0 += 1;
       tally.1 += entry.credit_delta;
     }
-    out.flush()?;
+    out.write_all(&page_rows).await?;
+    out.flush().await?;
 
     if page_number % 25 == 0 || page_number == 1 {
       info!(

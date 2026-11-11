@@ -258,7 +258,19 @@ async fn get_raw_media_files_by_tokens(
     )
   };
 
-  query_builder.push(token_predicate(media_file_tokens));
+  // NB: Bind the tokens rather than interpolating them. Media tokens are caller-supplied text, and
+  // `MediaFileToken` accepts arbitrary strings, so building the IN list by string formatting let a
+  // request change the SELECT expression.
+  if media_file_tokens.is_empty() {
+    // NB: `IN ()` is a syntax error; `IN (NULL)` matches nothing, which is what an empty request asks
+    // for.
+    query_builder.push("NULL");
+  } else {
+    let mut separated = query_builder.separated(", ");
+    for token in media_file_tokens {
+      separated.push_bind(token.as_str());
+    }
+  }
 
   query_builder.push(")");
 
@@ -277,16 +289,6 @@ async fn get_raw_media_files_by_tokens(
   };
 
   Ok(results)
-}
-
-/// Return a comma-separated predicate, since SQLx does not yet support WHERE IN(?) for Vec<T>, etc.
-/// Issue: https://github.com/launchbadge/sqlx/issues/875
-fn token_predicate(tokens: &[MediaFileToken]) -> String {
-  tokens.iter()
-      .map(|ty| ty.as_str())
-      .map(|ty| format!("\"{}\"", ty))
-      .collect::<Vec<String>>()
-      .join(", ")
 }
 
 fn map_to_media_files(dataset:Vec<RawMediaFileJoinUser>) -> Vec<MediaFilesByTokensRecord> {

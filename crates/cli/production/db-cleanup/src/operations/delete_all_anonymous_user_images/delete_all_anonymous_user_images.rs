@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::thread;
 use std::time::Duration;
 
 use log::info;
@@ -62,7 +61,7 @@ pub async fn delete_all_anonymous_user_images(_args: &Args, mysql: &Pool<MySql>)
 
     maybe_offset = media_files.last_id.map(|id| id as usize);
 
-    thread::sleep(Duration::from_millis(1000));
+    tokio::time::sleep(Duration::from_millis(1000)).await;
   }
 
   Ok(())
