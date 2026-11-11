@@ -46,6 +46,8 @@ interface LibraryTagsState {
   setContextMenu: (
     menu: { tagToken: string; x: number; y: number } | null,
   ) => void;
+  /** Drop every cached tag and its media (account change). */
+  resetAccountState: () => void;
 }
 
 // ── Singletons + mappers ────────────────────────────────────────────────────
@@ -81,6 +83,17 @@ export const useLibraryTagsStore = create<LibraryTagsState>((set, get) => ({
   tagHasMore: {},
   renameTarget: null,
   contextMenu: null,
+
+  resetAccountState: () => {
+    for (const key of Object.keys(tagCursors)) delete tagCursors[key];
+    set({
+      tags: [],
+      tagsLoaded: false,
+      activeTagToken: null,
+      tagMediaItems: {},
+      tagHasMore: {},
+    });
+  },
 
   loadTags: async () => {
     try {

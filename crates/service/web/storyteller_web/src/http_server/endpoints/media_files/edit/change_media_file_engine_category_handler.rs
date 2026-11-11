@@ -77,6 +77,14 @@ pub async fn change_media_file_engine_category_handler(
         }
     };
 
+    let is_creator = media_file.maybe_creator_user_token
+        .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
+
+    if !is_creator && !is_mod {
+        warn!("user is not allowed to edit this media_file: {:?}", user_session.user_token);
+        return Err(CommonWebError::NotAuthorized);
+    }
+
     match media_file.maybe_engine_category {
         None => return Err(CommonWebError::BadInputWithSimpleMessage(
             "No engine category on existing object".to_string())),
@@ -92,14 +100,6 @@ pub async fn change_media_file_engine_category_handler(
     if !is_valid_transition(request.engine_category) {
         return Err(CommonWebError::BadInputWithSimpleMessage(
             format!("Invalid engine category: {:?}", request.engine_category)));
-    }
-
-    let is_creator = media_file.maybe_creator_user_token
-        .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
-
-    if !is_creator && !is_mod {
-        warn!("user is not allowed to edit this media_file: {:?}", user_session.user_token);
-        return Err(CommonWebError::NotAuthorized);
     }
 
     let query_result = update_media_file_engine_category(

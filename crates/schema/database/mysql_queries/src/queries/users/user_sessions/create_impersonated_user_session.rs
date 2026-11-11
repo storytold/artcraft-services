@@ -30,7 +30,8 @@ pub async fn create_impersonated_user_session<'a, 'c, E>(
 {
   let session_token = UserSessionToken::generate();
 
-  sqlx::query!(
+  // NB: runtime query; FOR UPDATE takes the user's row lock so this insert is ordered against a password reset.
+  let result = sqlx::query(
     r#"
 INSERT INTO user_sessions (
   token,
@@ -40,17 +41,23 @@ INSERT INTO user_sessions (
   maybe_creation_type,
   expires_at
 )
-VALUES (?, ?, ?, ?, ?, ?)
-    "#,
-    session_token.as_str(),
-    args.user_token.as_str(),
-    args.impersonator_user_token.as_str(),
-    args.ip_address,
-    UserWebSessionCreationType::Impersonation.to_str(),
-    args.expires_at,
-  )
+SELECT ?, token, ?, ?, ?, ?
+FROM users
+WHERE token = ?
+FOR UPDATE
+    "#)
+    .bind(session_token.as_str())
+    .bind(args.impersonator_user_token.as_str())
+    .bind(args.ip_address)
+    .bind(UserWebSessionCreationType::Impersonation.to_str())
+    .bind(args.expires_at)
+    .bind(args.user_token.as_str())
     .execute(args.mysql_executor)
     .await?;
+
+  if result.rows_affected() == 0 {
+    return Err(sqlx::Error::RowNotFound);
+  }
 
   Ok(session_token)
 }

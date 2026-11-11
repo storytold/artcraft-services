@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::io::{BufReader, Cursor};
+use std::io::{BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 
 use log::{debug, error, info};
@@ -20,12 +20,20 @@ static ALLOWED_FRAME_EXTENSIONS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
 
 const TOO_MANY_FILES_COUNT: usize = 8_000;
 
+/// Largest single decompressed frame we will write to disk.
+const MAX_FRAME_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Largest total of decompressed frames per upload. Compressed size says nothing about this.
+const MAX_TOTAL_EXTRACTED_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+
 #[derive(Debug)]
 pub enum ExtractFramesError {
   InvalidArchive,
   NoImageFiles,
   TooFewImageFiles,
   TooManyFiles,
+  /// Decompressed contents exceed the per-frame or per-upload budget.
+  TooLarge,
   ExtractionError,
   UploadError,
   FileError,
@@ -51,6 +59,7 @@ pub fn extract_frames_from_zip<P: AsRef<Path>>(
   info!("Relevant zip file entry count: {:?}", entries.len());
 
   let mut maybe_frame_type = None;
+  let mut remaining_bytes = MAX_TOTAL_EXTRACTED_BYTES;
 
   for entry in entries.iter() {
     debug!("Entry: {:?}", entry);
@@ -87,11 +96,12 @@ pub fn extract_frames_from_zip<P: AsRef<Path>>(
           ExtractFramesError::ExtractionError
         })?;
 
-    std::io::copy(&mut file, &mut output_file)
+    let written = copy_within_budget(&mut file, &mut output_file, remaining_bytes)
         .map_err(|err| {
           error!("Problem copying file bytes {:?} : {:?}", output_path, err);
-          ExtractFramesError::ExtractionError
+          err
         })?;
+    remaining_bytes -= written;
 
     // Lazy heuristic to determine the frame type.
     if maybe_frame_type.is_none()  {
@@ -104,6 +114,19 @@ pub fn extract_frames_from_zip<P: AsRef<Path>>(
   }
 
   Ok(maybe_frame_type.unwrap_or(FrameType::Jpg))
+}
+
+/// Copy one decompressed member, failing as soon as it exceeds `MAX_FRAME_BYTES` or
+/// `remaining_bytes`. Returns the bytes written.
+fn copy_within_budget<R: Read, W: Write>(reader: &mut R, writer: &mut W, remaining_bytes: u64) -> Result<u64, ExtractFramesError> {
+  let limit = MAX_FRAME_BYTES.min(remaining_bytes);
+  // NB: Read one byte past the limit so an oversized member is detected rather than truncated.
+  let written = std::io::copy(&mut reader.take(limit + 1), writer)
+      .map_err(|_err| ExtractFramesError::ExtractionError)?;
+  if written > limit {
+    return Err(ExtractFramesError::TooLarge);
+  }
+  Ok(written)
 }
 
 #[derive(Debug, Clone)]
@@ -167,4 +190,30 @@ fn get_relevant_zip_entries(archive: &mut ZipArchive<BufReader<Cursor<&[u8]>>>) 
   }
 
   Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn frame_at_the_limit_is_copied() {
+    let mut sink = std::io::sink();
+    let mut input = std::io::repeat(0).take(MAX_FRAME_BYTES);
+    assert_eq!(copy_within_budget(&mut input, &mut sink, u64::MAX).unwrap(), MAX_FRAME_BYTES);
+  }
+
+  #[test]
+  fn frame_over_the_limit_is_rejected() {
+    let mut sink = std::io::sink();
+    let mut input = std::io::repeat(0).take(MAX_FRAME_BYTES + 1);
+    assert!(matches!(copy_within_budget(&mut input, &mut sink, u64::MAX), Err(ExtractFramesError::TooLarge)));
+  }
+
+  #[test]
+  fn total_budget_is_enforced() {
+    let mut sink = std::io::sink();
+    let mut input = std::io::repeat(0).take(11);
+    assert!(matches!(copy_within_budget(&mut input, &mut sink, 10), Err(ExtractFramesError::TooLarge)));
+  }
 }

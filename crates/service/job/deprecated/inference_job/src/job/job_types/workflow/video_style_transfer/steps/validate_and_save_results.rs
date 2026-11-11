@@ -1,3 +1,4 @@
+use crate::util::debug_sleep::debug_sleep_duration;
 use std::thread;
 use std::time::Duration;
 
@@ -155,7 +156,7 @@ pub async fn validate_and_save_results(args: SaveResultsArgs<'_>) -> Result<Medi
 
   if let Some(sleep_millis) = args.comfy_args.sleep_millis {
     info!("Sleeping for millis: {sleep_millis}");
-    thread::sleep(Duration::from_millis(sleep_millis));
+    thread::sleep(debug_sleep_duration(sleep_millis));
   }
 
   // ==================== SAVE RECORDS ==================== //

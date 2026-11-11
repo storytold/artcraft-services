@@ -9,7 +9,7 @@ import {
 import { DynamicIcon } from "@storyteller/icons";
 import { Button } from "@storyteller/ui-button";
 import { Input } from "@storyteller/ui-input";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PasswordResetApi, BillingApi } from "@storyteller/api";
 
@@ -21,12 +21,25 @@ import { refreshSession } from "../../lib/session";
 
 const VerifyReset = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Pre-fill token from URL query param if present
   const tokenFromUrl = searchParams.get("token") || "";
 
   const [verificationCode, setVerificationCode] = useState(tokenFromUrl);
+
+  // The reset token is a bearer credential. Once it is in component state,
+  // drop it from the address bar so it does not linger in history, referrers,
+  // or page URLs reported to third parties.
+  useEffect(() => {
+    if (!searchParams.has("token")) {
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("token");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);

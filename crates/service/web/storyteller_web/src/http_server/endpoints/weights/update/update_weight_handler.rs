@@ -155,6 +155,15 @@ pub async fn update_weight_handler(
                 CommonWebError::from_anyhow_error(err)
             })?;
 
+            // Another user's private image must not become a (public) cover.
+            if let Some(media_file) = maybe_media_file.as_ref() {
+                let is_owner = media_file.maybe_creator_user_token.as_ref()
+                    .is_some_and(|t| t.as_str() == user_session.user_token.as_str());
+                if media_file.creator_set_visibility == Visibility::Private && !is_owner {
+                    return Err(CommonWebError::NotFound);
+                }
+            }
+
             let maybe_media_file_type = maybe_media_file.map(|media_file| media_file.media_type);
 
             match maybe_media_file_type {

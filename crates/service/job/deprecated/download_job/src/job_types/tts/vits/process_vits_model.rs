@@ -5,7 +5,6 @@ use log::{error, info, warn};
 use tempdir::TempDir;
 
 use enums::by_table::tts_models::tts_model_type::TtsModelType;
-use enums::common::visibility::Visibility;
 use errors::AnyhowResult;
 use filesys::check_file_exists::check_file_exists;
 use filesys::file_size::file_size;
@@ -141,7 +140,7 @@ pub async fn process_vits_model<'a, 'b>(
     file_size_bytes,
     creator_user_token: &job.creator_user_token,
     creator_ip_address: &job.creator_ip_address,
-    creator_set_visibility: Visibility::Public, // TODO: All models default to public at start
+    creator_set_visibility: job.creator_set_visibility,
     private_bucket_hash: &private_bucket_hash,
     private_bucket_object_name: "", // TODO: This should go away.
     maybe_model_token: None, // NB: This parameter is for internal testing only

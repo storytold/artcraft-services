@@ -49,6 +49,16 @@ const useAnimationLibraryStore = create<AnimationLibraryState>(() => ({
   userNextPage: undefined,
 }));
 
+// The user list belongs to one account. Hosts call this when the signed-in
+// identity changes so the next account never sees the previous one's clips.
+export const clearAnimationLibraryAccountState = (): void => {
+  useAnimationLibraryStore.setState({
+    userAnimations: undefined,
+    userFetchStatus: FetchStatus.READY,
+    userNextPage: undefined,
+  });
+};
+
 const hasMorePages = (page: Pagination | undefined): boolean =>
   !!page && page.current + 1 < page.total_page_count;
 

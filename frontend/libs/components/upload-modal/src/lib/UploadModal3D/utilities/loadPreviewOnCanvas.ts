@@ -3,7 +3,12 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 import { SplatFileType, SplatMesh } from "@sparkjsdev/spark";
-import { NodeHierarchyHelper, disposeObject3D } from "@storyteller/ui-viewer-3d";
+import {
+  NodeHierarchyHelper,
+  applyGltfBudget,
+  assertSpzWithinBudget,
+  disposeObject3D,
+} from "@storyteller/ui-viewer-3d";
 
 interface LoaderInterface {
   file: File;
@@ -210,7 +215,9 @@ export const loadPreviewOnCanvas = ({
   } else if (file.name.endsWith(".spz")) {
     file
       .arrayBuffer()
-      .then((arrayBuffer) => {
+      .then(async (arrayBuffer) => {
+        // The SPZ decoder sizes its storage from the header's splat count.
+        await assertSpzWithinBudget(arrayBuffer);
         if (cancelled) return;
         splatMesh = new SplatMesh({
           fileBytes: arrayBuffer,
@@ -281,7 +288,9 @@ const glbLoader = ({
   onModelInfo,
   isCancelled,
 }: LoaderInterface) => {
-  const loader = new GLTFLoader();
+  // Rejects accessor counts that would decode past the memory budget before
+  // GLTFLoader allocates for them.
+  const loader = applyGltfBudget(new GLTFLoader());
   loader.load(
     fileUrl,
     (data) => {
@@ -312,13 +321,7 @@ const glbLoader = ({
       // so a bones-only fallback found nothing for exactly the models that
       // need it. Only the re-parented GLB roots are sampled; the preview
       // lights would wildly inflate the box.
-      const box = new THREE.Box3();
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.geometry.computeBoundingBox();
-          box.expandByObject(object);
-        }
-      });
+      const box = computeMeshBounds(scene);
       if (box.isEmpty()) {
         scene.updateMatrixWorld(true);
         const point = new THREE.Vector3();
@@ -463,3 +466,42 @@ const imagePlaneLoader = ({
     message: "Preview should be available",
   });
 };
+
+// World-space bounds of every mesh, line, and points object under `root`, in one pass. Each distinct
+// geometry's local bounds are computed once and reused by every mesh that
+// shares it, and each mesh is visited once: Box3.expandByObject recurses
+// into children, so calling it per mesh inside a traversal re-walked whole
+// subtrees, and recomputing shared geometry bounds per instance rescanned
+// the same vertices over and over.
+export function computeMeshBounds(root: THREE.Object3D): THREE.Box3 {
+  // Also refresh ancestors so a moved parent is not read from a stale matrixWorld.
+  root.updateWorldMatrix(true, true);
+  const box = new THREE.Box3();
+  const local = new THREE.Box3();
+  const computed = new Set<THREE.BufferGeometry>();
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points)) return;
+    const renderable = object as (THREE.Mesh | THREE.Line | THREE.Points) & {
+      boundingBox?: THREE.Box3 | null;
+      computeBoundingBox?: () => void;
+    };
+    if (renderable.boundingBox !== undefined && renderable.computeBoundingBox) {
+      // Skinned/instanced meshes keep an object-level box (per object).
+      if (renderable.boundingBox === null) renderable.computeBoundingBox();
+      if (!renderable.boundingBox) return;
+      local.copy(renderable.boundingBox);
+    } else {
+      const geometry = renderable.geometry as THREE.BufferGeometry | undefined;
+      if (!geometry) return;
+      if (!computed.has(geometry)) {
+        geometry.computeBoundingBox();
+        computed.add(geometry);
+      }
+      if (!geometry.boundingBox) return;
+      local.copy(geometry.boundingBox);
+    }
+    local.applyMatrix4(renderable.matrixWorld);
+    box.union(local);
+  });
+  return box;
+}
