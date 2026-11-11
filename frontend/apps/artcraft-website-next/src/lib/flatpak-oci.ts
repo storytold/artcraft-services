@@ -1,3 +1,4 @@
+import { ARTCRAFT_STUDIO_RELEASE } from "./artcraft-studio";
 import { createHash } from "node:crypto";
 import {
   CRAFTING_APPS,
@@ -90,6 +91,11 @@ function buildImagesForTarget(appId: string, release: CraftRelease): FlatpakOciI
       Labels: { "org.flatpak.ref": ref },
     };
   });
+}
+
+/** The registry the index tells Flatpak to pull images from, as reported in `Registry`. */
+export function getFlatpakOciRegistryOrigin(): string {
+  return registryUrl().origin;
 }
 
 function registryUrl(): URL {
@@ -329,9 +335,9 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
     });
   }
 
+  items.push({ repoName: "storytold/artcraft", appId: "ai.artcraft.app", release: ARTCRAFT_STUDIO_RELEASE });
 
   for (const app of CRAFTING_APPS) {
-    if (app.slug === "craft-anything" || app.slug === "texturecraft") continue;
     const release = craftAppRelease(app);
     if (release) {
       items.push({
@@ -343,6 +349,25 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
   }
 
   return items;
+}
+
+/**
+ * Manifest digests the index currently publishes for an OCI repository, or null if the repository
+ * is not part of the ArtCraft catalog. Signature lookaside requests are answered only for these
+ * digests, so the endpoint never signs an image the index does not advertise.
+ */
+export async function getFlatpakOciImageDigests(repository: string): Promise<string[] | null> {
+  const item = getFlatpakCatalogItems().find((candidate) => candidate.repoName === repository);
+  if (!item?.release) {
+    return null;
+  }
+  const images = await Promise.all(
+    buildImagesForTarget(item.appId, item.release).map(async (image) => {
+      const resolved = await fetchImage(repository, image.Tags[0], image.Labels["org.flatpak.ref"]);
+      return resolved.digest;
+    }),
+  );
+  return images;
 }
 
 /** Return the catalogued Flatpak app IDs without contacting the OCI registry. */

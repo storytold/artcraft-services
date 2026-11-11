@@ -188,7 +188,7 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
   let third_party_url_redirector = ThirdPartyUrlRedirector::new(server_environment);
 
   // NB: Docker creates this file within container builds.
-  let build_sha = std::fs::read_to_string("/GIT_SHA")
+  let build_sha = tokio::fs::read_to_string("/GIT_SHA").await
     .unwrap_or(String::from("unknown"))
     .trim()
     .to_string();
