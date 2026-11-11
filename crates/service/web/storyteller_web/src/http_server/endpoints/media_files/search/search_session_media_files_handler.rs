@@ -27,6 +27,7 @@ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_m
 use crate::http_server::endpoints::media_files::helpers::get_scoped_engine_categories::get_scoped_engine_categories;
 use crate::http_server::endpoints::media_files::helpers::get_scoped_media_classes::get_scoped_media_classes;
 use crate::http_server::endpoints::media_files::helpers::get_scoped_media_types::get_scoped_media_types;
+use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
 use crate::http_server::web_utils::bucket_urls::bucket_url_string_from_media_path::bucket_url_string_from_media_path;
 use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::state::server_state::ServerState;
@@ -167,28 +168,9 @@ pub async fn search_session_media_files_handler(
     server_state: web::Data<Arc<ServerState>>
 ) -> Result<Json<SearchMediaFilesSuccessResponse>, CommonWebError>
 {
-  // NB(bt,2024-07-01): This isn't great. Though we HMAC our cookies, this could
-  // result in bad situations where we don't invalidate sessions, etc. We're only
-  // doing this to prevent the database round trip on a fast "lookup" API.
-  let session_result = server_state
-      .session_cookie_manager
-      .decode_session_payload_from_request(&http_request);
-
-  let session = match session_result {
-    Ok(Some(session)) => session,
-    Ok(None) => {
-      return Err(CommonWebError::NotAuthorized);
-    },
-    Err(err) => {
-      warn!("Session decode error: {:?}", err);
-      return Err(CommonWebError::from_error(err));
-    }
-  };
-
-  let user_token = match session.maybe_user_token {
-    Some(user_token) => UserToken::new_from_str(&user_token),
-    None => return Err(CommonWebError::NotAuthorized),
-  };
+  // Resolve the session through the shared checker so revoked, expired and banned sessions are rejected.
+  let session = require_user_session(&http_request, &server_state.session_checker, &server_state.mysql_pool).await?;
+  let user_token = session.user_token;
 
   let mut maybe_filter_media_types = get_scoped_media_types(query.filter_media_type.as_deref());
   let mut maybe_filter_media_classes  = get_scoped_media_classes(query.filter_media_classes.as_deref());
