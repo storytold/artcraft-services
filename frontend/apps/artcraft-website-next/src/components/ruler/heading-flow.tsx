@@ -543,7 +543,7 @@ export default function HeadingFlow({
 
         // Hit box hugs the word wherever it is; a fully invisible word
         // (the hero before its entrance) must not capture clicks.
-        if (refs.hit && isFinite(minX)) {
+        if (refs.hit && Number.isFinite(minX)) {
           refs.hit.style.left = `${minX - 2}px`;
           refs.hit.style.top = `${minY - 2}px`;
           refs.hit.style.width = `${maxX - minX + 4}px`;

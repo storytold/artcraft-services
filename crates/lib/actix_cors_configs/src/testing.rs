@@ -54,6 +54,19 @@ pub (crate) async fn assert_netlify_project(cors: &Cors, netlify_hostname: &str)
   assert_origin_invalid(cors, &format!("https://evil-{}", netlify_hostname)).await;
 }
 
+/// Assert that `cors` allows a Cloudflare Pages project's main, branch and
+/// preview hosts, and rejects other projects' hosts.
+pub (crate) async fn assert_cloudflare_pages_project(cors: &Cors, pages_hostname: &str) {
+  assert_origin_ok(cors, &format!("https://{}", pages_hostname)).await;
+  assert_origin_ok(cors, &format!("https://my-branch.{}", pages_hostname)).await;
+  assert_origin_ok(cors, &format!("https://deploy-preview-123.{}", pages_hostname)).await;
+
+  assert_origin_invalid(cors, "https://unrelated-project.pages.dev").await;
+  assert_origin_invalid(cors, "https://deploy-preview-123.unrelated-project.pages.dev").await;
+  assert_origin_invalid(cors, &format!("https://{}.evil.example", pages_hostname)).await;
+  assert_origin_invalid(cors, &format!("https://evil-{}", pages_hostname)).await;
+}
+
 pub (crate) async fn assert_origin_ok(cors: &Cors, hostname: &str) {
   let response = make_test_request(cors, hostname).await;
   asserting(&format!("Hostname {} is valid", hostname))

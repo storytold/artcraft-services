@@ -3,6 +3,8 @@
 .dockerignore
 .env
 .env-secrets
+*-secrets.env
+secrets/
 .git
 .idea/
 Dockerfile

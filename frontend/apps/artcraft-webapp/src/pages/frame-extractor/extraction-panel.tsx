@@ -108,7 +108,7 @@ export const ExtractionPanel = ({
                         onNumFramesChange(
                           Math.max(
                             1,
-                            Math.min(50, parseInt(e.target.value) || 1),
+                            Math.min(50, Number.parseInt(e.target.value) || 1),
                           ),
                         )
                       }
@@ -129,7 +129,7 @@ export const ExtractionPanel = ({
                         onSpacingChange(
                           Math.max(
                             1,
-                            Math.min(10000, parseInt(e.target.value) || 1),
+                            Math.min(10000, Number.parseInt(e.target.value) || 1),
                           ),
                         )
                       }

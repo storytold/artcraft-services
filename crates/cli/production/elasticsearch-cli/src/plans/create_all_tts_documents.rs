@@ -1,4 +1,4 @@
-use std::fs::read_to_string;
+use tokio::fs::read_to_string;
 
 use elasticsearch::{BulkOperation, BulkParts, Elasticsearch};
 use log::{error, info};
@@ -90,7 +90,7 @@ async fn create_tts_model_index(client: &Elasticsearch, _delete: bool) -> Anyhow
 
   info!("Reading index file: {:?}", index_path);
 
-  let index_definition = read_to_string(index_path)?;
+  let index_definition = read_to_string(index_path).await?;
 
   create_index_if_not_exists(CreateIndexArgs {
     client,

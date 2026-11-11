@@ -72,6 +72,7 @@ const ALLOWLIST: &[(AddOrigins, Env, &str)] = &[
 
   // add_artcraft_webapp
   (add_artcraft_webapp,           Both,            "https://app.getartcraft.com"),
+  (add_artcraft_webapp,           Both,            "https://app-new.getartcraft.com"),
 
   // add_artcraft_website
   (add_artcraft_website,          Both,            "https://getartcraft.com"),
@@ -207,6 +208,7 @@ const MIGRATED_ORIGINS: &[&str] = &[
   "https://getartcraft.com",
   "https://www.getartcraft.com",
   "https://app.getartcraft.com",
+  "https://app-new.getartcraft.com",
   "https://desktop.getartcraft.com",
   "https://2d.getartcraft.com",
   "https://3d.getartcraft.com",

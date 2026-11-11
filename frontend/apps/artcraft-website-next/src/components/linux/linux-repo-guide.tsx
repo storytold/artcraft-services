@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ChevronDownIcon,
@@ -139,9 +139,80 @@ sudo pacman -Syu artcraft-launcher pdfcraft`,
   },
 };
 
-export function LinuxRepoGuide() {
+type RepoSigning = { fingerprint: string };
+
+/** Setup commands that import the repository key before touching the repository itself. */
+function signedSetupCommand(id: string, fingerprint: string): string | null {
+  if (id === "apt") {
+    return `# Import the ArtCraft signing key (fingerprint ${fingerprint})
+sudo install -d -m 755 /etc/apt/keyrings
+sudo curl -fsSL https://getartcraft.com/keys/artcraft.gpg -o /etc/apt/keyrings/artcraft.gpg
+# apt's _apt user must be able to read the keyring, whatever the current umask
+sudo chmod 644 /etc/apt/keyrings/artcraft.gpg
+
+# Add the ArtCraft repository source
+sudo curl -fsSL https://getartcraft.com/apt/artcraft.sources -o /etc/apt/sources.list.d/artcraft.sources
+
+# Update package cache and install; apt now verifies the signed Release
+sudo apt update
+sudo apt install artcraft-launcher pdfcraft`;
+  }
+  if (id === "pacman") {
+    return `# Import the ArtCraft signing key and trust it locally (fingerprint ${fingerprint})
+sudo pacman-key --init
+sudo curl -fsSL https://getartcraft.com/keys/artcraft.asc -o /tmp/artcraft.asc
+sudo pacman-key --add /tmp/artcraft.asc
+sudo pacman-key --lsign-key ${fingerprint}
+
+# Download the ArtCraft repository configuration
+sudo curl -fsSL https://getartcraft.com/arch/artcraft.conf -o /etc/pacman.d/artcraft.conf
+
+# Enable it in pacman.conf (safe to run more than once)
+if ! grep -Fxq 'Include = /etc/pacman.d/artcraft.conf' /etc/pacman.conf; then
+  echo 'Include = /etc/pacman.d/artcraft.conf' | sudo tee -a /etc/pacman.conf
+fi
+
+# Synchronize repositories and install apps; pacman now verifies the signed database
+sudo pacman -Syu artcraft-launcher pdfcraft`;
+  }
+  return null;
+}
+
+const SIGNED_RAW_FILES: Record<string, { name: string; href: string; description: string }[]> = {
+  apt: [
+    { name: "artcraft.gpg", href: "/keys/artcraft.gpg", description: "Repository signing key (binary keyring)" },
+    { name: "InRelease", href: "/apt/dists/stable/InRelease", description: "Signed repository index" },
+  ],
+  dnf: [
+    { name: "artcraft.asc", href: "/keys/artcraft.asc", description: "Repository signing key (armored)" },
+    { name: "repomd.xml.asc", href: "/rpm/repodata/repomd.xml.asc", description: "Signature over repomd.xml" },
+  ],
+  zypper: [
+    { name: "artcraft.asc", href: "/keys/artcraft.asc", description: "Repository signing key (armored)" },
+    { name: "repomd.xml.asc", href: "/rpm/repodata/repomd.xml.asc", description: "Signature over repomd.xml" },
+  ],
+  pacman: [
+    { name: "artcraft.asc", href: "/keys/artcraft.asc", description: "Repository signing key (armored)" },
+    { name: "artcraft.db.sig", href: "/arch/x86_64/artcraft.db.sig", description: "Signature over the sync database" },
+  ],
+};
+
+export function LinuxRepoGuide({ signing = null }: { readonly signing?: RepoSigning | null }) {
   const [activeTab, setActiveTab] = useState<string>("flatpak");
-  const config = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.flatpak;
+  // Flatpak authenticates through the signed OCI lookaside rather than a signed index, so only the
+  // package-manager tabs get this notice.
+  const signedIndex = Boolean(SIGNED_RAW_FILES[activeTab]);
+  const config = useMemo(() => {
+    const base = DISTRO_CONFIGS[activeTab] ?? DISTRO_CONFIGS.flatpak;
+    if (!signing) {
+      return base;
+    }
+    const command = signedSetupCommand(base.id, signing.fingerprint);
+    const extraFiles = SIGNED_RAW_FILES[base.id] ?? [];
+    return command
+      ? { ...base, setupCommand: command, rawFiles: [...extraFiles, ...base.rawFiles] }
+      : { ...base, rawFiles: [...extraFiles, ...base.rawFiles] };
+  }, [activeTab, signing]);
 
   return (
     <div className="flex flex-col">
@@ -248,16 +319,22 @@ export function LinuxRepoGuide() {
             checksums published in the repository index. Downloads are streamed directly from official
             GitHub Releases via HTTP 302 redirects, verifying binary integrity against the repository catalog.
           </p>
-          <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
-            <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
-            <span>
-              {"During public repository preview, repositories use unsigned preview settings ("}
-              <code className="font-mono text-ink">[trusted=yes]</code>
-              {" for APT and "}
-              <code className="font-mono text-ink">gpgcheck=0</code>
-              {" for RPM/DNF). Downloads are verified against repository index digests; cryptographic index signing will be enabled when official release GPG keys are published."}
-            </span>
-          </div>
+          {signedIndex && signing && (
+            <div className="mt-6 flex items-start gap-2.5 border border-line bg-bg-sunken p-3.5 text-xs text-muted">
+              <InfoIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+              <span>
+                {"The APT, RPM and pacman indexes are signed with the ArtCraft Linux Release Signing Key ("}
+                <code className="font-mono text-ink">{signing.fingerprint}</code>
+                {"): apt verifies "}
+                <code className="font-mono text-ink">InRelease</code>
+                {", dnf and zypper verify "}
+                <code className="font-mono text-ink">repomd.xml.asc</code>
+                {", and pacman verifies "}
+                <code className="font-mono text-ink">artcraft.db.sig</code>
+                {". Packages are authenticated through the digests inside the signed index."}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col bg-bg p-6 md:p-10">

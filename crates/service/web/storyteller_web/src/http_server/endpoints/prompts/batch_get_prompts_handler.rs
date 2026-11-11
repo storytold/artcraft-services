@@ -10,10 +10,12 @@ use artcraft_api_defs::prompts::batch_get_prompts::{
 use artcraft_api_defs::prompts::get_prompt::GetPromptImageContextItem;
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use enums::by_table::prompt_context_items::prompt_context_semantic_type::PromptContextSemanticType;
+use enums::common::visibility::Visibility;
 use log::warn;
 use mysql_queries::queries::prompt_context_items::batch_list_prompt_context_items::batch_list_prompt_context_items;
 use mysql_queries::queries::prompts::batch_get_prompts::batch_get_prompts;
 use tokens::tokens::prompts::PromptToken;
+use tokens::tokens::users::UserToken;
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::common_responses::media::media_links_builder::MediaLinksBuilder;
@@ -66,6 +68,23 @@ pub async fn batch_get_prompts_handler(
 
   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
 
+  let maybe_user_session = server_state
+    .session_checker
+    .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
+    .await
+    .map_err(|e| {
+      warn!("Session checker error: {:?}", e);
+      CommonWebError::from(e)
+    })?;
+
+  // NB: Same moderator convention as `get_prompt_handler`.
+  let is_moderator = maybe_user_session
+    .as_ref()
+    .map(|session| session.can_ban_users)
+    .unwrap_or(false);
+
+  let maybe_viewer_user_token = maybe_user_session.as_ref().map(|session| &session.user_token);
+
   // Batch query: fetch all prompts in one query
   let results = batch_get_prompts(&unique_tokens, &mut mysql_connection)
     .await
@@ -98,6 +117,17 @@ pub async fn batch_get_prompts_handler(
       | PromptContextSemanticType::ImgrefBg
       | PromptContextSemanticType::VidRef => {} // Include
       _ => continue, // Ignore
+    }
+
+    // NB: A prompt records the media it was built from, but that media keeps its own visibility:
+    // a private reference image must not be reachable through a prompt that used it.
+    if !may_read_context_media(
+      item.creator_set_visibility,
+      item.maybe_creator_user_token.as_ref(),
+      maybe_viewer_user_token,
+      is_moderator,
+    ) {
+      continue;
     }
 
     let bucket_path = MediaFileBucketPath::from_object_hash(
@@ -155,4 +185,36 @@ pub async fn batch_get_prompts_handler(
     success: true,
     prompts,
   }))
+}
+
+/// Private context media is readable only by its creator and by moderators.
+fn may_read_context_media(
+  visibility: Visibility,
+  maybe_creator_user_token: Option<&UserToken>,
+  maybe_viewer_user_token: Option<&UserToken>,
+  is_moderator: bool,
+) -> bool {
+  if visibility != Visibility::Private || is_moderator {
+    return true;
+  }
+  matches!((maybe_creator_user_token, maybe_viewer_user_token), (Some(creator), Some(viewer)) if creator == viewer)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn private_media_is_only_readable_by_creator_or_moderator() {
+    let creator = UserToken::new_from_str("U:creator");
+    let other = UserToken::new_from_str("U:other");
+
+    assert!(may_read_context_media(Visibility::Public, Some(&creator), None, false));
+    assert!(may_read_context_media(Visibility::Private, Some(&creator), Some(&creator), false));
+    assert!(may_read_context_media(Visibility::Private, Some(&creator), Some(&other), true));
+    assert!(!may_read_context_media(Visibility::Private, Some(&creator), Some(&other), false));
+    assert!(!may_read_context_media(Visibility::Private, Some(&creator), None, false));
+    // No creator on record and no viewer must not count as a match.
+    assert!(!may_read_context_media(Visibility::Private, None, None, false));
+  }
 }
