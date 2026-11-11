@@ -498,51 +498,53 @@ fn extract_fixture_duration_millis(request_line: &str) -> Option<u64> {
   let idx = request_line.find("dur")?;
   let rest = &request_line[idx + 3..];
   let end = rest.find("ms")?;
-  rest[..end].parse().ok()
+  // Bound the ffmpeg work a request line can demand.
+  rest[..end].parse().ok().filter(|millis| *millis <= MAX_FIXTURE_DURATION_MILLIS)
 }
 
-/// A real MP4 of the requested duration, generated with ffmpeg once per
-/// duration and cached on disk for the life of the machine's temp dir.
+const MAX_FIXTURE_DURATION_MILLIS: u64 = 60_000;
+
+/// A real MP4 of the requested duration, generated with ffmpeg once per duration and cached
+/// in memory for the life of the process. ffmpeg writes into a private temp dir that is removed
+/// as soon as the bytes are read, so nothing is left on disk (a `static` TempDir never drops).
 fn fixture_video_bytes(duration_millis: u64) -> Vec<u8> {
+  use std::collections::HashMap;
   use std::sync::Mutex;
-  // Parallel tests race on cache generation; serialize it and land finished
-  // files with an atomic rename so a reader can never see a partial write.
-  static GENERATION_LOCK: Mutex<()> = Mutex::new(());
+  // Parallel tests race on cache generation, so generating under the lock serializes it.
+  static CACHE: Mutex<Option<HashMap<u64, Vec<u8>>>> = Mutex::new(None);
 
-  let cache_dir = std::env::temp_dir().join("artcraft_mysql_testing_fixture_videos");
-  std::fs::create_dir_all(&cache_dir).expect("create fixture video cache dir");
-  let cache_path = cache_dir.join(format!("fixture_{duration_millis}.mp4"));
-
-  if !cache_path.exists() {
-    let _guard = GENERATION_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    if !cache_path.exists() {
-      let scratch_path = cache_dir.join(format!(
-        "fixture_{duration_millis}.partial.{}.mp4",
-        std::process::id(),
-      ));
-      let seconds = duration_millis as f64 / 1_000.0;
-      let status = std::process::Command::new("ffmpeg")
-        .args([
-          "-y",
-          "-f", "lavfi",
-          // Rate INSIDE the filter so the frame count (and thus the container
-          // duration) is exact; output retiming via `-r` pads the duration.
-          "-i", &format!("color=c=black:s=64x64:r=10:d={seconds}"),
-          "-pix_fmt", "yuv420p",
-        ])
-        .arg(&scratch_path)
-        .output()
-        .expect("ffmpeg must be installed to generate fixture videos for database tests");
-      assert!(
-        status.status.success(),
-        "ffmpeg failed generating a {duration_millis}ms fixture video: {}",
-        String::from_utf8_lossy(&status.stderr),
-      );
-      std::fs::rename(&scratch_path, &cache_path).expect("land fixture video");
-    }
+  let mut cache = CACHE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+  let cache = cache.get_or_insert_with(HashMap::new);
+  if let Some(bytes) = cache.get(&duration_millis) {
+    return bytes.clone();
   }
 
-  std::fs::read(&cache_path).expect("read fixture video")
+  // Private (0700, unpredictable name) dir: a predictable shared /tmp path let another local user
+  // plant symlinks that this server would then serve.
+  let dir = tempfile::tempdir().expect("create fixture video dir");
+  let path = dir.path().join("fixture.mp4");
+  let seconds = duration_millis as f64 / 1_000.0;
+  let status = std::process::Command::new("ffmpeg")
+    .args([
+      "-y",
+      "-f", "lavfi",
+      // Rate INSIDE the filter so the frame count (and thus the container
+      // duration) is exact; output retiming via `-r` pads the duration.
+      "-i", &format!("color=c=black:s=64x64:r=10:d={seconds}"),
+      "-pix_fmt", "yuv420p",
+    ])
+    .arg(&path)
+    .output()
+    .expect("ffmpeg must be installed to generate fixture videos for database tests");
+  assert!(
+    status.status.success(),
+    "ffmpeg failed generating a {duration_millis}ms fixture video: {}",
+    String::from_utf8_lossy(&status.stderr),
+  );
+
+  let bytes = std::fs::read(&path).expect("read fixture video");
+  cache.insert(duration_millis, bytes.clone());
+  bytes
 }
 
 /// A ServerState whose only live dependencies are the test MySQL pool and
