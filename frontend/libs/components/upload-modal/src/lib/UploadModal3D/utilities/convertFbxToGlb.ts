@@ -1,5 +1,6 @@
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+import { assertFbxWithinBudget } from "./fbxBudget";
 // `?worker&inline` (see src/vite-env.d.ts): the worker is bundled as
 // self-contained inline code inside this library's output. The
 // `new Worker(new URL(...), import.meta.url)` form breaks CONSUMING builds —
@@ -122,6 +123,9 @@ function convertInWorker(
 }
 
 async function convertOnMainThread(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+  // Same budget as the worker: a file that exhausted the worker must not get
+  // a second, unbounded attempt on the UI thread.
+  await assertFbxWithinBudget(buffer);
   const group = new FBXLoader().parse(buffer, "");
   return new Promise<ArrayBuffer>((resolve, reject) => {
     new GLTFExporter().parse(
