@@ -18,11 +18,13 @@ concurrency:
 jobs:
   sonarcloud:
     # Tracked at @main so org-wide CI improvements propagate without PR churn.
-    uses: storytold/craft-common-actions/.github/workflows/sonarcloud.yml@sonarcloud/sqlx-offline-features
+    uses: storytold/craft-common-actions/.github/workflows/sonarcloud.yml@main
     with:
       # storyteller-web and mysql_queries compile only against the committed .sqlx metadata, and
       # storyteller-web's database tests need a MySQL that CI doesn't have (.claude/rules/testing.md).
       sqlx-offline: true
       cargo-features: storyteller-web/skip_database_tests
       timeout-minutes: 120
-    secrets: inherit
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_CLOUD_PAT: ${{ secrets.SONAR_CLOUD_PAT }}
