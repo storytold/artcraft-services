@@ -268,7 +268,7 @@ interface PageDrawProps {
    * Tailwind class for the full-viewport canvas backdrop (and the base-image
    * selector surface). Defaults to the app's `bg-ui-background`; hosts that
    * embed PageDraw under their own page chrome can pass a matching color (e.g.
-   * the webapp's `bg-[#101014]`).
+   * the webapp's `bg-ui-panel`).
    */
   backgroundClassName?: string;
   /**
@@ -857,7 +857,7 @@ const PageDraw = ({
 
         const subscriberId: string =
           crypto?.randomUUID?.() ??
-          `inpaint-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          `inpaint-${Date.now()}-${Math.random().toString(36).slice(2)}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
 
         adapter.onEnqueueMeta?.({
           prompt,

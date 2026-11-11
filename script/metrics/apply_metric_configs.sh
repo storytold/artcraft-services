@@ -47,7 +47,7 @@ APP_KEY_FILE="secrets/datadog_app_key.txt"
 DRY_RUN=0
 
 # -------- args --------
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
     --site) DD_SITE="$2"; shift 2 ;;
@@ -65,11 +65,11 @@ BASE="https://${DD_SITE}"
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 1; }
 
-if [ ! -s "$API_KEY_FILE" ]; then
+if [[ ! -s "$API_KEY_FILE" ]]; then
   echo "missing or empty API key file: $API_KEY_FILE" >&2
   exit 1
 fi
-if [ ! -s "$APP_KEY_FILE" ]; then
+if [[ ! -s "$APP_KEY_FILE" ]]; then
   cat >&2 <<EOF
 Missing or empty application key file: $APP_KEY_FILE
 
@@ -84,14 +84,14 @@ fi
 DD_API_KEY=$(tr -d '[:space:]' < "$API_KEY_FILE")
 DD_APP_KEY=$(tr -d '[:space:]' < "$APP_KEY_FILE")
 
-if [ ! -d "$CFG_DIR" ]; then
+if [[ ! -d "$CFG_DIR" ]]; then
   echo "no such directory: $CFG_DIR" >&2
   exit 1
 fi
 
 shopt -s nullglob
 files=("$CFG_DIR"/*.json)
-if [ ${#files[@]} -eq 0 ]; then
+if [[ ${#files[@]} -eq 0 ]]; then
   echo "no metric-config JSON files in $CFG_DIR" >&2
   exit 0
 fi
@@ -109,7 +109,7 @@ for file in "${files[@]}"; do
   fi
 
   metric_name=$(jq -r '.metric_name // empty' "$file")
-  if [ -z "$metric_name" ]; then
+  if [[ -z "$metric_name" ]]; then
     echo "   missing `metric_name`, skipping" >&2
     exit_code=1
     continue
@@ -153,7 +153,7 @@ for file in "${files[@]}"; do
       }
     }')
 
-  if [ "$DRY_RUN" -eq 1 ]; then
+  if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "   [dry-run] would upsert tag config for $metric_name"
     echo "$post_payload" | jq '.data.attributes'
     continue
@@ -166,10 +166,10 @@ for file in "${files[@]}"; do
     -H "DD-API-KEY: ${DD_API_KEY}" -H "DD-APPLICATION-KEY: ${DD_APP_KEY}" \
     || echo "000")
 
-  if [ "$probe_status" = "200" ]; then
+  if [[ "$probe_status" = "200" ]]; then
     method="PATCH"
     echo "   updating existing tag config (include_percentiles=$include_pct)"
-  elif [ "$probe_status" = "404" ]; then
+  elif [[ "$probe_status" = "404" ]]; then
     method="POST"
     echo "   creating tag config (include_percentiles=$include_pct)"
   else
@@ -182,7 +182,7 @@ for file in "${files[@]}"; do
   rm -f "$probe_file"
 
   payload="$post_payload"
-  [ "$method" = "PATCH" ] && payload="$patch_payload"
+  [[ "$method" = "PATCH" ]] && payload="$patch_payload"
 
   response_file=$(mktemp)
   curl_status=$(curl -sS -o "$response_file" -w "%{http_code}" \
@@ -192,7 +192,7 @@ for file in "${files[@]}"; do
     -H "DD-APPLICATION-KEY: ${DD_APP_KEY}" \
     --data-binary "$payload" || echo "000")
 
-  if [ "$curl_status" -lt 200 ] || [ "$curl_status" -ge 300 ]; then
+  if [[ "$curl_status" -lt 200 ]] || [[ "$curl_status" -ge 300 ]]; then
     echo "   ✗ ${method} returned HTTP $curl_status"
     sed 's/^/      /' "$response_file" >&2
     exit_code=1
@@ -203,7 +203,7 @@ for file in "${files[@]}"; do
 done
 
 echo
-if [ "$exit_code" -eq 0 ]; then
+if [[ "$exit_code" -eq 0 ]]; then
   echo "All metric configs applied."
 else
   echo "Finished with errors. See output above."

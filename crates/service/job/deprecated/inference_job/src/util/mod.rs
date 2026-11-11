@@ -1,3 +1,4 @@
+pub mod debug_sleep;
 pub mod common_commands;
 pub mod downloaders;
 pub mod extractors;

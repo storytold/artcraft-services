@@ -1,6 +1,7 @@
 pub mod handle_successful_fal_webhook;
 mod attach_cover_image;
 mod attach_prompt_imageref_cover;
+mod download_mesh_file;
 mod process_audio_payload;
 mod process_image_payload;
 mod process_images_payload;
@@ -9,3 +10,4 @@ mod process_model_mesh_payload;
 mod process_result_files_payload;
 mod process_video_payload;
 pub(in crate::http_server::endpoints::webhooks) mod resolve_file_metadata;
+mod resolve_mesh_file_metadata;

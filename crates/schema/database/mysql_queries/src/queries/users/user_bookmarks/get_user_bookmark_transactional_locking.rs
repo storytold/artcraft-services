@@ -24,7 +24,8 @@ pub struct UserBookmark {
 
 pub enum BookmarkIdentifier<'a> {
   BookmarkToken(&'a UserBookmarkToken),
-  EntityTypeAndToken(&'a UserBookmarkEntityToken),
+  /// The given user's bookmark of an entity.
+  UserAndEntity(&'a UserToken, &'a UserBookmarkEntityToken),
 }
 
 /// Use SELECT FOR UPDATE to lock the rows for the duration of the transaction.
@@ -36,8 +37,12 @@ pub async fn get_user_bookmark_transactional_locking<'e, 'c, E>(
   where E: 'e + Executor<'c, Database = MySql>
 {
   let maybe_results = match bookmark_identifier {
-    BookmarkIdentifier::EntityTypeAndToken(bookmark_entity_token) => {
-      query_by_entity(mysql_executor, bookmark_entity_token).await
+    BookmarkIdentifier::UserAndEntity(user_token, bookmark_entity_token) => {
+      query_by_user_and_entity(QueryByUserAndEntityArgs {
+        user_token,
+        bookmark_entity_token,
+        mysql_executor,
+      }).await
     }
     BookmarkIdentifier::BookmarkToken(bookmark_token) => {
       query_by_bookmark_token(mysql_executor, bookmark_token).await
@@ -61,14 +66,19 @@ pub async fn get_user_bookmark_transactional_locking<'e, 'c, E>(
   }
 }
 
-async fn query_by_entity<'e, 'c, E>(mysql_executor: E, bookmark_entity_token: &UserBookmarkEntityToken)
-  -> Result<RawUserBookmark, Error> where E: 'e + Executor<'c, Database=MySql>
+async fn query_by_user_and_entity<'c, E>(args: QueryByUserAndEntityArgs<'_, E>)
+  -> Result<RawUserBookmark, Error> where E: Executor<'c, Database=MySql>
 {
+  let QueryByUserAndEntityArgs { user_token, bookmark_entity_token, mysql_executor } = args;
   let (entity_type, entity_token) = bookmark_entity_token.get_composite_keys();
 
-  // NB: LEFT OUTER JOIN does not require entity_stats to be present, but will lock it under
+  // NB(1): LEFT OUTER JOIN does not require entity_stats to be present, but will lock it under
   // SELECT...FOR UPDATE if the row exists.
-  sqlx::query_as!(
+  // NB(2): This locks every user's bookmark of the entity, so that bookmark changes to the same
+  // entity stay serialized. Sorting on an expression makes MySQL read (and lock) all of them
+  // before LIMIT 1 returns the requesting user's bookmark first. If the user has no bookmark,
+  // the row returned belongs to someone else and is discarded below.
+  let maybe_bookmark = sqlx::query_as!(
         RawUserBookmark,
           r#"
   SELECT
@@ -94,13 +104,21 @@ async fn query_by_entity<'e, 'c, E>(mysql_executor: E, bookmark_entity_token: &U
   WHERE
       b.entity_type = ?
       AND b.entity_token = ?
+  ORDER BY
+      (b.user_token = ?) DESC
+  LIMIT 1
   FOR UPDATE
           "#,
         entity_type.to_str(),
-        entity_token
+        entity_token,
+        user_token
       )
-      .fetch_one(mysql_executor)
-      .await
+      .fetch_optional(mysql_executor)
+      .await?;
+
+  maybe_bookmark
+      .filter(|bookmark| bookmark.user_token == *user_token)
+      .ok_or(Error::RowNotFound)
 }
 
 async fn query_by_bookmark_token<'e, 'c, E>(mysql_executor: E, bookmark_token: &UserBookmarkToken)
@@ -108,23 +126,25 @@ async fn query_by_bookmark_token<'e, 'c, E>(mysql_executor: E, bookmark_token: &
 {
   // NB(1): LEFT OUTER JOIN does not require entity_stats to be present, but will lock it under
   // SELECT...FOR UPDATE if the row exists.
-  // NB(2): We're joining the record against itself to lock on (entity_type,entity_token)
+  // NB(2): We're joining the record against itself to lock on (entity_type,entity_token).
+  // The selected columns must come from b1, the requested bookmark; b2 ranges over every
+  // bookmark of the same entity.
   sqlx::query_as!(
         RawUserBookmark,
           r#"
   SELECT
-      b2.token as `token: tokens::tokens::user_bookmarks::UserBookmarkToken`,
+      b1.token as `token: tokens::tokens::user_bookmarks::UserBookmarkToken`,
 
-      b2.entity_type as `entity_type: enums::by_table::user_bookmarks::user_bookmark_entity_type::UserBookmarkEntityType`,
-      b2.entity_token,
+      b1.entity_type as `entity_type: enums::by_table::user_bookmarks::user_bookmark_entity_type::UserBookmarkEntityType`,
+      b1.entity_token,
 
-      b2.user_token as `user_token: tokens::tokens::users::UserToken`,
+      b1.user_token as `user_token: tokens::tokens::users::UserToken`,
 
       es.bookmark_count as unused_bookmark_count,
 
-      b2.created_at,
-      b2.updated_at,
-      b2.deleted_at
+      b1.created_at,
+      b1.updated_at,
+      b1.deleted_at
 
   FROM
       user_bookmarks AS b1
@@ -146,6 +166,12 @@ async fn query_by_bookmark_token<'e, 'c, E>(mysql_executor: E, bookmark_token: &
       )
       .fetch_one(mysql_executor)
       .await
+}
+
+struct QueryByUserAndEntityArgs<'a, E> {
+  user_token: &'a UserToken,
+  bookmark_entity_token: &'a UserBookmarkEntityToken,
+  mysql_executor: E,
 }
 
 pub struct RawUserBookmark {

@@ -86,6 +86,7 @@ pub async fn list_folders_handler(
 
   let thumbnails = build_folder_thumbnails_lookup(
     &rows,
+    &user_session.user_token,
     &mut *conn,
     media_domain,
     server_environment,

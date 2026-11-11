@@ -24,12 +24,14 @@ import {
 import ShareBar from "@/components/apps/share-bar";
 import { ClosingCta, CampaignSection, TipGrid } from "@/components/campaign/sections";
 import CampaignHero from "@/components/campaign/campaign-hero";
+import { BookOpenIcon } from "lucide-react";
 import DiscordButton from "@/components/discord-button";
 import { GitHubIcon } from "@/components/icons";
 import RevealManager from "@/components/reveal-manager";
 import { Button } from "@/components/ui";
 import {
   CRAFTING_APPS,
+  craftAppDocsUrl,
   craftAppIndex,
   craftAppName,
   craftAppOgImage,
@@ -90,24 +92,49 @@ export default async function CraftAppPage({ params }: { params: Params }) {
   const launcherDownloads = release ? craftLauncherRecommended() : [];
   const allLauncherDownloads = craftLauncherDownloads();
   const hasDownload = release !== null;
-  const communityButtons = (
+  const documentationButton = (
+    <Button
+      href={craftAppDocsUrl(app)}
+      variant="secondary"
+      size="lg"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <BookOpenIcon aria-hidden className="h-4 w-4" />
+      Documentation
+    </Button>
+  );
+  const gitHubButton = (
+    <Button
+      href={craftAppRepo(app)}
+      variant="secondary"
+      size="lg"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <GitHubIcon className="h-4 w-4" />
+      View on GitHub
+    </Button>
+  );
+  const discordButton = (
+    <DiscordButton
+      size="lg"
+      variant={hasDownload ? "secondary" : "primary"}
+    >
+      Join the Discord
+    </DiscordButton>
+  );
+  const communityButtons = hasDownload ? (
     <>
-      <DiscordButton
-        size="lg"
-        variant={hasDownload ? "secondary" : "primary"}
-      >
-        Join the Discord
-      </DiscordButton>
-      <Button
-        href={craftAppRepo(app)}
-        variant="secondary"
-        size="lg"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <GitHubIcon className="h-4 w-4" />
-        View on GitHub
-      </Button>
+      {documentationButton}
+      {discordButton}
+      {gitHubButton}
+    </>
+  ) : (
+    <>
+      {discordButton}
+      {documentationButton}
+      {gitHubButton}
     </>
   );
   const [hero] = app.shots;
@@ -130,7 +157,7 @@ export default async function CraftAppPage({ params }: { params: Params }) {
     image: siteUrl(craftAppOgImage(app)),
     thumbnailUrl: siteUrl(craftAppIconUrl(app)),
     screenshot: app.shots.map((shot) => siteUrl(craftShotUrl(app, shot))),
-    sameAs: craftAppRepo(app),
+    sameAs: [craftAppRepo(app), craftAppDocsUrl(app)],
     ...(release && {
       softwareVersion: release.version,
       downloadUrl: craftReleasePageUrl(app, release),

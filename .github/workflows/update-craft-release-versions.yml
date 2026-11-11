@@ -2,8 +2,8 @@ name: Update Craft Release Versions
 
 on:
   schedule:
-    # Every day at 08:00 UTC
-    - cron: "0 8 * * *"
+    # Hourly, on the hour
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -39,9 +39,11 @@ jobs:
               "lightcraft",
               "pdfcraft",
               "effectcraft",
+              "anicraft",
               "designcraft",
               "figcraft",
               "texturecraft",
+              "materialcraft",
               "wordcraft",
               "soundcraft",
               "deckcraft",
@@ -53,6 +55,16 @@ jobs:
             const launcher = {
               repo: "craft-launcher",
               fileSlug: "artcraft-launcher",
+            };
+
+            const studio = {
+              repo: "artcraft",
+              fileSlug: "artcraft",
+              tagPrefix: "artcraft-v",
+              studioFile:
+                "frontend/apps/artcraft-website-next/src/lib/artcraft-studio.ts",
+              webappDownloadsFile:
+                "frontend/apps/artcraft-webapp/src/config/github_download_links.ts",
             };
 
             // Pin a repository here to preserve an intentional rollback.
@@ -82,9 +94,15 @@ jobs:
               );
             }
 
-            function parseVersion(tag) {
+            function parseVersion(tag, tagPrefix = "v") {
+              const escapedPrefix = tagPrefix.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+              );
               const match = tag.match(
-                /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
+                new RegExp(
+                  `^${escapedPrefix}(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$`
+                )
               );
 
               if (!match) return null;
@@ -105,17 +123,43 @@ jobs:
             }
 
             function validateReleaseAssets(repo, fileSlug, release) {
-              const requiredAssets = assetTemplates
-                .filter(
-                  asset =>
-                    repo !== launcher.repo ||
-                    !asset.startsWith("{slug}-cli-")
-                )
-                .map(asset =>
-                  asset
-                    .replaceAll("{slug}", fileSlug)
-                    .replaceAll("{version}", release.text)
-                );
+              const requiredAssets =
+                repo === studio.repo
+                  ? [
+                      ...assetTemplates
+                        .filter(
+                          asset =>
+                            !asset.startsWith("{slug}-cli-") &&
+                            // Studio publishes no portable, web, or FreeBSD builds.
+                            !asset.endsWith("-portable.zip") &&
+                            !asset.startsWith("{slug}-web-") &&
+                            !asset.includes("-freebsd-") &&
+                            !asset.endsWith(".dmg") &&
+                            !asset.endsWith(".exe") &&
+                            !asset.endsWith(".msi")
+                        )
+                        .map(asset =>
+                          asset
+                            .replaceAll("{slug}", fileSlug)
+                            .replaceAll("{version}", release.text)
+                        ),
+                      `ArtCraft_${release.text}_x64-setup.exe`,
+                      `ArtCraft_${release.text}_universal.dmg`,
+                    ]
+                  : assetTemplates
+                      .filter(
+                        asset =>
+                          (repo !== launcher.repo ||
+                            !asset.startsWith("{slug}-cli-")) &&
+                          // Match AniCraft's custom download list: no web ZIP is published.
+                          (repo !== "anicraft" ||
+                            !asset.startsWith("{slug}-web-"))
+                      )
+                      .map(asset =>
+                        asset
+                          .replaceAll("{slug}", fileSlug)
+                          .replaceAll("{version}", release.text)
+                      );
 
               const publishedAssets = new Set(
                 release.assets.map(asset => asset.name)
@@ -132,7 +176,11 @@ jobs:
               }
             }
 
-            async function latestVersion(repo, fileSlug = repo) {
+            async function latestVersion(
+              repo,
+              fileSlug = repo,
+              tagPrefix = "v"
+            ) {
               const releases = await github.paginate(
                 github.rest.repos.listReleases,
                 {
@@ -147,7 +195,7 @@ jobs:
                   release => !release.draft && !release.prerelease
                 )
                 .map(release => {
-                  const parsed = parseVersion(release.tag_name);
+                  const parsed = parseVersion(release.tag_name, tagPrefix);
                   if (!parsed) return null;
 
                   return {
@@ -170,12 +218,12 @@ jobs:
               if (!selected) {
                 if (pinnedVersion) {
                   throw new Error(
-                    `Pinned stable release v${pinnedVersion} not found for ${owner}/${repo}.`
+                    `Pinned stable release ${tagPrefix}${pinnedVersion} not found for ${owner}/${repo}.`
                   );
                 }
 
                 throw new Error(
-                  `No published stable vX.Y.Z releases found for ${owner}/${repo}.`
+                  `No published stable ${tagPrefix}X.Y.Z releases found for ${owner}/${repo}.`
                 );
               }
 
@@ -183,6 +231,41 @@ jobs:
 
               core.info(`${repo}: ${selected.text} (${selected.tag})`);
               return selected.text;
+            }
+
+            // Update ArtCraft Studio Linux/Desktop version.
+            const studioVersion = await latestVersion(
+              studio.repo,
+              studio.fileSlug,
+              studio.tagPrefix
+            );
+            let studioContent = fs.readFileSync(studio.studioFile, "utf8");
+            studioContent = studioContent
+              .replace(
+                /(version:\s*)"[^"]+"/,
+                (_, prefix) => `${prefix}"${studioVersion}"`
+              )
+              .replace(
+                /(tag:\s*)"artcraft-v[^"]+"/,
+                (_, prefix) => `${prefix}"artcraft-v${studioVersion}"`
+              );
+            fs.writeFileSync(studio.studioFile, studioContent);
+
+            if (fs.existsSync(studio.webappDownloadsFile)) {
+              let webappContent = fs.readFileSync(
+                studio.webappDownloadsFile,
+                "utf8"
+              );
+              const updatedWebapp = webappContent.replace(
+                /(^const ARTCRAFT_STUDIO_VERSION = )"[^"]+"/m,
+                `$1"${studioVersion}"`
+              );
+              if (updatedWebapp === webappContent) {
+                throw new Error(
+                  "Could not find ARTCRAFT_STUDIO_VERSION in github_download_links.ts."
+                );
+              }
+              fs.writeFileSync(studio.webappDownloadsFile, updatedWebapp);
             }
 
             // Update the launcher version.
@@ -219,13 +302,14 @@ jobs:
                 "\\$&"
               );
 
+              // Slugs with a hyphen ("craft-anything") are quoted keys in the catalog.
               const disabledPattern = new RegExp(
-                `(^\\s*${escaped}:\\s*)null\\s*,`,
+                `(^\\s*"?${escaped}"?\\s*:\\s*)null\\s*,`,
                 "m"
               );
 
               const pattern = new RegExp(
-                `(^\\s*${escaped}:\\s*craftRelease\\()"[^"]+"`,
+                `(^\\s*"?${escaped}"?\\s*:\\s*craftRelease\\()"[^"]+"`,
                 "m"
               );
 
@@ -255,6 +339,7 @@ jobs:
             core.info("Release versions updated successfully.");
 
       - name: Create or update pull request
+        id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -282,3 +367,29 @@ jobs:
           labels: |
             automated
             dependencies
+
+      # The repository does not allow GitHub's native auto-merge, so merge the PR directly.
+      - name: Merge pull request
+        if: steps.create-pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
+              exit 0
+            fi
+
+            # A retry can race GitHub recording the first merge; treat that as success.
+            if [ "$(gh pr view "$PR_NUMBER" --json state --jq .state)" = "MERGED" ]; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 5 ]; then
+              echo "Merge attempt $attempt failed; retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+
+          echo "Unable to merge pull request $PR_NUMBER after 5 attempts." >&2
+          exit 1

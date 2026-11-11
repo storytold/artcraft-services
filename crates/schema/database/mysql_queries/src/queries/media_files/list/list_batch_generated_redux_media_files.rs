@@ -259,6 +259,9 @@ LEFT OUTER JOIN users
     ON m.maybe_creator_user_token = users.token
 LEFT OUTER JOIN media_files as media_file_cover_image
     ON media_file_cover_image.token = m.maybe_cover_image_media_file_token
+  AND media_file_cover_image.user_deleted_at IS NULL
+  AND media_file_cover_image.mod_deleted_at IS NULL
+  AND (media_file_cover_image.creator_set_visibility <> 'private' OR media_file_cover_image.maybe_creator_user_token = m.maybe_creator_user_token)
 LEFT OUTER JOIN prompts
     ON prompts.token = m.maybe_prompt_token
 WHERE
@@ -351,6 +354,9 @@ LEFT OUTER JOIN users
     ON m.maybe_creator_user_token = users.token
 LEFT OUTER JOIN media_files as media_file_cover_image
     ON media_file_cover_image.token = m.maybe_cover_image_media_file_token
+  AND media_file_cover_image.user_deleted_at IS NULL
+  AND media_file_cover_image.mod_deleted_at IS NULL
+  AND (media_file_cover_image.creator_set_visibility <> 'private' OR media_file_cover_image.maybe_creator_user_token = m.maybe_creator_user_token)
 LEFT OUTER JOIN prompts
     ON prompts.token = m.maybe_prompt_token
 WHERE

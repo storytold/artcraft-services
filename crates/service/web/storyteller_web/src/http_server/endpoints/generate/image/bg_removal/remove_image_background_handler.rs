@@ -107,6 +107,23 @@ pub async fn remove_image_background_handler(
     }
   };
 
+  // The derivative is attached to this requester's job, so private sources are creator-only.
+  // NB: `NotFound` rather than `NotAuthorized` so a private token's existence isn't confirmed.
+  let may_read_source = media_file.creator_set_visibility != Visibility::Private
+      || maybe_user_session.as_ref().map_or(false, |session| session.can_delete_other_users_tts_results)
+      || match (&maybe_user_session, &media_file.maybe_creator_user_token) {
+        (Some(session), Some(creator)) => &session.user_token == creator,
+        _ => false,
+      }
+      || match (&maybe_avt_token, &media_file.maybe_creator_anonymous_visitor_token) {
+        (Some(avt), Some(creator_avt)) if media_file.maybe_creator_user_token.is_none() => avt == creator_avt,
+        _ => false,
+      };
+
+  if !may_read_source {
+    return Err(CommonWebError::NotFound);
+  }
+
   if !media_file.media_type.is_jpg_or_png_or_legacy_image() {
     return Err(CommonWebError::BadInputWithSimpleMessage("Media file must be a JPG or PNG image".to_string()));
   }

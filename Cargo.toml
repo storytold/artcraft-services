@@ -325,7 +325,7 @@ erased-serde = "0.4"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_derive = "1.0.228"
 serde_json = "1.0.149"
-serde_yaml = "0.9.34+deprecated"
+serde_yaml = "0.9.34"
 sha2 = "0.11.0-rc.5"
 sha3 = "0.10.8"
 speculoos = "0.11.0"
@@ -336,7 +336,7 @@ thiserror = "2.0.18"
 time = "0.3.36"
 tokio = { version = "1.50.0", features = ["macros"] }
 tokio-util = "0.7.12"
-toml = "1.0.7+spec-1.1.0"
+toml = "1.0.7"
 url = { version = "2.5.8", features = ["serde"] }
 utoipa = { version = "5.4.0", features = ["chrono", "actix_extras", "url"] }
 uuid = "1.22.0"

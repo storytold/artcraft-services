@@ -144,8 +144,10 @@ pub async fn delete_user_bookmark_handler(
     &mut *transaction,
   ).await;
 
-  // Decrement only if we're deleting a non-deleted bookmark
-  let decrement_bookmark_count = user_bookmark.maybe_deleted_at.is_none();
+  // Decrement only if we're deleting a non-deleted bookmark. The delete query only
+  // matches the user's own bookmark, so anyone else's is left (and counted) as it was.
+  let decrement_bookmark_count = user_bookmark.maybe_deleted_at.is_none()
+      && user_bookmark.user_token == user_session.user_token;
 
   if decrement_bookmark_count {
     // NB: Not all bookmarkable things have stats (eg. deprecated record types don't have stats).

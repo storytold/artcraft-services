@@ -81,6 +81,7 @@ pub async fn bytedance_seedream_v4p5_multi_function_image_gen_handler(
       .get_avt_token_from_request(&http_request);
 
   let user_token = match maybe_user_session.as_ref() {
+    Some(session) if session.is_banned => return Err(CommonWebError::NotAuthorized),
     Some(session) => &session.user_token,
     None => {
       return Err(CommonWebError::NotAuthorized);
@@ -99,6 +100,7 @@ pub async fn bytedance_seedream_v4p5_multi_function_image_gen_handler(
         &mut mysql_connection,
         server_state.server_environment,
         media_tokens,
+        &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
       ).await?
     },
     None => None,

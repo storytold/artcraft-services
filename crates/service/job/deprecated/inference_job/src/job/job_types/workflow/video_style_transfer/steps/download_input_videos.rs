@@ -6,7 +6,7 @@ use sqlx::MySqlConnection;
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use cloud_storage::remote_file_manager::remote_cloud_file_manager::RemoteCloudFileClient;
 use filesys::path_to_string::path_to_string;
-use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens_with_transactor, MediaFilesByTokensRecord};
+use mysql_queries::queries::media_files::get::batch_get_media_files_by_tokens::{batch_get_media_files_by_tokens_with_transactor, MediaFilesByTokensRecord, MediaReadScope};
 use mysql_queries::queries::media_files::get::get_media_file::get_media_file_with_transactor;
 use mysql_queries::utils::transactor::Transactor;
 use tokens::tokens::media_files::MediaFileToken;
@@ -137,7 +137,10 @@ async fn maybe_download_secondary_videos(
   let results = batch_get_media_files_by_tokens_with_transactor(
     Transactor::for_connection(args.mysql_connection),
     &tokens,
-    CAN_SEE_DELETED)
+    CAN_SEE_DELETED,
+    // NB: The worker reads job inputs with the service's own access; the requester's access to
+    // them is checked when the job is enqueued.
+    &MediaReadScope { viewer_user_token: None, is_mod: true })
       .await
       .map_err(|err| {
         ProcessSingleJobError::Other(anyhow!("error querying secondary videos: {:?}", &err))

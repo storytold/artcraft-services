@@ -339,7 +339,7 @@ pub async fn process_face_fusion_job(
 
   if let Some(sleep_millis) = job_payload.sleep_millis {
     info!("Sleeping for millis: {sleep_millis}");
-    thread::sleep(Duration::from_millis(sleep_millis));
+    thread::sleep(crate::util::debug_sleep::debug_sleep_duration(sleep_millis));
   }
 
   // ==================== GENERATE THUMBNAILS ==================== //

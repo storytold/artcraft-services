@@ -18,6 +18,7 @@ export function PageHeader({
   children,
   aside,
   align = "left",
+  headingAs: Heading = "h1",
   className,
 }: {
   /** Ruler anchor — must be listed in RULER_SECTIONS (landing-data.ts). */
@@ -32,17 +33,19 @@ export function PageHeader({
   /** Beside the text from xl up (vertically centered), beneath it below. */
   aside?: ReactNode;
   align?: "left" | "center";
+  /** "h2" where a hero above already owns the page's h1. */
+  headingAs?: "h1" | "h2";
   className?: string;
 }) {
   const centered = align === "center";
   const text = (
     <>
-      <h1
+      <Heading
         data-reveal
         className="max-w-3xl font-display text-4xl font-medium leading-[1.02] tracking-[-0.035em] text-ink-strong sm:text-5xl md:text-6xl"
       >
         {title}
-      </h1>
+      </Heading>
       {lede && (
         <p
           data-reveal

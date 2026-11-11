@@ -82,6 +82,7 @@ pub async fn flux_2_lora_edit_image_angle_handler(
     &mut mysql_connection,
     server_state.server_environment,
     &media_tokens,
+    &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
   ).await?
       .ok_or_else(|| {
         warn!("No image URLs found for media token");

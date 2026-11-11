@@ -4,6 +4,7 @@ import { Accent, PageHeader } from "@/components/page/page-header";
 import { SectionShell, SectionEyebrow } from "@/components/landing/section-shell";
 import LinuxRepoGuide from "@/components/linux/linux-repo-guide";
 import { mediaUrl } from "@/lib/links";
+import { getSigningPublicKey } from "@/lib/repo-signing";
 
 export const metadata: Metadata = {
   title: "Linux Package Repositories - Flatpak, DEB, RPM & Arch",
@@ -12,7 +13,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/linux" },
 };
 
-export default function LinuxReposPage() {
+export default async function LinuxReposPage() {
+  const signingKey = await getSigningPublicKey();
+  const signing = signingKey ? { fingerprint: signingKey.fingerprint } : null;
+
   return (
     <>
       <RevealManager />
@@ -49,7 +53,7 @@ export default function LinuxReposPage() {
 
       <SectionShell id="instructions">
         <SectionEyebrow index="02" label="Instructions" annotation="One-line setup" />
-        <LinuxRepoGuide />
+        <LinuxRepoGuide signing={signing} />
       </SectionShell>
     </>
   );

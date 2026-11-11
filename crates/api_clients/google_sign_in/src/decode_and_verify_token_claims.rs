@@ -35,6 +35,10 @@ pub fn decode_and_verify_token_claims(keys: &KeyMap, token: &str, mut options: O
 }
 
 pub fn decode_and_verify_token_claims_with_key(key: &RS256PublicKey, token: &str, options: Option<VerificationOptions>) -> Result<Claims, GoogleSignInError> {
+  // NB: jwt-simple compares `reject_before` with the current clock, not the token's `iat`, so the
+  // cutoff is enforced here against the verified issue time.
+  let maybe_reject_before = options.as_ref().and_then(|options| options.reject_before);
+
   let result = key.verify_token::<GoogleCustomClaims>(token, options);
 
   let claims = match result {
@@ -53,6 +57,13 @@ pub fn decode_and_verify_token_claims_with_key(key: &RS256PublicKey, token: &str
       return Err(GoogleSignInError::JwtVerifyFailed(format!("{}", err)));
     }
   };
+
+  if let Some(reject_before) = maybe_reject_before {
+    match claims.issued_at {
+      Some(issued_at) if issued_at >= reject_before => {}
+      _ => return Err(GoogleSignInError::JwtVerifyFailed("token issued before the accepted cutoff".to_string())),
+    }
+  }
 
   match claims.issuer.as_deref() {
     Some("https://accounts.google.com" | "accounts.google.com") => {} // Permitted
@@ -162,6 +173,25 @@ mod tests {
 
     assert_eq!(claims.claims.issuer, Some("https://accounts.google.com".to_string()));
     assert_eq!(claims.audience_matches("788843034237-uqcg8tbgofrcf1to37e1bqphd924jaf6.apps.googleusercontent.com").unwrap(), true);
+  }
+
+  #[test]
+  fn test_reject_before_uses_token_issue_time() {
+    // NB: This token's `iat` is 1726786400.
+    let jwk_file = test_file_path("test_data/crypto/google_sign_in.2024-09-20.jwk").unwrap();
+    let key_map = jwk_to_public_key(&read_to_string(jwk_file).unwrap()).unwrap();
+    let credential = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIyNjIwZDVlN2YxMzJiNTJhZmU4ODc1Y2RmMzc3NmMwNjQyNDlkMDQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI3ODg4NDMwMzQyMzctdXFjZzh0YmdvZnJjZjF0bzM3ZTFicXBoZDkyNGphZjYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI3ODg4NDMwMzQyMzctdXFjZzh0YmdvZnJjZjF0bzM3ZTFicXBoZDkyNGphZjYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTMxMDE5Njc2MTIzOTY3OTM3NzciLCJlbWFpbCI6InZvY29kZXMyMDIwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYmYiOjE3MjY3ODYxMDAsIm5hbWUiOiJWb2NvZGVzIFZvY29kZXMiLCJwaWN0dXJlIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jTHoyLTJPYUFtME1ReFI2ajhDTnItUG84X1hyLWFyeUFUaUNuNGMwaV9UdURtTF9nPXM5Ni1jIiwiZ2l2ZW5fbmFtZSI6IlZvY29kZXMiLCJmYW1pbHlfbmFtZSI6IlZvY29kZXMiLCJpYXQiOjE3MjY3ODY0MDAsImV4cCI6MTcyNjc5MDAwMCwianRpIjoiNGQ0NGVlYWMwNmNlNzlmYzBhYjIyNzBjZmVlYTMwZDhhY2Y3NzYxMyJ9.EYg71yIkvhxFGc8ZVCXeTOAmPAtLYDphHnkdf1sh8b_Jz4Y7S1DpmiTqQ1ytxu7J1xNixvdwhuIDzSlCvlxaFl8475GvAlyPTNtZtmWbFD5SRM_XHLOynijOp8WQ4nej-CHvT1KjjqMfkZ1EeQMoWk1H72PxPg_RiUgzsklkUs1wOkLAySk7R3EIAl7bIzpoY_WH2pxv9ccFpBtKDHaDqHkxAWBUQX0-G7ZXZBPVz07V28ZfdbzFDapjZaUFbumazh_-J2-9AA6JkcteF4h_gpbBcLYAuxt5bWI5FECWbYe42khwb93WJ5SK12Tt0EPoyzIObJs14NWGAajtHTg3wA";
+
+    let options_with_cutoff = |cutoff_secs: u64| VerificationOptions {
+      time_tolerance: Some(Duration::from_days(365 * 30)),
+      reject_before: Some(Duration::from_secs(cutoff_secs)),
+      ..Default::default()
+    };
+
+    assert!(decode_and_verify_token_claims(&key_map, credential, Some(options_with_cutoff(1726786400))).is_ok());
+
+    let result = decode_and_verify_token_claims(&key_map, credential, Some(options_with_cutoff(1726786401)));
+    assert!(matches!(result, Err(GoogleSignInError::JwtVerifyFailed(_))));
   }
 
   #[test]

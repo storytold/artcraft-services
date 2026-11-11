@@ -85,6 +85,9 @@ JOIN media_files mf
   ON mf.token = mft.media_file_token
 LEFT JOIN media_files cover
   ON cover.token = mf.maybe_cover_image_media_file_token
+  AND cover.user_deleted_at IS NULL
+  AND cover.mod_deleted_at IS NULL
+  AND (cover.creator_set_visibility <> 'private' OR cover.maybe_creator_user_token = mf.maybe_creator_user_token)
 WHERE mft.tag_token = ?
   AND mft.user_token = ?
   AND mf.maybe_creator_user_token = ?

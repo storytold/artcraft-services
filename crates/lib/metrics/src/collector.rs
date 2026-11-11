@@ -67,16 +67,13 @@ impl MetricsCollector {
     }
     let metric = metric.into();
     let timestamp_secs = now_secs();
-    // We model `add(n)` as n increments of the same `(metric, tags)`
-    // bucket. The worker counts entries per group; emitting n separate
-    // samples keeps the aggregation logic uniform.
-    for _ in 0..value {
-      self.queue.push(Sample::Counter(CounterSample {
-        metric: metric.clone(),
-        tags: tags.clone(),
-        timestamp_secs,
-      }));
-    }
+    // One sample carries the whole amount, so a huge `value` costs one queue slot.
+    self.queue.push(Sample::Counter(CounterSample {
+      metric,
+      tags,
+      count: value,
+      timestamp_secs,
+    }));
   }
 
   // ==================== Custom observations ====================
@@ -145,11 +142,11 @@ mod tests {
     }
 
     #[test]
-    fn add_emits_n_samples() {
+    fn add_emits_one_sample_regardless_of_amount() {
       let q = SampleQueue::new();
       let c = MetricsCollector::new(q.clone());
-      c.add("my.metric", 5, vec![]);
-      assert_eq!(q.len(), 5);
+      c.add("my.metric", u64::MAX, vec![]);
+      assert_eq!(q.len(), 1);
     }
 
     #[test]

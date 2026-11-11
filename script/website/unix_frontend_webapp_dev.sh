@@ -22,7 +22,7 @@ fi
 
 cd "${frontend_path}"
 
-npm install
+npm install --ignore-scripts
 
 export VITE_ENVIRONMENT_TYPE="production"
 
