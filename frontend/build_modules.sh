@@ -17,7 +17,7 @@ set -euxo pipefail
 echo 'TEMPORARY HACK: Build shared frontend dependencies since nx is not finding them...'
 
 # A 'clean' will remove nx
-npm install
+npm install --ignore-scripts
 
 # TODO: Temp commented out
 nx build "@storyteller/api"

@@ -93,12 +93,6 @@ pub async fn generate_veo_3_image_to_video_handler(
     return Err(CommonWebError::BadInputWithSimpleMessage(reason));
   }
 
-  insert_idempotency_token(&request.uuid_idempotency_token, &mut *mysql_connection)
-      .await
-      .map_err(|err| {
-        error!("Error inserting idempotency token: {:?}", err);
-        CommonWebError::BadInputWithSimpleMessage("invalid idempotency token".to_string())
-      })?;
   const IS_MOD : bool = false;
   
   let media_file_lookup_result = get_media_file_with_connection(
@@ -118,6 +112,16 @@ pub async fn generate_veo_3_image_to_video_handler(
       return Err(CommonWebError::from_anyhow_error(err));
     }
   };
+
+  // Private sources are usable only by their creator or a moderator. `NotFound` rather than
+  // `NotAuthorized` so a private token's existence isn't confirmed.
+  let may_read_source = media_file.creator_set_visibility != Visibility::Private
+      || maybe_user_session.as_ref().map_or(false, |session| session.can_delete_other_users_tts_results)
+      || media_file.maybe_creator_user_token.as_ref() == Some(user_token);
+
+  if !may_read_source {
+    return Err(CommonWebError::NotFound);
+  }
 
   if !media_file.media_type.is_jpg_or_png_or_legacy_image() {
     return Err(CommonWebError::BadInputWithSimpleMessage("Media file must be a JPG or PNG image".to_string()));
@@ -184,6 +188,13 @@ pub async fn generate_veo_3_image_to_video_handler(
     api_key: &server_state.inference_providers.fal.api_key,
   };
 
+  // after the source checks, so denied requests do not consume the token
+  insert_idempotency_token(&request.uuid_idempotency_token, &mut *mysql_connection)
+      .await
+      .map_err(|err| {
+        error!("Error inserting idempotency token: {:?}", err);
+        CommonWebError::BadInputWithSimpleMessage("invalid idempotency token".to_string())
+      })?;
   info!("Charging wallet: {}", cost);
 
   attempt_wallet_deduction_else_common_web_error(

@@ -10,7 +10,7 @@ export function useDismissibleBanner(
     if (typeof window === "undefined") return true;
     const raw = window.localStorage.getItem(key);
     if (!raw) return true;
-    const ts = parseInt(raw, 10);
+    const ts = Number.parseInt(raw, 10);
     if (Number.isNaN(ts)) return true;
     return Date.now() - ts > hideForMs;
   });

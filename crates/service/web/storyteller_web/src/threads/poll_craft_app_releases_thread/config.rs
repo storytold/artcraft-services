@@ -16,7 +16,7 @@
 //! Redis, so the whole fleet requests an app from GitHub about once per interval instead of every
 //! pod doing so. That is what makes the 2 minute default safe with a token. Without a token
 //! GitHub allows 60 requests an hour per IP address and also counts `304`s, so the interval stays
-//! at 30 minutes (14 apps: about 28 requests an hour). While Redis is unreachable (or with
+//! at 30 minutes (17 apps: about 34 requests an hour). While Redis is unreachable (or with
 //! coordination off) every pod polls on its own at the same interval.
 
 use std::time::Duration;
@@ -46,6 +46,9 @@ const DEFAULT_APPS: &[(&str, &str, &str)] = &[
   ("craft-anything", "Craft Anything", "storytold/craft-anything"),
   ("cadcraft", "CADCraft", "storytold/cadcraft"),
   ("soundcraft", "SoundCraft", "storytold/soundcraft"),
+  ("figcraft", "FigCraft", "storytold/figcraft"),
+  ("texturecraft", "TextureCraft", "storytold/texturecraft"),
+  ("materialcraft", "MaterialCraft", "storytold/materialcraft"),
   ("artcraft-launcher", "ArtCraft Launcher", "storytold/craft-launcher"),
 ];
 
@@ -140,7 +143,7 @@ mod tests {
   #[test]
   fn the_default_list_has_the_suite_and_the_launcher() {
     let apps = default_apps();
-    assert_eq!(apps.len(), 14);
+    assert_eq!(apps.len(), 17);
     assert!(apps.iter().any(|(k, n, r)| k == "craft-anything" && n == "Craft Anything" && r == "storytold/craft-anything"));
     assert!(apps.iter().any(|(k, _, r)| k == "artcraft-launcher" && r == "storytold/craft-launcher"));
   }

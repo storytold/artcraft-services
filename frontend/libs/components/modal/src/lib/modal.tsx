@@ -626,8 +626,8 @@ export const Modal = ({
       let minHeight = 240;
       try {
         const cs = window.getComputedStyle(modalRef.current);
-        const parsedMinW = parseFloat(cs.minWidth || "0");
-        const parsedMinH = parseFloat(cs.minHeight || "0");
+        const parsedMinW = Number.parseFloat(cs.minWidth || "0");
+        const parsedMinH = Number.parseFloat(cs.minHeight || "0");
         if (!Number.isNaN(parsedMinW) && parsedMinW > 0)
           minWidth = Math.max(minWidth, parsedMinW);
         if (!Number.isNaN(parsedMinH) && parsedMinH > 0)
@@ -927,7 +927,7 @@ export const Modal = ({
   }, [allowBackgroundInteraction]);
 
   // Register this modal in the global registry for ESC handling
-  const idRef = useRef<number>(Math.floor(Math.random() * 1e9));
+  const idRef = useRef<number>(Math.floor(Math.random() * 1e9)); // NOSONAR: UI-only id or cosmetic value, never a secret.
 
   useEffect(() => {
     if (!isOpen) return;

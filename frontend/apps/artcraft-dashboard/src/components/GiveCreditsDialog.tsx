@@ -42,8 +42,8 @@ export function GiveCreditsDialog({
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const parsedAmount = parseInt(amount, 10);
-  const isValid = !isNaN(parsedAmount) && parsedAmount > 0;
+  const parsedAmount = Number.parseInt(amount, 10);
+  const isValid = !Number.isNaN(parsedAmount) && parsedAmount > 0;
   const dollarValue = isValid ? (parsedAmount / 100).toFixed(2) : null;
 
   const reset = () => {

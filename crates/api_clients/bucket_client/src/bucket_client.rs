@@ -43,6 +43,10 @@ impl BucketClient {
   ) -> Result<(), BucketClientError> {
     let object_name = ObjectName::new(&args.object_name);
 
+    if object_name.has_dot_segment() {
+      return Err(BucketClientError::InvalidObjectName(object_name.to_string()));
+    }
+
     let response = match args.content_type {
       Some(content_type) => {
         self

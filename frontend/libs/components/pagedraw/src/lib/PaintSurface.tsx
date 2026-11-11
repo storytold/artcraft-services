@@ -356,7 +356,7 @@ export const PaintSurface = ({
         activeTool === "inpaint") &&
       isWithinLeftPanel(stagePoint)
     ) {
-      const lineId = `line-${activeTool}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const lineId = `line-${activeTool}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
       const opacity = activeTool === "draw" ? brushOpacity : 1;
 
       const composite =
@@ -445,7 +445,7 @@ export const PaintSurface = ({
       isWithinLeftPanel(stagePoint) &&
       e.target === e.target.getStage()
     ) {
-      const id = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const id = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // NOSONAR: UI-only id or cosmetic value, never a secret.
       const commonProps = {
         id,
         x: stagePoint.x,

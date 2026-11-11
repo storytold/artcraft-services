@@ -53,12 +53,16 @@ async fn apply_schema(pool: &MySqlPool) {
       .expect("read applied migrations");
 
   let migrations_dir = repo_root().join("_database/sql/migrations");
-  let mut migration_dirs: Vec<PathBuf> = std::fs::read_dir(&migrations_dir)
-    .unwrap_or_else(|err| panic!("read migrations dir {migrations_dir:?}: {err}"))
-    .filter_map(|entry| entry.ok())
-    .map(|entry| entry.path())
-    .filter(|path| path.is_dir())
-    .collect();
+  let mut entries = tokio::fs::read_dir(&migrations_dir)
+    .await
+    .unwrap_or_else(|err| panic!("read migrations dir {migrations_dir:?}: {err}"));
+  let mut migration_dirs: Vec<PathBuf> = Vec::new();
+  while let Some(entry) = entries.next_entry().await.ok().flatten() {
+    let path = entry.path();
+    if tokio::fs::metadata(&path).await.is_ok_and(|metadata| metadata.is_dir()) {
+      migration_dirs.push(path);
+    }
+  }
   migration_dirs.sort();
 
   let mut applied_count = 0;
@@ -119,7 +123,8 @@ async fn seed_system_roles(pool: &MySqlPool) {
 /// (sqlx won't run multi-statement strings; the checked-in migrations contain
 /// no stored procedures or DELIMITER blocks, so naive splitting is safe.)
 async fn apply_sql_file(pool: &MySqlPool, path: &Path) -> Result<(), sqlx::Error> {
-  let sql = std::fs::read_to_string(path)
+  let sql = tokio::fs::read_to_string(path)
+    .await
     .unwrap_or_else(|err| panic!("read {path:?}: {err}"));
 
   for statement in split_sql_statements(&sql) {
