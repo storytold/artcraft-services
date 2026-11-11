@@ -2,6 +2,7 @@ pub mod bridge_session;
 pub mod create_bridge_session;
 pub mod create_impersonated_user_session;
 pub mod create_user_session;
+pub mod create_user_session_if_password_version;
 pub mod create_user_session_with_executor;
 pub mod create_user_session_with_transactor;
 pub mod delete_user_session;

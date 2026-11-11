@@ -24,7 +24,7 @@ use mysql_queries::queries::users::user::get::lookup_user_for_login_by_username:
 use mysql_queries::queries::users::user_sessions::create_impersonated_user_session::{
   create_impersonated_user_session, CreateImpersonatedUserSessionArgs,
 };
-use mysql_queries::queries::users::user_sessions::create_user_session::create_user_session;
+use mysql_queries::queries::users::user_sessions::create_user_session_if_password_version::create_user_session_if_password_version;
 use password::bcrypt_confirm_password::bcrypt_confirm_password;
 use sqlx::MySqlPool;
 use tokens::tokens::user_sessions::UserSessionToken;
@@ -162,11 +162,16 @@ pub async fn login_handler(
 
   let session_token = if password_error.is_none() {
     // Normal login path — password matched.
-    let create_session_result =
-      create_user_session(&user.token.0, &ip_address, &mysql_pool).await;
-
-    let token = match create_session_result {
-      Ok(token) => token,
+    // NB: bound to the password_version we verified against, so a password reset that committed
+    // after the lookup cannot be followed by a session for the old password.
+    let token = match create_user_session_if_password_version(
+      &user.token, user.password_version, &ip_address, &**mysql_pool).await
+    {
+      Ok(Some(token)) => token.to_string(),
+      Ok(None) => {
+        info!("login rejected: password changed during login");
+        return Err(LoginErrorResponse::invalid_credentials());
+      }
       Err(e) => {
         warn!("login create session error: {:?}", e);
         return Err(LoginErrorResponse::server_error());
