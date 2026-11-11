@@ -8,6 +8,8 @@ use log::{error, warn};
 use mysql_queries::queries::users::user_password_resets::change_password_from_password_reset::{change_password_from_password_reset, ChangePasswordFromPasswordResetArgs};
 use mysql_queries::queries::users::user_password_resets::lookup_password_reset_request::lookup_password_reset_request;
 use mysql_queries::queries::users::user_sessions::create_user_session::create_user_session;
+use redis_caching::redis_ttl_cache::RedisTtlCache;
+use redis_common::redis_cache_keys::RedisCacheKeys;
 use password::bcrypt_hash_password::bcrypt_hash_password;
 use serde::Deserialize;
 use sqlx::MySqlPool;
@@ -107,6 +109,7 @@ pub async fn password_reset_redeem_handler(
     request: web::Json<PasswordResetRedemptionRequest>,
     session_cookie_manager: web::Data<HttpUserSessionManager>,
     mysql_pool: web::Data<MySqlPool>,
+    redis_ttl_cache: web::Data<RedisTtlCache>,
 ) -> Result<HttpResponse, PasswordResetRedemptionErrorResponse> {
 
     let new_password = request.new_password.trim();
@@ -151,9 +154,26 @@ pub async fn password_reset_redeem_handler(
         mysql_transaction: transaction_and_state.transaction,
     }).await;
 
-    if let Err(err) = result {
-        error!("password reset error: {err}");
-        return Err(PasswordResetRedemptionError::Internal.into());
+    let revoked_session_tokens = match result {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            error!("password reset error: {err}");
+            return Err(PasswordResetRedemptionError::Internal.into());
+        }
+    };
+
+    // Revoked sessions would otherwise keep passing the Redis session cache until it expires.
+    match redis_ttl_cache.get_connection() {
+        Ok(mut redis) => {
+            for session_token in &revoked_session_tokens {
+                for key in [RedisCacheKeys::session_record_user(session_token), RedisCacheKeys::session_record_light(session_token)] {
+                    if let Err(err) = redis.delete_from_cache(&key) {
+                        warn!("failed to purge revoked session cache: {err}");
+                    }
+                }
+            }
+        }
+        Err(err) => warn!("failed to purge revoked session cache (no redis connection): {err}"),
     }
 
     let create_session_result =
