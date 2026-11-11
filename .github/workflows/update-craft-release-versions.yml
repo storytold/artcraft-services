@@ -130,6 +130,10 @@ jobs:
                         .filter(
                           asset =>
                             !asset.startsWith("{slug}-cli-") &&
+                            // Studio publishes no portable, web, or FreeBSD builds.
+                            !asset.endsWith("-portable.zip") &&
+                            !asset.startsWith("{slug}-web-") &&
+                            !asset.includes("-freebsd-") &&
                             !asset.endsWith(".dmg") &&
                             !asset.endsWith(".exe") &&
                             !asset.endsWith(".msi")
