@@ -132,6 +132,7 @@ pub async fn omni_api_image_generate_handler(
     server_state.server_environment,
 server_state.maybe_media_cdn_override_url.as_deref(),
     request.image_media_tokens.as_deref().unwrap_or(&[]),
+    &crate::util::lookup::media_read_policy::scope_for_user_token(user_token, false),
   ).await?;
 
   // ==================== HYDRATE ROUTER REQUEST ==================== //
