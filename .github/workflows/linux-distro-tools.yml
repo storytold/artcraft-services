@@ -2,14 +2,8 @@ name: Linux package repository tools
 
 on:
   pull_request:
-    paths:
-      - 'frontend/apps/artcraft-website-next/**'
-      - '.github/workflows/linux-distro-tools.yml'
   push:
     branches: [main]
-    paths:
-      - 'frontend/apps/artcraft-website-next/**'
-      - '.github/workflows/linux-distro-tools.yml'
 
 permissions:
   contents: read
