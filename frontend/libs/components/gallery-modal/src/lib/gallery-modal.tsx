@@ -948,11 +948,28 @@ export const GalleryModal = React.memo(
       // couldn't see it — making the library button appear broken.
       galleryModalDraggingUnder.value = false;
       let cancelled = false;
+      // Everything loaded for one account: root items, folder and tag
+      // contents, and the selection. Dropped when the session ends or
+      // belongs to someone else.
+      const wipeAccountState = () => {
+        galleryCacheMap.clear();
+        setAllItems([]);
+        setPageIndex(0);
+        setHasMore(true);
+        setFolders([]);
+        setActiveFolderId(null);
+        setFolderMediaItems({});
+        setUserTags([]);
+        setActiveTagToken(null);
+        setTagMediaItems({});
+        setBulkSelectedIds(new Set());
+      };
       (async () => {
         setUsernameError(false);
         const name = await fetchCurrentUsername();
         if (cancelled) return;
         if (!name) {
+          if (usernameRef.current) wipeAccountState();
           setUsernameError(true);
           setInitialLoading(false);
           return;
@@ -961,10 +978,7 @@ export const GalleryModal = React.memo(
           // Different user than before — wipe everything from the previous
           // session. setUsername will trigger the filter/username effect
           // below, which calls refreshGallery with the new identity.
-          galleryCacheMap.clear();
-          setAllItems([]);
-          setPageIndex(0);
-          setHasMore(true);
+          wipeAccountState();
           setInitialLoading(true);
           setUsername(name);
         } else {

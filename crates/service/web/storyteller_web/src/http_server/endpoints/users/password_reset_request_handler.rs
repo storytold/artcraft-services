@@ -17,11 +17,16 @@ use mysql_queries::payloads::email_sender_jobs::subtypes::email_job_password_res
 use mysql_queries::queries::email_sender_jobs::insert_email_sender_job::{insert_email_sender_job, InsertEmailSenderJobArgs};
 use mysql_queries::queries::users::user::get::lookup_user_for_login_by_email::lookup_user_for_login_by_email;
 use mysql_queries::queries::users::user::get::lookup_user_for_login_by_username::lookup_user_for_login_by_username;
+use mysql_queries::queries::users::user::get::lookup_user_for_login_result::UserRecordForLogin;
 use mysql_queries::queries::users::user_password_resets::create_password_reset_request::create_password_reset;
 use server_environment::ServerEnvironment;
 use crate::email::send_password_reset_email::{send_password_reset_email, SendPasswordResetEmailArgs};
 use crate::http_server::requests::get_request_domain_branding::{get_request_domain_branding, DomainBranding};
 use crate::state::server_state::ServerState;
+
+/// Caps detached reset tasks so a slow database or mail provider can't pile them up without bound.
+const MAX_CONCURRENT_RESET_TASKS: usize = 64;
+static RESET_TASK_PERMITS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(MAX_CONCURRENT_RESET_TASKS);
 
 #[derive(Deserialize)]
 pub struct PasswordResetRequestedRequest {
@@ -87,7 +92,7 @@ pub async fn password_reset_request_handler(
     server_state: web::Data<Arc<ServerState>>,
 ) -> Result<HttpResponse, PasswordResetRequestedErrorResponse> {
 
-    let username_or_email = request.username_or_email.trim();
+    let username_or_email = normalize_username_or_email(&request.username_or_email);
 
     // TODO(bt,2023-11-12): I need to prevent user lookup attacks.
     let maybe_user = if username_or_email.contains("@") {
@@ -108,6 +113,45 @@ pub async fn password_reset_request_handler(
         }
     };
 
+    // NB: Everything below depends on whether the account exists (database writes, the email job,
+    // and an external email send). Doing it in the background keeps the response time the same for
+    // known and unknown accounts, so timing can't be used to enumerate them.
+    // NB: Shed load instead of queueing; the response stays the same either way.
+    let permit = match RESET_TASK_PERMITS.try_acquire() {
+        Ok(permit) => permit,
+        Err(_) => {
+            warn!("Too many password reset tasks in flight; dropping this request.");
+            return success_response();
+        }
+    };
+
+    let ip_address = get_request_ip(&http_request);
+    let domain_branding = get_request_domain_branding(&http_request)
+        .unwrap_or(DomainBranding::GetArtCraft);
+    let server_environment = **server_environment;
+    let mysql_pool = mysql_pool.into_inner();
+    let server_state = server_state.into_inner();
+
+    actix_web::rt::spawn(async move {
+        let _permit = permit; // released when the task ends, even on panic
+        let result = issue_password_reset(
+            user, ip_address, &mysql_pool, &server_state, server_environment, domain_branding).await;
+        if let Err(err) = result {
+            error!("Password reset could not be issued: {:?}", err);
+        }
+    });
+
+    success_response()
+}
+
+async fn issue_password_reset(
+    user: UserRecordForLogin,
+    ip_address: String,
+    mysql_pool: &MySqlPool,
+    server_state: &ServerState,
+    server_environment: ServerEnvironment,
+    domain_branding: DomainBranding,
+) -> Result<(), PasswordResetRequestedErrorResponse> {
     let secret_key = crockford_entropy_lower(32);
 
     // TODO(bt,2023-11-15): Handle banned users, they shouldn't be able to do this
@@ -115,9 +159,7 @@ pub async fn password_reset_request_handler(
     // TODO(bt,2023-11-15): AVT cookie
     //let maybe_avt_token = server_state.avt_cookie_manager.get_avt_token_from_request(&http_request);
 
-    let ip_address = get_request_ip(&http_request);
-
-    create_password_reset(&mysql_pool, &user, &ip_address, secret_key.clone()).await
+    create_password_reset(mysql_pool, &user, &ip_address, secret_key.clone()).await
         .map_err(|err| {
             log::error!("Error creating password reset: {err}");
             PasswordResetRequestedRequestError::Internal
@@ -147,18 +189,13 @@ pub async fn password_reset_request_handler(
         priority_level: 1,
         is_debug_request: false,
         maybe_routing_tag: None,
-        mysql_pool: &mysql_pool,
+        mysql_pool: mysql_pool,
     })
         .await
         .map_err(|err| {
             log::error!("Error inserting email job: {err}");
             PasswordResetRequestedRequestError::Internal
         })?;
-
-    let domain_branding = get_request_domain_branding(&http_request)
-        .unwrap_or(DomainBranding::GetArtCraft);
-
-    let server_environment = **server_environment;
 
     info!("Sending password reset email...");
 
@@ -170,7 +207,7 @@ pub async fn password_reset_request_handler(
         domain_branding,
     }).await?;
 
-    success_response()
+    Ok(())
 }
 
 fn success_response() -> Result<HttpResponse, PasswordResetRequestedErrorResponse> {
@@ -187,4 +224,31 @@ fn success_response() -> Result<HttpResponse, PasswordResetRequestedErrorRespons
     Ok(HttpResponse::Ok()
         .content_type("application/json")
         .body(body))
+}
+
+/// Usernames and emails are stored trimmed and lowercased, and the `users` columns
+/// compare case-sensitively, so the lookup input has to be normalized the same way.
+fn normalize_username_or_email(username_or_email: &str) -> String {
+    username_or_email.trim().to_lowercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_username_or_email;
+
+    #[test]
+    fn lowercases_email() {
+        // Phone keyboards capitalize the first letter.
+        assert_eq!(normalize_username_or_email("Alice@Example.com"), "alice@example.com");
+    }
+
+    #[test]
+    fn lowercases_username() {
+        assert_eq!(normalize_username_or_email("AliceCrafts"), "alicecrafts");
+    }
+
+    #[test]
+    fn trims_whitespace() {
+        assert_eq!(normalize_username_or_email("  alice@example.com \n"), "alice@example.com");
+    }
 }

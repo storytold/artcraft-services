@@ -7,9 +7,52 @@ import {
   deserializeMoodboardDocument,
   serializeMoodboardDocument,
   EMPTY_CANVAS_DOCUMENT,
+  MAX_CANVAS_NESTING_DEPTH,
   UNRESOLVED_MEDIA_SRC,
+  pruneCanvasGraph,
   type MoodboardCanvasDocument,
 } from "./documents";
+
+describe("pruneCanvasGraph", () => {
+  const group = (id: string, childIds: string[]): GroupNode =>
+    ({ ...buildCanvas().nodes["node-group"], id, childIds }) as GroupNode;
+
+  it("breaks cycles and gives shared descendants a single parent", () => {
+    const canvas: MoodboardCanvasDocument = {
+      ...EMPTY_CANVAS_DOCUMENT,
+      nodes: {
+        a: group("a", ["b", "a"]),
+        b: group("b", ["a", "c"]),
+        c: group("c", []),
+        d: group("d", ["c"]),
+      },
+      rootOrder: ["a", "d", "a"],
+    };
+    const pruned = pruneCanvasGraph(canvas);
+    expect(pruned.rootOrder).toEqual(["a", "d"]);
+    expect((pruned.nodes.a as GroupNode).childIds).toEqual(["b"]);
+    expect((pruned.nodes.b as GroupNode).childIds).toEqual(["c"]);
+    expect((pruned.nodes.d as GroupNode).childIds).toEqual([]);
+  });
+
+  it("caps nesting depth", () => {
+    const nodes: Record<string, GroupNode> = {};
+    const total = MAX_CANVAS_NESTING_DEPTH + 5;
+    for (let i = 0; i < total; i++) {
+      nodes[`g${i}`] = group(`g${i}`, i + 1 < total ? [`g${i + 1}`] : []);
+    }
+    const pruned = pruneCanvasGraph({
+      ...EMPTY_CANVAS_DOCUMENT,
+      nodes,
+      rootOrder: ["g0"],
+    });
+    const deepest = pruned.nodes[`g${MAX_CANVAS_NESTING_DEPTH}`] as GroupNode;
+    expect(deepest.childIds).toEqual([]);
+    expect(deserializeMoodboardDocument(
+      JSON.stringify({ board: buildBoard(), canvas: { nodes, rootOrder: ["g0"] } }),
+    )?.canvas.nodes[`g${MAX_CANVAS_NESTING_DEPTH}`]).toMatchObject({ childIds: [] });
+  });
+});
 
 describe("moodboard document serialization", () => {
   it("round-trips board, canvas nodes, and viewport through JSON", () => {

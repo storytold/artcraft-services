@@ -10,6 +10,7 @@ import {
   createRigHelper,
 } from "./NodeHierarchyHelper";
 import { disposeObject3D } from "./disposeObject3D";
+import { applyGltfBudget, assertSpzWithinBudget } from "./modelBudget";
 
 // Dropdown value for the "no animation" choice (models rest in their bind /
 // T-pose). Clip values are their stringified index.
@@ -406,10 +407,29 @@ export function Viewer3D({
     // URL changed or the viewer unmounted is freed instead of shown.
     let cancelled = false;
 
-    if (SPLAT_EXTENSIONS.includes(urlExtension)) {
-      console.log(`[Viewer3D] splat format detected (.${urlExtension})`);
+    const showFallbackShape = () => {
+      if (cubeRef.current) {
+        cubeRef.current.visible = true;
+      }
+    };
+
+    const loadSplat = async () => {
+      // Spark sizes SPZ storage from the header's splat count before checking
+      // the body, so for SPZ fetch the bytes here and check that count first.
+      let fileBytes: ArrayBuffer | undefined;
+      if (urlExtension === "spz") {
+        const response = await fetch(modelUrl);
+        if (!response.ok) {
+          throw new Error(`Splat fetch failed: ${response.status}`);
+        }
+        fileBytes = await response.arrayBuffer();
+        if (cancelled) return;
+        await assertSpzWithinBudget(fileBytes);
+        if (cancelled) return;
+      }
+
       new SplatMesh({
-        url: modelUrl,
+        ...(fileBytes ? { fileBytes } : { url: modelUrl }),
         onLoad: (mesh) => {
           if (cancelled) {
             mesh.dispose();
@@ -436,6 +456,14 @@ export function Viewer3D({
           console.log("Splat loaded");
         },
       });
+    };
+
+    if (SPLAT_EXTENSIONS.includes(urlExtension)) {
+      console.log(`[Viewer3D] splat format detected (.${urlExtension})`);
+      loadSplat().catch((error) => {
+        console.error("[Viewer3D] Error loading splat:", error);
+        if (!cancelled) showFallbackShape();
+      });
     } else if (!GLTF_EXTENSIONS.includes(urlExtension)) {
       // Known non-glTF model format with no loader wired here (obj, fbx,
       // pmx, …). Show the fallback shape rather than spamming a parse error.
@@ -446,7 +474,9 @@ export function Viewer3D({
         cubeRef.current.visible = true;
       }
     } else {
-      const loader = new GLTFLoader();
+      // Rejects accessor counts that would decode past the memory budget
+      // before GLTFLoader allocates for them (load() parses through this).
+      const loader = applyGltfBudget(new GLTFLoader());
       // Anonymous CORS keeps the WebGL canvas untainted so thumbnail capture
       // (offscreen toDataURL elsewhere) works on models loaded from the CDN.
       loader.setCrossOrigin("anonymous");

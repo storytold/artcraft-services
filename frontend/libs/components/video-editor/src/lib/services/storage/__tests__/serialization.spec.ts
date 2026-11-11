@@ -7,6 +7,7 @@ import type { AudioTrack } from "../../../timeline/types";
 import { ZERO_MEDIA_TIME } from "../../../wasm";
 import {
   deserializeProjectDocument,
+  deserializeStoredProject,
   mediaAssetToData,
   serializeProjectDocument,
 } from "../serialization";
@@ -15,6 +16,31 @@ const CREATED_AT = new Date("2026-07-01T10:00:00.000Z");
 const UPDATED_AT = new Date("2026-07-02T12:30:00.000Z");
 
 describe("project document serialization", () => {
+  test("binds a stored project to the id it was loaded under, not the embedded id", () => {
+    const project = buildSampleProject();
+    const document = JSON.parse(
+      JSON.stringify(
+        serializeProjectDocument({
+          project: {
+            ...project,
+            metadata: { ...project.metadata, id: "someone_elses_token" },
+          },
+          media: [],
+        }),
+      ),
+    );
+
+    const restored = deserializeStoredProject({
+      id: "requested_token",
+      name: "Doc",
+      updatedAt: 0,
+      data: document,
+    });
+
+    expect(restored?.project.metadata.id).toBe("requested_token");
+    expect(deserializeStoredProject(null)).toBeNull();
+  });
+
   test("JSON round-trip preserves dates and media manifest", () => {
     const project = buildSampleProject();
     const media = [

@@ -81,20 +81,23 @@ pub async fn get_vocoder_handler(
   server_state: web::Data<Arc<ServerState>>
 ) -> Result<HttpResponse, CommonWebError> {
 
-  let is_moderator = server_state
+  let maybe_user_session = server_state
       .session_checker
       .maybe_get_user_session(&http_request, &server_state.mysql_pool)
       .await
       .map_err(|e| {
         warn!("Session checker error: {:?}", e);
         CommonWebError::from_error(e)
-      })?
-      .map(|session| {
-        // NB: Since we need to rip out and replace the permissions system,
-        // this is a proxy for being a moderator.
-        session.can_ban_users
-      })
+      })?;
+
+  // NB: Since we need to rip out and replace the permissions system,
+  // this is a proxy for being a moderator.
+  let is_moderator = maybe_user_session.as_ref()
+      .map(|session| session.can_ban_users)
       .unwrap_or(false);
+
+  let maybe_viewer_user_token = maybe_user_session.as_ref()
+      .map(|session| session.user_token.as_str());
 
   const NO_CREATOR_SCOPING_HERE : Option<&'static str> = None;
 
@@ -112,6 +115,17 @@ pub async fn get_vocoder_handler(
       return Err(CommonWebError::from_anyhow_error(e));
     }
   };
+
+  // Private models are only readable by their creator and moderators.
+  // Answer like a missing model so their existence isn't revealed.
+  if !may_read_vocoder(
+    vocoder.creator_set_visibility,
+    &vocoder.creator_user_token,
+    maybe_viewer_user_token,
+    is_moderator,
+  ) {
+    return Err(CommonWebError::NotFound);
+  }
 
   let mut vocoder = Vocoder {
     vocoder_token: vocoder.vocoder_token,
@@ -156,4 +170,36 @@ pub async fn get_vocoder_handler(
   Ok(HttpResponse::Ok()
       .content_type("application/json")
       .body(body))
+}
+
+fn may_read_vocoder(
+  visibility: Visibility,
+  creator_user_token: &str,
+  maybe_viewer_user_token: Option<&str>,
+  is_moderator: bool,
+) -> bool {
+  visibility != Visibility::Private
+      || is_moderator
+      || maybe_viewer_user_token == Some(creator_user_token)
+}
+
+#[cfg(test)]
+mod tests {
+  use enums::common::visibility::Visibility;
+
+  use super::may_read_vocoder;
+
+  #[test]
+  fn public_and_hidden_models_are_readable_by_anyone() {
+    assert!(may_read_vocoder(Visibility::Public, "U:OWNER", None, false));
+    assert!(may_read_vocoder(Visibility::Hidden, "U:OWNER", None, false));
+  }
+
+  #[test]
+  fn private_model_is_readable_by_creator_and_moderators_only() {
+    assert!(may_read_vocoder(Visibility::Private, "U:OWNER", Some("U:OWNER"), false));
+    assert!(may_read_vocoder(Visibility::Private, "U:OWNER", Some("U:MOD"), true));
+    assert!(!may_read_vocoder(Visibility::Private, "U:OWNER", Some("U:OTHER"), false));
+    assert!(!may_read_vocoder(Visibility::Private, "U:OWNER", None, false));
+  }
 }

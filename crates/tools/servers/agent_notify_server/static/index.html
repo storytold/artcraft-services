@@ -26,9 +26,9 @@
     <h2>One-shot alerts</h2>
     <table>
       <tr><th>Endpoint</th><th>Behavior</th></tr>
-      <tr><td><code>GET /alert_beep</code></td><td>Play <em>alert_beep</em> once.</td></tr>
-      <tr><td><code>GET /alert_done</code></td><td>Play <em>alert_done</em> once.</td></tr>
-      <tr><td><code>GET /alert_await</code></td><td>Play <em>alert_await_user_input</em> once.</td></tr>
+      <tr><td><code>POST /alert_beep</code></td><td>Play <em>alert_beep</em> once.</td></tr>
+      <tr><td><code>POST /alert_done</code></td><td>Play <em>alert_done</em> once.</td></tr>
+      <tr><td><code>POST /alert_await</code></td><td>Play <em>alert_await_user_input</em> once.</td></tr>
     </table>
   </div>
 
@@ -36,9 +36,9 @@
     <h2>Looping alerts <span class="pill">replaces existing loop</span></h2>
     <table>
       <tr><th>Endpoint</th><th>Behavior</th></tr>
-      <tr><td><code>GET /loop_beep</code></td><td>Loop <em>alert_beep</em>. Replaces any prior loop.</td></tr>
-      <tr><td><code>GET /loop_done</code></td><td>Loop <em>alert_done</em>. Replaces any prior loop.</td></tr>
-      <tr><td><code>GET /loop_await</code></td><td>Loop <em>alert_await_user_input</em>. Replaces any prior loop.</td></tr>
+      <tr><td><code>POST /loop_beep</code></td><td>Loop <em>alert_beep</em>. Replaces any prior loop.</td></tr>
+      <tr><td><code>POST /loop_done</code></td><td>Loop <em>alert_done</em>. Replaces any prior loop.</td></tr>
+      <tr><td><code>POST /loop_await</code></td><td>Loop <em>alert_await_user_input</em>. Replaces any prior loop.</td></tr>
     </table>
     <p style="color:#555;font-size:14px;">
       Between iterations a single voice waits <code>loop_alert_timeout_millis</code>
@@ -64,7 +64,7 @@
     <h2>Stop</h2>
     <table>
       <tr><th>Endpoint</th><th>Behavior</th></tr>
-      <tr><td><code>GET /stop</code></td><td>Stop all playback (loops and queued one-shots).</td></tr>
+      <tr><td><code>POST /stop</code></td><td>Stop all playback (loops and queued one-shots).</td></tr>
     </table>
   </div>
 

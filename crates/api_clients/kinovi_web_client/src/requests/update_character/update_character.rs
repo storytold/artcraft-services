@@ -42,7 +42,7 @@ pub async fn update_character(args: UpdateCharacterArgs<'_>) -> Result<UpdateCha
   let base_url = host.api_base_url();
   let url = format!("{}/api/trpc/character.updateCharacter?batch=1", base_url);
 
-  info!("Updating character '{}' (name='{}', description='{}')", args.character_id, args.name, args.description);
+  info!("Updating character {:?} (name={:?}, description={:?})", args.character_id, args.name, args.description);
 
   let request_body = BatchRequest {
     zero: BatchRequestInner {

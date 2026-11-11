@@ -64,7 +64,7 @@ pub async fn beeble_webhook_handler(
         CommonWebError::from_error(err)
       })?;
 
-  info!("Received Beeble webhook body: {}", raw_body);
+  info!("Received Beeble webhook body: {:?}", raw_body);
 
   // Step 2: Parse into BeebleWebhookPayload.
   let payload = parse_beeble_webhook(&raw_body)

@@ -68,10 +68,13 @@ pub async fn get_character_handler(
   let media_records = if media_tokens_to_lookup.is_empty() {
     vec![]
   } else {
+    // NB: This endpoint is public, so deleted media must not be resolved into links (the list
+    // endpoint already excludes it).
+    const CAN_SEE_DELETED: bool = false;
     batch_get_media_files_by_tokens_with_connection(
           &mut mysql_connection,
           &media_tokens_to_lookup,
-          true,
+          CAN_SEE_DELETED,
           &crate::util::lookup::media_read_policy::scope_for_session(maybe_user_session.as_ref()),
         )
         .await

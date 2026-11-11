@@ -39,7 +39,7 @@ export function TopBar() {
                     : "/images/artcraft-logo-2.png"
                 }
                 alt="ArtCraft"
-                className={isMobile ? "h-5 w-auto" : "h-5 w-auto"}
+                className={isMobile ? "h-5 w-auto" : "st-wordmark h-5 w-auto"}
               />
             </Link>
           )}
