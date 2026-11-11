@@ -16,6 +16,27 @@ import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 // but `router` is an http-proxy-middleware feature — Vite's http-proxy
 // silently ignores it, so every request went to the hardcoded default target
 // and any asset on a different host (e.g. the dev R2 bucket) came back 403.
+//
+// Only the asset hosts the app actually loads from may be proxied; the dev
+// server would otherwise fetch any host (including private addresses) on
+// behalf of whoever can reach it.
+const CDN_HOST_SUFFIXES = [
+  'fakeyou.com',
+  'storyteller.ai',
+  'getartcraft.com',
+  'artcraft.ai',
+  'r2.dev',
+  'storage.googleapis.com',
+];
+const CDN_PROXY_TIMEOUT_MS = 5 * 60_000;
+
+function isAllowedCdnHost(host: string): boolean {
+  const hostname = host.replace(/:\d+$/, '').toLowerCase();
+  return CDN_HOST_SUFFIXES.some(
+    (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
+  );
+}
+
 function cdnProxyPlugin() {
   return {
     name: 'cdn-proxy',
@@ -40,12 +61,24 @@ function cdnProxyPlugin() {
             return;
           }
           const [, host, assetPath = '/', query = ''] = match;
+          if (!isAllowedCdnHost(host)) {
+            res.statusCode = 403;
+            res.end('Host not allowed through /__cdn');
+            return;
+          }
+          // Abort the upstream fetch when the browser goes away or the
+          // transfer stalls, and never follow redirects off the allowlist.
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), CDN_PROXY_TIMEOUT_MS);
+          res.on('close', () => controller.abort());
           const upstream = await fetch(`https://${host}${assetPath}${query}`, {
             method: req.method === 'HEAD' ? 'HEAD' : 'GET',
             headers: req.headers.range
               ? { range: String(req.headers.range) }
               : undefined,
-          });
+            redirect: 'manual',
+            signal: controller.signal,
+          }).finally(() => clearTimeout(timer));
           res.statusCode = upstream.status;
           for (const header of [
             'content-type',
@@ -58,8 +91,16 @@ function cdnProxyPlugin() {
             const value = upstream.headers.get(header);
             if (value) res.setHeader(header, value);
           }
-          const body = Buffer.from(await upstream.arrayBuffer());
-          res.end(body);
+          // Stream instead of buffering: a large or highly compressed asset
+          // no longer has to fit in the dev server's memory.
+          if (upstream.body) {
+            for await (const chunk of upstream.body) {
+              if (!res.write(chunk)) {
+                await new Promise((resolve) => res.once('drain', resolve));
+              }
+            }
+          }
+          res.end();
         } catch (e) {
           res.statusCode = 502;
           res.end(`CDN proxy error: ${e}`);
