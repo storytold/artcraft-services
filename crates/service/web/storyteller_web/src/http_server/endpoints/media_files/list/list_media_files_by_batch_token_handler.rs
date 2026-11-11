@@ -193,13 +193,9 @@ pub async fn list_media_files_by_batch_token_handler(
 
   // NB: Read scope comes from the requester, never from the batch token: knowing a batch token
   // must not be enough to read another user's private records.
-  let view_as = if is_mod {
-    ViewAs::Moderator
-  } else if viewer_user_token.is_some() {
-    ViewAs::Author
-  } else {
-    ViewAs::AnotherUser
-  };
+  // Hidden records stay readable by anyone who has the batch token (as before); the query and the
+  // filter below exclude private ones unless the requester is the creator or a moderator.
+  let view_as = if is_mod { ViewAs::Moderator } else { ViewAs::Author };
 
   let query_results = list_media_files_by_batch_token(ListMediaFileByBatchArgs {
     batch_token: &path.token,
