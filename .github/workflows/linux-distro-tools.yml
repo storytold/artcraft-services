@@ -20,6 +20,10 @@ jobs:
     outputs:
       deploy-url: ${{ steps.wait.outputs.deploy_url }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - name: Await Cloudflare deploy
         id: wait
         env:
@@ -141,6 +145,10 @@ jobs:
       run:
         working-directory: frontend/apps/artcraft-website-next
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
