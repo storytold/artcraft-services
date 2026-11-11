@@ -14,6 +14,23 @@ for = "/build/*"
 [headers.values]
 "Cache-Control" = "public, max-age=31560000, immutable"
 
+# The desktop-login approval page must never render inside another site's
+# frame: a hidden, framed "Approve" button could be clicked through to grant
+# an attacker's desktop a session (clickjacking).
+[[headers]]
+for = "/login/desktop"
+
+[headers.values]
+"Content-Security-Policy" = "frame-ancestors 'none'"
+"X-Frame-Options" = "DENY"
+
+[[headers]]
+for = "/login/desktop/*"
+
+[headers.values]
+"Content-Security-Policy" = "frame-ancestors 'none'"
+"X-Frame-Options" = "DENY"
+
 # [[redirects]]
 #   from = "/ingest/static/*"
 #   to = "https://us-assets.i.posthog.com/static/:splat"
