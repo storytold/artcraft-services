@@ -9,8 +9,7 @@
 # BASE_URL is the deployment to test (a Netlify preview, a branch deploy or production); the script
 # never serves the site itself, so what it verifies is what users download.
 #
-# Set REQUIRE_SIGNED=1 to fail instead of falling back to trusted repositories when the
-# deployment publishes no signing key. CI sets it so signature verification is always exercised.
+# Every deployment must publish a signing key; signature verification is mandatory.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,34 +43,24 @@ else
   exit 1
 fi
 
-# A deployment with LINUX_SIGNING_KEY signs its repository metadata and advertises its key. The
-# package managers below then verify signatures against that key instead of bypassing verification.
-SIGNED_REPO=0
-if curl -fsS -o /dev/null "$BASE_URL/keys/artcraft.asc" 2>/dev/null; then
-  SIGNED_REPO=1
-  echo "Repository signing is enabled at $BASE_URL; every package manager below verifies signatures."
-elif [[ "${REQUIRE_SIGNED:-0}" == "1" ]]; then
-  echo "Error: $BASE_URL publishes no signing key, so these tests would only exercise trusted" \
-    "repositories instead of signature verification." >&2
+# Fail before running any package manager if the deployment publishes no signing key.
+if ! curl -fsS -o /dev/null "$BASE_URL/keys/artcraft.asc" 2>/dev/null; then
+  echo "Error: $BASE_URL publishes no signing key; signed repositories are required." >&2
   exit 1
-else
-  echo "Warning: $BASE_URL publishes no signing key, so these tests cannot exercise signature" \
-    "verification and fall back to trusted repositories." >&2
 fi
+echo "Repository signing is enabled at $BASE_URL; every package manager below verifies signatures."
 
 # libzypp reads the metadata key from repodata/repomd.xml.key rather than from the .repo file, and it
 # cannot address a Netlify preview at all, so every deployment gets that route checked here.
-if [[ "$SIGNED_REPO" == "1" ]]; then
-  if ! curl -fsSL "$BASE_URL/rpm/repodata/repomd.xml.key" -o /tmp/artcraft-repomd.key 2>/dev/null ||
-     ! grep -q "BEGIN PGP PUBLIC KEY BLOCK" /tmp/artcraft-repomd.key; then
-    echo "Error: $BASE_URL serves no metadata key at /rpm/repodata/repomd.xml.key!" >&2
-    exit 1
-  fi
-  curl -fsSL "$BASE_URL/keys/artcraft.asc" -o /tmp/artcraft-keys.asc 2>/dev/null || true
-  if [[ -s /tmp/artcraft-keys.asc ]] && ! cmp -s /tmp/artcraft-repomd.key /tmp/artcraft-keys.asc; then
-    echo "Error: /rpm/repodata/repomd.xml.key does not match /keys/artcraft.asc!" >&2
-    exit 1
-  fi
+if ! curl -fsSL "$BASE_URL/rpm/repodata/repomd.xml.key" -o /tmp/artcraft-repomd.key 2>/dev/null ||
+   ! grep -q "BEGIN PGP PUBLIC KEY BLOCK" /tmp/artcraft-repomd.key; then
+  echo "Error: $BASE_URL serves no metadata key at /rpm/repodata/repomd.xml.key!" >&2
+  exit 1
+fi
+curl -fsSL "$BASE_URL/keys/artcraft.asc" -o /tmp/artcraft-keys.asc 2>/dev/null || true
+if [[ -s /tmp/artcraft-keys.asc ]] && ! cmp -s /tmp/artcraft-repomd.key /tmp/artcraft-keys.asc; then
+  echo "Error: /rpm/repodata/repomd.xml.key does not match /keys/artcraft.asc!" >&2
+  exit 1
 fi
 
 # Ensure openSUSE Tumbleweed image is available
@@ -185,13 +174,11 @@ test_ubuntu() {
     dpkg --add-architecture arm64
     dpkg --add-architecture riscv64
 
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      echo "--- Installing the ArtCraft signing keyring ---"
-      install -d -m 755 /etc/apt/keyrings
-      curl -fsSL "'"$BASE_URL"'/keys/artcraft.gpg" -o /etc/apt/keyrings/artcraft.gpg
-      chmod 644 /etc/apt/keyrings/artcraft.gpg
-      [[ -s /etc/apt/keyrings/artcraft.gpg ]] || { echo "Error: the ArtCraft keyring is empty" >&2; exit 1; }
-    fi
+    echo "--- Installing the ArtCraft signing keyring ---"
+    install -d -m 755 /etc/apt/keyrings
+    curl -fsSL "'"$BASE_URL"'/keys/artcraft.gpg" -o /etc/apt/keyrings/artcraft.gpg
+    chmod 644 /etc/apt/keyrings/artcraft.gpg
+    [[ -s /etc/apt/keyrings/artcraft.gpg ]] || { echo "Error: the ArtCraft keyring is empty" >&2; exit 1; }
 
     curl -fsSL "'"$BASE_URL"'/apt/artcraft.sources" -o /etc/apt/sources.list.d/artcraft.sources
     # With Signed-By set, apt refuses metadata that is not signed by the imported key: a bad or
@@ -249,12 +236,10 @@ test_debian() {
     dpkg --add-architecture arm64
     dpkg --add-architecture riscv64
 
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      install -d -m 755 /etc/apt/keyrings
-      curl -fsSL "'"$BASE_URL"'/keys/artcraft.gpg" -o /etc/apt/keyrings/artcraft.gpg
-      chmod 644 /etc/apt/keyrings/artcraft.gpg
-      [[ -s /etc/apt/keyrings/artcraft.gpg ]] || { echo "Error: the ArtCraft keyring is empty" >&2; exit 1; }
-    fi
+    install -d -m 755 /etc/apt/keyrings
+    curl -fsSL "'"$BASE_URL"'/keys/artcraft.gpg" -o /etc/apt/keyrings/artcraft.gpg
+    chmod 644 /etc/apt/keyrings/artcraft.gpg
+    [[ -s /etc/apt/keyrings/artcraft.gpg ]] || { echo "Error: the ArtCraft keyring is empty" >&2; exit 1; }
 
     curl -fsSL "'"$BASE_URL"'/apt/artcraft.sources" -o /etc/apt/sources.list.d/artcraft.sources
     apt-get update
@@ -293,13 +278,11 @@ test_fedora() {
     set -euo pipefail
     cat /etc/os-release | grep PRETTY_NAME || true
     curl -fsSL "'"$BASE_URL"'/rpm/artcraft.repo" -o /etc/yum.repos.d/artcraft.repo
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      # The repository requires signed metadata. Let dnf import its own gpgkey (-y answers the
-      # prompt); a manual rpm --import is not enough for that check. rpmkeys still reads the RPM
-      # database, so import there as well.
-      dnf -y --disablerepo="*" --enablerepo="artcraft" makecache
-      rpm --import "'"$BASE_URL"'/keys/artcraft.asc"
-    fi
+    # The repository requires signed metadata. Let dnf import its own gpgkey (-y answers the
+    # prompt); a manual rpm --import is not enough for that check. rpmkeys still reads the RPM
+    # database, so import there as well.
+    dnf -y --disablerepo="*" --enablerepo="artcraft" makecache
+    rpm --import "'"$BASE_URL"'/keys/artcraft.asc"
 
     echo "--- DNF repoquery: listing all packages in repository ---"
     dnf --disablerepo="*" --enablerepo="artcraft" repoquery
@@ -317,17 +300,15 @@ test_fedora() {
     echo "--- Verifying SHA-256 integrity digests against manifest ---"
     sha256sum -c /tmp/expected.sha256
 
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      echo "--- Verifying the OpenPGP signature inside every downloaded RPM (key imported above) ---"
-      for rpm_file in *.rpm; do
-        if ! rpmkeys --checksig "$rpm_file" | grep -q "signatures OK"; then
-          echo "Error: $rpm_file is not signed by the ArtCraft key!" >&2
-          rpmkeys --checksig "$rpm_file" >&2
-          exit 1
-        fi
-        echo "  ✓ $rpm_file signature verified"
-      done
-    fi
+    echo "--- Verifying the OpenPGP signature inside every downloaded RPM (key imported above) ---"
+    for rpm_file in *.rpm; do
+      if ! rpmkeys --checksig "$rpm_file" | grep -q "signatures OK"; then
+        echo "Error: $rpm_file is not signed by the ArtCraft key!" >&2
+        rpmkeys --checksig "$rpm_file" >&2
+        exit 1
+      fi
+      echo "  ✓ $rpm_file signature verified"
+    done
 
     echo "--- Testing real installation of native packages ---"
     # artcraft.repo enables gpgcheck, so dnf verifies each package against the imported key.
@@ -362,10 +343,8 @@ test_rhel() {
     cat /etc/os-release | grep PRETTY_NAME || true
     mkdir -p /etc/yum.repos.d
     curl -fsSL "'"$BASE_URL"'/rpm/artcraft.repo" -o /etc/yum.repos.d/artcraft.repo
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      dnf -y --disablerepo="*" --enablerepo="artcraft" makecache
-      rpm --import "'"$BASE_URL"'/keys/artcraft.asc"
-    fi
+    dnf -y --disablerepo="*" --enablerepo="artcraft" makecache
+    rpm --import "'"$BASE_URL"'/keys/artcraft.asc"
 
     dnf --disablerepo="*" --enablerepo="artcraft" repoquery
     mkdir -p /tmp/pkg && cd /tmp/pkg
@@ -419,19 +398,13 @@ test_opensuse() {
     # Disable remote mirrors to avoid downloading unrelated openSUSE package metadata
     zypper --non-interactive modifyrepo --all --disable 2>/dev/null || true
 
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      # zypper fetches the metadata signing key from <repo>/repodata/repomd.xml.key and imports it
-      # when auto-import is on. Nothing is pre-imported here, so a missing key route fails the
-      # refresh below instead of being masked by a key that is already trusted.
-      echo "--- Refreshing with --gpg-auto-import-keys; libzypp imports repomd.xml.key itself ---"
-      key_flags=(--gpg-auto-import-keys)
-      repo_flags=()
-      install_flags=()
-    else
-      key_flags=()
-      repo_flags=(--no-check --no-gpgcheck)
-      install_flags=(--allow-unsigned-rpm)
-    fi
+    # zypper fetches the metadata signing key from <repo>/repodata/repomd.xml.key and imports it
+    # when auto-import is on. Nothing is pre-imported here, so a missing key route fails the
+    # refresh below instead of being masked by a key that is already trusted.
+    echo "--- Refreshing with --gpg-auto-import-keys; libzypp imports repomd.xml.key itself ---"
+    key_flags=(--gpg-auto-import-keys)
+    repo_flags=()
+    install_flags=()
 
     download_for_arch() {
       local arch="$1"
@@ -514,45 +487,43 @@ test_flatpak() {
   # Flatpak honours GPGKey from the remote descriptor, but no released flatpak takes a lookaside:
   # there is no --signature-lookaside option and a flatpakrepo file cannot carry one. So check the
   # lookaside at its source here, outside the container, where the quoting stays readable.
-  if [[ "$SIGNED_REPO" == "1" ]]; then
-    local descriptor lookaside registry_token digest signature_status
+  local descriptor lookaside registry_token digest signature_status
 
-    echo "--- Confirming the published descriptor advertises signing ---"
-    descriptor="$(curl -fsSL "$flatpak_url/artcraft-oci.flatpakrepo")"
-    grep -q "^GPGKey=" <<< "$descriptor" || {
-      echo "Error: the Flatpak remote descriptor publishes no GPG key!" >&2
-      exit 1
-    }
-    lookaside="$(sed -n 's/^SignatureLookaside=//p' <<< "$descriptor")"
-    [[ "$lookaside" == "$flatpak_url/oci-signatures" ]] || {
-      echo "Error: the Flatpak remote descriptor has no signature lookaside (got '$lookaside')!" >&2
-      exit 1
-    }
+  echo "--- Confirming the published descriptor advertises signing ---"
+  descriptor="$(curl -fsSL "$flatpak_url/artcraft-oci.flatpakrepo")"
+  grep -q "^GPGKey=" <<< "$descriptor" || {
+    echo "Error: the Flatpak remote descriptor publishes no GPG key!" >&2
+    exit 1
+  }
+  lookaside="$(sed -n 's/^SignatureLookaside=//p' <<< "$descriptor")"
+  [[ "$lookaside" == "$flatpak_url/oci-signatures" ]] || {
+    echo "Error: the Flatpak remote descriptor has no signature lookaside (got '$lookaside')!" >&2
+    exit 1
+  }
 
-    # OCI tags are per architecture, so the digest flatpak pulls is <branch>-<arch>.
-    registry_token="$(curl --proto '=https' -fsSL "https://ghcr.io/token?scope=repository:storytold/craft-anything:pull&service=ghcr.io" |
-      sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
-    digest="$(curl -fsSI -H "Authorization: Bearer $registry_token" \
-      -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json" \
-      "https://ghcr.io/v2/storytold/craft-anything/manifests/stable-x86_64" |
-      tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: //p')"
-    [[ -n "$digest" ]] || {
-      echo "Error: the registry reported no digest for storytold/craft-anything:stable-x86_64!" >&2
-      exit 1
-    }
-    # The lookaside uses the containers/image separate-storage layout: <repo>@sha256=<hex>.
-    signature_status="$(curl -s -o /tmp/artcraft-oci.sig -w '%{http_code}' \
-      "$lookaside/storytold/craft-anything@${digest/:/=}/signature-1")"
-    [[ "$signature_status" == "200" ]] || {
-      echo "Error: the lookaside serves no signature for $digest (HTTP $signature_status)!" >&2
-      exit 1
-    }
-    grep -q "\"docker-manifest-digest\":\"$digest\"" /tmp/artcraft-oci.sig || {
-      echo "Error: the lookaside signature does not cover $digest!" >&2
-      exit 1
-    }
-    echo "  ✓ The descriptor advertises the key and the lookaside serves a signature for $digest"
-  fi
+  # OCI tags are per architecture, so the digest flatpak pulls is <branch>-<arch>.
+  registry_token="$(curl --proto '=https' -fsSL "https://ghcr.io/token?scope=repository:storytold/craft-anything:pull&service=ghcr.io" |
+    sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+  digest="$(curl -fsSI -H "Authorization: Bearer $registry_token" \
+    -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json" \
+    "https://ghcr.io/v2/storytold/craft-anything/manifests/stable-x86_64" |
+    tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: //p')"
+  [[ -n "$digest" ]] || {
+    echo "Error: the registry reported no digest for storytold/craft-anything:stable-x86_64!" >&2
+    exit 1
+  }
+  # The lookaside uses the containers/image separate-storage layout: <repo>@sha256=<hex>.
+  signature_status="$(curl -s -o /tmp/artcraft-oci.sig -w '%{http_code}' \
+    "$lookaside/storytold/craft-anything@${digest/:/=}/signature-1")"
+  [[ "$signature_status" == "200" ]] || {
+    echo "Error: the lookaside serves no signature for $digest (HTTP $signature_status)!" >&2
+    exit 1
+  }
+  grep -q "\"docker-manifest-digest\":\"$digest\"" /tmp/artcraft-oci.sig || {
+    echo "Error: the lookaside signature does not cover $digest!" >&2
+    exit 1
+  }
+  echo "  ✓ The descriptor advertises the key and the lookaside serves a signature for $digest"
 
   # Use Ubuntu (glibc-based standard Linux container) for Flatpak tests
   $CONTAINER_TOOL run --rm --network host "$UBUNTU_IMAGE" bash -c '
@@ -565,30 +536,28 @@ test_flatpak() {
     echo "--- Adding ArtCraft Flatpak OCI remote ---"
     flatpak remote-add --user --if-not-exists test-artcraft "'"$flatpak_url"'/artcraft-oci.flatpakrepo"
 
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      # The lookaside is checked outside this container; here only the remote flatpak itself
-      # stored has to ask for a key.
-      echo "--- Confirming the remote verifies OCI signatures ---"
-      remote_config="$HOME/.local/share/flatpak/repo/config"
-      # Read the remote section with the shell: an awk program quoted inside this already
-      # double-quoted container script splits at the inner quotes and never reaches awk intact.
-      remote_section=""
-      in_remote=0
-      while IFS= read -r config_line; do
-        case "$config_line" in
-          "[remote \"test-artcraft\"]") in_remote=1; continue ;;
-          \[*) in_remote=0; continue ;;
-        esac
-        if [[ "$in_remote" == "1" ]]; then
-          printf -v remote_section "%s%s\n" "$remote_section" "$config_line"
-        fi
-      done < "$remote_config"
-      grep -qx "gpg-verify=true" <<< "$remote_section" || {
-        echo "Error: Flatpak remote is not configured to verify signatures!" >&2
-        exit 1
-      }
-      echo "  ✓ Flatpak remote verifies signatures with the published key"
-    fi
+    # The lookaside is checked outside this container; here only the remote flatpak itself
+    # stored has to ask for a key.
+    echo "--- Confirming the remote verifies OCI signatures ---"
+    remote_config="$HOME/.local/share/flatpak/repo/config"
+    # Read the remote section with the shell: an awk program quoted inside this already
+    # double-quoted container script splits at the inner quotes and never reaches awk intact.
+    remote_section=""
+    in_remote=0
+    while IFS= read -r config_line; do
+      case "$config_line" in
+        "[remote \"test-artcraft\"]") in_remote=1; continue ;;
+        \[*) in_remote=0; continue ;;
+      esac
+      if [[ "$in_remote" == "1" ]]; then
+        printf -v remote_section "%s%s\n" "$remote_section" "$config_line"
+      fi
+    done < "$remote_config"
+    grep -qx "gpg-verify=true" <<< "$remote_section" || {
+      echo "Error: Flatpak remote is not configured to verify signatures!" >&2
+      exit 1
+    }
+    echo "  ✓ Flatpak remote verifies signatures with the published key"
 
     echo "--- Listing remote packages from OCI registry ---"
     flatpak remote-ls --user --app --columns=application,version,branch | tee /tmp/remote-apps.txt
@@ -651,37 +620,25 @@ test_arch() {
     sed -i "s/^\[options\]/[options]\nDisableDownloadTimeout/" /etc/pacman.conf || true
 
     echo "--- Configuring ArtCraft repository in pacman.conf ---"
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      echo "--- Importing and locally signing the ArtCraft key ---"
-      # The image ships /etc/pacman.d/gnupg without a secret key, so the directory existing is not
-      # enough to tell whether this keyring is usable.
-      if ! gpg --homedir /etc/pacman.d/gnupg --list-secret-keys --with-colons 2>/dev/null | grep -q "^sec:"; then
-        pacman-key --init
-      fi
-      curl -fsSL "'"$BASE_URL"'/keys/artcraft.asc" -o /tmp/artcraft.asc
-      pacman-key --add /tmp/artcraft.asc
-      artcraft_fingerprint="$(gpg --with-colons --import-options show-only --import /tmp/artcraft.asc | grep "^fpr:" | head -n1 | cut -d: -f10)"
-      pacman-key --lsign-key "$artcraft_fingerprint"
+    echo "--- Importing and locally signing the ArtCraft key ---"
+    # The image ships /etc/pacman.d/gnupg without a secret key, so the directory existing is not
+    # enough to tell whether this keyring is usable.
+    if ! gpg --homedir /etc/pacman.d/gnupg --list-secret-keys --with-colons 2>/dev/null | grep -q "^sec:"; then
+      pacman-key --init
+    fi
+    curl -fsSL "'"$BASE_URL"'/keys/artcraft.asc" -o /tmp/artcraft.asc
+    pacman-key --add /tmp/artcraft.asc
+    artcraft_fingerprint="$(gpg --with-colons --import-options show-only --import /tmp/artcraft.asc | grep "^fpr:" | head -n1 | cut -d: -f10)"
+    pacman-key --lsign-key "$artcraft_fingerprint"
 
-      # Use the published configuration, which requires a signed database and signed packages.
-      curl -fsSL "'"$BASE_URL"'/arch/artcraft.conf" -o /etc/pacman.d/artcraft.conf
-      grep -q "SigLevel = Required DatabaseRequired" /etc/pacman.d/artcraft.conf || {
-        echo "Error: the repository configuration does not require signatures!" >&2
-        exit 1
-      }
-      if ! grep -Fxq "Include = /etc/pacman.d/artcraft.conf" /etc/pacman.conf; then
-        echo "Include = /etc/pacman.d/artcraft.conf" >> /etc/pacman.conf
-      fi
-    else
-      # Released packages are signed even when the deployment publishes no key, and pacman rejects
-      # a package whose signature key is missing from the keyring even under TrustAll. An unsigned
-      # deployment has nothing to verify against, so it has to disable checking outright.
-      tee -a /etc/pacman.conf << EOF
-
-[artcraft]
-SigLevel = Never
-Server = '"$BASE_URL"'/arch/\$arch
-EOF
+    # Use the published configuration, which requires a signed database and signed packages.
+    curl -fsSL "'"$BASE_URL"'/arch/artcraft.conf" -o /etc/pacman.d/artcraft.conf
+    grep -q "SigLevel = Required DatabaseRequired" /etc/pacman.d/artcraft.conf || {
+      echo "Error: the repository configuration does not require signatures!" >&2
+      exit 1
+    }
+    if ! grep -Fxq "Include = /etc/pacman.d/artcraft.conf" /etc/pacman.conf; then
+      echo "Include = /etc/pacman.d/artcraft.conf" >> /etc/pacman.conf
     fi
 
     echo "--- Synchronizing pacman repository ---"
@@ -708,21 +665,19 @@ EOF
     echo "--- Verifying SHA-256 integrity digests against manifest ---"
     sha256sum -c /tmp/expected.sha256
 
-    if [[ "'"$SIGNED_REPO"'" == "1" ]]; then
-      echo "--- Verifying the detached .sig of every downloaded package with the ArtCraft key ---"
-      for file in *.pkg.tar.zst; do
-        case "$file" in
-          *-x86_64.pkg.tar.zst) arch_dir=x86_64 ;;
-          *) arch_dir=aarch64 ;;
-        esac
-        curl -fsSL "'"$BASE_URL"'/arch/$arch_dir/$file.sig" -o "$file.sig"
-        if ! gpg --homedir /etc/pacman.d/gnupg --verify "$file.sig" "$file" >/dev/null 2>&1; then
-          echo "Error: no valid ArtCraft signature for $file!" >&2
-          exit 1
-        fi
-        echo "  ✓ $file signature verified"
-      done
-    fi
+    echo "--- Verifying the detached .sig of every downloaded package with the ArtCraft key ---"
+    for file in *.pkg.tar.zst; do
+      case "$file" in
+        *-x86_64.pkg.tar.zst) arch_dir=x86_64 ;;
+        *) arch_dir=aarch64 ;;
+      esac
+      curl -fsSL "'"$BASE_URL"'/arch/$arch_dir/$file.sig" -o "$file.sig"
+      if ! gpg --homedir /etc/pacman.d/gnupg --verify "$file.sig" "$file" >/dev/null 2>&1; then
+        echo "Error: no valid ArtCraft signature for $file!" >&2
+        exit 1
+      fi
+      echo "  ✓ $file signature verified"
+    done
 
     echo "--- Testing real installation of native packages via pacman ---"
     pacman -S --noconfirm '"$pacman_install_pkgs"'

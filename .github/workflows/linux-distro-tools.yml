@@ -135,10 +135,6 @@ jobs:
     defaults:
       run:
         working-directory: frontend/apps/artcraft-website-next
-    env:
-      # Production deployments publish LINUX_SIGNING_KEY signatures, while deploy previews can fall back
-      # to trusted repositories when built without signing secrets.
-      REQUIRE_SIGNED: ${{ github.event_name == 'push' && '1' || '0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node
