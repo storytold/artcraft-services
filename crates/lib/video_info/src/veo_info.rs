@@ -114,8 +114,8 @@ impl VeoInfo {
     // The created/edited descriptions follow the CBOR `description` key; there
     // are two `description` values (created, edited) and order can vary, so read
     // by matching the leading text rather than positional assumptions.
-    let created_description = find_description_containing(data, b"Created by");
-    let synthid_description = find_description_containing(data, b"SynthID");
+    let created_description = crate::scan::find_cbor_description_containing(data, b"Created by");
+    let synthid_description = crate::scan::find_cbor_description_containing(data, b"SynthID");
     let has_synthid_watermark =
       synthid_description.is_some() || find(data, SYNTHID_MARKER).is_some();
 
@@ -148,21 +148,6 @@ impl VeoInfo {
   }
 }
 
-/// Find a CBOR `description` value whose text begins with `needle`. There can be
-/// several descriptions in the manifest (one per action); this returns the one
-/// starting with the given text.
-fn find_description_containing(data: &[u8], needle: &[u8]) -> Option<String> {
-  let mut from = 0;
-  while let Some(i) = crate::scan::find_from(data, b"description", from) {
-    if let Some(text) = crate::scan::read_cbor_text(data, i + b"description".len()) {
-      if text.as_bytes().windows(needle.len()).any(|w| w == needle) {
-        return Some(text);
-      }
-    }
-    from = i + b"description".len();
-  }
-  None
-}
 
 #[cfg(test)]
 mod tests {
