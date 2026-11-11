@@ -1,0 +1,28 @@
+name: SonarCloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonarcloud-${{ github.ref }}
+  # A push to main is the run that publishes coverage; superseded runs there would never finish.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  sonarcloud:
+    # Tracked at @main so org-wide CI improvements propagate without PR churn.
+    uses: storytold/craft-common-actions/.github/workflows/sonarcloud.yml@sonarcloud/sqlx-offline-features
+    with:
+      # storyteller-web and mysql_queries compile only against the committed .sqlx metadata, and
+      # storyteller-web's database tests need a MySQL that CI doesn't have (.claude/rules/testing.md).
+      sqlx-offline: true
+      cargo-features: storyteller-web/skip_database_tests
+      timeout-minutes: 120
+    secrets: inherit
