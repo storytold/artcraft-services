@@ -1,4 +1,5 @@
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::endpoints::omni_gen::shared_utils::sora_latency_metrics::maybe_record_sora_fal_job_completion;
 use crate::state::server_state::ServerState;
 use actix_web::web::Json;
 use enums::by_table::debug_logs::debug_log_level::DebugLogLevel;
@@ -115,6 +116,16 @@ pub async fn handle_failed_fal_webhook(
     job.job_token.as_str(),
     request_id,
   );
+
+  // Issue #1069 investigation: Sora wall-clock by plan (no behavior change).
+  maybe_record_sora_fal_job_completion(
+    &server_state.metrics,
+    &job.job_token,
+    job.maybe_creator_user_token.as_ref(),
+    job.created_at,
+    "failure",
+    mysql_connection,
+  ).await;
 
   Ok(SimpleGenericJsonSuccess::wrapped(true))
 }
