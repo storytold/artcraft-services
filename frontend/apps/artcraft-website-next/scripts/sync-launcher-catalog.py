@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import io
 import json
+import re
 from pathlib import Path
 import subprocess
 import tarfile
@@ -14,16 +15,42 @@ APP = Path(__file__).resolve().parents[1]
 
 
 def git(repo, *args):
+    """Run a fixed Git operation in the resolved local repository."""
     return subprocess.check_output(["git", "-C", str(repo), *args])
 
 
+def add_icon(catalog, app, filename, digest):
+    """Insert icon metadata only when this app's exporter anchor occurs exactly once."""
+    anchor = f'startup_wm_class = {json.dumps(app["startup_wm_class"])}\n'
+    if catalog.count(anchor) != 1:
+        raise ValueError(f"Missing or ambiguous icon anchor for {app['id']}")
+    return catalog.replace(anchor, anchor + (
+        f'icon_url = "https://getartcraft.com/launcher-app-icons/{filename}"\n'
+        f'icon_sha256 = "{digest}"\n'
+    ), 1)
+
+
+def attribution_row(lines, app_id):
+    """Find an icon's attribution or identify the missing app in the error."""
+    row = next((line for line in lines if line.startswith(f'| `assets/app-icons/{app_id}.png` |')), None)
+    if row is None:
+        raise ValueError(f"Missing attribution row for {app_id}")
+    return row
+
+
 def main():
+    """Generate or compare the committed catalog and icon assets."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("launcher", type=Path)
     parser.add_argument("--revision", default="HEAD")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    revision = git(args.launcher, "rev-parse", f"{args.revision}^{{commit}}").decode().strip()
+    args.launcher = args.launcher.resolve(strict=True)
+    if not args.launcher.is_dir():
+        parser.error("launcher must be a local repository directory")
+    revision = git(args.launcher, "rev-parse", "--verify", "--end-of-options", f"{args.revision}^{{commit}}").decode().strip()
+    if re.fullmatch(r"[0-9a-f]{40,64}", revision) is None:
+        raise ValueError("Git did not return a commit object ID")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         archive = git(args.launcher, "archive", revision)
@@ -61,11 +88,8 @@ def main():
             digest = hashlib.sha256(icon).hexdigest()
             filename = f"{app_id}-{digest}.png"
             outputs[f"launcher-app-icons/{filename}"] = icon
-            catalog = catalog.replace(
-                f'startup_wm_class = {json.dumps(app["startup_wm_class"])}\n',
-                f'startup_wm_class = {json.dumps(app["startup_wm_class"])}\nicon_url = "https://getartcraft.com/launcher-app-icons/{filename}"\nicon_sha256 = "{digest}"\n',
-            )
-            row = next(line for line in attribution if line.startswith(f'| `assets/app-icons/{app_id}.png` |'))
+            catalog = add_icon(catalog, app, filename, digest)
+            row = attribution_row(attribution, app_id)
             row = row.replace(f"assets/app-icons/{app_id}.png", f"public/launcher-app-icons/{filename}")
             row = row.replace("assets/app-icons/LICENSE-", "LICENSE-")
             row = row.replace(
@@ -92,7 +116,11 @@ def main():
         outputs["launcher-catalog.toml"] = (header + catalog).encode()
         # Parsing the final file also catches strings Rust Debug cannot represent as TOML.
         final = tomllib.loads(outputs["launcher-catalog.toml"].decode())
-        assert len(final["apps"]) == len(ids)
+        if len(final["apps"]) != len(ids):
+            raise ValueError("Export changed the app count")
+        for app in final["apps"]:
+            if not app.get("icon_url") or not app.get("icon_sha256"):
+                raise ValueError(f"Missing icon metadata for {app['id']}")
         mismatches = []
         for name, data in outputs.items():
             path = APP / "public" / name

@@ -31,6 +31,9 @@ export function signLauncherCatalog(directory, environment = process.env) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  signLauncherCatalog(resolve(process.argv[2] ?? "out"));
+  if (process.argv.length > 2) {
+    throw new Error("This command signs only the fixed out/ deployment directory; no path arguments are accepted");
+  }
+  signLauncherCatalog(resolve("out"));
   console.info("Signed launcher-catalog.toml (Ed25519)");
 }

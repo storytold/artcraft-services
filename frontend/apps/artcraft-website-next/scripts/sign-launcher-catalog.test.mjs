@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { generateKeyPairSync, verify } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,4 +42,14 @@ test("missing or malformed keys fail and remove stale signatures", (t) => {
 test("other key algorithms are rejected", (t) => {
   const { directory, environment } = fixture(t, "rsa");
   assert.throws(() => signLauncherCatalog(directory, environment), /must be an Ed25519 key/);
+});
+
+test("CLI rejects arbitrary output directories before touching files", (t) => {
+  const { directory } = fixture(t);
+  const signaturePath = join(directory, "launcher-catalog.toml.sig");
+  writeFileSync(signaturePath, "keep");
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL("./sign-launcher-catalog.mjs", import.meta.url)), directory], { encoding: "utf8" });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /no path arguments are accepted/);
+  assert.equal(readFileSync(signaturePath, "utf8"), "keep");
 });
