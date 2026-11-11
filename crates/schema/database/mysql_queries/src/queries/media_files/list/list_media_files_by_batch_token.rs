@@ -81,6 +81,9 @@ pub struct ListMediaFileByBatchArgs<'a> {
   pub page_index: usize,
   pub sort_ascending: bool,
   pub view_as: ViewAs,
+  /// The requester's user token. For `ViewAs::Author`, other users' private records are excluded
+  /// from both the count and the page.
+  pub maybe_viewer_user_token: Option<&'a str>,
   pub mysql_pool: &'a MySqlPool,
 }
 
@@ -94,6 +97,7 @@ pub async fn list_media_files_by_batch_token(args: ListMediaFileByBatchArgs<'_>)
     0,
     args.sort_ascending,
     args.view_as,
+    args.maybe_viewer_user_token,
     count_fields.as_str(),
   );
 
@@ -109,6 +113,7 @@ pub async fn list_media_files_by_batch_token(args: ListMediaFileByBatchArgs<'_>)
     args.page_size,
     args.sort_ascending,
     args.view_as,
+    args.maybe_viewer_user_token,
     result_fields.as_str(),
   );
 
@@ -223,6 +228,7 @@ fn query_builder<'a>(
   page_size: usize,
   sort_ascending: bool,
   view_as: ViewAs,
+  maybe_viewer_user_token: Option<&'a str>,
   select_fields: &'a str,
 ) -> QueryBuilder<'a, MySql> {
 
@@ -248,9 +254,20 @@ LEFT OUTER JOIN prompts
   query_builder.push_bind(batch_token);
 
   match view_as {
-    ViewAs::Author | ViewAs::Moderator => {
+    ViewAs::Moderator => {
       // NB(bt): Actually, mods don't want to see deleted files. We'll improve the moderator UI later.
       query_builder.push(" AND m.user_deleted_at IS NULL AND m.mod_deleted_at IS NULL ");
+    }
+    ViewAs::Author => {
+      query_builder.push(" AND m.user_deleted_at IS NULL AND m.mod_deleted_at IS NULL ");
+      // Private records belong to their creator only; filter before COUNT and LIMIT.
+      query_builder.push(" AND (m.creator_set_visibility <> ");
+      query_builder.push_bind(Visibility::Private.to_str());
+      if let Some(viewer) = maybe_viewer_user_token {
+        query_builder.push(" OR m.maybe_creator_user_token = ");
+        query_builder.push_bind(viewer);
+      }
+      query_builder.push(") ");
     }
     ViewAs::AnotherUser => {
       query_builder.push(" AND m.user_deleted_at IS NULL AND m.mod_deleted_at IS NULL ");

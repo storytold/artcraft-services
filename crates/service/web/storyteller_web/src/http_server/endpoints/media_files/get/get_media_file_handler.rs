@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::user_lookup::api_or_web_session::header_viewer_user_token::header_viewer_user_token;
 use crate::http_server::common_responses::media::media_domain::MediaDomain;
 use crate::http_server::common_responses::media::media_file_cover_image_details::MediaFileCoverImageDetails;
 use crate::http_server::common_responses::media::media_links_builder::MediaLinksBuilder;
@@ -228,6 +229,9 @@ pub async fn get_media_file_handler(
     // Original creators cannot see them (unless they're moderators!)
     show_deleted_results = user_session.can_delete_other_users_tts_results;
     viewer_user_token = Some(user_session.user_token.as_str().to_string());
+  } else {
+    // API-key and MCP clients authenticate by header, not cookie; they may read their own private media.
+    viewer_user_token = header_viewer_user_token(&http_request, &server_state).await?;
   }
 
   let media_domain = get_media_domain(&http_request);
