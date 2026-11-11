@@ -15,6 +15,7 @@ use actix_web::{HttpRequest, HttpResponse};
 use http_server_common::request::get_request_ip::get_request_ip;
 use log::{info, warn};
 use mysql_queries::queries::google_sign_in_accounts::get_google_sign_in_account_by_subject::get_google_sign_in_account;
+use mysql_queries::queries::users::user::get::lookup_user_for_moderation::lookup_user_for_moderation_by_token;
 use mysql_queries::queries::user_referrals::insert_user_referral::{insert_user_referral, InsertUserReferralArgs};
 use mysql_queries::queries::users::user_sessions::create_user_session_with_transactor::create_user_session_with_transactor;
 use mysql_queries::utils::transactor::Transactor;
@@ -240,6 +241,20 @@ pub async fn google_sso_handler(
       maybe_user_display_name = Some(result.user_display_name);
       username_not_yet_customized = result.username_is_not_customized;
     },
+  }
+
+  // NB: Password login refuses banned accounts; Google sign-in must not be a way around the ban.
+  let is_banned = lookup_user_for_moderation_by_token(user_token.as_str(), &mysql_pool)
+      .await
+      .map_err(|e| {
+        warn!("error looking up user for ban check: {:?}", e);
+        CommonWebError::from_anyhow_error(e)
+      })?
+      .map_or(false, |user| user.is_banned);
+
+  if is_banned {
+    warn!("banned user attempted Google sign-in: {:?}", user_token.as_str());
+    return Err(CommonWebError::NotAuthorized);
   }
 
   let ip_address = get_request_ip(&http_request);
