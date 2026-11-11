@@ -296,32 +296,32 @@ pub async fn process_video_style_transfer_job(deps: &JobDependencies, job: &Avai
     let travel_prompt_file = work_temp_dir.path().join("travel_prompt.txt");
     let preview_frames_dir = work_temp_dir.path().join("preview_frames");
 
-    let maybe_positive_prompt_filename = comfy_args.positive_prompt
-        .as_deref()
-        .map(|prompt| {
+    let maybe_positive_prompt_filename = match comfy_args.positive_prompt.as_deref() {
+        Some(prompt) => {
             tokio::fs::write(&positive_prompt_file, prompt).await
-                .map(|_| positive_prompt_file.as_path())
-                .map_err(|e| ProcessSingleJobError::IoError(e))
-        })
-        .transpose()?;
+                .map_err(|e| ProcessSingleJobError::IoError(e))?;
+            Some(positive_prompt_file.as_path())
+        }
+        None => None,
+    };
 
-    let maybe_negative_prompt_filename = comfy_args.negative_prompt
-        .as_deref()
-        .map(|prompt| {
+    let maybe_negative_prompt_filename = match comfy_args.negative_prompt.as_deref() {
+        Some(prompt) => {
             tokio::fs::write(&negative_prompt_file, prompt).await
-                .map(|_| negative_prompt_file.as_path())
-                .map_err(|e| ProcessSingleJobError::IoError(e))
-        })
-        .transpose()?;
+                .map_err(|e| ProcessSingleJobError::IoError(e))?;
+            Some(negative_prompt_file.as_path())
+        }
+        None => None,
+    };
 
-    let maybe_travel_prompt_filename = comfy_args.travel_prompt
-        .as_deref()
-        .map(|prompt| {
+    let maybe_travel_prompt_filename = match comfy_args.travel_prompt.as_deref() {
+        Some(prompt) => {
             tokio::fs::write(&travel_prompt_file, prompt).await
-                .map(|_| travel_prompt_file.as_path())
-                .map_err(|e| ProcessSingleJobError::IoError(e))
-        })
-        .transpose()?;
+                .map_err(|e| ProcessSingleJobError::IoError(e))?;
+            Some(travel_prompt_file.as_path())
+        }
+        None => None,
+    };
 
     let inference_details = InferenceDetails::NewPythonArgs {
         maybe_style: comfy_args.style_name,
