@@ -11,6 +11,9 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
         - 'step-security/harden-runner@v2.22.4'
+    '.github/workflows/lockfile.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'step-security/harden-runner@v2.22.4'
     '.github/workflows/sonarcloud.yml': []
     '.github/workflows/update-craft-release-versions.yml':
         - 'actions/checkout@v7.0.1'
