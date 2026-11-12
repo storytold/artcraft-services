@@ -9,4 +9,5 @@ pub mod user_ratings;
 pub mod user_roles;
 pub mod user_sessions;
 pub mod user_stripe_customer_links;
+pub mod oauth_owner_is_banned;
 pub mod user_subscriptions;

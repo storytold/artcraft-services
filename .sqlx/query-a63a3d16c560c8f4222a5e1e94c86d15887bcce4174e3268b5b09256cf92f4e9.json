@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO oauth_consents SET user_token = ?, client_token = ?, scopes = ? ON DUPLICATE KEY UPDATE scopes = VALUES(scopes), maybe_revoked_at = NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "a63a3d16c560c8f4222a5e1e94c86d15887bcce4174e3268b5b09256cf92f4e9"
+}

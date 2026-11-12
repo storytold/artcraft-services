@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO oauth_consent_nonces SET nonce_hash = ?, user_token = ?, client_token = ?, request_hash = ?, expires_at = TIMESTAMPADD(SECOND, ?, UTC_TIMESTAMP())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "9dfa4e6f2e64f181b61b43883043194b68f64aa7d2dff35199ce1ea3103fe8fc"
+}

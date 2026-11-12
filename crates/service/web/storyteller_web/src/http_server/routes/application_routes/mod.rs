@@ -14,6 +14,7 @@ mod job_routes;
 mod mcp_session_routes;
 mod media_files_routes;
 mod moderation_routes;
+mod oauth_routes;
 mod omni_api_routes;
 mod omni_gen_routes;
 mod prompts_routes;

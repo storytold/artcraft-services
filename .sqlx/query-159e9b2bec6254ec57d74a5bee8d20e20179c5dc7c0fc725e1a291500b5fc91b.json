@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO oauth_clients SET token = ?, client_name = ?, owner_user_token = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "159e9b2bec6254ec57d74a5bee8d20e20179c5dc7c0fc725e1a291500b5fc91b"
+}
