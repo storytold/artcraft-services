@@ -236,10 +236,10 @@ export const CRAFT_LAUNCHER_RELEASE: CraftRelease | null = craftRelease(
 
 // Every app must be listed, so a new slug fails the type check until it is.
 export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
-  photocraft: craftRelease("0.23.0"),
-  vectorcraft: craftRelease("0.24.0"),
+  photocraft: craftRelease("0.23.1"),
+  vectorcraft: craftRelease("0.24.1"),
   filmcraft: craftRelease("0.20.1"),
-  lightcraft: craftRelease("0.21.0"),
+  lightcraft: craftRelease("0.21.1"),
   pdfcraft: craftRelease("0.21.1"),
   effectcraft: craftRelease("0.24.1"),
   // AniCraft publishes no web ZIP build yet.
