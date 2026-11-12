@@ -25,8 +25,8 @@ impl FalSeedAudio1p0RequestState {
       FalAudioResponsePayload {
         request_id: response.request_id,
         gateway_request_id: response.gateway_request_id,
-        maybe_status_url: None,
-        maybe_response_url: None,
+        maybe_status_url: response.status_url,
+        maybe_response_url: response.response_url,
         maybe_outbound_request: Some(outbound),
       }
     } else {
