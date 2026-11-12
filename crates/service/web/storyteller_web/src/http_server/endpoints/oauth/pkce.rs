@@ -10,9 +10,9 @@ pub fn code_verifier_is_valid(verifier: &str) -> bool {
   (VERIFIER_MIN..=VERIFIER_MAX).contains(&verifier.len()) && verifier.bytes().all(unreserved)
 }
 
-/// S256 challenge: exactly 43 unpadded base64url characters.
+/// S256 challenge: exactly 43 unpadded base64url characters, ending on a character an unpadded SHA-256 digest can produce.
 pub fn code_challenge_is_valid(challenge: &str) -> bool {
-  challenge.len() == S256_CHALLENGE_LEN && challenge.bytes().all(base64url)
+  challenge.len() == S256_CHALLENGE_LEN && challenge.bytes().all(base64url) && s256_final_byte_is_canonical(challenge.as_bytes()[S256_CHALLENGE_LEN - 1])
 }
 
 /// Unpadded base64url SHA-256 of `verifier`.
@@ -38,6 +38,11 @@ fn unreserved(byte: u8) -> bool {
 /// Unpadded base64url alphabet, which excludes `+`, `/`, and `=`.
 fn base64url(byte: u8) -> bool {
   matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_')
+}
+
+/// Final character of an unpadded 32-byte digest. The leftover two bits are zero, so only every fourth base64url index occurs.
+fn s256_final_byte_is_canonical(byte: u8) -> bool {
+  matches!(byte, b'A' | b'E' | b'I' | b'M' | b'Q' | b'U' | b'Y' | b'c' | b'g' | b'k' | b'o' | b's' | b'w' | b'0' | b'4' | b'8')
 }
 
 /// Unpadded base64url. A SHA-256 digest encodes to 43 characters.
@@ -104,5 +109,17 @@ mod tests {
     assert!(!code_challenge_is_valid(&challenge[..42]));
     assert!(!code_challenge_is_valid(&format!("{challenge}A")));
     assert!(!code_challenge_is_valid("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw.cM"));
+  }
+
+  #[test]
+  fn a_noncanonical_s256_final_character_is_rejected() {
+    let challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+    assert!(code_challenge_is_valid(challenge));
+    let mut mutated = challenge.as_bytes().to_vec();
+    mutated[S256_CHALLENGE_LEN - 1] = b'N';
+    let mutated = std::str::from_utf8(&mutated).expect("ascii");
+    assert_eq!(mutated, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cN");
+    assert!(!code_challenge_is_valid(mutated));
+    assert!(code_challenge_is_valid(&s256_challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk").expect("hash")));
   }
 }

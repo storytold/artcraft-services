@@ -7,6 +7,7 @@ pub struct ReusedRefreshArgs<'a, T> {
 }
 
 /// Revokes every live token the user gave this client, because one approval's spent refresh token was presented.
+/// The join uses the spent token row, and cleanup keeps that row until the spent hashes that point at it expire.
 /// A different client presenting the token revokes nothing. Returns whether anything was revoked.
 pub async fn revoke_reused_refresh<'c, T>(args: ReusedRefreshArgs<'_, T>) -> Result<bool, sqlx::Error>
 where
