@@ -19,7 +19,7 @@ use crate::http_server::common_responses::media::media_links_builder::MediaLinks
 use crate::http_server::common_responses::media::media_links_builder::VideoThumbnailInfo;
 use crate::http_server::common_responses::user_details_lite_builder::UserDetailsLightBuilder;
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
-use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
+use crate::http_server::user_lookup::api_or_web_session::require_any_session_or_key::require_library_user_token;
 use crate::state::server_state::ServerState;
 
 const DEFAULT_PAGE_SIZE: usize = 100;
@@ -27,6 +27,10 @@ const MAX_PAGE_SIZE: usize = 1000;
 
 /// List the session user's media files of a single class (paginated).
 /// The shared core of the mesh and splat list handlers.
+///
+/// A website session cookie is accepted. An `Authorization` header is accepted when it carries
+/// an API key or an MCP session token, and a bad header is rejected rather than falling through
+/// to the cookie. The rows are still that caller's own files.
 pub async fn list_session_media_files_of_class(
   http_request: &HttpRequest,
   query: &ListSessionMediaFilesByTypeQueryParams,
@@ -42,9 +46,10 @@ pub async fn list_session_media_files_of_class(
         CommonWebError::from_error(err)
       })?;
 
-  let user_session = require_user_session(
+  let user_token = require_library_user_token(
     http_request,
     &server_state.session_checker,
+    &server_state.avt_cookie_manager,
     &mut *mysql_connection,
   ).await?;
 
@@ -62,7 +67,7 @@ pub async fn list_session_media_files_of_class(
   };
 
   let results_page = list_session_media_files_by_class(ListSessionMediaFilesByClassArgs {
-    user_token: user_session.get_user_token(),
+    user_token: &user_token,
     media_class,
     limit,
     maybe_cursor_id,
