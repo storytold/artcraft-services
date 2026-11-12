@@ -3,3 +3,4 @@ pub mod expire_login_challenges;
 pub mod poll_craft_app_releases_thread;
 pub mod poll_ip_banlist_thread;
 pub mod poll_model_token_info_thread;
+pub mod recover_lost_fal_webhooks_thread;

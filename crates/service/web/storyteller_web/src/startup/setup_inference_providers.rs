@@ -1,6 +1,9 @@
 use beeble_client::creds::beeble_api_key::BeebleApiKey;
 use errors::AnyhowResult;
 use fal_client::creds::fal_api_key::FalApiKey;
+use log::info;
+
+use crate::http_server::endpoints::webhooks::fal::signature::fal_webhook_signature_settings::FalWebhookSignatureSettings;
 
 /// All third-party inference provider credentials and configuration grouped together.
 pub struct InferenceProviders {
@@ -18,6 +21,8 @@ pub struct InferenceProviders {
 pub struct FalData {
   pub api_key: FalApiKey,
   pub webhook_url: String,
+  /// How webhooks at `webhook_url` are checked for FAL's signature.
+  pub webhook_signature: FalWebhookSignatureSettings,
 }
 
 /// GmiCloud integration
@@ -62,10 +67,14 @@ pub struct WorldLabsData {
 }
 
 pub fn setup_inference_providers() -> AnyhowResult<InferenceProviders> {
+  let fal_webhook_signature = FalWebhookSignatureSettings::from_env()?;
+  info!("FAL webhook signature mode: {:?}", fal_webhook_signature.mode);
+
   Ok(InferenceProviders {
     fal: FalData {
       api_key: FalApiKey::new(easyenv::get_env_string_required("FAL_API_KEY")?),
       webhook_url: easyenv::get_env_string_required("FAL_WEBHOOK_URL")?,
+      webhook_signature: fal_webhook_signature,
     },
     gmicloud: GmiCloudData {
       api_key: gmicloud_client::creds::gmicloud_api_key::GmiCloudApiKey::new(
