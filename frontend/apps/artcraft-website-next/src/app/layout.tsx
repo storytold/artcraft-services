@@ -7,6 +7,7 @@ import {
 } from "next/font/google";
 import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
+import SiteSnow from "@/components/site-snow";
 import IntroConductor from "@/components/intro-conductor";
 import LandingContext from "@/components/landing-context";
 import Analytics from "@/components/analytics";
@@ -136,6 +137,7 @@ export default function RootLayout({
           <main id="main">{children}</main>
           <SiteFooter />
           <ScrollRuler />
+          <SiteSnow />
         </MotionProvider>
         <TunerPanel />
         <LandingContext />
