@@ -7,6 +7,7 @@ use crate::http_server::common_responses::media::media_links_builder::VideoThumb
 use crate::http_server::common_responses::user_details_lite_builder::UserDetailsLightBuilder;
 use crate::http_server::endpoints::media_files::get::get_media_file_handler::GetMediaFilePathInfo;
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+use crate::http_server::user_lookup::api_or_web_session::header_viewer_user_token::header_viewer_user_token;
 use crate::state::server_state::ServerState;
 use actix_web::web::{Json, Path};
 use actix_web::{web, HttpRequest};
@@ -16,6 +17,7 @@ use artcraft_api_defs::common::responses::simple_entity_stats::SimpleEntityStats
 use artcraft_api_defs::media_file::list_batch_generated_media_files::{BatchGeneratedReduxMediaFileInfo, ListBatchGeneratedReduxMediaFilesPathInfo, ListBatchGeneratedReduxMediaFilesSuccessResponse};
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use chrono::{DateTime, Utc};
+use enums::common::visibility::Visibility;
 use log::warn;
 use mysql_queries::queries::media_files::get::batch_get_media_files::batch_get_media_files;
 use mysql_queries::queries::media_files::list::list_batch_generated_redux_media_files::list_batch_generated_redux_media_files_with_connection;
@@ -51,13 +53,20 @@ pub async fn list_batch_generated_redux_media_files_handler(
       .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
       .await?;
 
-  let mut show_deleted_results = false;
+  // NB: Moderators can see deleted results.
+  // Original creators cannot see them (unless they're moderators!)
+  let is_mod = maybe_user_session
+      .as_ref()
+      .map(|session| session.can_delete_other_users_tts_results)
+      .unwrap_or(false);
 
-  if let Some(user_session) = maybe_user_session {
-    // NB: Moderators can see deleted results.
-    // Original creators cannot see them (unless they're moderators!)
-    show_deleted_results = user_session.can_delete_other_users_tts_results;
-  }
+  let show_deleted_results = is_mod;
+
+  let viewer_user_token = match maybe_user_session.as_ref() {
+    Some(session) => Some(session.user_token.as_str().to_string()),
+    // API-key and MCP clients authenticate by header, not cookie.
+    None => header_viewer_user_token(&http_request, &server_state).await?,
+  };
 
   // NB(bt,2024-03-24): I'm sorry, this is gross. We're not respecting sorting, input ordering,
   // de-duplication, (if we swap types), etc. Gotta go fast.
@@ -77,7 +86,18 @@ pub async fn list_batch_generated_redux_media_files_handler(
 
   let media_domain = get_media_domain(&http_request);
 
+  // NB: A batch token is not a read grant: public files share it with private ones, so
+  // private files are listed only to their creator and to moderators (as for `/batch/{token}`).
   let media_files = media_files.into_iter()
+      .filter(|result| {
+        if result.creator_set_visibility != Visibility::Private || is_mod {
+          return true;
+        }
+        match (viewer_user_token.as_deref(), result.maybe_creator_user_token.as_ref()) {
+          (Some(viewer), Some(creator)) => viewer == creator.as_str(),
+          _ => false,
+        }
+      })
       .map(|result| {
         let public_bucket_path = MediaFileBucketPath::from_object_hash(
           &result.public_bucket_directory_hash,
