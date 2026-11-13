@@ -1,3 +1,4 @@
+pub mod get_user_email_confirmation;
 pub mod get_user_token_by_username;
 pub mod get_user_token_by_username_with_executor;
 pub mod get_username_by_user_token;
