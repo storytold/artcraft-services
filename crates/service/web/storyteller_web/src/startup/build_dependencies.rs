@@ -110,7 +110,8 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
   let website_homepage_redirect =
     easyenv::get_env_string_or_default("WEBSITE_HOMEPAGE_REDIRECT", "https://vo.codes/");
 
-  let session_cookie_manager = HttpUserSessionManager::new(&cookie_domain, &hmac_secret)?;
+  let session_cookie_manager = HttpUserSessionManager::new(&cookie_domain, &hmac_secret)?
+      .with_http_only(cookie_http_only);
   let avt_cookie_manager = AvtCookieManager::new(&cookie_domain, &hmac_secret)?;
 
   let session_checker = SessionChecker::new_with_cache(
