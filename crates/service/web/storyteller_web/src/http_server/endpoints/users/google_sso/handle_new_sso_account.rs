@@ -5,11 +5,18 @@ use crate::util::canonicalize_email_for_users_table::canonicalize_email_for_user
 use actix_web::HttpRequest;
 use google_sign_in::claims::claims::Claims;
 use log::warn;
+use mysql_queries::queries::users::user::get::get_user_email_confirmation::{get_user_email_confirmation, GetUserEmailConfirmationArgs, UserEmailConfirmation};
 use mysql_queries::queries::users::user::get::lookup_user_for_login_by_email_with_transactor::lookup_user_for_login_by_email_with_transactor;
 use mysql_queries::utils::transactor::Transactor;
 use sqlx::pool::PoolConnection;
 use sqlx::MySql;
 use tokens::tokens::users::UserToken;
+
+/// Accounts created without a password (Google sign-in, checkout) store this instead of a hash.
+const SSO_ONLY_PASSWORD_HASH: &[u8] = b"*";
+
+const EXISTING_ACCOUNT_MESSAGE: &str = "An account with a password already uses this email address. \
+  Sign in with the password, or reset it to confirm the address; Google sign-in then works for it.";
 
 pub struct NewSsoArgs<'a> {
   pub http_request: &'a HttpRequest,
@@ -51,6 +58,26 @@ pub async fn handle_new_sso_account(
 
   match maybe_user_account {
     Some(user_account) => {
+      let has_password = user_account.password_hash.as_slice() != SSO_ONLY_PASSWORD_HASH;
+
+      let maybe_confirmation = if args.claims.email_verified() && has_password {
+        get_user_email_confirmation(GetUserEmailConfirmationArgs {
+          user_token: &user_account.token,
+          mysql_executor: &mut **args.mysql_connection,
+        })
+            .await
+            .map_err(|err| {
+              warn!("error looking up email confirmation: {:?}", err);
+              CommonWebError::from_error(err)
+            })?
+      } else {
+        None
+      };
+
+      if !may_link_to_existing_account(args.claims.email_verified(), has_password, maybe_confirmation) {
+        return Err(CommonWebError::BadInputWithSimpleMessage(EXISTING_ACCOUNT_MESSAGE.to_string()));
+      }
+
       handle_new_sso_account_for_existing_user(LinkArgs {
         http_request: args.http_request,
         claims: args.claims,
@@ -74,5 +101,57 @@ pub async fn handle_new_sso_account(
         maybe_referral_user_token: args.maybe_referral_user_token,
       }).await
     },
+  }
+}
+
+/// Whether a Google identity may be attached to an existing account found by its email address.
+///
+/// Google has to vouch for the address. An account that can also be signed into with a password
+/// has to have shown the address is its own too (by us, or by Google when it was created);
+/// otherwise whoever registered the address first, without owning it, would share the account
+/// with the address's real owner.
+fn may_link_to_existing_account(
+  google_email_verified: bool,
+  has_password: bool,
+  maybe_confirmation: Option<UserEmailConfirmation>,
+) -> bool {
+  if !google_email_verified {
+    return false;
+  }
+  if !has_password {
+    return true;
+  }
+  maybe_confirmation
+      .map(|confirmation| confirmation.email_confirmed || confirmation.email_confirmed_by_google)
+      .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+  use mysql_queries::queries::users::user::get::get_user_email_confirmation::UserEmailConfirmation;
+
+  use super::may_link_to_existing_account;
+
+  const UNCONFIRMED: UserEmailConfirmation = UserEmailConfirmation { email_confirmed: false, email_confirmed_by_google: false };
+  const CONFIRMED: UserEmailConfirmation = UserEmailConfirmation { email_confirmed: true, email_confirmed_by_google: false };
+  const CONFIRMED_BY_GOOGLE: UserEmailConfirmation = UserEmailConfirmation { email_confirmed: false, email_confirmed_by_google: true };
+
+  #[test]
+  fn an_unverified_google_email_never_links() {
+    assert!(!may_link_to_existing_account(false, false, None));
+    assert!(!may_link_to_existing_account(false, true, Some(CONFIRMED)));
+  }
+
+  #[test]
+  fn a_password_account_links_only_once_its_email_is_confirmed() {
+    assert!(!may_link_to_existing_account(true, true, Some(UNCONFIRMED)));
+    assert!(!may_link_to_existing_account(true, true, None));
+    assert!(may_link_to_existing_account(true, true, Some(CONFIRMED)));
+    assert!(may_link_to_existing_account(true, true, Some(CONFIRMED_BY_GOOGLE)));
+  }
+
+  #[test]
+  fn an_account_without_a_password_links_as_before() {
+    assert!(may_link_to_existing_account(true, false, None));
   }
 }
