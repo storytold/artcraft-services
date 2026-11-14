@@ -71,13 +71,11 @@ impl BucketClientBuilder {
     let region_name = require(self.region_name, "region_name")?;
     let bucket_name = require(self.bucket_name, "bucket_name")?;
 
-    let credentials = Credentials {
-      access_key: Some(access_key),
-      secret_key: Some(secret_key),
-      security_token: None,
-      session_token: None,
-      expiration: None,
-    };
+    // NB: `Credentials` has private fields in aws-creds 0.40, so it can only be built through
+    // its constructor (which also validates the key pair).
+    let credentials =
+      Credentials::new(Some(&access_key), Some(&secret_key), None, None, None)
+        .map_err(s3::error::S3Error::from)?;
 
     // A custom endpoint targets an S3-compatible host via `Region::Custom`;
     // otherwise the region name is parsed as a standard AWS region.
