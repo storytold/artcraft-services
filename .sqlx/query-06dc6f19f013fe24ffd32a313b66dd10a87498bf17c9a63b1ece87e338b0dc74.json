@@ -1,88 +1,140 @@
 {
   "db_name": "MySQL",
+  "query": "\nSELECT id, confirmation_code, status AS `status: UserLoginChallengeStatus`, maybe_deciding_user_token, maybe_redeemed_user_session_id,\n  maybe_failure_type AS `maybe_failure_type: UserLoginChallengeFailureType`, ip_address_creation, expires_at\nFROM user_login_challenges WHERE device_token_sha256 = ? FOR UPDATE\n",
   "describe": {
     "columns": [
       {
-        "name": "id",
         "ordinal": 0,
+        "name": "id",
         "type_info": {
-          "char_set": 63,
+          "type": "LongLong",
           "flags": "NOT_NULL | PRIMARY_KEY | UNSIGNED | AUTO_INCREMENT",
-          "max_size": 20,
-          "type": "LongLong"
+          "collation": 63,
+          "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "id"
+          }
         }
       },
       {
-        "name": "confirmation_code",
         "ordinal": 1,
+        "name": "confirmation_code",
         "type_info": {
-          "char_set": 224,
+          "type": "String",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 32,
-          "type": "String"
+          "collation": 255,
+          "max_size": 32
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "confirmation_code"
+          }
         }
       },
       {
-        "name": "status: UserLoginChallengeStatus",
         "ordinal": 2,
+        "name": "status: UserLoginChallengeStatus",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 64,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 64
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "status"
+          }
         }
       },
       {
-        "name": "maybe_deciding_user_token",
         "ordinal": 3,
+        "name": "maybe_deciding_user_token",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "MULTIPLE_KEY | BINARY",
-          "max_size": 128,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "maybe_deciding_user_token"
+          }
         }
       },
       {
-        "name": "maybe_redeemed_user_session_id",
         "ordinal": 4,
+        "name": "maybe_redeemed_user_session_id",
         "type_info": {
-          "char_set": 63,
+          "type": "LongLong",
           "flags": "UNIQUE_KEY",
-          "max_size": 20,
-          "type": "LongLong"
+          "collation": 63,
+          "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "maybe_redeemed_user_session_id"
+          }
         }
       },
       {
-        "name": "maybe_failure_type: UserLoginChallengeFailureType",
         "ordinal": 5,
+        "name": "maybe_failure_type: UserLoginChallengeFailureType",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "BINARY",
-          "max_size": 128,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "maybe_failure_type"
+          }
         }
       },
       {
-        "name": "ip_address_creation",
         "ordinal": 6,
+        "name": "ip_address_creation",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 160,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 160
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "ip_address_creation"
+          }
         }
       },
       {
-        "name": "expires_at",
         "ordinal": 7,
+        "name": "expires_at",
         "type_info": {
-          "char_set": 63,
+          "type": "Timestamp",
           "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | TIMESTAMP",
-          "max_size": 19,
-          "type": "Timestamp"
+          "collation": 63,
+          "max_size": 19
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_login_challenges",
+            "name": "expires_at"
+          }
         }
       }
     ],
+    "parameters": {
+      "Right": 1
+    },
     "nullable": [
       false,
       false,
@@ -92,11 +144,7 @@
       true,
       false,
       false
-    ],
-    "parameters": {
-      "Right": 1
-    }
+    ]
   },
-  "hash": "06dc6f19f013fe24ffd32a313b66dd10a87498bf17c9a63b1ece87e338b0dc74",
-  "query": "\nSELECT id, confirmation_code, status AS `status: UserLoginChallengeStatus`, maybe_deciding_user_token, maybe_redeemed_user_session_id,\n  maybe_failure_type AS `maybe_failure_type: UserLoginChallengeFailureType`, ip_address_creation, expires_at\nFROM user_login_challenges WHERE device_token_sha256 = ? FOR UPDATE\n"
+  "hash": "06dc6f19f013fe24ffd32a313b66dd10a87498bf17c9a63b1ece87e338b0dc74"
 }

@@ -38,7 +38,7 @@ server_environment = { path = "../../../../lib/server_environment" }
 anyhow = { workspace = true }
 log = { workspace = true }
 
-sqlx = { version = "0.8.6", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
+sqlx = { version = "0.9.0", features = [ "mysql", "runtime-tokio", "tls-rustls", "chrono" ] }
 
 # Redis
 r2d2_redis.workspace = true

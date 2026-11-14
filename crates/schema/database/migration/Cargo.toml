@@ -42,7 +42,7 @@ toml.workspace = true
 
 # Runtime + Clients
 tokio = { version = "1.38.0", features = ["full"] }
-sqlx = { version = "0.8.6", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
+sqlx = { version = "0.9.0", features = [ "mysql", "runtime-tokio", "tls-rustls", "chrono" ] }
 
 [dev-dependencies]
 # None yet

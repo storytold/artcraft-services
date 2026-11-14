@@ -30,8 +30,8 @@ serde = { workspace = true }
 serde_derive = { workspace = true }
 
 # MySql Database
-sqlx = { version = "0.8.6", default-features = false, features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
-sqlx-core = { version = "0.8.6", features = ["_tls-rustls"] }
+sqlx = { version = "0.9.0", default-features = false, features = [ "mysql", "runtime-tokio", "tls-rustls", "chrono" ] }
+sqlx-core = { version = "0.9.0", features = ["_tls-rustls"] }
 
 [dev-dependencies]
 # Test serialization

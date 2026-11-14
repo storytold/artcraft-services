@@ -38,7 +38,7 @@ strum.workspace = true
 
 # Bigger pieces
 tokio = { version = "1.38.0", features = ["macros", "fs"] }
-sqlx = { version = "0.8.6", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
+sqlx = { version = "0.9.0", features = [ "mysql", "runtime-tokio", "tls-rustls", "chrono" ] }
 elasticsearch.workspace = true
 
 # Serialization
