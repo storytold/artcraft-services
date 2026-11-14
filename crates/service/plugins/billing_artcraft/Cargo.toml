@@ -44,7 +44,7 @@ once_cell.workspace = true
 serde.workspace = true
 serde_derive.workspace = true
 serde_json.workspace = true
-sqlx = { version = "0.7.4", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
+sqlx = { version = "0.8.6", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
 users.workspace = true
 
 # Money
@@ -56,7 +56,7 @@ async-stripe-types = { version = "1.0.0-alpha.2", features = [] }
 async-stripe-webhook = { version = "1.0.0-alpha.2", features = [] }
 async-stripe-billing =  { version = "1.0.0-alpha.2", features = ["subscription", "billing_portal_session", "billing_portal_configuration"] }
 
-#sqlx = { version = "0.7.4", features = [ "mysql", "runtime-tokio", "tls-rustls", "chrono" ] }
+#sqlx = { version = "0.8.6", features = [ "mysql", "runtime-tokio", "tls-rustls", "chrono" ] }
 #utoipa = { version = "4", features = ["chrono","actix_extras"] }
 
 [dev-dependencies]
