@@ -6,7 +6,6 @@ use filesys::file_deletion::safe_delete_file::safe_delete_file;
 use hashing::sha256::sha256_hash_file::sha256_hash_file;
 use mysql_queries::queries::model_weights::migration::upsert_model_weight_from_tts_model::CopiedTtsFileData;
 use mysql_queries::queries::tts::tts_models::migration::list_whole_tts_models_using_cursor::WholeTtsModelRecord;
-use tempdir::TempDir;
 
 use crate::deps::Deps;
 
@@ -21,7 +20,7 @@ async fn copy_model(model: &WholeTtsModelRecord, deps: &Deps) -> AnyhowResult<Co
   let old_model_bucket_path = bucket_path_unifier.tts_synthesizer_path(&model.private_bucket_hash);
 
   // TODO(bt,2023-12-19): Probably faster to stream between buckets, but whatever.
-  let temp_dir = TempDir::new("model_transfer")?;
+  let temp_dir = tempfile::Builder::new().prefix("model_transfer").tempdir()?;
   let model_temp_fs_path = temp_dir.path().join("model.bin");
 
   deps.bucket_production_private.download_file_to_disk(&old_model_bucket_path, &model_temp_fs_path).await?;

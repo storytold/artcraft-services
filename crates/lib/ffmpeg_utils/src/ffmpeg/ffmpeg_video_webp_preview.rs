@@ -59,8 +59,7 @@ pub fn ffmpeg_video_webp_preview<I: AsRef<Path>, O: AsRef<Path>>(
 mod tests {
   use super::*;
   use crate::ffmpeg::webp_ffmpeg_binary::resolve_webp_ffmpeg;
-  use tempdir::TempDir;
-  use test_utils::test_file_path::test_file_path;
+    use test_utils::test_file_path::test_file_path;
 
   #[test]
   fn test_extract_webp_preview_from_mp4() {
@@ -71,7 +70,7 @@ mod tests {
     let input_path = test_file_path("test_data/video/mp4/golden_sun_garoh.mp4")
         .expect("test video should exist");
 
-    let temp_dir = TempDir::new_in("/tmp", "ffmpeg_webp_preview_test")
+    let temp_dir = tempfile::Builder::new().prefix("ffmpeg_webp_preview_test").tempdir_in("/tmp")
         .expect("should create temp dir");
 
     let output_path = temp_dir.path().join("preview.webp");

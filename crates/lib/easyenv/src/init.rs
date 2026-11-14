@@ -13,7 +13,7 @@ pub fn init_all_with_default_logging(default_if_absent: Option<&str>) {
 
 /// Read env configs from a filename.
 pub fn from_filename<P: AsRef<Path>>(filename: P) -> Result<(), InitError> {
-  let _path = dotenv::from_filename(&filename)
+  let _path = dotenvy::from_filename(&filename)
       .map_err(|err| {
         error!("Could not read env config from path {:?} : {:?}", filename.as_ref(), err);
         InitError::DotEnvError
@@ -44,7 +44,7 @@ pub fn maybe_read_env_config_from_filename_and_paths<P: AsRef<Path>, Q: AsRef<Pa
 // Initialize dotenv with the default `.env` config file.
 // Do not fail if the  file cannot be loaded.
 fn init_dotenv() {
-  match dotenv::dotenv() {
+  match dotenvy::dotenv() {
     Ok(_) => println!("dotenv configs initialized"),
     Err(e) => println!("Could not initialize dotenv: {:?}", e),
   }
@@ -61,7 +61,7 @@ fn do_read_env_config_from_filename_and_paths<P: AsRef<Path>, Q: AsRef<Path>>(fi
             error!("Error canonicalizing path: {:?}", err);
             InitError::IoError
           })?;
-      dotenv::from_path(path)
+      dotenvy::from_path(path)
           .map_err(|err| {
             error!("dotenv error reading config: {:?}", err);
             InitError::DotEnvError

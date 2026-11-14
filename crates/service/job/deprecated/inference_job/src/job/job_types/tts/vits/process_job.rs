@@ -3,9 +3,9 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use tempfile::TempDir;
 use anyhow::anyhow;
 use log::{error, info};
-use tempdir::TempDir;
 
 use enums::by_table::generic_inference_jobs::inference_result_type::InferenceResultType;
 use errors::AnyhowResult;
@@ -98,7 +98,7 @@ pub async fn process_job(args: VitsProcessJobArgs<'_>) -> Result<JobSuccessResul
   let temp_dir = format!("temp_vits_tts_inference_{}", job.id.0);
 
   // NB: TempDir exists until it goes out of scope, at which point it should delete from filesystem.
-  let temp_dir = TempDir::new(&temp_dir)
+  let temp_dir = tempfile::Builder::new().prefix(&temp_dir).tempdir()
       .map_err(|e| ProcessSingleJobError::from_io_error(e))?;
 
   let text_input_fs_path = temp_dir.path().join("inference_input.txt");

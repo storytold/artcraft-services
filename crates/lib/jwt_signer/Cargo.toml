@@ -20,9 +20,10 @@ normal = ["workspace-build-acceleration"]
 workspace-build-acceleration = { version = "0.1", path = "../../workspace-build-acceleration" }
 
 # External
-hmac = "0.10.1" # jwt signing
-jwt = "0.13.0"
-sha2 = "0.9.9" # hmac signing
+# NB: `jsonwebtoken` replaces the unmaintained `jwt` crate (RUSTSEC-2016-0007). HMAC-SHA256 is
+# all we use, so the PEM/RSA support is not compiled in.
+jsonwebtoken = { version = "9.3.1", default-features = false }
+serde.workspace = true
 
 [dev-dependencies]
 # None yet

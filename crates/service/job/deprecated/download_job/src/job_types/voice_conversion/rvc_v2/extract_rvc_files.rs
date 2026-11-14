@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use tempfile::TempDir;
 use log::{info, warn};
-use tempdir::TempDir;
 
 use errors::AnyhowResult;
 use filesys::file_deletion::safe_delete_file::safe_delete_file;
@@ -115,7 +115,6 @@ mod tests {
   use std::str::FromStr;
 
   use anyhow::bail;
-  use tempdir::TempDir;
 
   use errors::AnyhowResult;
   use storyteller_root::get_seed_tool_data_root;
@@ -127,7 +126,7 @@ mod tests {
   fn test_rvc_with_macos_directory() -> AnyhowResult<()> {
     let root = get_seed_tool_data_root();
     let broken_model = root.join("models/rvc/sakura-hkt48.zip");
-    let tempdir = TempDir::new("test").expect("tempdir creation failed");
+    let tempdir = tempfile::Builder::new().prefix("test").tempdir().expect("tempdir creation failed");
 
     let extracted = extract_rvc_files(&broken_model, &tempdir).unwrap();
 

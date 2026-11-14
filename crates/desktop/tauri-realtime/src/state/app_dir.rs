@@ -5,8 +5,7 @@ use directories::UserDirs;
 use ml_weights_registry::weights_registry::weight_descriptor::WeightDescriptor;
 use std::path::{Path, PathBuf};
 use chrono::{DateTime, Local};
-use tempdir::TempDir;
-use tempfile::{Builder, NamedTempFile};
+use tempfile::{Builder, NamedTempFile, TempDir};
 
 const DEFAULT_DATA_DIR : &str = "artcraft";
 const ASSETS_SUBDIRECTORY : &str = "assets";
@@ -51,7 +50,7 @@ impl AppDataRoot {
 
   pub fn create_existing<P: AsRef<Path>>(dir: P) -> anyhow::Result<Self> {
     let mut dir = dir.as_ref().to_path_buf();
-    
+
     match OsPlatform::get() {
       OsPlatform::Linux | OsPlatform::MacOs => {
         if let Some(d) = dir.as_os_str().to_str() {
@@ -60,7 +59,7 @@ impl AppDataRoot {
       },
       OsPlatform::Windows => {}
     }
-    
+
     if !dir.is_dir() {
       println!("Creating directory {:?}", dir);
       std::fs::create_dir_all(&dir)?;
@@ -72,7 +71,7 @@ impl AppDataRoot {
         println!("Error canonicalizing {:?}: {}", dir, err);
       }
     }
-    
+
     let assets_dir = AppAssetsDir::create_existing(dir.join(ASSETS_SUBDIRECTORY))?;
     let weights_dir = AppWeightsDir::create_existing(dir.join(WEIGHTS_SUBDIRECTORY))?;
     let temp_dir = TemporaryDir::create_existing(dir.join(TEMPORARY_SUBDIRECTORY))?;
@@ -91,11 +90,11 @@ impl AppDataRoot {
       log_file_name_string,
     })
   }
-  
+
   pub fn assets_dir(&self) -> &AppAssetsDir {
     &self.assets_dir
   }
-  
+
   pub fn weights_dir(&self) -> &AppWeightsDir {
     &self.weights_dir
   }
@@ -138,7 +137,7 @@ impl AppAssetsDir {
   pub fn path(&self) -> &Path {
     &self.path
   }
-  
+
   /// Return the current date asset directory
   /// If it doesn't exist, create it.
   pub fn make_or_get_current_date_dir(&self) -> anyhow::Result<PathBuf> {
@@ -198,7 +197,7 @@ impl TemporaryDir {
   }
 
   pub fn with_prefix(&self, prefix: &str) -> anyhow::Result<TempDir> {
-    let tempdir = TempDir::new_in(&self.path, prefix)?;
+    let tempdir = tempfile::Builder::new().prefix(prefix).tempdir_in(&self.path)?;
     Ok(tempdir)
   }
 

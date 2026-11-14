@@ -45,11 +45,11 @@ tokens.workspace = true
 anyhow.workspace = true
 url.workspace = true
 chrono.workspace = true
-dotenv.workspace = true
+dotenvy.workspace = true
 hostname.workspace = true
 log.workspace = true
 subprocess = "0.2.9"
-tempdir.workspace = true
+tempfile.workspace = true
 zip = "0.6.6"
 
 sqlx = { version = "0.7.4", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }

@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use log::{info, warn};
-use tempdir::TempDir;
 
 use enums::common::vocoder_type::VocoderType;
 use errors::AnyhowResult;
@@ -18,6 +17,7 @@ use mysql_queries::queries::vocoder::insert_vocoder_model::{Args, insert_vocoder
 
 use crate::job_loop::job_results::JobResults;
 use crate::JobState;
+use tempfile::TempDir;
 
 /// Returns the token of the entity.
 pub async fn process_hifigan_vocoder<'a, 'b>(

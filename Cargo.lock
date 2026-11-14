@@ -474,7 +474,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "datetimes",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "enums",
  "errors",
@@ -755,7 +755,7 @@ dependencies = [
  "chrono",
  "futures-util",
  "hex",
- "hmac 0.12.1",
+ "hmac",
  "http-types",
  "hyper 0.14.28",
  "hyper-rustls 0.24.2",
@@ -883,7 +883,7 @@ dependencies = [
  "async-stripe-types",
  "chrono",
  "hex",
- "hmac 0.12.1",
+ "hmac",
  "miniserde",
  "serde",
  "sha2 0.10.8",
@@ -1343,7 +1343,7 @@ dependencies = [
 name = "bootstrap"
 version = "0.0.1"
 dependencies = [
- "dotenv",
+ "dotenvy",
  "easyenv",
  "errors",
  "hostname 0.4.0",
@@ -2238,16 +2238,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crypto-mac"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4857fd85a0c34b3c3297875b747c1e02e06b6a0ea32dd892d8192b9ce0813ea6"
-dependencies = [
- "generic-array",
- "subtle",
-]
-
-[[package]]
 name = "csv"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2403,7 +2393,7 @@ dependencies = [
  "chrono",
  "clap 4.5.60",
  "datetimes",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "enums",
  "errors",
@@ -2426,7 +2416,7 @@ name = "db-backup"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "errors",
  "log",
@@ -2439,7 +2429,7 @@ version = "0.0.1"
 dependencies = [
  "bucket_paths",
  "clap 4.5.60",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "enums",
  "errors",
@@ -2697,12 +2687,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2726,7 +2710,7 @@ dependencies = [
  "concurrency",
  "config",
  "crockford",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "enums",
  "errors",
@@ -2749,7 +2733,7 @@ dependencies = [
  "storyteller_root",
  "subprocess",
  "subprocess_common",
- "tempdir",
+ "tempfile",
  "tokens",
  "tokio",
  "url",
@@ -2813,7 +2797,7 @@ checksum = "545b22097d44f8a9581187cdf93de7a71e4722bf51200cfaba810865b49a495d"
 name = "easyenv"
 version = "0.1.0"
 dependencies = [
- "dotenv",
+ "dotenvy",
  "env_logger 0.11.9",
  "log",
  "storyteller_root",
@@ -3120,7 +3104,7 @@ dependencies = [
  "anyhow",
  "bootstrap",
  "chrono",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "elasticsearch",
  "elasticsearch_schema",
@@ -3247,7 +3231,6 @@ dependencies = [
  "errors",
  "ffprobe",
  "log",
- "tempdir",
  "tempfile",
  "test_utils",
  "workspace-build-acceleration",
@@ -3395,12 +3378,6 @@ dependencies = [
  "libc",
  "winapi",
 ]
-
-[[package]]
-name = "fuchsia-cprng"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 
 [[package]]
 name = "futures"
@@ -3677,7 +3654,7 @@ dependencies = [
  "errors",
  "log",
  "subprocess_common",
- "tempdir",
+ "tempfile",
  "workspace-build-acceleration",
 ]
 
@@ -3940,17 +3917,7 @@ version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
 dependencies = [
- "hmac 0.12.1",
-]
-
-[[package]]
-name = "hmac"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1441c6b1e930e2817404b5046f1f989899143a12bf92de603b69f4e0aee1e15"
-dependencies = [
- "crypto-mac",
- "digest 0.9.0",
+ "hmac",
 ]
 
 [[package]]
@@ -4608,7 +4575,7 @@ dependencies = [
  "concurrency",
  "config",
  "crockford",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "enums",
  "errors",
@@ -4645,7 +4612,7 @@ dependencies = [
  "sqlx",
  "subprocess",
  "subprocess_common",
- "tempdir",
+ "tempfile",
  "test_utils",
  "thumbnail_generator",
  "time",
@@ -4871,18 +4838,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwt"
-version = "0.13.0"
+name = "jsonwebtoken"
+version = "9.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86e46349d67dc03bdbdb28da0337a355a53ca1d5156452722c36fe21d0e6389b"
+checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
 dependencies = [
- "base64 0.13.1",
- "crypto-mac",
- "digest 0.9.0",
- "hmac 0.10.1",
+ "base64 0.22.1",
+ "js-sys",
+ "ring",
  "serde",
  "serde_json",
- "sha2 0.9.9",
 ]
 
 [[package]]
@@ -4925,9 +4890,8 @@ dependencies = [
 name = "jwt_signer"
 version = "0.0.1"
 dependencies = [
- "hmac 0.10.1",
- "jwt",
- "sha2 0.9.9",
+ "jsonwebtoken",
+ "serde",
  "workspace-build-acceleration",
 ]
 
@@ -5503,7 +5467,7 @@ dependencies = [
  "sqlx",
  "storyteller_root",
  "strum",
- "tempdir",
+ "tempfile",
  "tokens",
  "tokio",
  "workspace-build-acceleration",
@@ -6355,7 +6319,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83a0692ec44e4cf1ef28ca317f14f8f07da2d95ec3fa01f86e4467b725e60917"
 dependencies = [
  "digest 0.10.7",
- "hmac 0.12.1",
+ "hmac",
  "password-hash",
  "sha2 0.10.8",
 ]
@@ -6367,7 +6331,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
 dependencies = [
  "digest 0.10.7",
- "hmac 0.12.1",
+ "hmac",
 ]
 
 [[package]]
@@ -6822,19 +6786,6 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
-dependencies = [
- "fuchsia-cprng",
- "libc",
- "rand_core 0.3.1",
- "rdrand",
- "winapi",
-]
-
-[[package]]
-name = "rand"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a6b1679d49b24bbfe0c803429aa1874472f50d9b363131f0e89fc356b544d03"
@@ -6907,21 +6858,6 @@ dependencies = [
  "ppv-lite86",
  "rand_core 0.9.3",
 ]
-
-[[package]]
-name = "rand_core"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a6fdeb83b075e8266dcc8762c22776f6877a63111121f5f8c7411e5be7eed4b"
-dependencies = [
- "rand_core 0.4.2",
-]
-
-[[package]]
-name = "rand_core"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c33a3c44ca05fa6f1807d8e6743f3824e8509beca625669633be0acbdf509dc"
 
 [[package]]
 name = "rand_core"
@@ -7049,15 +6985,6 @@ name = "rb"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a27f4c5756bd2bfb5942758d8168805655c62388eef0544e581a2bfa5b532f15"
-
-[[package]]
-name = "rdrand"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
-dependencies = [
- "rand_core 0.3.1",
-]
 
 [[package]]
 name = "redis"
@@ -7209,15 +7136,6 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
-
-[[package]]
-name = "remove_dir_all"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
-dependencies = [
- "winapi",
-]
 
 [[package]]
 name = "reqwest"
@@ -7386,7 +7304,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
- "hmac 0.12.1",
+ "hmac",
  "subtle",
 ]
 
@@ -7551,7 +7469,7 @@ dependencies = [
  "cfg-if",
  "futures 0.3.32",
  "hex",
- "hmac 0.12.1",
+ "hmac",
  "http 1.3.1",
  "log",
  "maybe-async",
@@ -8561,7 +8479,7 @@ dependencies = [
  "generic-array",
  "hex",
  "hkdf",
- "hmac 0.12.1",
+ "hmac",
  "itoa 1.0.11",
  "log",
  "md-5 0.10.6",
@@ -8602,7 +8520,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hkdf",
- "hmac 0.12.1",
+ "hmac",
  "home",
  "itoa 1.0.11",
  "log",
@@ -8791,7 +8709,6 @@ dependencies = [
  "sqlx",
  "strum",
  "strum_macros 0.26.4",
- "tempdir",
  "tempfile",
  "test_utils",
  "thumbnail_generator",
@@ -9374,16 +9291,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1fc403891a21bcfb7c37834ba66a547a8f402146eba7265b5a6d88059c9ff2f"
 
 [[package]]
-name = "tempdir"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
-dependencies = [
- "rand 0.4.6",
- "remove_dir_all",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9964,7 +9871,7 @@ dependencies = [
  "chrono",
  "cloud_storage",
  "config",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "enums",
  "errors",
@@ -9983,7 +9890,7 @@ dependencies = [
  "shared_env_var_config",
  "sqlx",
  "subprocess",
- "tempdir",
+ "tempfile",
  "tokio",
  "workspace-build-acceleration",
 ]
@@ -9998,7 +9905,7 @@ dependencies = [
  "cloud_storage",
  "collections",
  "config",
- "dotenv",
+ "dotenvy",
  "easyenv",
  "errors",
  "filesys",
@@ -10016,7 +9923,7 @@ dependencies = [
  "serde_json",
  "shared_env_var_config",
  "sqlx",
- "tempdir",
+ "tempfile",
  "tokio",
  "tts_common",
  "workspace-build-acceleration",
@@ -10414,7 +10321,7 @@ dependencies = [
  "server_environment",
  "shared_env_var_config",
  "sqlx",
- "tempdir",
+ "tempfile",
  "tokio",
  "workspace-build-acceleration",
 ]
@@ -11295,7 +11202,7 @@ dependencies = [
  "getrandom 0.4.1",
  "hashbrown 0.14.5",
  "hashbrown 0.16.1",
- "hmac 0.12.1",
+ "hmac",
  "hyper 0.14.28",
  "hyper 1.6.0",
  "hyper-rustls 0.24.2",
@@ -11623,7 +11530,7 @@ dependencies = [
  "crc32fast",
  "crossbeam-utils",
  "flate2",
- "hmac 0.12.1",
+ "hmac",
  "pbkdf2 0.11.0",
  "sha1 0.10.6",
  "time",
@@ -11645,7 +11552,7 @@ dependencies = [
  "deflate64",
  "displaydoc",
  "flate2",
- "hmac 0.12.1",
+ "hmac",
  "indexmap 2.13.0",
  "lzma-rs",
  "memchr",

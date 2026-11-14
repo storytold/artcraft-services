@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use tempdir::TempDir;
 
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use cloud_storage::legacy_bucket_client::LegacyBucketClient;
@@ -12,6 +11,7 @@ use mysql_queries::queries::model_weights::get::get_weight::RetrievedModelWeight
 use crate::job::job_loop::process_single_job_error::ProcessSingleJobError;
 use crate::util::downloaders::maybe_download_file_from_bucket::{maybe_download_file_from_bucket, MaybeDownloadArgs};
 use crate::util::filesystem::scoped_temp_dir_creator::ScopedTempDirCreator;
+use tempfile::TempDir;
 
 pub struct ModelFile {
     pub filesystem_path: PathBuf,

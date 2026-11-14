@@ -2,7 +2,6 @@ use std::path::Path;
 
 use anyhow::anyhow;
 use log::info;
-use tempdir::TempDir;
 
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use enums::by_table::generic_inference_jobs::inference_result_type::InferenceResultType;
@@ -20,6 +19,7 @@ use mysql_queries::queries::tts::tts_results::insert_tts_result::JobType;
 use crate::job::job_loop::process_single_job_error::ProcessSingleJobError;
 use crate::job::job_types::tts::tacotron2::process_job::FileMetadata;
 use crate::state::job_dependencies::JobDependencies;
+use tempfile::TempDir;
 
 const BUCKET_FILE_PREFIX: &str = "fakeyou_";
 const BUCKET_FILE_EXTENSION: &str = ".wav";

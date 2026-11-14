@@ -1,3 +1,4 @@
+use tempfile::TempDir;
 // NB: Incrementally getting rid of build warnings...
 #![forbid(unused_imports)]
 #![forbid(unused_mut)]
@@ -10,7 +11,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 use log::{error, info, warn};
-use tempdir::TempDir;
 
 use errors::AnyhowResult;
 use filesys::check_file_exists::check_file_exists;
@@ -218,7 +218,7 @@ pub async fn process_single_job(
   let temp_dir = format!("temp_tts_inference_{}", job.id.0);
 
   // NB: TempDir exists until it goes out of scope, at which point it should delete from filesystem.
-  let temp_dir = TempDir::new(&temp_dir)
+  let temp_dir = tempfile::Builder::new().prefix(&temp_dir).tempdir()
       .map_err(|e| ProcessSingleJobError::from_io_error(e))?;
 
   let text_input_fs_path = temp_dir.path().join("inference_input.txt");

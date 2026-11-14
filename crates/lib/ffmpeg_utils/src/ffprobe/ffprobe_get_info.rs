@@ -129,7 +129,6 @@ pub mod tests {
     use super::super::{ffprobe_get_info_from_bytes, info_from_probe};
     use ffprobe::{FfProbe, Format, Stream};
     use std::process::Command;
-    use tempdir::TempDir;
 
     #[test]
     fn container_duration_does_not_discard_dimensions() {
@@ -153,7 +152,7 @@ pub mod tests {
 
     #[test]
     fn probes_mov_with_pcm_audio_without_modifying_bytes() {
-      let dir = TempDir::new("quicktime-metadata-test").unwrap();
+      let dir = tempfile::Builder::new().prefix("quicktime-metadata-test").tempdir().unwrap();
       let path = dir.path().join("reference.mov");
       let output = Command::new("ffmpeg").args([
         "-hide_banner", "-loglevel", "error", "-nostdin",

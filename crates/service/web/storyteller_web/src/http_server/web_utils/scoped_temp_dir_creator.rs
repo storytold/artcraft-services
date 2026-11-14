@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 /// This utility will always create TempDirs at a specific mount path.
 /// This is useful for k8s deployments where we may need our TempDirs
@@ -37,6 +37,6 @@ impl ScopedTempDirCreator {
   }
 
   pub fn new_tempdir(&self, prefix: &str) -> std::io::Result<TempDir> {
-    TempDir::new_in(&self.base_dir, prefix)
+    tempfile::Builder::new().prefix(prefix).tempdir_in(&self.base_dir)
   }
 }

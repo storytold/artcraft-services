@@ -30,7 +30,7 @@ tokens = { path = "../../../schema/public/tokens" }
 
 # External
 clap = "4.4.8"
-dotenv.workspace = true
+dotenvy.workspace = true
 itertools = "0.13.0"
 log = "0.4.14"
 
