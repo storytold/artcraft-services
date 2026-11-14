@@ -26,8 +26,8 @@ macro_rules! impl_mysql_enum_coders {
     impl<'q> sqlx::Encode<'q, sqlx::MySql> for $t {
       fn encode_by_ref(
         &self,
-        buf: &mut <sqlx::MySql as sqlx_core::database::HasArguments<'q>>::ArgumentBuffer
-      ) -> sqlx_core::encode::IsNull {
+        buf: &mut <sqlx::MySql as sqlx::Database>::ArgumentBuffer<'q>
+      ) -> Result<sqlx_core::encode::IsNull, sqlx_core::error::BoxDynError> {
         // // 0.4.x series:
         // // NB: In the absence of `#[derive(sqlx::Type)]` and `#sqlx(rename_all="lowercase")]`,
         // // this controls the casing of the variants when sent to MySQL.
