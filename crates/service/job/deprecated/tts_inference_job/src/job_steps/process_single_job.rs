@@ -1,4 +1,3 @@
-use tempfile::TempDir;
 // NB: Incrementally getting rid of build warnings...
 #![forbid(unused_imports)]
 #![forbid(unused_mut)]
