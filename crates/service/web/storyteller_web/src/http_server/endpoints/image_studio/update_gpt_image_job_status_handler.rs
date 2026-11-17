@@ -1,6 +1,7 @@
 use std::fmt;
 use std::sync::Arc;
 
+use crate::http_server::web_utils::require_internal_api_key::require_internal_api_key;
 use crate::http_server::web_utils::response_error_helpers::to_simple_json_error;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::state::server_state::ServerState;
@@ -80,6 +81,10 @@ pub async fn update_gpt_image_job_status_handler(
   request: Json<UpdateGptImageJobStatusRequest>,
   server_state: web::Data<Arc<ServerState>>) -> Result<Json<UpdateGptImageJobStatusSuccessResponse>, CommonWebError>
 {
+  // NB: Worker-facing callback. Anyone who knew a job token could otherwise mark it complete and
+  // publish images under the job creator's name.
+  require_internal_api_key(&http_request, &server_state)?;
+
   //// TODO(bt,2024-06-16): Reuse connection
   //let mut mysql_connection = server_state.mysql_pool.acquire()
   //    .await
