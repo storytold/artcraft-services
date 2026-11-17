@@ -105,7 +105,8 @@ pub async fn edit_profile_handler(
   let mut editor_is_original_user = false;
   let mut editor_is_moderator = false;
 
-  if path.username == user_session.username {
+  // Compare stable tokens: a cached session's username can be stale after a rename.
+  if user_record.user_token.as_str() == user_session.user_token.as_str() {
     editor_is_original_user = true;
   }
 
