@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "\nSELECT\n  user_token,\n  subscription_namespace as `subscription_namespace: enums::common::payments_namespace::PaymentsNamespace`,\n  subscription_product_slug,\n  subscription_expires_at\n\nFROM user_subscriptions\n\nWHERE\n  user_token = ?\n  AND subscription_expires_at > CURRENT_TIMESTAMP\n  ORDER BY id ASC\n        ",
+  "query": "\nSELECT\n  user_token,\n  subscription_namespace as `subscription_namespace: enums::common::payments_namespace::PaymentsNamespace`,\n  subscription_product_slug,\n  subscription_expires_at\n\nFROM user_subscriptions\n\nWHERE\n  user_token = ?\n  AND subscription_expires_at > CURRENT_TIMESTAMP\n  AND (maybe_stripe_subscription_status IS NULL\n    OR maybe_stripe_subscription_status NOT IN ('incomplete', 'incomplete_expired', 'unpaid'))\n  ORDER BY id ASC\n        ",
   "describe": {
     "columns": [
       {
@@ -54,5 +54,5 @@
       false
     ]
   },
-  "hash": "680d60fcda0f6fdf269f3525a3fe582db847e56ca7380c0ff5696cbd6efb7db3"
+  "hash": "3cda37ea79d02f8a7cf4a678c61d54c4fcd8274a98301da734b1e032284c7171"
 }
