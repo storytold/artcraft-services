@@ -1,4 +1,4 @@
-# Growth/marketing redirects - must come before the SPA fallback.
+# Growth/marketing redirects.
 /reddit /?utm_source=reddit 301
 
 # Legacy marketing routes - webapp no longer hosts these.
@@ -15,5 +15,5 @@
 /blog               https://getartcraft.com/blog 301
 /blog/*             https://getartcraft.com/blog/:splat 301
 
-# SPA fallback - React Router handles every other path.
-/*  /index.html  200
+# No SPA fallback rule here: Workers static assets reject `/* /index.html 200` as a
+# loop. wrangler.jsonc serves index.html for unmatched paths (not_found_handling).

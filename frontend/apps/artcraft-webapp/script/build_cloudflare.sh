@@ -9,7 +9,9 @@ export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=8192"
 
 echo "Building artcraft-webapp..."
 # nx is a devDependency in frontend/package.json; never let npx fetch and run another copy.
-npx --no-install nx build artcraft-webapp
+# Nx refuses to run in CI when tsconfig project references drift (`nx sync`); Vite does
+# not read them, so a stale reference must not block a deploy.
+npx --no-install nx build artcraft-webapp --skipSync
 
 echo "Ensuring Cloudflare Pages _redirects and _headers exist in dist..."
 mkdir -p apps/artcraft-webapp/dist
