@@ -8,6 +8,11 @@ pub enum DownloadError {
     status_code: u16,
   },
 
+  TooLarge {
+    url: String,
+    max_bytes: usize,
+  },
+
   ReqwestDownload {
     url: String,
     error: reqwest::Error,
@@ -28,6 +33,9 @@ impl Display for DownloadError {
     match self {
       Self::BadStatus { url, status_code } => {
         write!(f, "Download failed for {} with status {}", url, status_code)
+      }
+      Self::TooLarge { url, max_bytes } => {
+        write!(f, "Download of {} exceeded the {} byte limit", url, max_bytes)
       }
       Self::ReqwestDownload { url, error, maybe_status } => {
         write!(f, "Reqwest download error for {}: {} (status: {:?})", url, error, maybe_status)

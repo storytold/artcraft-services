@@ -28,6 +28,8 @@ pub async fn list_active_user_subscriptions<'e, 'c : 'e, E>(
     //  but the CRC is wrong. Eg. what happened with ftx on 2022.11.18.
     //
     //  https://stripe.com/docs/billing/subscriptions/overview#subscription-statuses
+    //
+    //  Those handlers still assign a future expiry, so exclude statuses that were never paid.
     let records = sqlx::query_as!(
       RawActiveUserSubscription,
         r#"
@@ -42,6 +44,8 @@ FROM user_subscriptions
 WHERE
   user_token = ?
   AND subscription_expires_at > CURRENT_TIMESTAMP
+  AND (maybe_stripe_subscription_status IS NULL
+    OR maybe_stripe_subscription_status NOT IN ('incomplete', 'incomplete_expired', 'unpaid'))
   ORDER BY id ASC
         "#,
       user_token,

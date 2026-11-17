@@ -103,7 +103,10 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
 
   let bind_address = easyenv::get_env_string_or_default("BIND_ADDRESS", "0.0.0.0:12345");
   let num_workers = easyenv::get_env_num("NUM_WORKERS", 8)?;
-  let hmac_secret = easyenv::get_env_string_or_default("COOKIE_SECRET", "notsecret");
+  let server_environment = ServerEnvironment::from_str(&easyenv::get_env_string_required("SERVER_ENVIRONMENT")?)
+    .ok_or(anyhow!("invalid server environment"))?;
+
+  let hmac_secret = secret_from_env("COOKIE_SECRET", "notsecret", server_environment)?;
   let cookie_domain = easyenv::get_env_string_or_default("COOKIE_DOMAIN", ".vo.codes");
   let cookie_secure = easyenv::get_env_bool_or_default("COOKIE_SECURE", true);
   let cookie_http_only = easyenv::get_env_bool_or_default("COOKIE_HTTP_ONLY", true);
@@ -162,7 +165,7 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
     easyenv::get_env_duration_seconds_or_default("INFERENCE_QUEUE_LENGTH_CACHE_TTL_SECONDS", Duration::from_secs(30))
   );
 
-  let sort_key_crypto_secret = easyenv::get_env_string_or_default("SORT_KEY_SECRET", "webscale");
+  let sort_key_crypto_secret = secret_from_env("SORT_KEY_SECRET", "webscale", server_environment)?;
   let sort_key_crypto = WebSortKeyCrypto::new(&sort_key_crypto_secret);
   let opaque_cursor_encoder = WebOpaqueCursorEncoderV2::new(&sort_key_crypto_secret);
 
@@ -181,9 +184,6 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
   let model_token_info_cache = ModelTokenToInfoCache::new();
 
   let health_check_status = HealthCheckStatus::new();
-
-  let server_environment = ServerEnvironment::from_str(&easyenv::get_env_string_required("SERVER_ENVIRONMENT")?)
-    .ok_or(anyhow!("invalid server environment"))?;
 
   let (pager, pager_worker, paging_flags) = build_pager(server_environment, server_hostname);
 
@@ -299,4 +299,14 @@ fn get_elasticsearch_client() -> AnyhowResult<Elasticsearch> {
   let transport = Transport::single_node(&easyenv::get_env_string_required("ELASTICSEARCH_URL")?)?;
   let client = Elasticsearch::new(transport);
   Ok(client)
+}
+
+/// Read a signing/encryption secret. The development fallbacks are public, so production refuses
+/// to start without a real value rather than sign sessions or cursors with a known key.
+fn secret_from_env(name: &str, development_default: &str, server_environment: ServerEnvironment) -> AnyhowResult<String> {
+  match std::env::var(name) {
+    Ok(value) if !value.trim().is_empty() => Ok(value),
+    _ if server_environment.is_deployed_in_production() => Err(anyhow!("{} must be set in production", name)),
+    _ => Ok(development_default.to_string()),
+  }
 }

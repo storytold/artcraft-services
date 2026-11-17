@@ -250,6 +250,7 @@ pub async fn upload_pmx_media_file_handler(
           PmxError::NoPmxFile => MediaFileUploadError::ServerErrorVerbose("no pmx files".to_string()),
           PmxError::UploadError => MediaFileUploadError::ServerErrorVerbose("upload error".to_string()),
           PmxError::FileError => MediaFileUploadError::ServerErrorVerbose("file error".to_string()),
+          PmxError::TooLarge => MediaFileUploadError::BadInput("archive contents too large when decompressed (limit 256 MiB per file, 512 MiB total)".to_string()),
           PmxError::ExtractionError => MediaFileUploadError::ServerErrorVerbose("zip extraction error".to_string()),
         }
       })?;
