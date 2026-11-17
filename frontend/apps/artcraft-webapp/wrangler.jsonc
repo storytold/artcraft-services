@@ -1,5 +1,17 @@
 {
-  "name": "app-new",
+  // Static-assets-only Worker for app.getartcraft.com. Build and deploy from the
+  // repository root with ARTCRAFT_APP=artcraft-webapp (see script/website/cloudflare_app.sh).
+  "name": "artcraft-webapp",
   "compatibility_date": "2026-11-06",
-  "pages_build_output_dir": "./dist"
+  "assets": {
+    "directory": "./dist",
+    // React Router owns every path that is not a file in dist/.
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    {
+      "pattern": "app.getartcraft.com",
+      "custom_domain": true
+    }
+  ]
 }

@@ -198,6 +198,22 @@ The website runs at `http://localhost:3000`. Repository-root launchers are in
 [`script/website`](./script/website). For desktop development, use the
 [ArtCraft desktop repository](https://github.com/storytold/artcraft).
 
+### Cloudflare deployment
+
+Both frontends deploy to Cloudflare Workers from this repository with the build
+command `npm run build` and the deploy command `npm run deploy`. Each Worker sets
+the `ARTCRAFT_APP` build variable to choose what
+[`cloudflare_app.sh`](./script/website/cloudflare_app.sh) builds:
+
+| Worker              | `ARTCRAFT_APP`               | Hostname              | Wrangler config                                | Build secrets                                                |
+|---------------------|------------------------------|-----------------------|------------------------------------------------|--------------------------------------------------------------|
+| `artcraft-services` | `artcraft-website` (default) | `getartcraft.com`     | `wrangler.jsonc`                               | `LAUNCHER_CATALOG_SIGNING_KEY`; optional `LINUX_SIGNING_KEY` |
+| `artcraft-webapp`   | `artcraft-webapp`            | `app.getartcraft.com` | `frontend/apps/artcraft-webapp/wrangler.jsonc` | none                                                         |
+
+The webapp never builds the website, so its Worker needs no signing keys. Its
+`VITE_*` variables (for example `VITE_GOOGLE_CLIENT_ID`) are build variables, not
+runtime secrets.
+
 ## Automated Craft Release Version Updates
 
 The `.github/workflows/update-craft-release-versions.yml` workflow automatically updates the release versions of the Craft Launcher and Crafting Apps.

@@ -2,7 +2,10 @@
   "name": "artcraft-services",
   "private": true,
   "scripts": {
-    "build": "npm --prefix frontend/apps/artcraft-website-next ci --ignore-scripts && npm --prefix frontend/apps/artcraft-website-next run build:cloudflare",
-    "build:webapp": "npm --prefix frontend ci --ignore-scripts && npm --prefix frontend run build:webapp"
+    "build": "bash script/website/cloudflare_app.sh build",
+    "deploy": "bash script/website/cloudflare_app.sh deploy",
+    "build:website": "ARTCRAFT_APP=artcraft-website bash script/website/cloudflare_app.sh build",
+    "build:webapp": "ARTCRAFT_APP=artcraft-webapp bash script/website/cloudflare_app.sh build",
+    "deploy:webapp": "ARTCRAFT_APP=artcraft-webapp bash script/website/cloudflare_app.sh deploy"
   }
 }
