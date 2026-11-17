@@ -55,13 +55,9 @@ impl LegacyBucketClient {
     bucket_request_timeout: Option<Duration>,
   ) -> anyhow::Result<Self>
   {
-    let credentials = Credentials {
-      access_key: Some(access_key.to_string()),
-      secret_key: Some(secret_key.to_string()),
-      security_token: None,
-      session_token: None,
-      expiration: None
-    };
+    // NB: `Credentials` has private fields in aws-creds 0.40, so it can only be built through
+    // its constructor (which also validates the key pair).
+    let credentials = Credentials::new(Some(access_key), Some(secret_key), None, None, None)?;
 
     // NB: The GCS buckets aren't supported by default.
     let region = Region::Custom {

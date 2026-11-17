@@ -1,0 +1,72 @@
+# Compiles the whole workspace on pull requests.
+#
+# Until this existed the only Cargo build was the Docker publish workflow, which runs on
+# pushes to main/test, so dependency changes and refactors merged without ever being
+# type-checked. That is what let the sqlx/reqwest/rustls advisory work sit unvalidated.
+name: "Rust check"
+
+on:
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.sqlx/**'
+      - 'crates/**'
+      - '.github/workflows/rust-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: cargo check
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # storyteller-web and mysql_queries compile only against the committed .sqlx metadata,
+      # and CI has no MySQL. See .claude/rules/testing.md.
+      SQLX_OFFLINE: "true"
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Mirrors the build image's package set (build/service_cpu.Dockerfile): cmake and
+      # libclang for the native crates, fontconfig for the egui stack, libssl for the few
+      # non-rustls C clients, and ALSA because tauri-realtime pulls cpal.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            libasound2-dev \
+            libclang-dev \
+            libfontconfig1-dev \
+            libssl-dev \
+            pkg-config
+
+      # The Docker image pins 1.93.0; check with the same compiler that ships.
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.93.0 --profile minimal
+          rustup default 1.93.0
+          rustc --version
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      # --locked fails when Cargo.lock is out of sync with the manifests, which is exactly
+      # the regression a dependency bump introduces. --all-targets covers tests, benches and
+      # examples, none of which the Docker build compiles.
+      - name: cargo check
+        run: cargo check --locked --workspace --all-targets
