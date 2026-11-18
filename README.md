@@ -213,9 +213,10 @@ is needed to tell the projects apart:
 | `artcraft-dashboard` | `build:dashboard` / `deploy:dashboard` | `dashboard.artcraft.team` | `frontend/apps/artcraft-dashboard/wrangler.jsonc` | none                                                         |
 
 The bare `npm run build` / `npm run deploy` pair falls back to the website and
-needs an `ARTCRAFT_APP` build variable. Do not use it for the other two: the
-website's build runs the launcher-catalog signing step, and its deploy hands
-Wrangler the root config, whose `assets.directory`
+needs an `ARTCRAFT_APP` build variable, and the default `npx wrangler deploy`
+deploy command resolves the root config no matter which app was built. Do not use
+either for the other two Workers: the website's build runs the launcher-catalog
+signing step, and its `assets.directory`
 (`frontend/apps/artcraft-website-next/out`) does not exist in those builds.
 
 Only the website builds the website, so it is the only Worker that needs signing

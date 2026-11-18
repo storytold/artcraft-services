@@ -35,12 +35,20 @@ belong to the website's static-export pipeline
 ([`sign-launcher-catalog.mjs`](../artcraft-website-next/scripts/sign-launcher-catalog.mjs)),
 which only `artcraft-website-next` runs. Nothing under this app reads them.
 
-Do not configure this Worker with plain `npm run build` / `npm run deploy`. Those
-default to `ARTCRAFT_APP=artcraft-website`, so the build runs the website's
-signing step (failing without `LAUNCHER_CATALOG_SIGNING_KEY`) and the deploy hands
-Wrangler the root config, failing with
-`The directory specified by the "assets.directory" field ... does not exist:`
-`.../frontend/apps/artcraft-website-next/out`.
+Do not configure this Worker with the shared commands. Plain `npm run build` /
+`npm run deploy` default to `ARTCRAFT_APP=artcraft-website`, so the build runs the
+website's signing step and fails without `LAUNCHER_CATALOG_SIGNING_KEY`.
+
+The default deploy command `npx wrangler deploy` fails even when the build did
+select this app: with no `--config`, Wrangler resolves the root `wrangler.jsonc`
+and looks for the website's assets directory. Both paths report
+
+```
+The directory specified by the "assets.directory" field in your configuration
+file does not exist: .../frontend/apps/artcraft-website-next/out
+```
+
+Set both Workers Builds fields to the commands in the table above.
 
 ### `/api` proxy
 
