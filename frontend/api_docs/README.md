@@ -41,6 +41,5 @@ Workers Builds runs both from the repository root. `storyteller-docs.artcraft.te
 `artcraft.team` zone must be on the same account as the Worker (the setup
 `dashboard.artcraft.team` already uses).
 
-These docs previously lived at `storyteller-docs.netlify.app`, built by
-[`script/netlify_build_docs.sh`](../../script/netlify_build_docs.sh), which is kept
-only as the rollback path. The Worker deliberately reuses that name.
+These docs previously lived at `storyteller-docs.netlify.app`. That Netlify site is
+no longer maintained, and the Worker deliberately reuses its name.

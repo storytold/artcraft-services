@@ -1,6 +1,6 @@
 # ArtCraft Omni API
 
-> # 📚 Full API reference: **<https://storyteller-docs.netlify.app/>**
+> # 📚 Full API reference: **<https://storyteller-docs.artcraft.team/>**
 >
 > **Every ArtCraft API endpoint is documented there.** This guide covers only the Omni API video
 > endpoints — for everything else, start at the link above.
