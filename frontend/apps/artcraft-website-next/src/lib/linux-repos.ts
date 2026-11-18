@@ -269,18 +269,34 @@ function getAppSection(schemaCategory: string | undefined, slug: string): string
 
 /**
  * Reads HTTP HEAD content-length for a package download URL.
+ *
+ * A build probes every published package, and GitHub intermittently times out or
+ * sheds a request under that burst; a single unanswered HEAD used to fail the
+ * whole static export. Each attempt is therefore retried before giving up.
  */
 async function fetchHeadPackageSize(downloadUrl: string, filename: string): Promise<number> {
-  const headRes = await fetch(downloadUrl, {
-    method: "HEAD",
-    redirect: "follow",
-    signal: AbortSignal.timeout(10_000),
-  });
-  const size = Number(headRes.headers.get("content-length"));
-  if (!headRes.ok || !Number.isSafeInteger(size) || size <= 0) {
-    throw new Error(`Unable to determine package size for ${filename}`);
+  const attempts = 3;
+  let lastError: Error = new Error(`Unable to determine package size for ${filename}`);
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const headRes = await fetch(downloadUrl, {
+        method: "HEAD",
+        redirect: "follow",
+        signal: AbortSignal.timeout(10_000),
+      });
+      const size = Number(headRes.headers.get("content-length"));
+      if (headRes.ok && Number.isSafeInteger(size) && size > 0) {
+        return size;
+      }
+      lastError = new Error(`Unable to determine package size for ${filename}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : lastError;
+    }
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+    }
   }
-  return size;
+  throw lastError;
 }
 
 type ArchPkgInfo = {
