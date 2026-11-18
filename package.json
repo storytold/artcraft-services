@@ -5,6 +5,7 @@
     "build": "bash script/website/cloudflare_app.sh build",
     "deploy": "bash script/website/cloudflare_app.sh deploy",
     "build:website": "ARTCRAFT_APP=artcraft-website bash script/website/cloudflare_app.sh build",
+    "deploy:website": "ARTCRAFT_APP=artcraft-website bash script/website/cloudflare_app.sh deploy",
     "build:webapp": "ARTCRAFT_APP=artcraft-webapp bash script/website/cloudflare_app.sh build",
     "deploy:webapp": "ARTCRAFT_APP=artcraft-webapp bash script/website/cloudflare_app.sh deploy",
     "build:dashboard": "ARTCRAFT_APP=artcraft-dashboard bash script/website/cloudflare_app.sh build",

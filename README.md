@@ -200,21 +200,29 @@ The website runs at `http://localhost:3000`. Repository-root launchers are in
 
 ### Cloudflare deployment
 
-Both frontends deploy to Cloudflare Workers from this repository with the build
-command `npm run build` and the deploy command `npm run deploy`. Each Worker sets
-the `ARTCRAFT_APP` build variable to choose what
-[`cloudflare_app.sh`](./script/website/cloudflare_app.sh) builds:
+All three frontends deploy to Cloudflare Workers from this repository. Each
+Worker's build command is its app-specific `npm run build:<app>` and its deploy
+command is `npm run deploy:<app>`; those scripts select the app in
+[`cloudflare_app.sh`](./script/website/cloudflare_app.sh), so no build variable
+is needed to tell the projects apart:
 
-| Worker               | `ARTCRAFT_APP`               | Hostname                  | Wrangler config                                   | Build secrets                                                |
-|----------------------|------------------------------|---------------------------|---------------------------------------------------|--------------------------------------------------------------|
-| `artcraft-services`  | `artcraft-website` (default) | `getartcraft.com`         | `wrangler.jsonc`                                  | `LAUNCHER_CATALOG_SIGNING_KEY`; optional `LINUX_SIGNING_KEY` |
-| `artcraft-webapp`    | `artcraft-webapp`            | `app.getartcraft.com`     | `frontend/apps/artcraft-webapp/wrangler.jsonc`    | none                                                         |
-| `artcraft-dashboard` | `artcraft-dashboard`         | `dashboard.artcraft.team` | `frontend/apps/artcraft-dashboard/wrangler.jsonc` | none                                                         |
+| Worker               | Build / deploy commands                | Hostname                  | Wrangler config                                   | Build secrets                                                |
+|----------------------|----------------------------------------|---------------------------|---------------------------------------------------|--------------------------------------------------------------|
+| `artcraft-services`  | `build:website` / `deploy:website`     | `getartcraft.com`         | `wrangler.jsonc`                                  | `LAUNCHER_CATALOG_SIGNING_KEY`; optional `LINUX_SIGNING_KEY` |
+| `artcraft-webapp`    | `build:webapp` / `deploy:webapp`       | `app.getartcraft.com`     | `frontend/apps/artcraft-webapp/wrangler.jsonc`    | none                                                         |
+| `artcraft-dashboard` | `build:dashboard` / `deploy:dashboard` | `dashboard.artcraft.team` | `frontend/apps/artcraft-dashboard/wrangler.jsonc` | none                                                         |
 
-The webapp never builds the website, so its Worker needs no signing keys. Its
-`VITE_*` variables (for example `VITE_GOOGLE_CLIENT_ID`) are build variables, not
-runtime secrets. The admin dashboard is a standalone pnpm app and sets
-`NODE_VERSION=22`; see [its README](./frontend/apps/artcraft-dashboard/README.md).
+The bare `npm run build` / `npm run deploy` pair falls back to the website and
+needs an `ARTCRAFT_APP` build variable. Do not use it for the other two: the
+website's build runs the launcher-catalog signing step, and its deploy hands
+Wrangler the root config, whose `assets.directory`
+(`frontend/apps/artcraft-website-next/out`) does not exist in those builds.
+
+Only the website builds the website, so it is the only Worker that needs signing
+keys. The webapp's `VITE_*` variables (for example `VITE_GOOGLE_CLIENT_ID`) are
+build variables, not runtime secrets. The admin dashboard is a standalone pnpm
+app and sets `NODE_VERSION=22`; see
+[its README](./frontend/apps/artcraft-dashboard/README.md).
 
 ## Automated Craft Release Version Updates
 
