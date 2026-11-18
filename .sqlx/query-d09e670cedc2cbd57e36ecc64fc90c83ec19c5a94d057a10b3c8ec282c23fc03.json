@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "DELETE FROM oauth_spent_refresh_hashes WHERE expires_at < UTC_TIMESTAMP() LIMIT ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "d09e670cedc2cbd57e36ecc64fc90c83ec19c5a94d057a10b3c8ec282c23fc03"
+}

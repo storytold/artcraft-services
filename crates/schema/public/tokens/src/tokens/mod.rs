@@ -18,6 +18,7 @@ pub mod google_sign_in_accounts;
 pub mod mcp_session_private;
 pub mod mcp_session_refresh;
 pub mod mcp_sessions;
+pub mod oauth;
 pub mod media_files;
 pub mod media_uploads;
 pub mod model_categories;

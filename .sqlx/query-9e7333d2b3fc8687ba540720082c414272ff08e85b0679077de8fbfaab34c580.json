@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "DELETE FROM oauth_authorization_codes WHERE expires_at < TIMESTAMPADD(DAY, -7, UTC_TIMESTAMP()) LIMIT ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "9e7333d2b3fc8687ba540720082c414272ff08e85b0679077de8fbfaab34c580"
+}
