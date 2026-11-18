@@ -27,6 +27,8 @@ const SESSION_HEADER_NAME : &str = "session";
 pub struct HttpUserSessionManager {
   cookie_domain: String,
   payload_signer: HttpUserSessionPayloadSigner,
+  /// Whether the session cookie is kept from page scripts (`HttpOnly`). On by default.
+  http_only: bool,
 }
 
 impl HttpUserSessionManager {
@@ -40,7 +42,14 @@ impl HttpUserSessionManager {
     Ok(Self {
       cookie_domain: cookie_domain.to_string(),
       payload_signer,
+      http_only: true,
     })
+  }
+
+  /// Set whether the session cookie is `HttpOnly` (the `COOKIE_HTTP_ONLY` setting).
+  pub fn with_http_only(mut self, http_only: bool) -> Self {
+    self.http_only = http_only;
+    self
   }
 
   pub fn encode_session_payload(
@@ -81,7 +90,7 @@ impl HttpUserSessionManager {
       .permanent()
       .path("/") // NB: Otherwise it'll be set to `/v1`
       //.domain(&self.cookie_domain)
-      //.http_only(true) // Not exposed to Javascript
+      .http_only(self.http_only) // Not exposed to Javascript
       //.expires(OffsetDateTime::now_utc() + time::Duration::days(365))
       .finish())
   }
@@ -180,6 +189,22 @@ mod tests {
     let cookie = manager.create_cookie(&UserSessionToken::new_from_str("ex_session_token"), &UserToken::new_from_str("ex_user_token")).unwrap();
 
     assert_eq!(cookie.value(), "eyJhbGciOiJIUzI1NiJ9.eyJzZXNzaW9uX3Rva2VuIjoiZXhfc2Vzc2lvbl90b2tlbiIsInVzZXJfdG9rZW4iOiJleF91c2VyX3Rva2VuIiwidmVyc2lvbiI6IjMifQ.HvWfrH8PpozpxN4HKh9mcW6f2Q4yZmi2ycdJw3WNR9o");
+  }
+
+  #[test]
+  fn test_cookie_is_http_only_by_default() {
+    let manager = HttpUserSessionManager::new("fakeyou.com", "secret").unwrap();
+    let cookie = manager.create_cookie(&UserSessionToken::new_from_str("ex_session_token"), &UserToken::new_from_str("ex_user_token")).unwrap();
+
+    assert_eq!(cookie.http_only(), Some(true));
+  }
+
+  #[test]
+  fn test_cookie_http_only_follows_the_setting() {
+    let manager = HttpUserSessionManager::new("fakeyou.com", "secret").unwrap().with_http_only(false);
+    let cookie = manager.create_cookie(&UserSessionToken::new_from_str("ex_session_token"), &UserToken::new_from_str("ex_user_token")).unwrap();
+
+    assert_eq!(cookie.http_only(), Some(false));
   }
 
   #[test]
