@@ -9,6 +9,8 @@
     "build:webapp": "ARTCRAFT_APP=artcraft-webapp bash script/website/cloudflare_app.sh build",
     "deploy:webapp": "ARTCRAFT_APP=artcraft-webapp bash script/website/cloudflare_app.sh deploy",
     "build:dashboard": "ARTCRAFT_APP=artcraft-dashboard bash script/website/cloudflare_app.sh build",
-    "deploy:dashboard": "ARTCRAFT_APP=artcraft-dashboard bash script/website/cloudflare_app.sh deploy"
+    "deploy:dashboard": "ARTCRAFT_APP=artcraft-dashboard bash script/website/cloudflare_app.sh deploy",
+    "build:docs": "ARTCRAFT_APP=storyteller-docs bash script/website/cloudflare_app.sh build",
+    "deploy:docs": "ARTCRAFT_APP=storyteller-docs bash script/website/cloudflare_app.sh deploy"
   }
 }
