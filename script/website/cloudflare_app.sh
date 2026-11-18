@@ -4,16 +4,22 @@
 #
 #   bash script/website/cloudflare_app.sh <build|deploy>
 #
-# Both Cloudflare projects build from this repository with `npm run build` and
-# `npm run deploy`. Nothing in the Workers Builds environment names the project,
-# so each project sets the ARTCRAFT_APP build variable:
+# Every Cloudflare Worker builds from this repository, and nothing in the Workers
+# Builds environment names the project, so the app comes from ARTCRAFT_APP. The
+# app-specific npm scripts set it inline and are the commands to configure:
 #
 #   artcraft-website (default)  getartcraft.com, root wrangler.jsonc
+#                               npm run build:website / deploy:website
 #   artcraft-webapp             app.getartcraft.com, frontend/apps/artcraft-webapp/wrangler.jsonc
+#                               npm run build:webapp / deploy:webapp
 #   artcraft-dashboard          dashboard.artcraft.team, frontend/apps/artcraft-dashboard/wrangler.jsonc
+#                               npm run build:dashboard / deploy:dashboard
 #
-# The webapp never builds artcraft-website-next, so it needs none of the website's
-# build secrets (LAUNCHER_CATALOG_SIGNING_KEY, and the optional LINUX_SIGNING_KEY).
+# The bare `npm run build` / `npm run deploy` pair falls back to the website and
+# needs an ARTCRAFT_APP build variable. Only the website builds
+# artcraft-website-next, so only it needs the website's build secrets
+# (LAUNCHER_CATALOG_SIGNING_KEY, and the optional LINUX_SIGNING_KEY); the webapp
+# and dashboard read neither.
 
 set -euo pipefail
 

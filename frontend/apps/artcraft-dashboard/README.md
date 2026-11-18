@@ -15,18 +15,40 @@ npm run deploy:dashboard
 
 Workers Builds settings for the `artcraft-dashboard` Worker:
 
-| Setting        | Value                             |
-|----------------|-----------------------------------|
-| Build command  | `npm run build`                   |
-| Deploy command | `npm run deploy`                  |
-| Build variable | `ARTCRAFT_APP=artcraft-dashboard` |
-| Build variable | `NODE_VERSION=22`                 |
+| Setting        | Value                      |
+|----------------|----------------------------|
+| Build command  | `npm run build:dashboard`  |
+| Deploy command | `npm run deploy:dashboard` |
+| Build variable | `NODE_VERSION=22`          |
 
-`ARTCRAFT_APP` selects this app in
-[`script/website/cloudflare_app.sh`](../../../script/website/cloudflare_app.sh).
-Vite 7 needs Node >= 20.19 / 22.12, so `NODE_VERSION=22` is required; it cannot
-be pinned in the repository because the rest of the workspace builds on the same
+`npm run build:dashboard` and `npm run deploy:dashboard` set
+`ARTCRAFT_APP=artcraft-dashboard` inline and pass this app's `wrangler.jsonc` to
+Wrangler, so the Worker needs no build variables beyond `NODE_VERSION`. Vite 7
+needs Node >= 20.19 / 22.12, so `NODE_VERSION=22` is required; it cannot be
+pinned in the repository because the rest of the workspace builds on the same
 Node version.
+
+### Build secrets
+
+This app needs none. `LAUNCHER_CATALOG_SIGNING_KEY` and `LINUX_SIGNING_KEY`
+belong to the website's static-export pipeline
+([`sign-launcher-catalog.mjs`](../artcraft-website-next/scripts/sign-launcher-catalog.mjs)),
+which only `artcraft-website-next` runs. Nothing under this app reads them.
+
+Do not configure this Worker with the shared commands. Plain `npm run build` /
+`npm run deploy` default to `ARTCRAFT_APP=artcraft-website`, so the build runs the
+website's signing step and fails without `LAUNCHER_CATALOG_SIGNING_KEY`.
+
+The default deploy command `npx wrangler deploy` fails even when the build did
+select this app: with no `--config`, Wrangler resolves the root `wrangler.jsonc`
+and looks for the website's assets directory. Both paths report
+
+```
+The directory specified by the "assets.directory" field in your configuration
+file does not exist: .../frontend/apps/artcraft-website-next/out
+```
+
+Set both Workers Builds fields to the commands in the table above.
 
 ### `/api` proxy
 
