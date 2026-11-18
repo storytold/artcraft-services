@@ -205,14 +205,16 @@ command `npm run build` and the deploy command `npm run deploy`. Each Worker set
 the `ARTCRAFT_APP` build variable to choose what
 [`cloudflare_app.sh`](./script/website/cloudflare_app.sh) builds:
 
-| Worker              | `ARTCRAFT_APP`               | Hostname              | Wrangler config                                | Build secrets                                                |
-|---------------------|------------------------------|-----------------------|------------------------------------------------|--------------------------------------------------------------|
-| `artcraft-services` | `artcraft-website` (default) | `getartcraft.com`     | `wrangler.jsonc`                               | `LAUNCHER_CATALOG_SIGNING_KEY`; optional `LINUX_SIGNING_KEY` |
-| `artcraft-webapp`   | `artcraft-webapp`            | `app.getartcraft.com` | `frontend/apps/artcraft-webapp/wrangler.jsonc` | none                                                         |
+| Worker               | `ARTCRAFT_APP`               | Hostname                  | Wrangler config                                   | Build secrets                                                |
+|----------------------|------------------------------|---------------------------|---------------------------------------------------|--------------------------------------------------------------|
+| `artcraft-services`  | `artcraft-website` (default) | `getartcraft.com`         | `wrangler.jsonc`                                  | `LAUNCHER_CATALOG_SIGNING_KEY`; optional `LINUX_SIGNING_KEY` |
+| `artcraft-webapp`    | `artcraft-webapp`            | `app.getartcraft.com`     | `frontend/apps/artcraft-webapp/wrangler.jsonc`    | none                                                         |
+| `artcraft-dashboard` | `artcraft-dashboard`         | `dashboard.artcraft.team` | `frontend/apps/artcraft-dashboard/wrangler.jsonc` | none                                                         |
 
 The webapp never builds the website, so its Worker needs no signing keys. Its
 `VITE_*` variables (for example `VITE_GOOGLE_CLIENT_ID`) are build variables, not
-runtime secrets.
+runtime secrets. The admin dashboard is a standalone pnpm app and sets
+`NODE_VERSION=22`; see [its README](./frontend/apps/artcraft-dashboard/README.md).
 
 ## Automated Craft Release Version Updates
 

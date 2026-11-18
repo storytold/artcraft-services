@@ -65,6 +65,7 @@ const ALLOWLIST: &[(AddOrigins, Env, &str)] = &[
   (add_artcraft_3d,               Both,            "https://brandons-macbook-pro.taild62114.ts.net"),
 
   // add_artcraft_admin_dashboard
+  (add_artcraft_admin_dashboard,  Both,            "https://dashboard.artcraft.team"),
   (add_artcraft_admin_dashboard,  Both,            "https://artcraft-dashboard.netlify.app"),
 
   // add_artcraft_desktop

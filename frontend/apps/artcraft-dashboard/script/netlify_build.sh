@@ -28,6 +28,12 @@ export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 corepack pnpm install --frozen-lockfile
 corepack pnpm build
 
+# Netlify's routing rules live at the app root instead of public/, because the
+# Cloudflare build must not upload them: Workers reject the `/* /index.html 200`
+# SPA fallback as a loop and cannot proxy external hosts from _redirects.
+echo "Copying Netlify _redirects into dist"
+cp _redirects dist/_redirects
+
 echo "Final build files:"
 find dist/
 

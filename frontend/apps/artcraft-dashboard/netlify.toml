@@ -1,5 +1,7 @@
 # Netlify configuration for the ArtCraft admin dashboard.
 #
+# Retained only as the rollback target: production now serves from the Cloudflare
+# Worker at dashboard.artcraft.team (see README.md).
 # Set up the Netlify site exactly like the other apps in this workspace:
 #   * Base directory:  frontend            (the Nx workspace root)
 #   * Build command:   bash ./apps/artcraft-dashboard/script/netlify_build.sh

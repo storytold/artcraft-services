@@ -121,6 +121,7 @@ mod tests {
       "https://www.getartcraft.com",
       "https://artcraft.ai",
       "https://www.artcraft.ai",
+      "https://dashboard.artcraft.team",
       "https://artcraft-dashboard.netlify.app",
       "https://realseedance.com",
       "https://www.realseedance.com",
