@@ -2,9 +2,11 @@
   "name": "artcraft-services",
   "compatibility_date": "2026-11-06",
   "main": "frontend/apps/artcraft-website-next/worker/index.mjs",
-  "build": {
-    "command": "npm run build"
-  },
+  // Deliberately no `build.command`: Workers Builds already runs this project's
+  // build command before the deploy command, and declaring it here made
+  // `wrangler deploy` rebuild the whole site a second time. That second pass
+  // repeated every GitHub release probe and failed the deploy on a timeout.
+  // Deploying by hand therefore needs `npm run build:website` first.
   "assets": {
     "directory": "./frontend/apps/artcraft-website-next/out",
     "binding": "ASSETS",
