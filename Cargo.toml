@@ -287,12 +287,12 @@ worldlabs_api_client = { path = "crates/api_clients/worldlabs_api_client" }
 # Centrally pinned versions so that we can uniformly upgrade/downgrade versions across the workspace
 # If a crate needs to use an older/newer version, the dependency should be managed in that crate's own Cargo.toml
 actix-cors = "0.7.1"
-actix-http = "3.12.1"
+actix-http = "3.20.5"
 actix-multipart = "0.7.2"
 actix-rt = "2.11.0"
 actix-service = "2.0.3"
 actix-utils = "3.0.1"
-actix-web = "4.13.0"
+actix-web = "4.18.2"
 actix-web-lab = "0.26.0"
 anyhow = "1.0.102"
 assertor = "0.0.3"
