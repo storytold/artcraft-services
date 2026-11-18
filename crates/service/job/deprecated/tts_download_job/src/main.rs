@@ -26,7 +26,6 @@ use r2d2_redis::r2d2;
 use r2d2_redis::RedisConnectionManager;
 use sqlx::mysql::MySqlPoolOptions;
 use sqlx::MySqlPool;
-use tempdir::TempDir;
 
 use cloud_storage::legacy_bucket_client::LegacyBucketClient;
 use bucket_paths::legacy::old_bespoke_paths::bucket_path_unifier::BucketPathUnifier;
@@ -104,7 +103,7 @@ struct Downloader {
 async fn main() -> AnyhowResult<()> {
   easyenv::init_all_with_default_logging(Some(DEFAULT_RUST_LOG));
 
-  let _ = dotenv::from_filename(".env-secrets").ok();
+  let _ = dotenvy::from_filename(".env-secrets").ok();
 
   info!("Obtaining hostname...");
 
@@ -331,7 +330,7 @@ async fn process_job(downloader: &Downloader, job: &TtsUploadJobRecord) -> Anyho
   // ==================== SETUP TEMP DIRS ==================== //
 
   let temp_dir = format!("temp_{}", job.id);
-  let temp_dir = TempDir::new(&temp_dir)?;
+  let temp_dir = tempfile::Builder::new().prefix(&temp_dir).tempdir()?;
 
   // ==================== DOWNLOAD MODEL FILE ==================== //
 

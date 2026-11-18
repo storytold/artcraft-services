@@ -44,7 +44,6 @@ pub fn ffmpeg_video_gif_preview<I: AsRef<Path>, O: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use tempdir::TempDir;
   use test_utils::test_file_path::test_file_path;
 
   #[test]
@@ -52,7 +51,7 @@ mod tests {
     let input_path = test_file_path("test_data/video/mp4/golden_sun_garoh.mp4")
         .expect("test video should exist");
 
-    let temp_dir = TempDir::new_in("/tmp", "ffmpeg_gif_preview_test")
+    let temp_dir = tempfile::Builder::new().prefix("ffmpeg_gif_preview_test").tempdir_in("/tmp")
         .expect("should create temp dir");
 
     let output_path = temp_dir.path().join("preview.gif");
@@ -80,7 +79,7 @@ mod tests {
 
   #[test]
   fn test_tall_video_preview_has_bounded_dimensions_and_frame_count() {
-    let temp_dir = TempDir::new_in("/tmp", "ffmpeg_tall_gif_test").unwrap();
+    let temp_dir = tempfile::Builder::new().prefix("ffmpeg_tall_gif_test").tempdir_in("/tmp").unwrap();
     let input = temp_dir.path().join("tall.mp4");
     let output = temp_dir.path().join("preview.gif");
     let status = Command::new("ffmpeg")

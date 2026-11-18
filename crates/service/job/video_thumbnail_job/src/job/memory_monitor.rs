@@ -49,13 +49,12 @@ async fn read_number(path: &Path) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-  use tempdir::TempDir;
 
   use super::*;
 
   #[tokio::test]
   async fn reads_container_usage_and_handles_unlimited_or_missing_optional_metrics() {
-    let directory = TempDir::new("thumbnail_memory_test").unwrap();
+    let directory = tempfile::Builder::new().prefix("thumbnail_memory_test").tempdir().unwrap();
     let root = directory.path();
     fs::write(root.join("memory.current"), "1234\n").await.unwrap();
     fs::write(root.join("memory.max"), "max\n").await.unwrap();

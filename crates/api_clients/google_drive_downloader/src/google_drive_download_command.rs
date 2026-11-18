@@ -2,11 +2,11 @@ use std::process::Command;
 
 use anyhow::anyhow;
 use log::info;
-use tempdir::TempDir;
 
 use crockford::random_crockford_token;
 use errors::AnyhowResult;
 use subprocess_common::docker_options::DockerOptions;
+use tempfile::TempDir;
 
 /// This is a Python script that uses the `gdown` package to download from Google Drive.
 /// We're using this because it's a hack that gets around OAuth gateways. All the Rust

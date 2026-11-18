@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use log::{error, info};
-use tempdir::TempDir;
 
 use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
 use bucket_paths::path_conventions::video_thumbnail_suffixes::{CURRENT_VIDEO_THUMBNAIL_VERSION, VIDEO_ANIMATED_GIF_THUMBNAIL_SUFFIX, VIDEO_ANIMATED_WEBP_THUMBNAIL_SUFFIX, VIDEO_STATIC_JPG_THUMBNAIL_SUFFIX};
@@ -16,6 +15,7 @@ use mysql_queries::queries::media_files::thumbnails::update_video_media_file_wit
 use crate::job::alert_on_error::alert_pager_and_return_err;
 use crate::job::thumbnail_timing::ThumbnailTiming;
 use crate::job_dependencies::JobDependencies;
+use tempfile::TempDir;
 
 /// A downloaded video file alongside its owning temp directory.
 /// The temp directory (and its contents) are cleaned up when this struct is dropped.
@@ -211,7 +211,7 @@ async fn download_video(
     object_path,
   );
 
-  let temp_dir = TempDir::new_in(&deps.temp_dir, "video_thumbnail")?;
+  let temp_dir = tempfile::Builder::new().prefix("video_thumbnail").tempdir_in(&deps.temp_dir)?;
 
   let video_extension = media_file
     .maybe_public_bucket_extension

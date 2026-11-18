@@ -302,7 +302,7 @@ bytes = "1.11.1"
 chrono = { version = "0.4.44", features = ["serde"] }
 clap = { version = "=4.5.60", features = ["derive"] }
 cookie = "0.18.1"
-dotenv = "0.15.0"
+dotenvy = "0.15.7"
 elasticsearch = { version = "8.5.0-alpha.1", default-features = false, features = ["rustls-tls"] }
 env = "1.0.1"
 env_logger = "0.11.9"
@@ -330,7 +330,6 @@ sha2 = "0.11.0-rc.5"
 sha3 = "0.10.8"
 speculoos = "0.11.0"
 strum = { version = "0.28.0", features = ["derive"] }
-tempdir = "0.3.7"
 tempfile = "3.27.0"
 thiserror = "2.0.18"
 time = "0.3.36"

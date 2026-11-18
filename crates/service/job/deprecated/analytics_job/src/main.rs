@@ -35,8 +35,8 @@ pub mod tasks;
 async fn main() -> AnyhowResult<()> {
   easyenv::init_all_with_default_logging(Some(DEFAULT_RUST_LOG));
 
-  let _ = dotenv::from_filename(".env-analytics-job").ok(); // NB: Specific to `analytics-job` app.
-  //let _ = dotenv::from_filename(".env-secrets").ok(); // NB: Secrets not to live in source control.
+  let _ = dotenvy::from_filename(".env-analytics-job").ok(); // NB: Specific to `analytics-job` app.
+  //let _ = dotenvy::from_filename(".env-secrets").ok(); // NB: Secrets not to live in source control.
 
   info!("Obtaining hostname...");
 

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 #[derive(Clone)]
 pub struct ScopedTempDirCreator {
@@ -16,6 +16,6 @@ impl ScopedTempDirCreator {
   }
 
   pub fn new_tempdir(&self, name: &str) -> std::io::Result<TempDir> {
-    TempDir::new_in(&self.base_dir, name)
+    tempfile::Builder::new().prefix(name).tempdir_in(&self.base_dir)
   }
 }

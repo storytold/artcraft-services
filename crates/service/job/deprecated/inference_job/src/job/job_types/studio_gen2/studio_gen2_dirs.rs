@@ -1,7 +1,7 @@
 use crate::job::job_loop::process_single_job_error::ProcessSingleJobError;
 use crate::job::job_types::studio_gen2::studio_gen2_dependencies::StudioGen2Dependencies;
 use std::path::PathBuf;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 /// This is a temporary measure until we start using tempdirs for intermediate inputs and outputs.
 pub struct StudioGen2Dirs {
@@ -31,7 +31,7 @@ fn create_dir(path: PathBuf) -> Result<TempDir, ProcessSingleJobError> {
         .map_err(|err| ProcessSingleJobError::IoError(err))?;
   }
 
-  let tempdir = TempDir::new_in(&path, "studio_gen2_")
+  let tempdir = tempfile::Builder::new().prefix("studio_gen2_").tempdir_in(&path)
       .map_err(|err| ProcessSingleJobError::IoError(err))?;
 
   Ok(tempdir)

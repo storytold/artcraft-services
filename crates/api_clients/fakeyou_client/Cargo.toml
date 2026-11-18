@@ -38,7 +38,7 @@ toml.workspace = true
 
 # HTTP
 backoff = { version = "0.4.0", features = ["futures"] } # Exponential backoff retry
-reqwest = { version = "0.11", features = ["json", "cookies"] } # HTTP Client
+reqwest.workspace = true # HTTP Client
 
 [dev-dependencies]
 # None yet

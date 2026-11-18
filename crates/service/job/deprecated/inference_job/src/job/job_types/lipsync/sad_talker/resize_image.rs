@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use log::info;
-use tempdir::TempDir;
 
 use errors::AnyhowResult;
 use images::image::ImageFormat;
 use images::resize_image_file_preserving_aspect::resize_image_file_preserving_aspect;
+use tempfile::TempDir;
 
 pub fn resize_image<P: AsRef<Path>>(
   input_file: P,

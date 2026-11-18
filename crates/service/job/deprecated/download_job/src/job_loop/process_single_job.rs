@@ -2,7 +2,6 @@ use std::time::Instant;
 
 use anyhow::anyhow;
 use log::{info, warn};
-use tempdir::TempDir;
 
 use crate::job_loop::is_bad_download_url::is_bad_download_url;
 use errors::AnyhowResult;
@@ -63,7 +62,7 @@ pub async fn do_process_single_job(job_state: &JobState, job: &AvailableDownload
   // ==================== SETUP TEMP DIRS ==================== //
 
   let temp_dir = format!("temp_{}", job.id.0);
-  let temp_dir = TempDir::new(&temp_dir)?;
+  let temp_dir = tempfile::Builder::new().prefix(&temp_dir).tempdir()?;
 
   // ==================== DOWNLOAD MODEL FILE ==================== //
 

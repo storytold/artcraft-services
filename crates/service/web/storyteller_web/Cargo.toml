@@ -167,7 +167,6 @@ elasticsearch.workspace = true
 # Files
 infer = "0.16.0"
 bytes.workspace = true
-tempdir.workspace = true
 tempfile.workspace = true
 
 # The "never-encode-slash" feature seems to have been removed:

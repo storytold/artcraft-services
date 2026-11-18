@@ -1,5 +1,3 @@
-use tempdir::TempDir;
-
 use bucket_paths::legacy::typified_paths::public::weight_files::bucket_file_path::WeightFileBucketPath;
 use bucket_paths::legacy::old_bespoke_paths::bucket_path_unifier::BucketPathUnifier;
 use enums::by_table::voice_conversion_models::voice_conversion_model_type::VoiceConversionModelType;
@@ -32,7 +30,7 @@ async fn copy_model(model: &WholeVoiceConversionModelRecord, deps: &Deps) -> Any
   };
 
   // TODO(bt,2023-12-19): Probably faster to stream between buckets, but whatever.
-  let temp_dir = TempDir::new("model_transfer")?;
+  let temp_dir = tempfile::Builder::new().prefix("model_transfer").tempdir()?;
   let model_temp_fs_path = temp_dir.path().join("model.bin");
 
   deps.bucket_production_private.download_file_to_disk(&old_model_bucket_path, &model_temp_fs_path).await?;
@@ -65,7 +63,7 @@ async fn copy_index_file(model: &WholeVoiceConversionModelRecord, deps: &Deps, b
   let old_model_index_bucket_path = bucket_path_unifier.rvc_v2_model_index_path(&model.private_bucket_hash);
 
   // TODO(bt,2023-12-19): Probably faster to stream between buckets, but whatever.
-  let temp_dir = TempDir::new("model_transfer")?;
+  let temp_dir = tempfile::Builder::new().prefix("model_transfer").tempdir()?;
   let model_temp_fs_path = temp_dir.path().join("model.bin");
 
   deps.bucket_production_private.download_file_to_disk(&old_model_index_bucket_path, &model_temp_fs_path).await?;

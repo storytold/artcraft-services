@@ -44,15 +44,14 @@ pub fn ffmpeg_video_first_frame_to_jpg_thumbnail<I: AsRef<Path>, O: AsRef<Path>>
 mod tests {
   use super::*;
   use crate::ffprobe::ffprobe_get_dimensions::ffprobe_get_dimensions;
-  use tempdir::TempDir;
-  use test_utils::test_file_path::test_file_path;
+    use test_utils::test_file_path::test_file_path;
 
   #[test]
   fn test_extract_jpg_thumbnail_from_mp4() {
     let input_path = test_file_path("test_data/video/mp4/golden_sun_garoh.mp4")
         .expect("test video should exist");
 
-    let temp_dir = TempDir::new_in("/tmp", "ffmpeg_jpg_thumb_test")
+    let temp_dir = tempfile::Builder::new().prefix("ffmpeg_jpg_thumb_test").tempdir_in("/tmp")
         .expect("should create temp dir");
 
     let output_path = temp_dir.path().join("thumbnail.jpg");
