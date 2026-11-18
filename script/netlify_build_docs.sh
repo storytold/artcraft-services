@@ -1,5 +1,13 @@
 #!/bin/bash
 #
+# Netlify build for https://storyteller-docs.netlify.app, the previous home of
+# the API docs. Production now serves storyteller-docs.artcraft.team from the Cloudflare
+# Worker in frontend/api_docs, and this script exists only as the rollback path.
+# The Netlify site is UI-configured (there is no netlify.toml for it):
+#   * Base directory:    (repository root)
+#   * Build command:     bash script/netlify_build_docs.sh
+#   * Publish directory: build
+#
 set -euxo pipefail
 
 # Resolve the repo root regardless of where this script is invoked from
@@ -7,13 +15,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$REPO_ROOT"
-
-# boring-sys2 uses bindgen (libclang) to generate Rust FFI bindings for BoringSSL.
-# On Netlify's build image, clang is available but can't locate stddef.h on its
-# own because the GCC system header path isn't in its default search path.
-# Pointing bindgen at GCC's own include directory resolves this without any
-# package installation.
-export BINDGEN_EXTRA_CLANG_ARGS="-I$(gcc -print-file-name=include)"
 
 # Install Rust toolchain
 rustup update
@@ -24,9 +25,10 @@ rustup show
 
 mkdir -p ./build
 
-SQLX_OFFLINE=true cargo run --bin docs-cli
+# Regenerates frontend/api_docs/public/api.json (includes the bindgen workaround).
+bash script/build_api_docs.sh
 
-mv api.json ./build
-cp ./frontend/api_docs.html ./build/index.html
+cp ./frontend/api_docs/public/index.html ./build/index.html
+cp ./frontend/api_docs/public/api.json ./build/api.json
 
 
