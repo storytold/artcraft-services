@@ -1,0 +1,41 @@
+.snow {
+  position: fixed;
+  z-index: 45;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: #718aa4;
+  mask-image: radial-gradient(ellipse 43% 50% at center, rgb(0 0 0 / 20%) 35%, #000 100%);
+}
+
+:global(:root[data-theme="dark"]) .snow {
+  color: color-mix(in srgb, #81aaff 48%, var(--ink));
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .snow {
+    color: color-mix(in srgb, #81aaff 48%, var(--ink));
+  }
+}
+
+.flake {
+  position: absolute;
+  inset-block-start: -6px;
+  inline-size: var(--size);
+  block-size: var(--size);
+  border-radius: 50%;
+  background: currentColor;
+  animation: fall var(--duration) var(--delay) linear infinite;
+}
+
+@keyframes fall {
+  to { transform: translate3d(var(--drift), calc(100dvh + 6px), 0); }
+}
+
+@media (max-width: 48rem) {
+  .flake:nth-child(n + 21) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snow { display: none; }
+}
