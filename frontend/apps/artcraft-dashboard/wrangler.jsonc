@@ -1,0 +1,23 @@
+{
+  // Static-assets Worker for dashboard.artcraft.team. The only server-side code
+  // is the same-origin /api proxy in cloudflare_worker/index.ts; everything else
+  // is served from dist/. Build and deploy from the repository root with
+  // ARTCRAFT_APP=artcraft-dashboard (see script/website/cloudflare_app.sh).
+  "name": "artcraft-dashboard",
+  "main": "./cloudflare_worker/index.ts",
+  "compatibility_date": "2026-11-17",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // React Router owns every path that is not a file in dist/.
+    "not_found_handling": "single-page-application",
+    // Everything except API calls is a static file; only /api needs the Worker.
+    "run_worker_first": ["/api/*"]
+  },
+  "routes": [
+    {
+      "pattern": "dashboard.artcraft.team",
+      "custom_domain": true
+    }
+  ]
+}

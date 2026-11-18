@@ -28,5 +28,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Specs are not part of the app bundle and this app has no test runner of its
+  // own; without this they only type-check when the parent workspace happens to
+  // be installed (which the standalone Cloudflare build does not do).
+  "exclude": ["src/**/*.spec.ts", "src/**/*.spec.tsx"]
 }
