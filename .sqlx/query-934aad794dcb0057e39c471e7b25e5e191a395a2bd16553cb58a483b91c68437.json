@@ -1,408 +1,652 @@
 {
   "db_name": "MySQL",
+  "query": "\nSELECT\n    users.token as user_token,\n    users.username,\n    users.display_name,\n\n    users.email_address,\n    users.email_gravatar_hash,\n    \n    users.email_confirmed,\n    users.email_confirmed_by_google,\n    users.email_is_synthetic,\n    users.is_without_password,\n    users.username_is_not_customized,\n\n    users.maybe_stripe_customer_id,\n    users.maybe_loyalty_program_key,\n\n    users.disable_gravatar,\n    users.auto_play_audio_preference,\n    users.auto_play_video_preference,\n    users.preferred_tts_result_visibility as `preferred_tts_result_visibility: enums::common::visibility::Visibility`,\n    users.preferred_w2l_result_visibility as `preferred_w2l_result_visibility: enums::common::visibility::Visibility`,\n\n    users.user_role_slug,\n    users.is_banned,\n\n    users.can_access_studio,\n    users.maybe_feature_flags,\n\n    user_roles.can_use_tts,\n    user_roles.can_use_w2l,\n    user_roles.can_delete_own_tts_results,\n    user_roles.can_delete_own_w2l_results,\n    user_roles.can_delete_own_account,\n\n    user_roles.can_upload_tts_models,\n    user_roles.can_upload_w2l_templates,\n    user_roles.can_delete_own_tts_models,\n    user_roles.can_delete_own_w2l_templates,\n\n    user_roles.can_approve_w2l_templates,\n    user_roles.can_edit_other_users_profiles,\n    user_roles.can_edit_other_users_tts_models,\n    user_roles.can_edit_other_users_w2l_templates,\n    user_roles.can_delete_other_users_tts_models,\n    user_roles.can_delete_other_users_tts_results,\n    user_roles.can_delete_other_users_w2l_templates,\n    user_roles.can_delete_other_users_w2l_results,\n    user_roles.can_ban_users,\n    user_roles.can_delete_users\n\nFROM users\nLEFT OUTER JOIN user_sessions\n    ON users.token = user_sessions.user_token\nLEFT OUTER JOIN user_roles\n    ON users.user_role_slug = user_roles.slug\nWHERE user_sessions.token = ?\n    AND user_sessions.deleted_at IS NULL\n    AND user_sessions.expires_at > NOW()\n    AND users.user_deleted_at IS NULL\n    AND users.mod_deleted_at IS NULL\n        ",
   "describe": {
     "columns": [
       {
-        "name": "user_token",
         "ordinal": 0,
+        "name": "user_token",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 128,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "token"
+          }
         }
       },
       {
-        "name": "username",
         "ordinal": 1,
+        "name": "username",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 80,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 80
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "username"
+          }
         }
       },
       {
-        "name": "display_name",
         "ordinal": 2,
+        "name": "display_name",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 80,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 80
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "display_name"
+          }
         }
       },
       {
-        "name": "email_address",
         "ordinal": 3,
+        "name": "email_address",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 1020,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 1020
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "email_address"
+          }
         }
       },
       {
-        "name": "email_gravatar_hash",
         "ordinal": 4,
+        "name": "email_gravatar_hash",
         "type_info": {
-          "char_set": 224,
+          "type": "String",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 128,
-          "type": "String"
+          "collation": 255,
+          "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "email_gravatar_hash"
+          }
         }
       },
       {
-        "name": "email_confirmed",
         "ordinal": 5,
+        "name": "email_confirmed",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "email_confirmed"
+          }
         }
       },
       {
-        "name": "email_confirmed_by_google",
         "ordinal": 6,
+        "name": "email_confirmed_by_google",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "email_confirmed_by_google"
+          }
         }
       },
       {
-        "name": "email_is_synthetic",
         "ordinal": 7,
+        "name": "email_is_synthetic",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "email_is_synthetic"
+          }
         }
       },
       {
-        "name": "is_without_password",
         "ordinal": 8,
+        "name": "is_without_password",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "is_without_password"
+          }
         }
       },
       {
-        "name": "username_is_not_customized",
         "ordinal": 9,
+        "name": "username_is_not_customized",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "username_is_not_customized"
+          }
         }
       },
       {
-        "name": "maybe_stripe_customer_id",
         "ordinal": 10,
+        "name": "maybe_stripe_customer_id",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "BINARY",
-          "max_size": 1020,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 1020
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "maybe_stripe_customer_id"
+          }
         }
       },
       {
-        "name": "maybe_loyalty_program_key",
         "ordinal": 11,
+        "name": "maybe_loyalty_program_key",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "BINARY",
-          "max_size": 128,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "maybe_loyalty_program_key"
+          }
         }
       },
       {
-        "name": "disable_gravatar",
         "ordinal": 12,
+        "name": "disable_gravatar",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "disable_gravatar"
+          }
         }
       },
       {
-        "name": "auto_play_audio_preference",
         "ordinal": 13,
+        "name": "auto_play_audio_preference",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "auto_play_audio_preference"
+          }
         }
       },
       {
-        "name": "auto_play_video_preference",
         "ordinal": 14,
+        "name": "auto_play_video_preference",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "auto_play_video_preference"
+          }
         }
       },
       {
-        "name": "preferred_tts_result_visibility: enums::common::visibility::Visibility",
         "ordinal": 15,
+        "name": "preferred_tts_result_visibility: enums::common::visibility::Visibility",
         "type_info": {
-          "char_set": 224,
+          "type": "String",
           "flags": "NOT_NULL | BINARY | ENUM",
-          "max_size": 28,
-          "type": "String"
+          "collation": 255,
+          "max_size": 28
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "preferred_tts_result_visibility"
+          }
         }
       },
       {
-        "name": "preferred_w2l_result_visibility: enums::common::visibility::Visibility",
         "ordinal": 16,
+        "name": "preferred_w2l_result_visibility: enums::common::visibility::Visibility",
         "type_info": {
-          "char_set": 224,
+          "type": "String",
           "flags": "NOT_NULL | BINARY | ENUM",
-          "max_size": 28,
-          "type": "String"
+          "collation": 255,
+          "max_size": 28
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "preferred_w2l_result_visibility"
+          }
         }
       },
       {
-        "name": "user_role_slug",
         "ordinal": 17,
+        "name": "user_role_slug",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 64,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 64
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "user_role_slug"
+          }
         }
       },
       {
-        "name": "is_banned",
         "ordinal": 18,
+        "name": "is_banned",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "is_banned"
+          }
         }
       },
       {
-        "name": "can_access_studio",
         "ordinal": 19,
+        "name": "can_access_studio",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "NOT_NULL | MULTIPLE_KEY",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "can_access_studio"
+          }
         }
       },
       {
-        "name": "maybe_feature_flags",
         "ordinal": 20,
+        "name": "maybe_feature_flags",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "BINARY",
-          "max_size": 1020,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 1020
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "maybe_feature_flags"
+          }
         }
       },
       {
-        "name": "can_use_tts",
         "ordinal": 21,
+        "name": "can_use_tts",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_use_tts"
+          }
         }
       },
       {
-        "name": "can_use_w2l",
         "ordinal": 22,
+        "name": "can_use_w2l",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_use_w2l"
+          }
         }
       },
       {
-        "name": "can_delete_own_tts_results",
         "ordinal": 23,
+        "name": "can_delete_own_tts_results",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_own_tts_results"
+          }
         }
       },
       {
-        "name": "can_delete_own_w2l_results",
         "ordinal": 24,
+        "name": "can_delete_own_w2l_results",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_own_w2l_results"
+          }
         }
       },
       {
-        "name": "can_delete_own_account",
         "ordinal": 25,
+        "name": "can_delete_own_account",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_own_account"
+          }
         }
       },
       {
-        "name": "can_upload_tts_models",
         "ordinal": 26,
+        "name": "can_upload_tts_models",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_upload_tts_models"
+          }
         }
       },
       {
-        "name": "can_upload_w2l_templates",
         "ordinal": 27,
+        "name": "can_upload_w2l_templates",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_upload_w2l_templates"
+          }
         }
       },
       {
-        "name": "can_delete_own_tts_models",
         "ordinal": 28,
+        "name": "can_delete_own_tts_models",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_own_tts_models"
+          }
         }
       },
       {
-        "name": "can_delete_own_w2l_templates",
         "ordinal": 29,
+        "name": "can_delete_own_w2l_templates",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_own_w2l_templates"
+          }
         }
       },
       {
-        "name": "can_approve_w2l_templates",
         "ordinal": 30,
+        "name": "can_approve_w2l_templates",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_approve_w2l_templates"
+          }
         }
       },
       {
-        "name": "can_edit_other_users_profiles",
         "ordinal": 31,
+        "name": "can_edit_other_users_profiles",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_edit_other_users_profiles"
+          }
         }
       },
       {
-        "name": "can_edit_other_users_tts_models",
         "ordinal": 32,
+        "name": "can_edit_other_users_tts_models",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_edit_other_users_tts_models"
+          }
         }
       },
       {
-        "name": "can_edit_other_users_w2l_templates",
         "ordinal": 33,
+        "name": "can_edit_other_users_w2l_templates",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_edit_other_users_w2l_templates"
+          }
         }
       },
       {
-        "name": "can_delete_other_users_tts_models",
         "ordinal": 34,
+        "name": "can_delete_other_users_tts_models",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_other_users_tts_models"
+          }
         }
       },
       {
-        "name": "can_delete_other_users_tts_results",
         "ordinal": 35,
+        "name": "can_delete_other_users_tts_results",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_other_users_tts_results"
+          }
         }
       },
       {
-        "name": "can_delete_other_users_w2l_templates",
         "ordinal": 36,
+        "name": "can_delete_other_users_w2l_templates",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_other_users_w2l_templates"
+          }
         }
       },
       {
-        "name": "can_delete_other_users_w2l_results",
         "ordinal": 37,
+        "name": "can_delete_other_users_w2l_results",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_other_users_w2l_results"
+          }
         }
       },
       {
-        "name": "can_ban_users",
         "ordinal": 38,
+        "name": "can_ban_users",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_ban_users"
+          }
         }
       },
       {
-        "name": "can_delete_users",
         "ordinal": 39,
+        "name": "can_delete_users",
         "type_info": {
-          "char_set": 63,
+          "type": "Tiny",
           "flags": "",
-          "max_size": 1,
-          "type": "Tiny"
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_roles",
+            "name": "can_delete_users"
+          }
         }
       }
     ],
+    "parameters": {
+      "Right": 1
+    },
     "nullable": [
       false,
       false,
@@ -444,11 +688,7 @@
       true,
       true,
       true
-    ],
-    "parameters": {
-      "Right": 1
-    }
+    ]
   },
-  "hash": "934aad794dcb0057e39c471e7b25e5e191a395a2bd16553cb58a483b91c68437",
-  "query": "\nSELECT\n    users.token as user_token,\n    users.username,\n    users.display_name,\n\n    users.email_address,\n    users.email_gravatar_hash,\n    \n    users.email_confirmed,\n    users.email_confirmed_by_google,\n    users.email_is_synthetic,\n    users.is_without_password,\n    users.username_is_not_customized,\n\n    users.maybe_stripe_customer_id,\n    users.maybe_loyalty_program_key,\n\n    users.disable_gravatar,\n    users.auto_play_audio_preference,\n    users.auto_play_video_preference,\n    users.preferred_tts_result_visibility as `preferred_tts_result_visibility: enums::common::visibility::Visibility`,\n    users.preferred_w2l_result_visibility as `preferred_w2l_result_visibility: enums::common::visibility::Visibility`,\n\n    users.user_role_slug,\n    users.is_banned,\n\n    users.can_access_studio,\n    users.maybe_feature_flags,\n\n    user_roles.can_use_tts,\n    user_roles.can_use_w2l,\n    user_roles.can_delete_own_tts_results,\n    user_roles.can_delete_own_w2l_results,\n    user_roles.can_delete_own_account,\n\n    user_roles.can_upload_tts_models,\n    user_roles.can_upload_w2l_templates,\n    user_roles.can_delete_own_tts_models,\n    user_roles.can_delete_own_w2l_templates,\n\n    user_roles.can_approve_w2l_templates,\n    user_roles.can_edit_other_users_profiles,\n    user_roles.can_edit_other_users_tts_models,\n    user_roles.can_edit_other_users_w2l_templates,\n    user_roles.can_delete_other_users_tts_models,\n    user_roles.can_delete_other_users_tts_results,\n    user_roles.can_delete_other_users_w2l_templates,\n    user_roles.can_delete_other_users_w2l_results,\n    user_roles.can_ban_users,\n    user_roles.can_delete_users\n\nFROM users\nLEFT OUTER JOIN user_sessions\n    ON users.token = user_sessions.user_token\nLEFT OUTER JOIN user_roles\n    ON users.user_role_slug = user_roles.slug\nWHERE user_sessions.token = ?\n    AND user_sessions.deleted_at IS NULL\n    AND user_sessions.expires_at > NOW()\n    AND users.user_deleted_at IS NULL\n    AND users.mod_deleted_at IS NULL\n        "
+  "hash": "934aad794dcb0057e39c471e7b25e5e191a395a2bd16553cb58a483b91c68437"
 }

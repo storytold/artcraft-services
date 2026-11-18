@@ -33,7 +33,7 @@ RUN apt-get update \
 FROM ubuntu:jammy as rust-base
 
 # NB: This can be "stable" or another version.
-ARG RUST_TOOLCHAIN="1.93.0"
+ARG RUST_TOOLCHAIN="1.94.0"
 
 WORKDIR /tmp
 

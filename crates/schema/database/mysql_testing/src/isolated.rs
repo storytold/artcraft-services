@@ -2,7 +2,7 @@
 //! database URL is read, so production configuration cannot redirect these tests.
 
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
-use sqlx::MySqlPool;
+use sqlx::{AssertSqlSafe, MySqlPool};
 use tokens::tokens::users::UserToken;
 
 use crate::schema::ensure_schema;
@@ -22,7 +22,7 @@ impl IsolatedTestDatabase {
     let admin_pool = MySqlPoolOptions::new().max_connections(1).connect_with(options.clone()).await.expect("local MySQL test connection");
     let name = format!("artcraft_test_bridge_{}", UserToken::generate().as_str());
     assert!(name.len() <= 64 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
-    sqlx::query(&format!("CREATE DATABASE `{name}`")).execute(&admin_pool).await.expect("create disposable database");
+    sqlx::query(AssertSqlSafe(format!("CREATE DATABASE `{name}`"))).execute(&admin_pool).await.expect("create disposable database");
     let pool = MySqlPoolOptions::new().max_connections(8).connect_with(options.database(&name)).await.expect("connect disposable database");
     ensure_schema(&pool).await;
     Self { pool, admin_pool, name }
@@ -30,7 +30,7 @@ impl IsolatedTestDatabase {
 
   pub async fn destroy(self) {
     self.pool.close().await;
-    sqlx::query(&format!("DROP DATABASE `{}`", self.name)).execute(&self.admin_pool).await.expect("drop our disposable database");
+    sqlx::query(AssertSqlSafe(format!("DROP DATABASE `{}`", self.name))).execute(&self.admin_pool).await.expect("drop our disposable database");
     self.admin_pool.close().await;
   }
 }

@@ -5,7 +5,7 @@
 FROM ubuntu:jammy as rust-base
 
 # NB: This can be "stable" or another version.
-ARG RUST_TOOLCHAIN="1.86.0"
+ARG RUST_TOOLCHAIN="1.94.0"
 
 WORKDIR /tmp
 
@@ -25,7 +25,7 @@ RUN apt-get update \
 # TODO(bt, 2023-02-23): This has not been verified to work yet.
 RUN export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
 
-ARG RUST_TOOLCHAIN="1.86.0"
+ARG RUST_TOOLCHAIN="1.94.0"
 
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
