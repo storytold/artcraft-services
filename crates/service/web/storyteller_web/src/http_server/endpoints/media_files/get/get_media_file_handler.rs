@@ -231,7 +231,7 @@ pub async fn get_media_file_handler(
     viewer_user_token = Some(user_session.user_token.as_str().to_string());
   } else {
     // API-key and MCP clients authenticate by header, not cookie; they may read their own private media.
-    viewer_user_token = header_viewer_user_token(&http_request, &server_state).await?;
+    viewer_user_token = header_viewer_user_token(&http_request, &server_state, &server_state.mysql_pool).await?;
   }
 
   let media_domain = get_media_domain(&http_request);
