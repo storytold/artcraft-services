@@ -65,7 +65,7 @@ pub async fn list_batch_generated_redux_media_files_handler(
   let viewer_user_token = match maybe_user_session.as_ref() {
     Some(session) => Some(session.user_token.as_str().to_string()),
     // API-key and MCP clients authenticate by header, not cookie.
-    None => header_viewer_user_token(&http_request, &server_state).await?,
+    None => header_viewer_user_token(&http_request, &server_state, &mut *mysql_connection).await?,
   };
 
   // NB(bt,2024-03-24): I'm sorry, this is gross. We're not respecting sorting, input ordering,

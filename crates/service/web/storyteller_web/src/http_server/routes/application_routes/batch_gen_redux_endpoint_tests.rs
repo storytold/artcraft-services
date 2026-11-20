@@ -2,6 +2,7 @@
 //! database fixtures. One batch holds a public and a private file of the same creator.
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::Duration;
 
 use actix_http::Request;
 use actix_web::body::MessageBody;
@@ -15,9 +16,11 @@ use enums::by_table::media_files::media_file_origin_product_category::MediaFileO
 use enums::by_table::media_files::media_file_type::MediaFileType;
 use enums::common::visibility::Visibility;
 use mysql_queries::queries::media_files::create::insert_builder::media_file_insert_builder::MediaFileInsertBuilder;
+use mysql_testing::fixtures::mcp_sessions::create_test_mcp_session;
 use mysql_testing::fixtures::users::{create_test_user, TestUser};
 use mysql_testing::pool::create_test_pool;
 use serde_json::Value;
+use sqlx::mysql::MySqlPoolOptions;
 use sqlx::MySqlPool;
 use tokens::tokens::batch_generations::BatchGenerationToken;
 use tokens::tokens::media_files::MediaFileToken;
@@ -47,14 +50,47 @@ async fn a_batch_lists_its_private_files_only_to_their_creator() {
   let anonymous = listed_tokens(&app, &batch, None).await;
   assert_eq!(anonymous, vec![public_file.as_str().to_string()], "anonymous viewer");
 
-  let other_user = listed_tokens(&app, &batch, Some(&session(&state, &bob))).await;
+  let other_user = listed_tokens(&app, &batch, Some(("session", session(&state, &bob)))).await;
   assert_eq!(other_user, vec![public_file.as_str().to_string()], "another signed-in user");
 
-  let mut creator = listed_tokens(&app, &batch, Some(&session(&state, &alice))).await;
+  let mut creator = listed_tokens(&app, &batch, Some(("session", session(&state, &alice)))).await;
   creator.sort();
   let mut both = vec![public_file.as_str().to_string(), private_file.as_str().to_string()];
   both.sort();
   assert_eq!(creator, both, "the creator");
+}
+
+/// An MCP or API-key caller is checked on the connection the handler already holds. With a
+/// one-connection pool, a second acquire would wait out the timeout and fail the request.
+#[actix_web::test]
+#[cfg_attr(feature = "skip_database_tests", ignore)]
+async fn a_header_credential_is_checked_on_the_handler_connection() {
+  let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+  let pool = create_test_pool().await;
+  let alice = create_test_user(&pool).await.unwrap();
+  let mcp_session = create_test_mcp_session(&pool, &alice.user_token).await.unwrap();
+  let batch = BatchGenerationToken::generate();
+  let public_file = create_batch_media_file(&pool, &alice.user_token, &batch, Visibility::Public).await;
+  let private_file = create_batch_media_file(&pool, &alice.user_token, &batch, Visibility::Private).await;
+
+  let one_connection_pool = MySqlPoolOptions::new()
+    .max_connections(1)
+    .acquire_timeout(Duration::from_secs(2))
+    .connect_with(pool.connect_options().as_ref().clone())
+    .await
+    .unwrap();
+  let state = Arc::new(build_test_server_state(one_connection_pool, "http://127.0.0.1:1".to_string()));
+  let app = test::init_service(add_media_file_routes(
+    App::new().app_data(web::Data::new(state.clone())),
+  ))
+  .await;
+
+  let bearer = format!("Bearer {}", mcp_session.private_session_token.as_str());
+  let mut creator = listed_tokens(&app, &batch, Some(("Authorization", bearer))).await;
+  creator.sort();
+  let mut both = vec![public_file.as_str().to_string(), private_file.as_str().to_string()];
+  both.sort();
+  assert_eq!(creator, both, "the creator, by MCP session");
 }
 
 /// Insert a media file of `owner` with the given visibility into `batch`.
@@ -86,16 +122,16 @@ async fn create_batch_media_file(
     .unwrap()
 }
 
-/// The tokens the redux batch endpoint lists, read with `maybe_session` (none = anonymous).
-async fn listed_tokens<S, B>(app: &S, batch: &BatchGenerationToken, maybe_session: Option<&str>) -> Vec<String>
+/// The tokens the redux batch endpoint lists, read with one credential header (none = anonymous).
+async fn listed_tokens<S, B>(app: &S, batch: &BatchGenerationToken, maybe_header: Option<(&str, String)>) -> Vec<String>
 where
   S: Service<Request, Response = ServiceResponse<B>, Error = actix_web::Error>,
   B: MessageBody,
   B::Error: Debug,
 {
   let mut request = test::TestRequest::get().uri(&format!("/v1/media_files/batch_gen_redux/{}", batch.as_str()));
-  if let Some(session) = maybe_session {
-    request = request.insert_header(("session", session));
+  if let Some(header) = maybe_header {
+    request = request.insert_header(header);
   }
   let response = test::call_service(app, request.to_request()).await;
   assert_eq!(response.status(), StatusCode::OK);
