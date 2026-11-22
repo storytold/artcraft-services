@@ -17,7 +17,9 @@ function fixture(t, type = "ed25519") {
   };
   const catalog = Buffer.from('[[apps]]\nid = "photocraft"\n');
   writeFileSync(join(directory, "launcher-catalog.toml"), catalog);
-  return { directory, environment, publicKey, catalog };
+  const announcements = Buffer.from('[[announcements]]\nid = "hello"\ntitle = "Hello"\n');
+  writeFileSync(join(directory, "launcher-announcements.toml"), announcements);
+  return { directory, environment, publicKey, catalog, announcements };
 }
 
 test("signature verifies exact bytes with the public key and rejects tampering", (t) => {
@@ -30,12 +32,22 @@ test("signature verifies exact bytes with the public key and rejects tampering",
   assert.equal(verify(null, catalog, generateKeyPairSync("ed25519").publicKey, signature), false);
 });
 
+test("announcements are signed over their own exact bytes with the same key", (t) => {
+  const { directory, environment, publicKey, catalog, announcements } = fixture(t);
+  signLauncherCatalog(directory, environment);
+  const signature = Buffer.from(readFileSync(join(directory, "launcher-announcements.toml.sig"), "utf8").trim(), "base64");
+  assert.equal(verify(null, announcements, publicKey, signature), true);
+  assert.equal(verify(null, catalog, publicKey, signature), false);
+});
+
 test("missing or malformed keys fail and remove stale signatures", (t) => {
   const { directory } = fixture(t);
   for (const environment of [{}, { LAUNCHER_CATALOG_SIGNING_KEY: "invalid" }]) {
     writeFileSync(join(directory, "launcher-catalog.toml.sig"), "stale");
+    writeFileSync(join(directory, "launcher-announcements.toml.sig"), "stale");
     assert.throws(() => signLauncherCatalog(directory, environment), /LAUNCHER_CATALOG_SIGNING_KEY/);
     assert.equal(existsSync(join(directory, "launcher-catalog.toml.sig")), false);
+    assert.equal(existsSync(join(directory, "launcher-announcements.toml.sig")), false);
   }
 });
 
