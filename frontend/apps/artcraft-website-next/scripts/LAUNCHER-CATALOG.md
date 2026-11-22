@@ -77,3 +77,6 @@ build step signs it with the same key, writing `out/launcher-announcements.toml.
 file. Its format and limits are in craft-launcher's `docs/announcements.md`. A file with no rows
 is valid and shows nothing. Give anything time-limited an `expires`: the signature proves who
 wrote the file, not when.
+
+To withdraw notices, remove their rows and deploy. Do not delete the file: launchers that already
+fetched it keep their last verified copy while the file is missing or its signature fails.
