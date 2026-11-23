@@ -14,6 +14,7 @@ import {
   getRpmPrimaryGz,
   getRpmRepomdXml,
   getLinuxRepoApps,
+  resetLinuxRepoCachesForTests,
   resolvePackageDownloadUrl,
   withholdUnsignedPackages,
   RPM_REPO_TIMESTAMP,
@@ -741,6 +742,64 @@ test.describe("signed repositories", () => {
       ).toBe(`${base}/photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.pkg.tar.zst.sig`);
     } finally {
       delete CRAFT_NIGHTLY_RELEASES.photocraft;
+    }
+  });
+
+  test("emits -nightly packages in APT, RPM, and Pacman repo metadata", async () => {
+    const tag = "nightly-20261123-abcdef";
+    const version = "0.24.0~nightly.20261123";
+    const debName = `photocraft-nightly-${version}-linux-x86_64.deb`;
+    const rpmName = `photocraft-nightly-${version}-linux-x86_64.rpm`;
+    const archName = `photocraft-nightly-${version}-linux-x86_64.pkg.tar.zst`;
+    const shaDeb = "1".repeat(64);
+    const shaRpm = "2".repeat(64);
+    const shaArch = "3".repeat(64);
+    const realFetch = globalThis.fetch;
+
+    CRAFT_NIGHTLY_RELEASES.photocraft = { tag, version };
+    resetLinuxRepoCachesForTests();
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes(`/releases/download/${tag}/SHA256SUMS.txt`)) {
+        return new Response(
+          `${shaDeb}  ${debName}\n${shaRpm}  ${rpmName}\n${shaRpm}  ${rpmName}.asc\n${shaArch}  ${archName}\n${shaArch}  ${archName}.sig\n`,
+          { status: 200 },
+        );
+      }
+      if (url.includes(`/releases/download/${tag}/`) && init?.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { "content-length": "123456" } });
+      }
+      if (url.endsWith(archName)) {
+        return new Response(new Uint8Array(0), { status: 200, headers: { "content-range": "bytes 0-0/123456" } });
+      }
+      return realFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const apps = await getLinuxRepoApps();
+      const nightly = apps.find((a) => a.name === "photocraft-nightly");
+      expect(nightly).toBeDefined();
+      expect(nightly?.version).toBe(version);
+      expect(nightly?.debAssets.map((a) => a.filename)).toEqual([debName]);
+      expect(nightly?.rpmAssets.map((a) => a.filename)).toEqual([rpmName]);
+      expect(nightly?.archAssets.map((a) => a.filename)).toEqual([archName]);
+
+      const aptPackages = await generateAptPackages("amd64");
+      expect(aptPackages).toContain(`Package: photocraft-nightly\nVersion: ${version}-1`);
+      expect(aptPackages).toContain(`Filename: pool/main/photocraft/${debName}`);
+
+      const rpmXml = await generateRpmPrimaryXml(RPM_REPO_TIMESTAMP, "x86_64");
+      expect(rpmXml).toContain("<name>photocraft-nightly</name>");
+      expect(rpmXml).toContain(`<location href="packages/${rpmName}"/>`);
+      expect(rpmXml).toContain("<file>/usr/bin/photocraft-nightly</file>");
+
+      const pacmanDesc = generatePacmanDesc(nightly!, nightly!.archAssets[0]);
+      expect(pacmanDesc).toContain("%NAME%\nai.storyteller.photocraft-nightly");
+      expect(pacmanDesc).toContain(`%FILENAME%\n${archName}`);
+    } finally {
+      globalThis.fetch = realFetch;
+      delete CRAFT_NIGHTLY_RELEASES.photocraft;
+      resetLinuxRepoCachesForTests();
     }
   });
 });
