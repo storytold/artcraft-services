@@ -629,7 +629,7 @@ impl PreviewProcessor {
 
     let key = StyleTransferProgressKey::new_for_job_id(self.job_id.clone());
     let ttl = StyleTransferProgressKey::get_redis_ttl();
-    let expire_at = ttl.num_seconds() as usize;
+    let expire_at = std::convert::TryFrom::try_from(ttl.num_seconds().max(0)).unwrap_or(0u64);
 
     let _r: String = redis.set_ex(key.to_string(), serde_json::to_string(&status).unwrap(), expire_at).unwrap();
   }

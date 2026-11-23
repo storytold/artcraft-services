@@ -14,7 +14,7 @@ pub struct RedisJobStatusLogger <'a> {
 }
 
 impl <'a> RedisJobStatusLogger <'a> {
-  pub const STATUS_KEY_TTL_SECONDS : usize = 60 * 60;
+  pub const STATUS_KEY_TTL_SECONDS : u64 = 60 * 60;
 
   #[deprecated(note="Use JobProgressReporterBuilder")]
   pub fn new_tts_download(redis: &'a mut RedisPool, tts_job_token: &str) -> Self {

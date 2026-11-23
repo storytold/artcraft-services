@@ -354,7 +354,7 @@ jobs:
               );
               const nightlyPkgPrefix = `${fileSlug}-nightly-`;
               const linuxAssetPattern = new RegExp(
-                `^${nightlyPkgPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(.+)-linux-(?:x86_64|aarch64|riscv64)\\.(?:deb|rpm|pkg\\.tar\\.zst)$`
+                `^${nightlyPkgPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(.+)-linux-(?:(?:x86_64|aarch64|riscv64)\\.(?:deb|rpm)|(?:x86_64|aarch64)\\.pkg\\.tar\\.zst)$`
               );
               const published = releases
                 .filter(r => !r.draft && r.prerelease)

@@ -30,8 +30,10 @@ APP="${ARTCRAFT_APP:-artcraft-website}"
 
 cd "$(dirname "$0")/../.."
 
+WRANGLER_PREFIX=()
 WRANGLER_CMD="deploy"
 if [[ "${ACTION}" == "deploy" && -n "${WORKERS_CI_BRANCH:-}" && "${WORKERS_CI_BRANCH}" != "main" ]]; then
+  WRANGLER_PREFIX=(env -u WRANGLER_CI_MATCH_TAG)
   WRANGLER_CMD="versions upload"
 fi
 
@@ -41,14 +43,14 @@ case "${APP}:${ACTION}" in
     npm --prefix frontend/apps/artcraft-website-next run build:cloudflare
     ;;
   artcraft-website:deploy)
-    npx --yes wrangler@4 ${WRANGLER_CMD}
+    "${WRANGLER_PREFIX[@]}" npx --yes wrangler@4 ${WRANGLER_CMD}
     ;;
   artcraft-webapp:build)
     npm --prefix frontend ci --ignore-scripts
     npm --prefix frontend run build:webapp
     ;;
   artcraft-webapp:deploy)
-    npx --yes wrangler@4 ${WRANGLER_CMD} --config frontend/apps/artcraft-webapp/wrangler.jsonc
+    "${WRANGLER_PREFIX[@]}" npx --yes wrangler@4 ${WRANGLER_CMD} --config frontend/apps/artcraft-webapp/wrangler.jsonc
     ;;
   artcraft-dashboard:build)
     # Standalone pnpm app outside the Nx/npm workspace; the script installs and
@@ -56,7 +58,7 @@ case "${APP}:${ACTION}" in
     bash frontend/apps/artcraft-dashboard/script/build_cloudflare.sh
     ;;
   artcraft-dashboard:deploy)
-    npx --yes wrangler@4 ${WRANGLER_CMD} --config frontend/apps/artcraft-dashboard/wrangler.jsonc
+    "${WRANGLER_PREFIX[@]}" npx --yes wrangler@4 ${WRANGLER_CMD} --config frontend/apps/artcraft-dashboard/wrangler.jsonc
     ;;
   storyteller-docs:build)
     # The OpenAPI document comes from `cargo run --bin docs-cli`, which Workers
@@ -77,7 +79,7 @@ case "${APP}:${ACTION}" in
     '
     ;;
   storyteller-docs:deploy)
-    npx --yes wrangler@4 ${WRANGLER_CMD} --config frontend/api_docs/wrangler.jsonc
+    "${WRANGLER_PREFIX[@]}" npx --yes wrangler@4 ${WRANGLER_CMD} --config frontend/api_docs/wrangler.jsonc
     ;;
   *)
     echo "Usage: ARTCRAFT_APP=<artcraft-website|artcraft-webapp|artcraft-dashboard|storyteller-docs> $0 <build|deploy>" >&2

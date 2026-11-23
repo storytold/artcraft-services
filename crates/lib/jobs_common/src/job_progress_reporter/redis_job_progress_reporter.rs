@@ -36,7 +36,7 @@ impl RedisJobProgressReporterBuilder {
 }
 
 impl RedisJobProgressReporter {
-  pub const STATUS_KEY_TTL_SECONDS : usize = 60 * 60;
+  pub const STATUS_KEY_TTL_SECONDS : u64 = 60 * 60;
 }
 
 impl JobProgressReporterBuilder for RedisJobProgressReporterBuilder {
