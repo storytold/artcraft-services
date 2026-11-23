@@ -270,4 +270,33 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
       delete CRAFT_NIGHTLY_RELEASES.photocraft;
     }
   });
+
+  test("excludes missing nightly tags without failing stable digest or index resolution", async () => {
+    process.env.FLATPAK_OCI_REGISTRY_URL = "https://partial-nightly.registry.test";
+    const baseRegistry = fakeRegistry();
+    globalThis.fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (url.includes("-nightly-")) {
+        return new Response("not found", { status: 404 });
+      }
+      return baseRegistry(input, init);
+    };
+
+    CRAFT_NIGHTLY_RELEASES.photocraft = {
+      tag: "nightly-20261123-abcdef",
+      version: "0.24.0~nightly.20261123",
+      flatpak: true,
+    };
+    try {
+      const digests = await getFlatpakOciImageDigests("storytold/photocraft");
+      expect(digests).toHaveLength(2);
+
+      const index = await getFlatpakOciIndex(new URLSearchParams({ repository: "storytold/photocraft" }));
+      expect(index.Results).toHaveLength(1);
+      expect(index.Results[0].Images).toHaveLength(2);
+      expect(index.Results[0].Images.every((img) => img.Tags[1].startsWith("stable-"))).toBe(true);
+    } finally {
+      delete CRAFT_NIGHTLY_RELEASES.photocraft;
+    }
+  });
 });
