@@ -405,12 +405,20 @@ export async function getFlatpakOciImageDigests(repository: string): Promise<str
   const digests = await Promise.all(
     items.flatMap((item) =>
       buildImagesForTarget(item.appId, item.release!, item.channel).map(async (image) => {
-        const resolved = await fetchImage(repository, image.Tags[0], image.Labels["org.flatpak.ref"]);
-        return resolved.digest;
+        try {
+          const resolved = await fetchImage(repository, image.Tags[0], image.Labels["org.flatpak.ref"]);
+          return resolved.digest;
+        } catch (error) {
+          if (item.channel === "nightly") {
+            console.warn(`Excluding unresolved nightly Flatpak OCI digest for ${repository}:${image.Tags[0]}`, error);
+            return null;
+          }
+          throw error;
+        }
       }),
     ),
   );
-  return digests;
+  return digests.filter((digest): digest is string => digest !== null);
 }
 
 /** Return the catalogued Flatpak app IDs without contacting the OCI registry. */
@@ -440,6 +448,22 @@ export async function getFlatpakOciIndex(searchParams?: URLSearchParams): Promis
     if (!item.release) return null;
     const entry = createRepoEntry(item.repoName, item.appId, item.release, criteria, item.channel);
     if (!entry) return null;
+
+    if (item.channel === "nightly") {
+      const images = await Promise.all(entry.Images.map(async (image) => {
+        try {
+          const resolved = await fetchImage(item.repoName, image.Tags[0], image.Labels["org.flatpak.ref"]);
+          image.Digest = resolved.digest;
+          image.Labels = resolved.labels;
+          return image;
+        } catch (error) {
+          console.warn(`Skipping unresolved nightly Flatpak OCI image ${item.repoName}:${image.Tags[0]}`, error);
+          return null;
+        }
+      }));
+      entry.Images = images.filter((image): image is NonNullable<typeof image> => image !== null);
+      return entry.Images.length > 0 ? entry : null;
+    }
 
     await Promise.all(entry.Images.map(async (image) => {
       const resolved = await fetchImage(item.repoName, image.Tags[0], image.Labels["org.flatpak.ref"]);
