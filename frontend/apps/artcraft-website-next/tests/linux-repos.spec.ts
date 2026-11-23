@@ -740,6 +740,12 @@ test.describe("signed repositories", () => {
       expect(
         resolvePackageDownloadUrl("photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.pkg.tar.zst.sig"),
       ).toBe(`${base}/photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.pkg.tar.zst.sig`);
+      expect(
+        resolvePackageDownloadUrl("photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.AppImage"),
+      ).toBe(`${base}/photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.AppImage`);
+      expect(
+        resolvePackageDownloadUrl("photocraft-nightly-0.24.0~nightly.20261123-linux-aarch64.AppImage.zsync"),
+      ).toBe(`${base}/photocraft-nightly-0.24.0~nightly.20261123-linux-aarch64.AppImage.zsync`);
     } finally {
       delete CRAFT_NIGHTLY_RELEASES.photocraft;
     }
