@@ -1,9 +1,8 @@
 use chrono::Utc;
 use log::debug;
 use once_cell::sync::Lazy;
-use r2d2_redis::r2d2::Pool;
-use r2d2_redis::redis::Commands;
-use r2d2_redis::RedisConnectionManager;
+use r2d2::Pool;
+use redis::{Client, Commands};
 use std::cmp::PartialEq;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -212,7 +211,7 @@ pub struct PreviewProcessor {
   base_directory: PathBuf,
   bucket_directory: MediaFileBucketDirectory,
   expected_frame_count: u32,
-  redis_pool: Pool<RedisConnectionManager>,
+  redis_pool: Pool<Client>,
   shutdown_receiver: oneshot::Receiver<()>,
 }
 
@@ -458,7 +457,7 @@ impl StageDirectoryState {
 impl PreviewProcessor {
   pub fn new(
     inference_job_token: InferenceJobToken,
-    redis_pool: r2d2_redis::r2d2::Pool<RedisConnectionManager>,
+    redis_pool: Pool<Client>,
     base_directory: PathBuf,
     bucket_directory: MediaFileBucketDirectory,
     expected_frame_count: u32,

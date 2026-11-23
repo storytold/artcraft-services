@@ -22,8 +22,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use chrono::Utc;
 use log::{error, info, warn};
-use r2d2_redis::r2d2;
-use r2d2_redis::RedisConnectionManager;
+use redis::Client;
 use sqlx::mysql::MySqlPoolOptions;
 use sqlx::MySqlPool;
 use tempdir::TempDir;
@@ -72,7 +71,7 @@ struct Downloader {
   pub download_temp_directory: PathBuf,
   pub mysql_pool: MySqlPool,
 
-  pub redis_pool: r2d2::Pool<RedisConnectionManager>,
+  pub redis_pool: r2d2::Pool<Client>,
 
   pub bucket_client: LegacyBucketClient,
   pub firehose_publisher: FirehosePublisher,
@@ -167,7 +166,7 @@ async fn main() -> AnyhowResult<()> {
   info!("Connecting to redis...");
 
   let redis_connection_string = env_get_redis_0_connection_string_or_default();
-  let redis_manager = RedisConnectionManager::new(redis_connection_string.as_str())?;
+  let redis_manager = Client::open(redis_connection_string.as_str())?;
 
   let redis_pool = r2d2::Pool::builder()
       .build(redis_manager)?;

@@ -46,7 +46,8 @@ tempdir.workspace = true
 sqlx = { version = "0.7.4", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
 
 # Redis
-r2d2_redis.workspace = true
+r2d2.workspace = true
+redis.workspace = true
 
 # Runtime
 tokio.workspace = true

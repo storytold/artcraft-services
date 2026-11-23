@@ -1,12 +1,11 @@
-use r2d2_redis::r2d2::PooledConnection;
-use r2d2_redis::redis::Commands;
-use r2d2_redis::RedisConnectionManager;
+use r2d2::PooledConnection;
+use redis::{Client, Commands};
 
 use errors::AnyhowResult;
 use redis_common::redis_keys::RedisKeys;
 
 #[deprecated(note="Use JobProgressReporterBuilder")]
-pub type RedisPool = PooledConnection<RedisConnectionManager>;
+pub type RedisPool = PooledConnection<Client>;
 
 #[deprecated(note="Use JobProgressReporterBuilder")]
 pub struct RedisJobStatusLogger <'a> {
