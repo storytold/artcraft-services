@@ -1,58 +1,82 @@
 {
   "db_name": "MySQL",
+  "query": "\nSELECT s.id, s.token, s.user_token, u.username FROM user_sessions s JOIN users u ON u.token = s.user_token\nWHERE s.token = ? AND s.deleted_at IS NULL AND s.expires_at > NOW()\n  AND s.maybe_impersonation_user_token IS NULL AND u.is_banned = FALSE\n  AND u.user_deleted_at IS NULL AND u.mod_deleted_at IS NULL\n",
   "describe": {
     "columns": [
       {
-        "name": "id",
         "ordinal": 0,
+        "name": "id",
         "type_info": {
-          "char_set": 63,
+          "type": "LongLong",
           "flags": "NOT_NULL | PRIMARY_KEY | AUTO_INCREMENT",
-          "max_size": 20,
-          "type": "LongLong"
+          "collation": 63,
+          "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_sessions",
+            "name": "id"
+          }
         }
       },
       {
-        "name": "token",
         "ordinal": 1,
+        "name": "token",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 128,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_sessions",
+            "name": "token"
+          }
         }
       },
       {
-        "name": "user_token",
         "ordinal": 2,
+        "name": "user_token",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 128,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_sessions",
+            "name": "user_token"
+          }
         }
       },
       {
-        "name": "username",
         "ordinal": 3,
+        "name": "username",
         "type_info": {
-          "char_set": 224,
+          "type": "VarString",
           "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "max_size": 80,
-          "type": "VarString"
+          "collation": 255,
+          "max_size": 80
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "username"
+          }
         }
       }
     ],
+    "parameters": {
+      "Right": 1
+    },
     "nullable": [
       false,
       false,
       false,
       false
-    ],
-    "parameters": {
-      "Right": 1
-    }
+    ]
   },
-  "hash": "8bfbb8bef3bec235f37c5f4f5c2f3a8b0833241a63da122b8abd97cd9b71208f",
-  "query": "\nSELECT s.id, s.token, s.user_token, u.username FROM user_sessions s JOIN users u ON u.token = s.user_token\nWHERE s.token = ? AND s.deleted_at IS NULL AND s.expires_at > NOW()\n  AND s.maybe_impersonation_user_token IS NULL AND u.is_banned = FALSE\n  AND u.user_deleted_at IS NULL AND u.mod_deleted_at IS NULL\n"
+  "hash": "8bfbb8bef3bec235f37c5f4f5c2f3a8b0833241a63da122b8abd97cd9b71208f"
 }

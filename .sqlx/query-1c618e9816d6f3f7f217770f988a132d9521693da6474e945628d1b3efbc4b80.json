@@ -1,25 +1,26 @@
 {
   "db_name": "MySQL",
+  "query": "\nSELECT expires_at <= NOW() AS expired FROM user_login_challenges WHERE id = ?\n",
   "describe": {
     "columns": [
       {
-        "name": "expired",
         "ordinal": 0,
+        "name": "expired",
         "type_info": {
-          "char_set": 63,
+          "type": "LongLong",
           "flags": "NOT_NULL | BINARY",
-          "max_size": 1,
-          "type": "LongLong"
-        }
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": "Expression"
       }
-    ],
-    "nullable": [
-      false
     ],
     "parameters": {
       "Right": 1
-    }
+    },
+    "nullable": [
+      false
+    ]
   },
-  "hash": "1c618e9816d6f3f7f217770f988a132d9521693da6474e945628d1b3efbc4b80",
-  "query": "\nSELECT expires_at <= NOW() AS expired FROM user_login_challenges WHERE id = ?\n"
+  "hash": "1c618e9816d6f3f7f217770f988a132d9521693da6474e945628d1b3efbc4b80"
 }

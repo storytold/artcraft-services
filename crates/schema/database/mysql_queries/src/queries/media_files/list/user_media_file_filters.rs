@@ -20,7 +20,7 @@ pub struct UserMediaFileFilters<'a> {
 }
 
 impl<'a> UserMediaFileFilters<'a> {
-  pub(super) fn push_predicates(&self, query: &mut QueryBuilder<'a, MySql>) {
+  pub(super) fn push_predicates(&self, query: &mut QueryBuilder<MySql>) {
     // Resolve the unique username once; subsequent scans are scoped to its token.
     query.push(" WHERE m.maybe_creator_user_token = (SELECT token FROM users WHERE username = ");
     query.push_bind(self.username).push(")");

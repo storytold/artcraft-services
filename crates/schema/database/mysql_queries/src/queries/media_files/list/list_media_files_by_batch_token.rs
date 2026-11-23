@@ -230,7 +230,7 @@ fn query_builder<'a>(
   view_as: ViewAs,
   maybe_viewer_user_token: Option<&'a str>,
   select_fields: &'a str,
-) -> QueryBuilder<'a, MySql> {
+) -> QueryBuilder<MySql> {
 
   // NB: Query cannot be statically checked by sqlx
   let mut query_builder: QueryBuilder<MySql> = QueryBuilder::new(

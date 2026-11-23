@@ -55,11 +55,11 @@ jobs:
             libssl-dev \
             pkg-config
 
-      # The Docker image pins 1.93.0; check with the same compiler that ships.
+      # The Docker image pins 1.94.0; check with the same compiler that ships.
       - name: Install Rust
         run: |
-          rustup toolchain install 1.93.0 --profile minimal
-          rustup default 1.93.0
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup default 1.94.0
           rustc --version
 
       - name: Cache cargo registry and target

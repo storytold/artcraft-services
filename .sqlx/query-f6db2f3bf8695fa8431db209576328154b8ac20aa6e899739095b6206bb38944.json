@@ -9,8 +9,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "user_token"
+          }
         }
       },
       {
@@ -19,8 +25,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 80
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "username"
+          }
         }
       },
       {
@@ -29,8 +41,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 80
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "display_name"
+          }
         }
       },
       {
@@ -39,8 +57,14 @@
         "type_info": {
           "type": "String",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.users",
+            "name": "email_gravatar_hash"
+          }
         }
       },
       {
@@ -49,8 +73,14 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL | UNSIGNED",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "lifetime_net_spend_usd_cents"
+          }
         }
       },
       {
@@ -59,8 +89,14 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "net_spend_7d_usd_cents"
+          }
         }
       },
       {
@@ -69,8 +105,14 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "net_spend_14d_usd_cents"
+          }
         }
       },
       {
@@ -79,8 +121,14 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "net_spend_30d_usd_cents"
+          }
         }
       },
       {
@@ -89,8 +137,14 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "net_spend_60d_usd_cents"
+          }
         }
       },
       {
@@ -99,8 +153,14 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "net_spend_90d_usd_cents"
+          }
         }
       },
       {
@@ -109,8 +169,14 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 20
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "net_spend_this_year_usd_cents"
+          }
         }
       },
       {
@@ -119,8 +185,14 @@
         "type_info": {
           "type": "Tiny",
           "flags": "NOT_NULL",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "is_active_subscriber"
+          }
         }
       },
       {
@@ -129,8 +201,14 @@
         "type_info": {
           "type": "Long",
           "flags": "UNSIGNED",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 10
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_summaries",
+            "name": "maybe_reengagement_score"
+          }
         }
       }
     ],

@@ -9,8 +9,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | UNIQUE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "token"
+          }
         }
       },
       {
@@ -19,9 +25,10 @@
         "type_info": {
           "type": "VarString",
           "flags": "BINARY",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 80
-        }
+        },
+        "origin": "Expression"
       },
       {
         "ordinal": 2,
@@ -29,8 +36,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 1020
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "name"
+          }
         }
       },
       {
@@ -39,8 +52,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "BINARY",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 2048
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "maybe_description"
+          }
         }
       },
       {
@@ -49,8 +68,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "owner_user_token"
+          }
         }
       },
       {
@@ -59,8 +84,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 160
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "ip_address_creation"
+          }
         }
       },
       {
@@ -69,8 +100,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 160
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "ip_address_update"
+          }
         }
       },
       {
@@ -79,8 +116,14 @@
         "type_info": {
           "type": "Timestamp",
           "flags": "NOT_NULL | BINARY | TIMESTAMP",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 19
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "created_at"
+          }
         }
       },
       {
@@ -89,8 +132,14 @@
         "type_info": {
           "type": "Timestamp",
           "flags": "NOT_NULL | BINARY | TIMESTAMP | ON_UPDATE_NOW",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 19
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "updated_at"
+          }
         }
       },
       {
@@ -99,8 +148,14 @@
         "type_info": {
           "type": "Timestamp",
           "flags": "MULTIPLE_KEY | BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 19
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.api_keys",
+            "name": "maybe_deleted_at"
+          }
         }
       }
     ],

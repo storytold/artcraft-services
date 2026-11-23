@@ -108,7 +108,7 @@ fn query_builder<'a>(
     maybe_viewer_user_token: Option<&'a str>,
     viewer_is_moderator: bool,
     select_fields: &'a str,
-) -> QueryBuilder<'a, MySql> {
+) -> QueryBuilder<MySql> {
 
     let mut first_predicate_added = false;
     // NB: Query cannot be statically checked by sqlx
@@ -297,7 +297,7 @@ mod tests {
 
     fn build_sql(maybe_viewer: Option<&str>, is_moderator: bool) -> String {
         query_builder(None, None, None, None, Some("someone"), true, 0, 10, false,
-            maybe_viewer, is_moderator, "f.token").sql().to_string()
+            maybe_viewer, is_moderator, "f.token").sql().as_str().to_string()
     }
 
     #[test]

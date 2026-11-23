@@ -9,8 +9,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "MULTIPLE_KEY | BINARY",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_events",
+            "name": "maybe_user_token"
+          }
         }
       },
       {
@@ -19,8 +25,14 @@
         "type_info": {
           "type": "VarString",
           "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
-          "char_set": 224,
+          "collation": 255,
           "max_size": 128
+        },
+        "origin": {
+          "Table": {
+            "table": "artcraft.user_spend_events",
+            "name": "payments_namespace"
+          }
         }
       },
       {
@@ -29,9 +41,10 @@
         "type_info": {
           "type": "LongLong",
           "flags": "UNSIGNED | BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 21
-        }
+        },
+        "origin": "Expression"
       },
       {
         "ordinal": 3,
@@ -39,9 +52,10 @@
         "type_info": {
           "type": "LongLong",
           "flags": "UNSIGNED | BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 21
-        }
+        },
+        "origin": "Expression"
       },
       {
         "ordinal": 4,
@@ -49,9 +63,10 @@
         "type_info": {
           "type": "LongLong",
           "flags": "UNSIGNED | BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 21
-        }
+        },
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -59,9 +74,10 @@
         "type_info": {
           "type": "LongLong",
           "flags": "UNSIGNED | BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 21
-        }
+        },
+        "origin": "Expression"
       },
       {
         "ordinal": 6,
@@ -69,9 +85,10 @@
         "type_info": {
           "type": "LongLong",
           "flags": "BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 21
-        }
+        },
+        "origin": "Expression"
       },
       {
         "ordinal": 7,
@@ -79,9 +96,10 @@
         "type_info": {
           "type": "LongLong",
           "flags": "UNSIGNED | BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 21
-        }
+        },
+        "origin": "Expression"
       },
       {
         "ordinal": 8,
@@ -89,9 +107,10 @@
         "type_info": {
           "type": "LongLong",
           "flags": "NOT_NULL | UNSIGNED | BINARY",
-          "char_set": 63,
+          "collation": 63,
           "max_size": 21
-        }
+        },
+        "origin": "Expression"
       }
     ],
     "parameters": {

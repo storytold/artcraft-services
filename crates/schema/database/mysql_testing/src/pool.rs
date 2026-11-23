@@ -2,7 +2,7 @@
 
 use log::info;
 use sqlx::mysql::MySqlPoolOptions;
-use sqlx::MySqlPool;
+use sqlx::{AssertSqlSafe, MySqlPool};
 
 use crate::guard::{guard_test_database_url, DEFAULT_TEST_DATABASE_URL, TEST_DATABASE_URL_ENV};
 use crate::schema::ensure_schema;
@@ -69,7 +69,7 @@ async fn create_database_if_missing(url: &str, database: &str) {
   match server_connection {
     Ok(pool) => {
       let create = format!("CREATE DATABASE IF NOT EXISTS `{database}`");
-      if let Err(err) = sqlx::query(&create).execute(&pool).await {
+      if let Err(err) = sqlx::query(AssertSqlSafe(create.as_str())).execute(&pool).await {
         info!("Could not CREATE DATABASE {database:?} ({err}); assuming it already exists");
       }
       pool.close().await;

@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 
 use log::info;
-use sqlx::MySqlPool;
+use sqlx::{AssertSqlSafe, MySqlPool};
 
 const MIGRATIONS_TABLE_DDL: &str = "
 CREATE TABLE IF NOT EXISTS mysql_testing_applied_migrations (
@@ -128,7 +128,7 @@ async fn apply_sql_file(pool: &MySqlPool, path: &Path) -> Result<(), sqlx::Error
     .unwrap_or_else(|err| panic!("read {path:?}: {err}"));
 
   for statement in split_sql_statements(&sql) {
-    sqlx::query(&statement).execute(pool).await.map_err(|err| {
+    sqlx::query(AssertSqlSafe(statement.as_str())).execute(pool).await.map_err(|err| {
       log::error!("Statement from {path:?} failed:\n{statement}\nerror: {err}");
       err
     })?;
