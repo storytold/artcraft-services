@@ -354,8 +354,9 @@ jobs:
               );
               const nightlyPkgPrefix = `${fileSlug}-nightly-`;
               const escapedNightlyPrefix = nightlyPkgPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const escapedSlug = fileSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
               const linuxAssetPattern = new RegExp(
-                `^${escapedNightlyPrefix}(.+)-linux-(?:(?:x86_64|aarch64|riscv64)\\.(?:deb|rpm)|(?:x86_64|aarch64)\\.(?:pkg\\.tar\\.zst|AppImage|flatpak))$`
+                `^(?:${escapedNightlyPrefix}(.+)|${escapedSlug}-([^/]+-nightly\\.[^/]+))-linux-(?:(?:x86_64|aarch64|riscv64)\\.(?:deb|rpm)|(?:x86_64|aarch64)\\.(?:pkg\\.tar\\.zst|AppImage|flatpak))$`
               );
               const published = releases
                 .filter(r => !r.draft && r.prerelease)
@@ -369,7 +370,7 @@ jobs:
                 for (const name of names) {
                   const m = name.match(linuxAssetPattern);
                   if (m) {
-                    matchedVersion = matchedVersion || m[1];
+                    matchedVersion = matchedVersion || m[1] || m[2];
                     if (name.endsWith(".flatpak")) hasFlatpak = true;
                     if (name.endsWith(".AppImage")) hasAppImage = true;
                   }
