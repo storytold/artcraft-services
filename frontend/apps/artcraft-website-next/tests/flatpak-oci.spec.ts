@@ -13,7 +13,7 @@ function imageLabels(repo: string, tag: string): Record<string, string> {
   const slug = repo.split("/")[1];
   const appId = slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${slug === "craft-launcher" ? "artcraft-launcher" : slug}`;
   const arch = tag.endsWith("-aarch64") ? "aarch64" : "x86_64";
-  const isNightlyTag = tag.includes("-nightly-") || tag.startsWith("nightly-");
+  const isNightlyTag = tag.includes("nightly");
   const fullAppId = isNightlyTag ? `${appId}.nightly` : appId;
   return {
     "org.flatpak.ref": `app/${fullAppId}/${arch}/stable`,
@@ -275,8 +275,8 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     process.env.FLATPAK_OCI_REGISTRY_URL = "https://partial-nightly.registry.test";
     const baseRegistry = fakeRegistry();
     globalThis.fetch = async (input, init) => {
-      const url = input instanceof Request ? input.url : input.toString();
-      if (url.includes("-nightly-")) {
+      const pathname = new URL(input instanceof Request ? input.url : input.toString()).pathname;
+      if (pathname.includes("/manifests/") && pathname.includes("nightly")) {
         return new Response("not found", { status: 404 });
       }
       return baseRegistry(input, init);

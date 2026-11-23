@@ -231,9 +231,11 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
   }
 
   for (const nightly of getNightlyRepoEntries()) {
-    const prefix = `${nightly.packageName}-${nightly.version}`;
-    if (NIGHTLY_LINUX_SUFFIXES.some((suffix) => filename === `${prefix}${suffix}`)) {
-      return `https://github.com/storytold/${nightly.repo}/releases/download/${encodeURIComponent(nightly.tag)}/${filename}`;
+    const assetPrefix = nightly.version.includes("-nightly") ? nightly.baseName : nightly.packageName;
+    for (const prefix of new Set([`${nightly.packageName}-${nightly.version}`, `${assetPrefix}-${nightly.version}`])) {
+      if (NIGHTLY_LINUX_SUFFIXES.some((suffix) => filename === `${prefix}${suffix}`)) {
+        return `https://github.com/storytold/${nightly.repo}/releases/download/${encodeURIComponent(nightly.tag)}/${filename}`;
+      }
     }
   }
 
@@ -1027,11 +1029,12 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
 
     // Nightly packages (`<app>-nightly`) pointing at the latest nightly prerelease per repo.
     for (const nightly of getNightlyRepoEntries()) {
+      const assetPrefix = nightly.version.includes("-nightly") ? nightly.baseName : nightly.packageName;
       appPromises.push((async () => {
         const [debAssets, rpmAssets, archAssets] = await Promise.all([
-          includeDeb ? buildDebAssets(nightly.packageName, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
-          includeRpm ? buildRpmAssets(nightly.packageName, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
-          includeArch ? buildArchAssets(nightly.packageName, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
+          includeDeb ? buildDebAssets(assetPrefix, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
+          includeRpm ? buildRpmAssets(assetPrefix, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
+          includeArch ? buildArchAssets(assetPrefix, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
         ]);
         if (debAssets.length === 0 && rpmAssets.length === 0 && archAssets.length === 0) {
           return null;

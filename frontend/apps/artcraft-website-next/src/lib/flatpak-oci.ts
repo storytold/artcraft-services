@@ -81,7 +81,10 @@ function buildImagesForTarget(
 
   return ARCHITECTURES.map((arch) => {
     const ref = `app/${appId}/${arch}/stable`;
-    const versionTag = channel === "nightly" ? `${version}-nightly-${arch}` : `${version}-${arch}`;
+    const versionTag =
+      channel === "nightly" && !version.includes("nightly")
+        ? `${version}-nightly-${arch}`
+        : `${version}-${arch}`;
     const channelTag = `${channel}-${arch}`;
 
     return {
