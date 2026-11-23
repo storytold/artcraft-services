@@ -68,3 +68,15 @@ consumption remain launcher-side work; this PR hosts the compatible data only.
 
 Run signing checks with `npm run test:launcher-catalog`. They use ephemeral keys,
 verify exact bytes, and reject tampering, the wrong key, and invalid configuration.
+
+## Announcements
+
+`public/launcher-announcements.toml` holds the launcher's announcements and alerts. The same
+build step signs it with the same key, writing `out/launcher-announcements.toml.sig`, and
+`public/_headers` serves both like the catalog. The launcher shows notices only from this signed
+file. Its format and limits are in craft-launcher's `docs/announcements.md`. A file with no rows
+is valid and shows nothing. Give anything time-limited an `expires`: the signature proves who
+wrote the file, not when.
+
+To withdraw notices, remove their rows and deploy. Do not delete the file: launchers that already
+fetched it keep their last verified copy while the file is missing or its signature fails.
