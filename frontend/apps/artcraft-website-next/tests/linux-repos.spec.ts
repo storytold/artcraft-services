@@ -31,7 +31,7 @@ import * as openpgp from "openpgp";
 import { createHash } from "node:crypto";
 import { getSigningPublicKey, isRepoSigningConfigured, normalizeArmoredKey, signCleartext, signDetachedArmored, signDetachedBinary } from "../src/lib/repo-signing";
 import { CRAFTING_APPS, craftAppRelease, craftReleaseDownloads } from "../src/lib/crafting-apps";
-import { CRAFT_LAUNCHER_RELEASE } from "../src/lib/crafting-app-releases";
+import { CRAFT_LAUNCHER_RELEASE, CRAFT_NIGHTLY_RELEASES } from "../src/lib/crafting-app-releases";
 import { GET as getInRelease } from "../src/app/apt/dists/[distribution]/InRelease/route";
 import { GET as getReleaseGpg } from "../src/app/apt/dists/[distribution]/Release.gpg/route";
 import { GET as getRpmSignature } from "../src/app/rpm/[arch]/repodata/repomd.xml.asc/route";
@@ -721,5 +721,26 @@ test.describe("signed repositories", () => {
     });
     expect(binaryKey.isPrivate()).toBe(false);
     expect(binaryKey.getFingerprint().toUpperCase()).toBe(fingerprint);
+  });
+
+  test("resolves -nightly Linux packages regardless of GitHub release tag", () => {
+    CRAFT_NIGHTLY_RELEASES.photocraft = {
+      tag: "nightly-20261123-abcdef",
+      version: "0.24.0~nightly.20261123",
+    };
+    try {
+      const base = "https://github.com/storytold/photocraft/releases/download/nightly-20261123-abcdef";
+      expect(
+        resolvePackageDownloadUrl("photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.deb"),
+      ).toBe(`${base}/photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.deb`);
+      expect(
+        resolvePackageDownloadUrl("photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.rpm.asc"),
+      ).toBe(`${base}/photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.rpm.asc`);
+      expect(
+        resolvePackageDownloadUrl("photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.pkg.tar.zst.sig"),
+      ).toBe(`${base}/photocraft-nightly-0.24.0~nightly.20261123-linux-x86_64.pkg.tar.zst.sig`);
+    } finally {
+      delete CRAFT_NIGHTLY_RELEASES.photocraft;
+    }
   });
 });
