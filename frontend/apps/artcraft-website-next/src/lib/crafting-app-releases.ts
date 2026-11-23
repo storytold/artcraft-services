@@ -246,7 +246,7 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   anicraft: craftRelease("0.2.1", CRAFT_RELEASE_ASSETS.filter(
     (asset) => !asset.file.startsWith("{slug}-web-"),
   )),
-  designcraft: craftRelease("0.20.1"),
+  designcraft: craftRelease("0.21.1"),
   figcraft: craftRelease("0.18.1"),
   texturecraft: craftRelease("0.6.1"),
   materialcraft: craftRelease("0.4.1"),
