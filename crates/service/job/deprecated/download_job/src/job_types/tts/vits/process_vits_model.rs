@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use log::{error, info, warn};
-use tempdir::TempDir;
 
 use enums::by_table::tts_models::tts_model_type::TtsModelType;
 use errors::AnyhowResult;
@@ -20,6 +19,7 @@ use mysql_queries::queries::tts::tts_models::insert_tts_model_from_download_job:
 use crate::job_loop::job_results::JobResults;
 use crate::job_types::tts::vits::vits_model_check_command::{CheckArgs, Device};
 use crate::JobState;
+use tempfile::TempDir;
 
 /// Returns the token of the entity.
 pub async fn process_vits_model<'a, 'b>(

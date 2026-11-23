@@ -2,7 +2,6 @@ use std::path::Path;
 
 use anyhow::anyhow;
 use log::{debug, error, info, warn};
-use tempdir::TempDir;
 use bucket_paths::legacy::typified_paths::public::weight_files::bucket_directory::WeightFileBucketDirectory;
 use bucket_paths::legacy::typified_paths::public::weight_files::bucket_file_path::WeightFileBucketPath;
 use cloud_storage::legacy_bucket_client::LegacyBucketClient;
@@ -13,6 +12,7 @@ use tokens::tokens::model_weights::ModelWeightToken;
 use crate::job::job_loop::process_single_job_error::ProcessSingleJobError;
 use crate::job::job_types::gpt_sovits::model_package::model_package::GptSovitsPackageFileType;
 use crate::util::filesystem::scoped_temp_dir_creator::ScopedTempDirCreator;
+use tempfile::TempDir;
 
 pub async fn download_package(
   model_weight_token: ModelWeightToken,

@@ -5,7 +5,6 @@ use std::time::Instant;
 
 use anyhow::anyhow;
 use log::{error, info};
-use tempdir::TempDir;
 
 use errors::AnyhowResult;
 use filesys::check_file_exists::check_file_exists;
@@ -29,6 +28,7 @@ use crate::job::job_types::tts::tacotron2::upload_results::{upload_results, Uplo
 use crate::job::job_types::tts::tacotron2::vocoder_option::VocoderForInferenceOption;
 use crate::state::job_dependencies::JobDependencies;
 use crate::util::downloaders::maybe_download_file_from_bucket::{maybe_download_file_from_bucket, MaybeDownloadArgs};
+use tempfile::TempDir;
 
 /// Text starting with this will be treated as a test request.
 /// This allows the request to bypass the model cache and query the latest TTS model.

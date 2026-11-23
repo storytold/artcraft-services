@@ -56,7 +56,6 @@ serde_json = "1.0"
 serde_yaml = "0.9"
 tauri = { version = "2.4.1", features = [] }
 tauri-plugin-log = "2.3.1"
-tempdir = "0.3.7"
 tempfile = "3.18.0"
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "fs"] }
 tokio-util.workspace = true

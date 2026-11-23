@@ -26,7 +26,7 @@ server_environment = { path = "../server_environment" }
 workspace-build-acceleration = { version = "0.1", path = "../../workspace-build-acceleration" }
 
 # External
-dotenv.workspace = true
+dotenvy.workspace = true
 hostname.workspace = true
 log = "0.4.14"
 

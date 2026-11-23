@@ -37,11 +37,11 @@ workspace-build-acceleration = { version = "0.1", path = "../../../../workspace-
 # External
 anyhow.workspace = true
 chrono.workspace = true
-dotenv.workspace = true
+dotenvy.workspace = true
 hostname.workspace = true
 log.workspace = true
 subprocess = "0.2.9"
-tempdir.workspace = true
+tempfile.workspace = true
 
 sqlx = { version = "0.7.4", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
 

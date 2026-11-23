@@ -1,13 +1,15 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+use jsonwebtoken::errors::Error as JwtLibraryError;
+
 #[derive(Debug)]
 pub enum JwtSignerError {
   /// Error decoding and verifying a JWT to claims
-  JwtVerifyError(jwt::Error),
+  JwtVerifyError(JwtLibraryError),
 
   /// Error encoding and signing JWT claims
-  JwtSignError(jwt::Error),
+  JwtSignError(JwtLibraryError),
 
   /// Error constructing the JWT signer.
   JwtInvalidKeyLength,

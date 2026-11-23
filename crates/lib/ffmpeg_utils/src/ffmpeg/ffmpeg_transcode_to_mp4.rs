@@ -63,15 +63,14 @@ pub fn ffmpeg_transcode_to_mp4(args: FfmpegTranscodeToMp4Args) -> AnyhowResult<(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use tempdir::TempDir;
-  use test_utils::test_file_path::test_file_path;
+    use test_utils::test_file_path::test_file_path;
 
   #[test]
   fn test_transcode_mov_to_mp4() {
     let input_path = test_file_path("test_data/video/mov/majoras_mask_intro.mov")
         .expect("test video should exist");
 
-    let temp_dir = TempDir::new_in("/tmp", "ffmpeg_transcode_to_mp4_test")
+    let temp_dir = tempfile::Builder::new().prefix("ffmpeg_transcode_to_mp4_test").tempdir_in("/tmp")
         .expect("should create temp dir");
 
     let output_path = temp_dir.path().join("transcoded.mp4");

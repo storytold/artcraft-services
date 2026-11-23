@@ -91,7 +91,7 @@ async fn main() -> AnyhowResult<()> {
 
   // NB: Do not check this secrets-containing dotenv file into VCS.
   // This file should only contain *development* secrets, never production.
-  let _ = dotenv::from_filename(".env-secrets").ok();
+  let _ = dotenvy::from_filename(".env-secrets").ok();
 
   info!("Obtaining worker hostname...");
 

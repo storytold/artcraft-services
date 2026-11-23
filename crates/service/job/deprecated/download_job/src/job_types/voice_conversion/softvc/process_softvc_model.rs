@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use log::{info, warn};
-use tempdir::TempDir;
 
 use enums::by_table::voice_conversion_models::voice_conversion_model_type::VoiceConversionModelType;
 use errors::AnyhowResult;
@@ -18,6 +17,7 @@ use mysql_queries::queries::voice_conversion::models::insert_voice_conversion_mo
 
 use crate::job_loop::job_results::JobResults;
 use crate::JobState;
+use tempfile::TempDir;
 
 /// Returns the token of the entity.
 pub async fn process_softvc_model<'a, 'b>(
