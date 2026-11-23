@@ -34,7 +34,7 @@ WRANGLER_PREFIX=()
 WRANGLER_CMD="deploy"
 if [[ "${ACTION}" == "deploy" && -n "${WORKERS_CI_BRANCH:-}" && "${WORKERS_CI_BRANCH}" != "main" ]]; then
   WRANGLER_PREFIX=(env -u WRANGLER_CI_MATCH_TAG)
-  WRANGLER_CMD="versions upload"
+  WRANGLER_CMD="preview"
 fi
 
 case "${APP}:${ACTION}" in
