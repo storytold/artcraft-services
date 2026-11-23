@@ -263,6 +263,10 @@ export type CraftNightlyRelease = {
   tag: string;
   /** Package version used in the `-nightly-<version>-linux-<arch>` filenames. */
   version: string;
+  /** True when the nightly prerelease publishes Flatpak OCI images (`nightly-<arch>`). */
+  flatpak?: boolean;
+  /** True when the nightly prerelease publishes AppImage binaries (`-nightly-<version>-linux-<arch>.AppImage`). */
+  appImage?: boolean;
 };
 
 // Updated automatically by `.github/workflows/update-craft-release-versions.yml` from the

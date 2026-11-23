@@ -353,8 +353,9 @@ jobs:
                 response => response.data
               );
               const nightlyPkgPrefix = `${fileSlug}-nightly-`;
+              const escapedNightlyPrefix = nightlyPkgPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
               const linuxAssetPattern = new RegExp(
-                `^${nightlyPkgPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(.+)-linux-(?:(?:x86_64|aarch64|riscv64)\\.(?:deb|rpm)|(?:x86_64|aarch64)\\.pkg\\.tar\\.zst)$`
+                `^${escapedNightlyPrefix}(.+)-linux-(?:(?:x86_64|aarch64|riscv64)\\.(?:deb|rpm)|(?:x86_64|aarch64)\\.(?:pkg\\.tar\\.zst|AppImage|flatpak))$`
               );
               const published = releases
                 .filter(r => !r.draft && r.prerelease)
@@ -362,11 +363,22 @@ jobs:
               for (const rel of published) {
                 const names = new Set((rel.assets || []).map(a => a.name));
                 if (!names.has("SHA256SUMS.txt")) continue;
+                let matchedVersion = null;
+                let hasFlatpak = false;
+                let hasAppImage = false;
                 for (const name of names) {
                   const m = name.match(linuxAssetPattern);
                   if (m) {
-                    return { tag: rel.tag_name, version: m[1] };
+                    matchedVersion = matchedVersion || m[1];
+                    if (name.endsWith(".flatpak")) hasFlatpak = true;
+                    if (name.endsWith(".AppImage")) hasAppImage = true;
                   }
+                }
+                if (matchedVersion) {
+                  const entry = { tag: rel.tag_name, version: matchedVersion };
+                  if (hasFlatpak) entry.flatpak = true;
+                  if (hasAppImage) entry.appImage = true;
+                  return entry;
                 }
               }
               return null;
@@ -395,7 +407,12 @@ jobs:
               : `{\n${Object.entries(nightlyEntries)
                   .map(([k, v]) => {
                     const keyStr = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k) ? k : JSON.stringify(k);
-                    return `  ${keyStr}: { tag: ${JSON.stringify(v.tag)}, version: ${JSON.stringify(v.version)} },`;
+                    const extras = [
+                      v.flatpak ? "flatpak: true" : null,
+                      v.appImage ? "appImage: true" : null,
+                    ].filter(Boolean);
+                    const fields = [`tag: ${JSON.stringify(v.tag)}`, `version: ${JSON.stringify(v.version)}`, ...extras];
+                    return `  ${keyStr}: { ${fields.join(", ")} },`;
                   })
                   .join("\n")}\n}`;
             content = content.replace(nightlyBlockPattern, (_, prefix) => `${prefix}${formattedNightlies};`);

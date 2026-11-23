@@ -158,6 +158,10 @@ const NIGHTLY_LINUX_SUFFIXES = [
   "-linux-riscv64.rpm",
   "-linux-x86_64.pkg.tar.zst",
   "-linux-aarch64.pkg.tar.zst",
+  "-linux-x86_64.AppImage",
+  "-linux-aarch64.AppImage",
+  "-linux-x86_64.AppImage.zsync",
+  "-linux-aarch64.AppImage.zsync",
 ] as const;
 
 export function getNightlyRepoEntries(): NightlyRepoEntry[] {
