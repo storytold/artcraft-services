@@ -7,7 +7,8 @@ type RouteProps = {
 
 export async function GET(request: Request, props: RouteProps) {
   const { slug, filename } = await props.params;
-  if (filename !== `${slug}-oci.flatpakref`) {
+  const isNightly = filename === `${slug}-nightly-oci.flatpakref`;
+  if (!isNightly && filename !== `${slug}-oci.flatpakref`) {
     return new Response("Not found", { status: 404 });
   }
 
@@ -19,8 +20,8 @@ export async function GET(request: Request, props: RouteProps) {
 
   const url = new URL(request.url);
   const baseUrl = `${url.protocol}//${url.host}`;
-  const title = craftAppName(app);
-  const appId = `ai.storyteller.${slug}`;
+  const title = isNightly ? `${craftAppName(app)} Nightly` : craftAppName(app);
+  const appId = isNightly ? `ai.storyteller.${slug}.nightly` : `ai.storyteller.${slug}`;
   // The ref carries the same key and lookaside as the remote descriptor, so installing a single
   // .flatpakref verifies signatures instead of trusting the image.
   const signatureEntries = await getFlatpakSignatureDescriptor(baseUrl);
@@ -38,7 +39,7 @@ ${signatureEntries.map((entry) => `${entry}\n`).join("")}`;
     headers: {
       "Content-Type": "application/x-flatpak-ref; charset=utf-8",
       "Cache-Control": "public, max-age=86400",
-      "Content-Disposition": `attachment; filename="${slug}-oci.flatpakref"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
 }

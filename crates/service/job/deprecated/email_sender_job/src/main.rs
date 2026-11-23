@@ -20,8 +20,7 @@
 
 use anyhow::anyhow;
 use log::{info, warn};
-use r2d2_redis::r2d2;
-use r2d2_redis::RedisConnectionManager;
+use redis::Client;
 use sqlx::mysql::MySqlPoolOptions;
 
 use bootstrap::bootstrap::{bootstrap, BootstrapArgs};
@@ -102,7 +101,7 @@ async fn main() -> AnyhowResult<()> {
     },
     Some(redis_connection_string) => {
       info!("Connecting to Redis to use for reporting job progress... {}", redis_connection_string);
-      let redis_manager = RedisConnectionManager::new(redis_connection_string)?;
+      let redis_manager = Client::open(redis_connection_string)?;
       let redis_pool = r2d2::Pool::builder().build(redis_manager)?;
 
       Box::new(RedisJobProgressReporterBuilder::from_redis_pool(redis_pool))
@@ -113,7 +112,7 @@ async fn main() -> AnyhowResult<()> {
       match easyenv::get_env_string_optional("REDIS_FOR_KEEPALIVE_URL") {
         None => None,
         Some(redis_url) => {
-          let redis_manager = RedisConnectionManager::new(redis_url)?;
+          let redis_manager = Client::open(redis_url)?;
           let redis_pool = r2d2::Pool::builder().build(redis_manager)?;
           Some(redis_pool)
         }

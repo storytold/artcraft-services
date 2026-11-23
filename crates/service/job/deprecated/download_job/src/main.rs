@@ -22,8 +22,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use log::info;
-use r2d2_redis::r2d2;
-use r2d2_redis::RedisConnectionManager;
+use redis::Client;
 use sqlx::mysql::MySqlPoolOptions;
 use tokio::runtime::Runtime;
 
@@ -326,7 +325,7 @@ async fn main() -> AnyhowResult<()> {
   info!("Connecting to redis...");
 
   let redis_connection_string = env_get_redis_0_connection_string_or_default();
-  let redis_manager = RedisConnectionManager::new(redis_connection_string.as_str())?;
+  let redis_manager = Client::open(redis_connection_string.as_str())?;
 
   let redis_pool = r2d2::Pool::builder()
       .build(redis_manager)?;

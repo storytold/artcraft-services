@@ -6,6 +6,7 @@ import {
 } from "./crafting-apps";
 import {
   CRAFT_LAUNCHER_RELEASE,
+  CRAFT_NIGHTLY_RELEASES,
   type CraftRelease,
 } from "./crafting-app-releases";
 
@@ -71,19 +72,26 @@ function normalizeArch(arch: string | null): string | null {
   return lower;
 }
 
-function buildImagesForTarget(appId: string, release: CraftRelease): FlatpakOciImage[] {
+function buildImagesForTarget(
+  appId: string,
+  release: CraftRelease,
+  channel: "stable" | "nightly" = "stable",
+): FlatpakOciImage[] {
   const version = release.version;
 
   return ARCHITECTURES.map((arch) => {
     const ref = `app/${appId}/${arch}/stable`;
-    const versionTag = `${version}-${arch}`;
-    const stableTag = `stable-${arch}`;
+    const versionTag =
+      channel === "nightly" && !version.includes("nightly")
+        ? `${version}-nightly-${arch}`
+        : `${version}-${arch}`;
+    const channelTag = `${channel}-${arch}`;
 
     return {
-      // flatpak-oci.sh publishes a version-architecture tag and stable-architecture tag.
+      // flatpak-oci.sh publishes a version-architecture tag and stable/nightly-architecture tag.
       // These names must match the actual registry tags. Digest and Labels are filled from GHCR
       // below; the ref label here only selects images before the registry is queried.
-      Tags: [versionTag, stableTag],
+      Tags: [versionTag, channelTag],
       Digest: "",
       MediaType: "application/vnd.oci.image.manifest.v1+json",
       Architecture: OCI_ARCHITECTURES[arch],
@@ -311,8 +319,9 @@ function createRepoEntry(
   appId: string,
   release: CraftRelease,
   criteria: OciFilterCriteria,
+  channel: "stable" | "nightly" = "stable",
 ): FlatpakOciRepository | null {
-  const images = filterImages(buildImagesForTarget(appId, release), criteria);
+  const images = filterImages(buildImagesForTarget(appId, release, channel), criteria);
   if (images.length === 0) return null;
   return { Name: repoName, Repository: repoName, Images: images };
 }
@@ -321,6 +330,7 @@ interface FlatpakCatalogItem {
   repoName: string;
   appId: string;
   release: CraftRelease | null;
+  channel: "stable" | "nightly";
 }
 
 function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
@@ -332,10 +342,34 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
       repoName: "storytold/craft-launcher",
       appId: "ai.storyteller.artcraft-launcher",
       release: CRAFT_LAUNCHER_RELEASE,
+      channel: "stable",
+    });
+  }
+  const launcherNightly = CRAFT_NIGHTLY_RELEASES["artcraft-launcher"];
+  if (launcherNightly?.flatpak) {
+    items.push({
+      repoName: "storytold/craft-launcher",
+      appId: "ai.storyteller.artcraft-launcher.nightly",
+      release: { version: launcherNightly.version, assets: [] },
+      channel: "nightly",
     });
   }
 
-  items.push({ repoName: "storytold/artcraft", appId: "ai.artcraft.app", release: ARTCRAFT_STUDIO_RELEASE });
+  items.push({
+    repoName: "storytold/artcraft",
+    appId: "ai.artcraft.app",
+    release: ARTCRAFT_STUDIO_RELEASE,
+    channel: "stable",
+  });
+  const studioNightly = CRAFT_NIGHTLY_RELEASES.artcraft;
+  if (studioNightly?.flatpak) {
+    items.push({
+      repoName: "storytold/artcraft",
+      appId: "ai.artcraft.app.nightly",
+      release: { version: studioNightly.version, assets: [] },
+      channel: "nightly",
+    });
+  }
 
   for (const app of CRAFTING_APPS) {
     const release = craftAppRelease(app);
@@ -344,6 +378,16 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
         repoName: `storytold/${app.slug}`,
         appId: `ai.storyteller.${app.slug}`,
         release,
+        channel: "stable",
+      });
+    }
+    const nightly = CRAFT_NIGHTLY_RELEASES[app.slug];
+    if (nightly?.flatpak) {
+      items.push({
+        repoName: `storytold/${app.slug}`,
+        appId: `ai.storyteller.${app.slug}.nightly`,
+        release: { version: nightly.version, assets: [] },
+        channel: "nightly",
       });
     }
   }
@@ -357,17 +401,27 @@ function getFlatpakCatalogItems(): FlatpakCatalogItem[] {
  * digests, so the endpoint never signs an image the index does not advertise.
  */
 export async function getFlatpakOciImageDigests(repository: string): Promise<string[] | null> {
-  const item = getFlatpakCatalogItems().find((candidate) => candidate.repoName === repository);
-  if (!item?.release) {
+  const items = getFlatpakCatalogItems().filter((candidate) => candidate.repoName === repository && candidate.release);
+  if (items.length === 0) {
     return null;
   }
-  const images = await Promise.all(
-    buildImagesForTarget(item.appId, item.release).map(async (image) => {
-      const resolved = await fetchImage(repository, image.Tags[0], image.Labels["org.flatpak.ref"]);
-      return resolved.digest;
-    }),
+  const digests = await Promise.all(
+    items.flatMap((item) =>
+      buildImagesForTarget(item.appId, item.release!, item.channel).map(async (image) => {
+        try {
+          const resolved = await fetchImage(repository, image.Tags[0], image.Labels["org.flatpak.ref"]);
+          return resolved.digest;
+        } catch (error) {
+          if (item.channel === "nightly") {
+            console.warn(`Excluding unresolved nightly Flatpak OCI digest for ${repository}:${image.Tags[0]}`, error);
+            return null;
+          }
+          throw error;
+        }
+      }),
+    ),
   );
-  return images;
+  return digests.filter((digest): digest is string => digest !== null);
 }
 
 /** Return the catalogued Flatpak app IDs without contacting the OCI registry. */
@@ -392,10 +446,27 @@ export async function getFlatpakOciIndex(searchParams?: URLSearchParams): Promis
 
   const items = getFlatpakCatalogItems();
   const selectedItems = items.filter((item) => !reqRepo || reqRepo === item.repoName);
-  const entries = await Promise.all(selectedItems.map(async (item) => {
+  const grouped = new Map<string, FlatpakOciRepository>();
+  const resolvedEntries = await Promise.all(selectedItems.map(async (item) => {
     if (!item.release) return null;
-    const entry = createRepoEntry(item.repoName, item.appId, item.release, criteria);
+    const entry = createRepoEntry(item.repoName, item.appId, item.release, criteria, item.channel);
     if (!entry) return null;
+
+    if (item.channel === "nightly") {
+      const images = await Promise.all(entry.Images.map(async (image) => {
+        try {
+          const resolved = await fetchImage(item.repoName, image.Tags[0], image.Labels["org.flatpak.ref"]);
+          image.Digest = resolved.digest;
+          image.Labels = resolved.labels;
+          return image;
+        } catch (error) {
+          console.warn(`Skipping unresolved nightly Flatpak OCI image ${item.repoName}:${image.Tags[0]}`, error);
+          return null;
+        }
+      }));
+      entry.Images = images.filter((image): image is NonNullable<typeof image> => image !== null);
+      return entry.Images.length > 0 ? entry : null;
+    }
 
     await Promise.all(entry.Images.map(async (image) => {
       const resolved = await fetchImage(item.repoName, image.Tags[0], image.Labels["org.flatpak.ref"]);
@@ -405,8 +476,18 @@ export async function getFlatpakOciIndex(searchParams?: URLSearchParams): Promis
     return entry;
   }));
 
+  for (const entry of resolvedEntries) {
+    if (!entry) continue;
+    const existing = grouped.get(entry.Repository);
+    if (existing) {
+      existing.Images.push(...entry.Images);
+    } else {
+      grouped.set(entry.Repository, entry);
+    }
+  }
+
   return {
     Registry: registryUrl().origin,
-    Results: entries.filter((entry): entry is FlatpakOciRepository => entry !== null),
+    Results: Array.from(grouped.values()),
   };
 }

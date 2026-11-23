@@ -20,8 +20,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use log::{error, info, warn};
-use r2d2_redis::r2d2;
-use r2d2_redis::RedisConnectionManager;
+use redis::Client;
 use sqlx::mysql::MySqlPoolOptions;
 use sqlx::MySqlPool;
 
@@ -264,7 +263,7 @@ async fn main() -> AnyhowResult<()> {
     },
     Some(redis_connection_string) => {
       info!("Connecting to Redis to use for reporting job progress... {}", redis_connection_string);
-      let redis_manager = RedisConnectionManager::new(redis_connection_string)?;
+      let redis_manager = Client::open(redis_connection_string)?;
       let redis_pool = r2d2::Pool::builder().build(redis_manager)?;
 
       Box::new(RedisJobProgressReporterBuilder::from_redis_pool(redis_pool))

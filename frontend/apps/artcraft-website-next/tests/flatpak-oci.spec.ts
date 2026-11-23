@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 import { GET as getFlatpakRef } from "../src/app/apps/[slug]/[filename]/route";
 import { GET as getDynamicIndex } from "../src/app/index/dynamic/route";
 import { GET as getStaticIndex } from "../src/app/index/static/route";
-import { getFlatpakOciAppIds, getFlatpakOciIndex } from "../src/lib/flatpak-oci";
+import { getFlatpakOciAppIds, getFlatpakOciImageDigests, getFlatpakOciIndex } from "../src/lib/flatpak-oci";
+import { CRAFT_NIGHTLY_RELEASES } from "../src/lib/crafting-app-releases";
 
 const sha256 = (body: string) => `sha256:${createHash("sha256").update(body).digest("hex")}`;
 
@@ -12,10 +13,12 @@ function imageLabels(repo: string, tag: string): Record<string, string> {
   const slug = repo.split("/")[1];
   const appId = slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${slug === "craft-launcher" ? "artcraft-launcher" : slug}`;
   const arch = tag.endsWith("-aarch64") ? "aarch64" : "x86_64";
+  const isNightlyTag = tag.includes("nightly");
+  const fullAppId = isNightlyTag ? `${appId}.nightly` : appId;
   return {
-    "org.flatpak.ref": `app/${appId}/${arch}/stable`,
-    "org.flatpak.metadata": `[Application]\nname=${appId}\nruntime=org.freedesktop.Platform/${arch}/25.08\n`,
-    "org.freedesktop.appstream.appdata": `<components><component><id>${appId}</id></component></components>`,
+    "org.flatpak.ref": `app/${fullAppId}/${arch}/stable`,
+    "org.flatpak.metadata": `[Application]\nname=${fullAppId}\nruntime=org.freedesktop.Platform/${arch}/25.08\n`,
+    "org.freedesktop.appstream.appdata": `<components><component><id>${fullAppId}</id></component></components>`,
   };
 }
 
@@ -233,5 +236,67 @@ test.describe("Flatpak OCI Registry Index Protocol", () => {
     const dynamicImages = dynamicIndex.Results.flatMap((repo: { Images: { Architecture: string }[] }) => repo.Images);
     expect(dynamicImages.length).toBeGreaterThan(0);
     expect(dynamicImages.every((image: { Architecture: string }) => image.Architecture === "amd64")).toBe(true);
+  });
+
+  test("serves nightly flatpakref and OCI index entries when configured", async () => {
+    const response = await getFlatpakRef(
+      new Request("https://getartcraft.com/apps/pdfcraft/pdfcraft-nightly-oci.flatpakref"),
+      { params: Promise.resolve({ slug: "pdfcraft", filename: "pdfcraft-nightly-oci.flatpakref" }) },
+    );
+    expect(response.status).toBe(200);
+    const refText = await response.text();
+    expect(refText).toContain("Name=ai.storyteller.pdfcraft.nightly");
+    expect(refText).toContain("Title=PdfCraft Nightly");
+
+    CRAFT_NIGHTLY_RELEASES.photocraft = {
+      tag: "nightly-20261123-abcdef",
+      version: "0.24.0~nightly.20261123",
+      flatpak: true,
+    };
+    try {
+      expect(getFlatpakOciAppIds()).toContain("ai.storyteller.photocraft.nightly");
+      const index = await getFlatpakOciIndex(new URLSearchParams({ repository: "storytold/photocraft" }));
+      expect(index.Results).toHaveLength(1);
+      expect(index.Results[0].Images).toHaveLength(4);
+      const nightlyImg = index.Results[0].Images.find(
+        (img) => img.Labels["org.flatpak.ref"] === "app/ai.storyteller.photocraft.nightly/x86_64/stable",
+      );
+      expect(nightlyImg).toBeDefined();
+      expect(nightlyImg?.Tags).toContain("nightly-x86_64");
+
+      const digests = await getFlatpakOciImageDigests("storytold/photocraft");
+      expect(digests).toHaveLength(4);
+    } finally {
+      delete CRAFT_NIGHTLY_RELEASES.photocraft;
+    }
+  });
+
+  test("excludes missing nightly tags without failing stable digest or index resolution", async () => {
+    process.env.FLATPAK_OCI_REGISTRY_URL = "https://partial-nightly.registry.test";
+    const baseRegistry = fakeRegistry();
+    globalThis.fetch = async (input, init) => {
+      const pathname = new URL(input instanceof Request ? input.url : input.toString()).pathname;
+      if (pathname.includes("/manifests/") && pathname.includes("nightly")) {
+        return new Response("not found", { status: 404 });
+      }
+      return baseRegistry(input, init);
+    };
+
+    CRAFT_NIGHTLY_RELEASES.photocraft = {
+      tag: "nightly-20261123-abcdef",
+      version: "0.24.0~nightly.20261123",
+      flatpak: true,
+    };
+    try {
+      const digests = await getFlatpakOciImageDigests("storytold/photocraft");
+      expect(digests).toHaveLength(2);
+
+      const index = await getFlatpakOciIndex(new URLSearchParams({ repository: "storytold/photocraft" }));
+      expect(index.Results).toHaveLength(1);
+      expect(index.Results[0].Images).toHaveLength(2);
+      expect(index.Results[0].Images.every((img) => img.Tags[1].startsWith("stable-"))).toBe(true);
+    } finally {
+      delete CRAFT_NIGHTLY_RELEASES.photocraft;
+    }
   });
 });

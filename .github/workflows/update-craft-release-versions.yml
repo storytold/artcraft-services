@@ -344,6 +344,81 @@ jobs:
 
             fs.writeFileSync(file, content);
 
+            // Update nightly releases (newest published prerelease per repo with -nightly Linux packages,
+            // regardless of tag format).
+            async function latestNightlyRelease(repo, fileSlug = repo) {
+              const releases = await github.paginate(
+                github.rest.repos.listReleases,
+                { owner, repo, per_page: 30 },
+                response => response.data
+              );
+              const nightlyPkgPrefix = `${fileSlug}-nightly-`;
+              const escapedNightlyPrefix = nightlyPkgPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const escapedSlug = fileSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const linuxAssetPattern = new RegExp(
+                `^(?:${escapedNightlyPrefix}(.+)|${escapedSlug}-([^/]+-nightly\\.[^/]+))-linux-(?:(?:x86_64|aarch64|riscv64)\\.(?:deb|rpm)|(?:x86_64|aarch64)\\.(?:pkg\\.tar\\.zst|AppImage|flatpak))$`
+              );
+              const published = releases
+                .filter(r => !r.draft && r.prerelease)
+                .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+              for (const rel of published) {
+                const names = new Set((rel.assets || []).map(a => a.name));
+                if (!names.has("SHA256SUMS.txt")) continue;
+                let matchedVersion = null;
+                let hasFlatpak = false;
+                let hasAppImage = false;
+                for (const name of names) {
+                  const m = name.match(linuxAssetPattern);
+                  if (m) {
+                    matchedVersion = matchedVersion || m[1] || m[2];
+                    if (name.endsWith(".flatpak")) hasFlatpak = true;
+                    if (name.endsWith(".AppImage")) hasAppImage = true;
+                  }
+                }
+                if (matchedVersion) {
+                  const entry = { tag: rel.tag_name, version: matchedVersion };
+                  if (hasFlatpak) entry.flatpak = true;
+                  if (hasAppImage) entry.appImage = true;
+                  return entry;
+                }
+              }
+              return null;
+            }
+
+            const nightlyTargets = [
+              { key: studio.repo, repo: studio.repo, fileSlug: studio.fileSlug },
+              { key: launcher.fileSlug, repo: launcher.repo, fileSlug: launcher.fileSlug },
+              ...apps.map(app => ({ key: app, repo: app, fileSlug: app })),
+            ];
+            const nightlyEntries = {};
+            for (const target of nightlyTargets) {
+              const found = await latestNightlyRelease(target.repo, target.fileSlug);
+              if (found) {
+                nightlyEntries[target.key] = found;
+              }
+            }
+
+            const nightlyBlockPattern =
+              /(export const CRAFT_NIGHTLY_RELEASES:\s*Partial<[\s\S]*?>\s*=\s*)\{[\s\S]*?\};/;
+            if (!nightlyBlockPattern.test(content)) {
+              throw new Error("Could not find CRAFT_NIGHTLY_RELEASES in crafting-app-releases.ts.");
+            }
+            const formattedNightlies = Object.keys(nightlyEntries).length === 0
+              ? "{}"
+              : `{\n${Object.entries(nightlyEntries)
+                  .map(([k, v]) => {
+                    const keyStr = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k) ? k : JSON.stringify(k);
+                    const extras = [
+                      v.flatpak ? "flatpak: true" : null,
+                      v.appImage ? "appImage: true" : null,
+                    ].filter(Boolean);
+                    const fields = [`tag: ${JSON.stringify(v.tag)}`, `version: ${JSON.stringify(v.version)}`, ...extras];
+                    return `  ${keyStr}: { ${fields.join(", ")} },`;
+                  })
+                  .join("\n")}\n}`;
+            content = content.replace(nightlyBlockPattern, (_, prefix) => `${prefix}${formattedNightlies};`);
+            fs.writeFileSync(file, content);
+
             core.info("Release versions updated successfully.");
 
       - name: Create or update pull request

@@ -1,0 +1,11 @@
+# ArtCraft Launcher's announcements (listed in its bell) and alerts (a dialog the user acknowledges).
+# The build signs this file's exact bytes; the launcher shows nothing it cannot verify.
+# Format and limits: craft-launcher docs/announcements.md. Never reuse an id.
+#
+# [[announcements]]
+# id = "example-launch"
+# title = "Example title"
+# body = "Plain text, no markup."
+# link = "https://getartcraft.com/"
+# published = "2026-11-21T10:00:00Z"
+# expires = "2026-12-21T00:00:00Z"

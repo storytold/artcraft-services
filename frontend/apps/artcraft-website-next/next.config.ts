@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
     // Production static exports use public/_headers on Cloudflare.
     async headers() {
       return [
-        ...["/launcher-catalog.toml", "/launcher-catalog.toml.sig"].map((source) => ({
+        ...["/launcher-catalog.toml", "/launcher-catalog.toml.sig", "/launcher-announcements.toml", "/launcher-announcements.toml.sig"].map((source) => ({
           source,
           headers: [
             { key: "Access-Control-Allow-Origin", value: "*" },

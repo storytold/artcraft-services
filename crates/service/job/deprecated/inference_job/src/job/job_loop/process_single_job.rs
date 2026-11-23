@@ -3,7 +3,7 @@ use std::time::Instant;
 use anyhow::anyhow;
 use log::{debug, error, info, warn};
 use opentelemetry::KeyValue as OtelAttribute;
-use r2d2_redis::redis::Commands;
+use redis::Commands;
 
 use enums::by_table::generic_inference_jobs::inference_category::InferenceCategory;
 use enums::by_table::generic_inference_jobs::inference_job_type::InferenceJobType;

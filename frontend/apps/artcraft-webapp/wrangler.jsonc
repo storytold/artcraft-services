@@ -13,5 +13,6 @@
       "pattern": "app.getartcraft.com",
       "custom_domain": true
     }
-  ]
+  ],
+  "previews": {}
 }
