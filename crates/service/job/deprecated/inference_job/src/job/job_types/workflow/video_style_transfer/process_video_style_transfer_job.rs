@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Result};
 use log::{error, info, warn};
 use oneshot::channel;
-use r2d2_redis::redis::Commands;
+use redis::Commands;
 use tokio::sync::oneshot;
 
 use bucket_paths::legacy::remote_file_manager_paths::remote_cloud_bucket_details::RemoteCloudBucketDetails;

@@ -1,12 +1,11 @@
-use r2d2_redis::r2d2::PooledConnection;
-use r2d2_redis::redis::Commands;
-use r2d2_redis::RedisConnectionManager;
+use r2d2::PooledConnection;
+use redis::{Client, Commands};
 
 use errors::AnyhowResult;
 use redis_common::redis_keys::RedisKeys;
 
 #[deprecated(note="Use JobProgressReporterBuilder")]
-pub type RedisPool = PooledConnection<RedisConnectionManager>;
+pub type RedisPool = PooledConnection<Client>;
 
 #[deprecated(note="Use JobProgressReporterBuilder")]
 pub struct RedisJobStatusLogger <'a> {
@@ -15,7 +14,7 @@ pub struct RedisJobStatusLogger <'a> {
 }
 
 impl <'a> RedisJobStatusLogger <'a> {
-  pub const STATUS_KEY_TTL_SECONDS : usize = 60 * 60;
+  pub const STATUS_KEY_TTL_SECONDS : u64 = 60 * 60;
 
   #[deprecated(note="Use JobProgressReporterBuilder")]
   pub fn new_tts_download(redis: &'a mut RedisPool, tts_job_token: &str) -> Self {

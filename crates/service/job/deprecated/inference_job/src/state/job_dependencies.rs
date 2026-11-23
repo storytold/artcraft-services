@@ -5,8 +5,7 @@
 
 use std::path::PathBuf;
 
-use r2d2_redis::r2d2;
-use r2d2_redis::RedisConnectionManager;
+use redis::Client;
 use sqlx::MySqlPool;
 
 use bootstrap::bootstrap::ContainerEnvironment;
@@ -129,9 +128,9 @@ pub struct DatabaseDependencies {
   //  site to proactively kill their inference jobs and save on worker quota.
   //  On local dev we probably don't care about Redis at all, and on on-prem workers, we cannot
   //  connect to production Redis easily (requires lots of setup - ghosttunnel or something + IP rules)
-  pub maybe_redis_pool: Option<r2d2::Pool<RedisConnectionManager>>,
+  pub maybe_redis_pool: Option<r2d2::Pool<Client>>,
 
-  pub maybe_keepalive_redis_pool: Option<r2d2::Pool<RedisConnectionManager>>,
+  pub maybe_keepalive_redis_pool: Option<r2d2::Pool<Client>>,
 }
 
 pub struct BucketDependencies {

@@ -257,3 +257,16 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   gridcraft: craftRelease("0.19.1"),
   "craft-anything": craftRelease("0.6.1"),
 };
+
+export type CraftNightlyRelease = {
+  /** Exact GitHub release tag of the latest nightly prerelease (any tag format). */
+  tag: string;
+  /** Package version used in the `-nightly-<version>-linux-<arch>` filenames. */
+  version: string;
+};
+
+// Updated automatically by `.github/workflows/update-craft-release-versions.yml` from the
+// newest published nightly prerelease per repository, regardless of its tag name.
+export const CRAFT_NIGHTLY_RELEASES: Partial<
+  Record<CraftAppSlug | "artcraft-launcher" | "artcraft", CraftNightlyRelease>
+> = {};

@@ -19,5 +19,6 @@
       "pattern": "dashboard.artcraft.team",
       "custom_domain": true
     }
-  ]
+  ],
+  "previews": {}
 }

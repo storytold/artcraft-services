@@ -1,6 +1,5 @@
-use r2d2_redis::{r2d2, RedisConnectionManager};
-use r2d2_redis::r2d2::PooledConnection;
-use r2d2_redis::redis::Commands;
+use r2d2::PooledConnection;
+use redis::{Client, Commands};
 
 use errors::AnyhowResult;
 use redis_common::redis_keys::RedisKeys;
@@ -9,24 +8,24 @@ use crate::job_progress_reporter::job_progress_reporter::{JobProgressReporter, J
 
 /// A job progress reporter that reports to Redis
 pub struct RedisJobProgressReporterBuilder {
-  redis_pool: r2d2::Pool<RedisConnectionManager>,
+  redis_pool: r2d2::Pool<Client>,
 }
 
 /// A job progress reporter that reports to Redis
 pub struct RedisJobProgressReporter {
-  redis: PooledConnection<RedisConnectionManager>,
+  redis: PooledConnection<Client>,
   redis_key: String,
 }
 
 impl RedisJobProgressReporterBuilder {
-  pub fn from_redis_pool(redis_pool: r2d2::Pool<RedisConnectionManager>) -> Self {
+  pub fn from_redis_pool(redis_pool: r2d2::Pool<Client>) -> Self {
     Self {
       redis_pool,
     }
   }
 
   /// Create a new instance. The backing Redis pool is Sync/Send behind an Arc.
-  fn create_instance(redis_pool: r2d2::Pool<RedisConnectionManager>, redis_key: String) -> AnyhowResult<Box<dyn JobProgressReporter>> {
+  fn create_instance(redis_pool: r2d2::Pool<Client>, redis_key: String) -> AnyhowResult<Box<dyn JobProgressReporter>> {
     let redis = redis_pool.get()?;
 
     Ok(Box::new(RedisJobProgressReporter {
@@ -37,7 +36,7 @@ impl RedisJobProgressReporterBuilder {
 }
 
 impl RedisJobProgressReporter {
-  pub const STATUS_KEY_TTL_SECONDS : usize = 60 * 60;
+  pub const STATUS_KEY_TTL_SECONDS : u64 = 60 * 60;
 }
 
 impl JobProgressReporterBuilder for RedisJobProgressReporterBuilder {

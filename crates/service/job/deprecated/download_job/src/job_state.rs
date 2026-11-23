@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
-use r2d2_redis::r2d2;
-use r2d2_redis::RedisConnectionManager;
+use redis::Client;
 use sqlx::MySqlPool;
 
 use bootstrap::bootstrap::ContainerEnvironment;
@@ -31,7 +30,7 @@ pub struct JobState {
   pub download_temp_directory: PathBuf,
   pub mysql_pool: MySqlPool,
 
-  pub redis_pool: r2d2::Pool<RedisConnectionManager>,
+  pub redis_pool: r2d2::Pool<Client>,
 
   pub public_bucket_client: LegacyBucketClient,
   pub private_bucket_client: LegacyBucketClient,

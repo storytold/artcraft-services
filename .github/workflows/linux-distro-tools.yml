@@ -42,7 +42,8 @@ jobs:
             BRANCH_SLUG="$(echo "${BRANCH_NAME}" | tr '/_.' '-' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+//g; s/^-+|-+$//g')"
             # A DNS label is at most 63 characters: past that the preview host is not this slug, so wait for the bot comment's URL instead.
             DEPLOY_URL=""
-            if [[ ${#BRANCH_SLUG} -le 63 ]]; then DEPLOY_URL="https://${BRANCH_SLUG}.getartcraft.dev"; fi
+            PREVIEW_LABEL="${BRANCH_SLUG}-artcraft-services"
+            if [[ ${#PREVIEW_LABEL} -le 63 ]]; then DEPLOY_URL="https://${PREVIEW_LABEL}.brandon-396.workers.dev"; fi
             echo "Awaiting Cloudflare deploy preview for PR #${PR_NUMBER} (branch ${BRANCH_NAME}, commit ${TARGET_SHA})..."
           else
             TARGET_SHA="$COMMIT_SHA"

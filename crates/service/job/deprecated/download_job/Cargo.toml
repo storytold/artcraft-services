@@ -55,7 +55,8 @@ zip = "0.6.6"
 sqlx = { version = "0.7.4", features = [ "mysql", "runtime-tokio-rustls", "chrono" ] }
 
 # Redis
-r2d2_redis.workspace = true
+r2d2.workspace = true
+redis.workspace = true
 
 # Runtime
 # NB: We switched to Tokio from `async-std` for broader ecosystem support.

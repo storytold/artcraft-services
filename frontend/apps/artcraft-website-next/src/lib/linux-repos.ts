@@ -13,6 +13,7 @@ import {
 } from "./craft-launcher";
 import {
   CRAFT_LAUNCHER_RELEASE,
+  CRAFT_NIGHTLY_RELEASES,
 } from "./crafting-app-releases";
 import { isRepoSigningConfigured } from "./repo-signing";
 
@@ -137,6 +138,73 @@ export function getRequestBaseUrl(request: Request): string {
   return "https://getartcraft.com";
 }
 
+type NightlyRepoEntry = {
+  slug: string;
+  repo: string;
+  baseName: string;
+  packageName: string;
+  tag: string;
+  version: string;
+  description: string;
+  section: string;
+};
+
+const NIGHTLY_LINUX_SUFFIXES = [
+  "-linux-x86_64.deb",
+  "-linux-aarch64.deb",
+  "-linux-riscv64.deb",
+  "-linux-x86_64.rpm",
+  "-linux-aarch64.rpm",
+  "-linux-riscv64.rpm",
+  "-linux-x86_64.pkg.tar.zst",
+  "-linux-aarch64.pkg.tar.zst",
+] as const;
+
+export function getNightlyRepoEntries(): NightlyRepoEntry[] {
+  const entries: NightlyRepoEntry[] = [];
+  const studioNightly = CRAFT_NIGHTLY_RELEASES.artcraft;
+  if (studioNightly) {
+    entries.push({
+      slug: "artcraft",
+      repo: "artcraft",
+      baseName: "artcraft",
+      packageName: "artcraft-nightly",
+      tag: studioNightly.tag,
+      version: studioNightly.version,
+      description: "ArtCraft Studio (Nightly): AI image and video creation.",
+      section: "graphics",
+    });
+  }
+  const launcherNightly = CRAFT_NIGHTLY_RELEASES["artcraft-launcher"];
+  if (launcherNightly) {
+    entries.push({
+      slug: "artcraft-launcher",
+      repo: "craft-launcher",
+      baseName: "artcraft-launcher",
+      packageName: "artcraft-launcher-nightly",
+      tag: launcherNightly.tag,
+      version: launcherNightly.version,
+      description: "ArtCraft Launcher (Nightly): install, update and run native Crafting apps.",
+      section: "utils",
+    });
+  }
+  for (const app of CRAFTING_APPS) {
+    const nightly = CRAFT_NIGHTLY_RELEASES[app.slug];
+    if (!nightly) continue;
+    entries.push({
+      slug: app.slug,
+      repo: app.slug,
+      baseName: app.slug,
+      packageName: `${app.slug}-nightly`,
+      tag: nightly.tag,
+      version: nightly.version,
+      description: `${craftAppName(app)} (Nightly): ${app.lede || app.pitch}`,
+      section: getAppSection(app.schemaCategory, app.slug),
+    });
+  }
+  return entries;
+}
+
 /**
  * Resolve package file download request strictly to catalogued GitHub Release binary asset.
  * Uncatalogued filenames return null to preserve clean 404 behavior and block unauthorized redirects.
@@ -156,6 +224,13 @@ export function resolvePackageDownloadUrl(filename: string): string | null {
     const downloads = craftReleaseDownloads(app, release);
     const match = downloads.find((d) => d.fileName === filename);
     if (match) return match.href;
+  }
+
+  for (const nightly of getNightlyRepoEntries()) {
+    const prefix = `${nightly.packageName}-${nightly.version}`;
+    if (NIGHTLY_LINUX_SUFFIXES.some((suffix) => filename === `${prefix}${suffix}`)) {
+      return `https://github.com/storytold/${nightly.repo}/releases/download/${encodeURIComponent(nightly.tag)}/${filename}`;
+    }
   }
 
   // Signature assets sit next to the package they cover and are not part of the download manifest,
@@ -182,7 +257,9 @@ export async function isPackageSignaturePublished(filename: string): Promise<boo
     return false;
   }
 
-  const releases: Array<{ repo: string; version: string }> = [{ repo: "artcraft", version: ARTCRAFT_STUDIO_RELEASE.version }];
+  const releases: Array<{ repo: string; version: string; tag?: string }> = [
+    { repo: "artcraft", version: ARTCRAFT_STUDIO_RELEASE.version },
+  ];
   if (CRAFT_LAUNCHER_RELEASE) {
     releases.push({ repo: "craft-launcher", version: CRAFT_LAUNCHER_RELEASE.version });
   }
@@ -192,10 +269,13 @@ export async function isPackageSignaturePublished(filename: string): Promise<boo
       releases.push({ repo: app.slug, version: release.version });
     }
   }
+  for (const nightly of getNightlyRepoEntries()) {
+    releases.push({ repo: nightly.repo, version: nightly.version, tag: nightly.tag });
+  }
 
   for (const release of releases) {
     try {
-      const sums = await getShaSums(release.repo, release.version);
+      const sums = await getShaSums(release.repo, release.version, release.tag);
       if (sums.has(filename)) {
         return true;
       }
@@ -230,14 +310,15 @@ const shaSumsCache = new Map<string, Promise<Map<string, string>>>();
 // In-memory cache for package metadata (filename -> LinuxPackageAssetMeta)
 const packageMetaCache = new Map<string, Promise<LinuxPackageAssetMeta>>();
 
-async function getShaSums(repo: string, version: string): Promise<Map<string, string>> {
-  const key = `${repo}:${version}`;
+async function getShaSums(repo: string, version: string, tagOverride?: string): Promise<Map<string, string>> {
+  const tag = tagOverride ?? `${repo === "artcraft" ? "artcraft-v" : "v"}${version}`;
+  const key = `${repo}:${tag}`;
   let promise = shaSumsCache.get(key);
   if (!promise) {
     promise = (async () => {
-      const url = `https://github.com/storytold/${repo}/releases/download/${repo === "artcraft" ? "artcraft-v" : "v"}${version}/SHA256SUMS.txt`;
+      const url = `https://github.com/storytold/${repo}/releases/download/${encodeURIComponent(tag)}/SHA256SUMS.txt`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${version}: ${res.status}`);
+      if (!res.ok) throw new Error(`Unable to fetch checksums for ${repo} ${tag}: ${res.status}`);
       const text = await res.text();
       const map = new Map<string, string>();
       for (const line of text.split("\n")) {
@@ -575,8 +656,13 @@ async function fetchArchPackageInfo(downloadUrl: string, filename: string): Prom
 /**
  * Fetches and validates the SHA-256 digest from SHA256SUMS.txt.
  */
-async function fetchValidatedSha256(repo: string, version: string, filename: string): Promise<string> {
-  const sumsMap = await getShaSums(repo, version);
+async function fetchValidatedSha256(
+  repo: string,
+  version: string,
+  filename: string,
+  tagOverride?: string,
+): Promise<string> {
+  const sumsMap = await getShaSums(repo, version, tagOverride);
   const sha256 = sumsMap.get(filename);
   if (!sha256 || !/^[a-fA-F0-9]{64}$/.test(sha256) || /^0+$/.test(sha256)) {
     throw new Error(`Missing or invalid checksum for ${filename}`);
@@ -595,13 +681,14 @@ async function computePackageMetadata(
   repo: string,
   version: string,
   knownSha256?: string,
+  tagOverride?: string,
 ): Promise<ComputedPackageMetadata> {
   const downloadUrl = resolvePackageDownloadUrl(filename);
   if (!downloadUrl) {
     throw new Error(`Package asset not found in release catalog: ${filename}`);
   }
 
-  const sha256 = knownSha256 ?? await fetchValidatedSha256(repo, version, filename);
+  const sha256 = knownSha256 ?? await fetchValidatedSha256(repo, version, filename, tagOverride);
 
   if (filename.endsWith(".pkg.tar.zst")) {
     const archInfo = await fetchArchPackageInfo(downloadUrl, filename);
@@ -633,8 +720,8 @@ class EstimatedArchMetadataError extends Error {
  * are both misses.
  */
 const durablePackageMetadata = unstable_cache(
-  async (filename: string, repo: string, version: string, sha256: string) => {
-    const metadata = await computePackageMetadata(filename, repo, version, sha256);
+  async (filename: string, repo: string, version: string, sha256: string, tagOverride?: string) => {
+    const metadata = await computePackageMetadata(filename, repo, version, sha256, tagOverride);
     if (metadata.estimated) {
       throw new EstimatedArchMetadataError(metadata);
     }
@@ -652,22 +739,23 @@ export async function getLinuxPackageMetadata(
   filename: string,
   repo: string,
   version: string,
+  tagOverride?: string,
 ): Promise<LinuxPackageAssetMeta> {
-  const sha256 = await fetchValidatedSha256(repo, version, filename);
+  const sha256 = await fetchValidatedSha256(repo, version, filename, tagOverride);
   // Include the digest so a same-name re-upload is a miss in the per-process cache too.
   const cacheKey = `${filename}:${sha256}`;
   let promise = packageMetaCache.get(cacheKey);
   if (!promise) {
     promise = (async () => {
       try {
-        return await durablePackageMetadata(filename, repo, version, sha256);
+        return await durablePackageMetadata(filename, repo, version, sha256, tagOverride);
       } catch (error) {
         if (error instanceof EstimatedArchMetadataError) {
           // Serve the estimate now, but leave it to the per-process cache rather than persisting it.
           return error.metadata;
         }
         // The data cache can be unavailable (no cache handler, disabled in preview); read directly.
-        return computePackageMetadata(filename, repo, version, sha256);
+        return computePackageMetadata(filename, repo, version, sha256, tagOverride);
       }
     })();
     packageMetaCache.set(cacheKey, promise);
@@ -699,6 +787,7 @@ async function buildDebAssets(
   name: string,
   repo: string,
   version: string,
+  tagOverride?: string,
 ): Promise<LinuxRepoApp["debAssets"]> {
   const debArchMap: DebArchMapItem[] = [
     { debArch: "amd64", fileArch: "x86_64" },
@@ -706,11 +795,12 @@ async function buildDebAssets(
     { debArch: "riscv64", fileArch: "riscv64" },
   ];
 
-  const sums = await getShaSums(repo, version);
+  const sums = await getShaSums(repo, version, tagOverride);
   const candidates = debArchMap.filter(({ fileArch }) => sums.has(`${name}-${version}-linux-${fileArch}.deb`));
 
+  const baseName = name.replace(/-nightly$/, "");
   const baseDepends = "libc6 (>= 2.35), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
-  const defaultDepends = AUDIO_APPS.has(name)
+  const defaultDepends = AUDIO_APPS.has(baseName)
     ? `${baseDepends}, libasound2 | libasound2t64`
     : baseDepends;
   const defaultRecommends = "mesa-vulkan-drivers, libegl-mesa0, xdg-desktop-portal";
@@ -718,12 +808,12 @@ async function buildDebAssets(
   const results = await Promise.all(
     candidates.map(async ({ debArch, fileArch }) => {
       const filename = `${name}-${version}-linux-${fileArch}.deb`;
-      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      const meta = await getLinuxPackageMetadata(filename, repo, version, tagOverride);
       const glibcVer = debArch === "riscv64" ? "2.39" : "2.35";
       let depends = defaultDepends;
-      if (name === "artcraft") {
+      if (baseName === "artcraft") {
         depends = `libc6 (>= ${glibcVer}), libgcc-s1, libgtk-3-0, libwebkit2gtk-4.1-0, libssl3`;
-      } else if (name === "artcraft-launcher" && debArch === "riscv64") {
+      } else if (baseName === "artcraft-launcher" && debArch === "riscv64") {
         depends = "libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libx11-6, libx11-xcb1, libxcb1, libxcursor1, libxi6, libvulkan1 | libegl1";
       }
       return {
@@ -772,22 +862,24 @@ async function buildRpmAssets(
   name: string,
   repo: string,
   version: string,
+  tagOverride?: string,
 ): Promise<LinuxRepoApp["rpmAssets"]> {
   const arches: RpmPackageArch[] = ["x86_64", "aarch64", "riscv64"];
-  const sums = await getShaSums(repo, version);
+  const sums = await getShaSums(repo, version, tagOverride);
   const candidates = arches.filter((arch) => sums.has(`${name}-${version}-linux-${arch}.rpm`));
+  const baseName = name.replace(/-nightly$/, "");
 
   const results = await Promise.all(
     candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.rpm`;
-      const meta = await getLinuxPackageMetadata(filename, repo, version);
-      const glibcVer = (["artcraft-launcher", "artcraft"].includes(name) && arch === "riscv64") ? "2.39" : "2.35";
-      const audioRequires: RpmRequire[] = AUDIO_APPS.has(name)
+      const meta = await getLinuxPackageMetadata(filename, repo, version, tagOverride);
+      const glibcVer = (["artcraft-launcher", "artcraft"].includes(baseName) && arch === "riscv64") ? "2.39" : "2.35";
+      const audioRequires: RpmRequire[] = AUDIO_APPS.has(baseName)
         ? [{ name: "alsa-lib" }, { name: "libasound.so.2()(64bit)" }]
         : [];
       const requires: RpmRequire[] = [
         { name: "glibc", flags: "GE", epoch: 0, ver: glibcVer },
-        ...(name === "artcraft" ? [
+        ...(baseName === "artcraft" ? [
           { name: "libgtk-3.so.0()(64bit)" },
           { name: "libwebkit2gtk-4.1.so.0()(64bit)" },
           { name: "libssl.so.3()(64bit)" },
@@ -814,15 +906,16 @@ async function buildArchAssets(
   name: string,
   repo: string,
   version: string,
+  tagOverride?: string,
 ): Promise<LinuxRepoApp["archAssets"]> {
-  const sums = await getShaSums(repo, version);
+  const sums = await getShaSums(repo, version, tagOverride);
   const candidates: ArchPackageArch[] = (["x86_64", "aarch64"] as ArchPackageArch[])
     .filter((arch) => sums.has(`${name}-${version}-linux-${arch}.pkg.tar.zst`));
 
   const results = await Promise.all(
     candidates.map(async (arch) => {
       const filename = `${name}-${version}-linux-${arch}.pkg.tar.zst`;
-      const meta = await getLinuxPackageMetadata(filename, repo, version);
+      const meta = await getLinuxPackageMetadata(filename, repo, version, tagOverride);
       return {
         arch,
         filename,
@@ -921,6 +1014,30 @@ export async function getLinuxRepoApps(formats?: RepoFormatFilter): Promise<Linu
           version: release.version,
           description: `${craftAppName(app)}: ${app.lede || app.pitch}`,
           section: getAppSection(app.schemaCategory, app.slug),
+          debAssets,
+          rpmAssets,
+          archAssets,
+        };
+      })());
+    }
+
+    // Nightly packages (`<app>-nightly`) pointing at the latest nightly prerelease per repo.
+    for (const nightly of getNightlyRepoEntries()) {
+      appPromises.push((async () => {
+        const [debAssets, rpmAssets, archAssets] = await Promise.all([
+          includeDeb ? buildDebAssets(nightly.packageName, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
+          includeRpm ? buildRpmAssets(nightly.packageName, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
+          includeArch ? buildArchAssets(nightly.packageName, nightly.repo, nightly.version, nightly.tag) : Promise.resolve([]),
+        ]);
+        if (debAssets.length === 0 && rpmAssets.length === 0 && archAssets.length === 0) {
+          return null;
+        }
+        return {
+          slug: nightly.slug,
+          name: nightly.packageName,
+          version: nightly.version,
+          description: nightly.description,
+          section: nightly.section,
           debAssets,
           rpmAssets,
           archAssets,
@@ -1266,7 +1383,9 @@ export function buildTar(
  * and `ai.storyteller.<name>` for the Craft Launcher and Crafting Apps).
  */
 function pacmanPkgName(app: LinuxRepoApp): string {
-  return app.slug === "artcraft" ? "ai.artcraft.app" : `ai.storyteller.${app.name}`;
+  if (app.name === "artcraft") return "ai.artcraft.app";
+  if (app.name === "artcraft-nightly") return "ai.artcraft.app-nightly";
+  return `ai.storyteller.${app.name}`;
 }
 
 export function generatePacmanDesc(
