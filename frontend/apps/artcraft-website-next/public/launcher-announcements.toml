@@ -9,3 +9,24 @@
 # link = "https://getartcraft.com/"
 # published = "2026-11-21T10:00:00Z"
 # expires = "2026-12-21T00:00:00Z"
+
+[[announcements]]
+id = "nightly-builds-rollout-2026-11"
+title = "Nightly developer builds are on their way"
+body = "Over the next several hours, nightly builds of the Craft apps will start appearing in the launcher. These are developer builds made from the latest code. They are not fully tested and may not work as expected, so keep important work in the stable versions. Nightly builds are opt-in: to try them, open Settings, turn on \"Discover nightly builds\" under Nightly builds, and choose them from the Developer Builds tab. They install separately from your stable apps, with their own settings and data, and turning the option off later keeps what you installed."
+published = "2026-11-24T19:30:00Z"
+expires = "2026-12-08T00:00:00Z"
+
+[[announcements]]
+id = "ucs-labs-rename-2026-11"
+title = "UCS Care Group is now UCS Labs"
+body = "The team behind MailCraft has changed its name from UCS Care Group to UCS Labs. Only the name has changed: it is the same team and the same app, and your installed copy, settings and updates carry on as before. You will now see UCS Labs as MailCraft's publisher in the launcher."
+published = "2026-11-24T19:30:00Z"
+expires = "2026-12-24T00:00:00Z"
+
+[[announcements]]
+id = "apps-new-look-progress-2026-11"
+title = "A fresh foundation for the Craft apps"
+body = "We're rebuilding the Craft apps on a shared foundation, so they look and feel the same and get better together. It's a big job, and it has taken longer than we hoped. Thank you for your patience while we get there. Right now we're focused on making every app steady and reliable on the new foundation. If something seems off along the way, it's being worked on, and the next update should bring it closer."
+published = "2026-11-24T19:30:00Z"
+expires = "2027-01-15T00:00:00Z"
