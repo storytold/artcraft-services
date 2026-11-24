@@ -800,7 +800,7 @@ test.describe("signed repositories", () => {
       expect(rpmXml).toContain("<file>/usr/bin/photocraft-nightly</file>");
 
       const pacmanDesc = generatePacmanDesc(nightly!, nightly!.archAssets[0]);
-      expect(pacmanDesc).toContain("%NAME%\nai.storyteller.photocraft-nightly");
+      expect(pacmanDesc).toContain("%NAME%\nai.storyteller.photocraft.nightly");
       expect(pacmanDesc).toContain(`%FILENAME%\n${archName}`);
     } finally {
       globalThis.fetch = realFetch;
@@ -858,7 +858,7 @@ test.describe("signed repositories", () => {
       expect(rpmXml).toContain("<name>photocraft-nightly</name>");
       expect(rpmXml).toContain("<file>/usr/bin/photocraft-nightly</file>");
       const pacmanDesc = generatePacmanDesc(nightly!, nightly!.archAssets[0]);
-      expect(pacmanDesc).toContain("%NAME%\nai.storyteller.photocraft-nightly");
+      expect(pacmanDesc).toContain("%NAME%\nai.storyteller.photocraft.nightly");
     } finally {
       globalThis.fetch = realFetch;
       delete CRAFT_NIGHTLY_RELEASES.photocraft;
