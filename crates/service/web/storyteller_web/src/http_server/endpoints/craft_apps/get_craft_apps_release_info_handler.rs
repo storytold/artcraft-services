@@ -85,7 +85,7 @@ mod tests {
     let json = serde_json::to_value(cache.snapshot()).unwrap();
     let app = json["apps"]["photocraft"].as_object().unwrap();
     for field in ["name", "repo", "latest_release", "app_last_fetched", "latest_prerelease", "latest_nightly", "releases"] {
-      assert!(app.contains_key(field), "{field}");
+      assert!(app.contains_key(field), "{}", field);
     }
     assert_eq!(app["repo"], "storytold/photocraft");
     assert!(app["releases"].as_array().unwrap().is_empty());

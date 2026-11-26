@@ -470,10 +470,10 @@ mod tests {
   #[test]
   fn reads_nightly_tags_as_the_launcher_does() {
     for tag in ["v0.50.0-nightly.20261126.166.1", "v1.0.0-dev.nightly.1", "1.0.0-NIGHTLY.3", "v1.0.0-nightly+build.5"] {
-      assert!(is_nightly_tag(tag), "{tag}");
+      assert!(is_nightly_tag(tag), "{}", tag);
     }
     for tag in ["v0.5.0", "v0.6.0-rc.1", "v1.0.0-nightlyish.1", "v1.0.0+nightly", "nightly", "artcraft-v0.41.1"] {
-      assert!(!is_nightly_tag(tag), "{tag}");
+      assert!(!is_nightly_tag(tag), "{}", tag);
     }
   }
 
