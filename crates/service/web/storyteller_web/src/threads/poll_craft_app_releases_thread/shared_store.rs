@@ -72,6 +72,25 @@ return 1
 
 static GUARDED_HSET: LazyLock<Script> = LazyLock::new(|| Script::new(GUARDED_HSET_LUA));
 
+/// [`GUARDED_HSET_LUA`] with a companion: by the same rule and in the same step, also sets the
+/// string `KEYS[2]` to `ARGV[6]` with the same TTL (the hash's fields then start at `ARGV[7]`).
+/// The history of a fetch is written only together with the fetch it belongs to.
+const GUARDED_HSET_WITH_COMPANION_LUA: &str = r#"
+local current = tonumber(redis.call('HGET', KEYS[1], ARGV[1]))
+if current and current + tonumber(ARGV[3]) > tonumber(ARGV[2]) then
+  return 0
+end
+if ARGV[5] ~= '' and redis.call('HGET', KEYS[1], 'etag') ~= ARGV[5] then
+  return 0
+end
+redis.call('HSET', KEYS[1], unpack(ARGV, 7))
+redis.call('PEXPIRE', KEYS[1], ARGV[4])
+redis.call('SET', KEYS[2], ARGV[6], 'PX', ARGV[4])
+return 1
+"#;
+
+static GUARDED_HSET_WITH_COMPANION: LazyLock<Script> = LazyLock::new(|| Script::new(GUARDED_HSET_WITH_COMPANION_LUA));
+
 /// Handle on the shared state. Cheap to clone.
 #[derive(Clone)]
 pub struct SharedStore {
@@ -98,6 +117,8 @@ struct GuardedWrite {
   min_gap: Duration,
   required_etag: Option<String>,
   fields: Vec<(&'static str, String)>,
+  /// A string key set to a value only when, and in the same step as, the hash is written.
+  companion: Option<(String, String)>,
 }
 
 impl SharedStore {
@@ -139,27 +160,22 @@ impl SharedStore {
         (shared_entry::FIELD_CLAIMED_MS, now.timestamp_millis().to_string()),
         (shared_entry::FIELD_BY, self.hostname.clone()),
       ],
+      companion: None,
     }).await
   }
 
-  /// Shares a successful fetch and, once it won, its history, unless a newer fetch is already
+  /// Shares a successful fetch and its history, in one step, unless a newer fetch is already
   /// shared. Returns whether written.
   pub async fn write_fetched(&self, app_key: &str, releases: &CraftAppReleases, history: &CraftAppHistory, etag: Option<&str>, fetched_at: DateTime<Utc>) -> anyhow::Result<bool> {
-    let written = self.guarded_write(GuardedWrite {
+    self.guarded_write(GuardedWrite {
       key: CraftAppReleaseRedisKey::new_for_app(app_key).to_string(),
       time_field: shared_entry::FIELD_FETCHED_MS,
       time: fetched_at,
       min_gap: Duration::ZERO,
       required_etag: None,
       fields: shared_entry::encode_fetch(releases, etag, fetched_at, &self.hostname)?,
-    }).await?;
-    if written {
-      let key = CraftAppReleaseHistoryRedisKey::new_for_app(app_key).to_string();
-      let value = shared_entry::encode_history(history)?;
-      let ttl_ms = CraftAppReleaseHistoryRedisKey::get_redis_ttl().num_milliseconds();
-      self.run(move |conn| redis::cmd("SET").arg(&key).arg(value).arg("PX").arg(ttl_ms).query::<()>(conn)).await?;
-    }
-    Ok(written)
+      companion: Some((CraftAppReleaseHistoryRedisKey::new_for_app(app_key).to_string(), shared_entry::encode_history(history)?)),
+    }).await
   }
 
   /// The shared history of `app_key`, `None` when absent or unreadable.
@@ -182,6 +198,7 @@ impl SharedStore {
       min_gap: Duration::ZERO,
       required_etag: Some(etag.to_string()),
       fields: shared_entry::encode_unchanged(fetched_at, &self.hostname),
+      companion: None,
     }).await?;
     if written {
       // The history lives as long as the hash it belongs with.
@@ -201,6 +218,7 @@ impl SharedStore {
       min_gap: Duration::ZERO,
       required_etag: None,
       fields: shared_entry::encode_failure(failure, &self.hostname),
+      companion: None,
     }).await
   }
 
@@ -299,13 +317,23 @@ impl ManageConnection for PollerRedisConnections {
 
 /// [`GUARDED_HSET_LUA`] decides and writes on the server, in one step.
 fn guarded_write_with_script(conn: &mut Connection, write: &GuardedWrite, ttl_ms: i64) -> RedisResult<bool> {
-  let mut invocation = GUARDED_HSET.key(&write.key);
+  let mut invocation = match &write.companion {
+    Some((key, _)) => {
+      let mut invocation = GUARDED_HSET_WITH_COMPANION.key(&write.key);
+      invocation.key(key);
+      invocation
+    }
+    None => GUARDED_HSET.key(&write.key),
+  };
   invocation
       .arg(write.time_field)
       .arg(write.time.timestamp_millis())
       .arg(write.min_gap.as_millis() as u64)
       .arg(ttl_ms)
       .arg(write.required_etag.as_deref().unwrap_or_default());
+  if let Some((_, value)) = &write.companion {
+    invocation.arg(value);
+  }
   for (field, value) in &write.fields {
     invocation.arg(*field).arg(value);
   }
@@ -337,11 +365,12 @@ fn guarded_write_with_watch(conn: &mut Connection, write: &GuardedWrite, ttl_ms:
       return Ok(false);
     }
     // `EXEC` ends the watch either way; `None` means another write got in first.
-    let committed: Option<Value> = redis::pipe()
-        .atomic()
-        .hset_multiple(&write.key, &write.fields)
-        .pexpire(&write.key, ttl_ms)
-        .query(conn)?;
+    let mut pipe = redis::pipe();
+    pipe.atomic().hset_multiple(&write.key, &write.fields).pexpire(&write.key, ttl_ms);
+    if let Some((key, value)) = &write.companion {
+      pipe.cmd("SET").arg(key).arg(value).arg("PX").arg(ttl_ms);
+    }
+    let committed: Option<Value> = pipe.query(conn)?;
     if committed.is_some() {
       return Ok(true);
     }
@@ -628,6 +657,7 @@ mod tests {
       min_gap,
       required_etag: required_etag.map(str::to_string),
       fields: Vec::new(),
+      companion: None,
     }
   }
 

@@ -89,10 +89,8 @@ pub async fn fetch_releases(client: &wreq::Client, repo: &str, etag: Option<&str
     page += 1;
     let body = match send(client, &list_url(repo, page), None, token).await {
       Response::Body { body, .. } => body,
-      Response::NotFound => {
-        listed = 0;
-        break;
-      }
+      // An empty page ends the list; a missing one leaves it unknown, so nothing is stored.
+      Response::NotFound => return FetchOutcome::Failed(format!("page {page} of the release list is missing")),
       Response::NotModified => return FetchOutcome::Failed("unexpected 304 for a later page".into()),
       Response::RateLimited { retry_at } => return FetchOutcome::RateLimited { retry_at },
       Response::Failed(why) => return FetchOutcome::Failed(why),

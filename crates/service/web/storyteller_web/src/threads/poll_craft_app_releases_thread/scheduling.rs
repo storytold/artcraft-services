@@ -274,6 +274,7 @@ mod tests {
       last_failed_at: failed,
       consecutive_failures: failures,
       history: Default::default(),
+      history_current: true,
     }
   }
 

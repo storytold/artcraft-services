@@ -36,7 +36,7 @@ pub async fn get_craft_app_releases_handler(
         .json(GetCraftAppReleasesError { success: false, error_reason: format!("no releases are known for app '{}'", truncate_key(&app_key)) });
   };
   let response = releases_response(app_key, &app);
-  let cache_control = if response.app_last_fetched.is_some() {
+  let cache_control = if response.app_last_fetched.is_some() && !app.history_is_behind() {
     CacheControl(vec![CacheDirective::Public, CacheDirective::MaxAge(CACHE_MAX_AGE_SECS)])
   } else {
     CacheControl(vec![CacheDirective::NoStore])
@@ -46,7 +46,8 @@ pub async fn get_craft_app_releases_handler(
       .json(response)
 }
 
-/// What the endpoint serves for `app`.
+/// What the endpoint serves for `app`. A history still to be read from Redis (another instance
+/// fetched newer releases) is served as it is, but never as complete, nor cached.
 fn releases_response(app_key: String, app: &CachedCraftApp) -> GetCraftAppReleasesResponse {
   GetCraftAppReleasesResponse {
     success: true,
@@ -54,7 +55,7 @@ fn releases_response(app_key: String, app: &CachedCraftApp) -> GetCraftAppReleas
     name: app.name.clone(),
     repo: app.repo.clone(),
     app_last_fetched: app.app_last_fetched,
-    complete: app.history.complete,
+    complete: app.history.complete && !app.history_is_behind(),
     releases: app.history.releases.clone(),
   }
 }
@@ -85,6 +86,18 @@ mod tests {
     assert!(fetched.app_last_fetched.is_some());
     assert!(!fetched.complete, "an incomplete history says so");
     assert_eq!(fetched.repo, "storytold/photocraft");
+  }
+
+  #[test]
+  fn a_history_behind_its_releases_is_never_called_complete() {
+    let cache = CraftAppsReleaseCache::new();
+    cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
+    let complete = CraftAppHistory { etag: Some("\"a\"".into()), complete: true, releases: Vec::new() };
+    cache.store("photocraft", CraftAppReleases::default(), complete, Some("\"a\"".into()), Utc::now());
+    assert!(releases_response("photocraft".into(), &cache.app("photocraft").unwrap()).complete);
+    // Another instance fetched newer releases; their history isn't read yet.
+    cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"b\"".into()), Utc::now() + chrono::Duration::seconds(5));
+    assert!(!releases_response("photocraft".into(), &cache.app("photocraft").unwrap()).complete);
   }
 
   #[test]
