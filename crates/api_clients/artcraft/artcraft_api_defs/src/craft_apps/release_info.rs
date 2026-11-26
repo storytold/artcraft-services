@@ -7,9 +7,9 @@ use utoipa::ToSchema;
 
 // ── GET /v1/craft_apps/release_info ──
 //
-// The latest release of every Craft App (PhotoCraft, VectorCraft, …, and ArtCraft Launcher
-// itself), as storyteller-web last fetched it from GitHub, plus renames and notices for the
-// ArtCraft Launcher. The launcher polls this instead of GitHub; GitHub is its fallback.
+// The latest stable release, beta and nightly of every Craft App (PhotoCraft, VectorCraft, …,
+// and ArtCraft Launcher itself) and its recent versions, as storyteller-web last fetched them
+// from GitHub, plus renames and notices for the ArtCraft Launcher. The launcher polls this instead of GitHub; GitHub is its fallback.
 //
 // Compatibility: clients must ignore fields they don't know, and treat every field as optional.
 // New fields may be added; existing ones keep their meaning.
@@ -49,13 +49,32 @@ pub struct CraftAppReleaseInfo {
   /// GitHub repository, `organization/project` (`storytold/photocraft`).
   pub repo: String,
 
-  /// The latest published, non-draft, non-prerelease release. Absent when the repository has no
-  /// release yet, or when it hasn't been fetched yet (see `app_last_fetched`).
+  /// The latest published, non-draft, non-prerelease release (never a nightly, see
+  /// `latest_nightly`). Absent when the repository has no release yet, or when it hasn't been
+  /// fetched yet (see `app_last_fetched`).
   pub latest_release: Option<CraftAppRelease>,
 
   /// When this app's release data was last fetched successfully. Absent if it never was; then
   /// `latest_release` says nothing and clients should ask GitHub themselves.
   pub app_last_fetched: Option<DateTime<Utc>>,
+
+  /// The newest beta or release candidate: a pre-release that isn't a nightly. It may be older
+  /// than `latest_release`; clients compare versions. Absent when none is among the recent
+  /// releases (see `releases`).
+  #[serde(default)]
+  pub latest_prerelease: Option<CraftAppRelease>,
+
+  /// The newest nightly build: a release whose tag's pre-release part has a `nightly` identifier
+  /// (`v0.50.0-nightly.20261126.166.1`), whatever its pre-release flag says. Absent when none is
+  /// among the recent releases.
+  #[serde(default)]
+  pub latest_nightly: Option<CraftAppRelease>,
+
+  /// The recent ordinary releases (stable ones and pre-releases, never nightlies), newest
+  /// first, without notes or files: from the 30 newest releases GitHub lists, so older versions
+  /// are missing.
+  #[serde(default)]
+  pub releases: Vec<CraftAppReleaseSummary>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
@@ -80,6 +99,39 @@ pub struct CraftAppRelease {
   pub notes_markdown: String,
 
   pub assets: Vec<CraftAppReleaseAsset>,
+}
+
+/// A release in an app's version list: what to show and where its page is, not its files.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct CraftAppReleaseSummary {
+  /// Git tag (`v0.5.0`).
+  pub tag: String,
+
+  /// The tag without its leading `v` (`0.5.0`, `0.6.0-rc.1`).
+  pub version: String,
+
+  /// Release title (`PhotoCraft v0.5.0`).
+  pub name: String,
+
+  pub published_at: Option<DateTime<Utc>>,
+
+  /// The release's page on GitHub.
+  pub html_url: String,
+
+  pub prerelease: bool,
+}
+
+impl From<&CraftAppRelease> for CraftAppReleaseSummary {
+  fn from(release: &CraftAppRelease) -> Self {
+    Self {
+      tag: release.tag.clone(),
+      version: release.version.clone(),
+      name: release.name.clone(),
+      published_at: release.published_at,
+      html_url: release.html_url.clone(),
+      prerelease: release.prerelease,
+    }
+  }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]

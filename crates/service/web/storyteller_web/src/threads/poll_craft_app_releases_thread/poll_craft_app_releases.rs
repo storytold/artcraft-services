@@ -1,6 +1,6 @@
-//! Keeps [`CraftAppsReleaseCache`] holding the latest release of every Craft App, which
-//! `GET /v1/craft_apps/release_info` serves to ArtCraft Launcher (so thousands of launchers don't
-//! each poll GitHub).
+//! Keeps [`CraftAppsReleaseCache`] holding the releases of every Craft App (the latest stable
+//! release, beta and nightly, and the recent versions), which `GET /v1/craft_apps/release_info`
+//! serves to ArtCraft Launcher (so thousands of launchers don't each poll GitHub).
 //!
 //! Every instance runs this loop, waking every [`TICK`] (30 s, with jitter). At startup it first
 //! takes the fleet's shared releases from Redis, so a new instance serves them at once without
@@ -16,8 +16,8 @@
 //!    the shared ETag and share the answer. Shared writes never go back in time.
 //! 4. After a round with requests, update the fleet's backoff (a good round clears it).
 //!
-//! Each app is all-or-nothing: either its latest release is stored with a fresh
-//! `app_last_fetched`, or nothing about it changes.
+//! Each app is all-or-nothing: either its releases are stored with a fresh `app_last_fetched`,
+//! or nothing about it changes.
 //!
 //! If Redis is unreachable (or coordination is off) the instance does the same from its own
 //! memory, as every instance did before coordination, and returns to coordinating when Redis
@@ -185,16 +185,16 @@ impl Poller {
         tokio::time::sleep(BETWEEN_REQUESTS).await;
       }
       let etag = self.cache.etag(key);
-      let outcome = github::fetch_latest_release(&self.client, repo, etag.as_deref(), self.config.github_token.as_deref()).await;
+      let outcome = github::fetch_releases(&self.client, repo, etag.as_deref(), self.config.github_token.as_deref()).await;
       let now = Utc::now();
       match outcome {
-        FetchOutcome::Fetched { release, etag } => {
+        FetchOutcome::Fetched { releases, etag } => {
           round.fetched += 1;
           if let Some(store) = self.coordinated_store(mode) {
-            let shared = store.write_fetched(key, release.as_ref(), etag.as_deref(), now).await;
+            let shared = store.write_fetched(key, &releases, etag.as_deref(), now).await;
             mode = self.after_shared_write(shared, mode);
           }
-          self.cache.store(key, release, etag, now);
+          self.cache.store(key, releases, etag, now);
         }
         FetchOutcome::NotModified => {
           round.unchanged += 1;
@@ -211,7 +211,7 @@ impl Poller {
           break;
         }
         FetchOutcome::Failed(why) => {
-          warn!("Couldn't fetch the latest release of {repo}: {why}");
+          warn!("Couldn't fetch the releases of {repo}: {why}");
           round.failed += 1;
           let consecutive_failures = self.cache.record_failure(key, now);
           if let Some(store) = self.coordinated_store(mode) {
@@ -277,7 +277,7 @@ impl Poller {
 /// Takes a shared entry into memory (only what is newer than what this instance has).
 fn merge_shared_entry(cache: &CraftAppsReleaseCache, key: &str, entry: SharedAppEntry) {
   if let Some(fetched) = entry.fetched {
-    cache.merge_fetched(key, fetched.latest_release, fetched.etag, fetched.fetched_at);
+    cache.merge_fetched(key, fetched.releases, fetched.etag, fetched.fetched_at);
   }
   if let Some(failure) = entry.failure {
     cache.merge_failure(key, failure.failed_at, failure.consecutive_failures);
@@ -290,6 +290,7 @@ mod tests {
 
   use redis_schema::keys::craft_apps::craft_app_release_redis_key::CraftAppReleaseRedisKey;
 
+  use crate::state::craft_apps_release_cache::CraftAppReleases;
   use crate::threads::poll_craft_app_releases_thread::config::default_apps;
   use crate::threads::poll_craft_app_releases_thread::shared_entry::{decode_app_entry, encode_fetch};
   use crate::threads::poll_craft_app_releases_thread::shared_store::build_poller_redis_pool;
@@ -318,8 +319,11 @@ mod tests {
     assert_eq!(again.fetched + again.unchanged, 2, "{again:?}");
     let info = cache.snapshot();
     assert!(info.last_fetched.is_some());
-    let photocraft = info.apps["photocraft"].latest_release.as_ref().unwrap();
-    assert!(photocraft.assets.iter().any(|a| a.platform.is_some() && a.sha256.is_some()));
+    let photocraft = &info.apps["photocraft"];
+    let latest = photocraft.latest_release.as_ref().unwrap();
+    assert!(latest.assets.iter().any(|a| a.platform.is_some() && a.sha256.is_some()));
+    assert!(!latest.prerelease);
+    assert!(photocraft.releases.iter().any(|r| r.tag == latest.tag), "the version list has the latest release");
     let response = GetCraftAppsReleaseInfoResponse {
       success: true,
       release_info: info,
@@ -347,7 +351,7 @@ mod tests {
     let pod_a = SharedStore::new(pool.clone(), "pod-a".into());
     let now = Utc::now();
     for (key, _, _) in &config.apps {
-      assert!(pod_a.write_fetched(key, None, Some("\"e\""), now).await.unwrap());
+      assert!(pod_a.write_fetched(key, &CraftAppReleases::default(), Some("\"e\""), now).await.unwrap());
     }
 
     let cache = CraftAppsReleaseCache::new();
@@ -380,7 +384,7 @@ mod tests {
     let fetched_by_another_pod = Utc::now();
     let other_pod = SharedStore::new(pool.clone(), "other-pod".into());
     for (key, _, _) in &config.apps {
-      assert!(other_pod.write_fetched(key, None, Some("\"e\""), fetched_by_another_pod).await.unwrap());
+      assert!(other_pod.write_fetched(key, &CraftAppReleases::default(), Some("\"e\""), fetched_by_another_pod).await.unwrap());
     }
 
     let cache = CraftAppsReleaseCache::new();
@@ -430,7 +434,7 @@ mod tests {
   fn shared_entries_merge_into_memory() {
     let cache = registered_cache();
     let at = Utc::now();
-    let fields = encode_fetch(None, Some("\"e\""), at, "pod").unwrap();
+    let fields = encode_fetch(&CraftAppReleases::default(), Some("\"e\""), at, "pod").unwrap();
     let map = fields.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
     merge_shared_entry(&cache, "photocraft", decode_app_entry(&map).unwrap());
     assert_eq!(fetched_at(&cache, "photocraft").map(|t| t.timestamp_millis()), Some(at.timestamp_millis()));
@@ -458,7 +462,7 @@ mod tests {
   fn fresh_poller(store: Option<SharedStore>) -> Poller {
     let cache = registered_cache();
     for (key, _, _) in &config().apps {
-      cache.store(key, None, None, Utc::now());
+      cache.store(key, CraftAppReleases::default(), None, Utc::now());
     }
     Poller::new(github::build_client().unwrap(), cache, config(), store)
   }

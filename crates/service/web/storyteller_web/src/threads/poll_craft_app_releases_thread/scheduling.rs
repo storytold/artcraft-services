@@ -268,7 +268,7 @@ mod tests {
     CachedCraftApp {
       name: "PhotoCraft".into(),
       repo: "storytold/photocraft".into(),
-      latest_release: None,
+      releases: Default::default(),
       app_last_fetched: fetched,
       etag: None,
       last_failed_at: failed,

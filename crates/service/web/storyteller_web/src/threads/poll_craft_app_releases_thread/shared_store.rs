@@ -27,10 +27,10 @@ use log::warn;
 use r2d2::{ManageConnection, Pool};
 use redis::{Client, Connection, ConnectionLike, ErrorKind, RedisError, RedisResult, Script, ServerErrorKind, Value};
 
-use artcraft_api_defs::craft_apps::release_info::CraftAppRelease;
 use redis_schema::keys::craft_apps::craft_app_release_redis_key::CraftAppReleaseRedisKey;
 use redis_schema::keys::craft_apps::craft_apps_release_backoff_redis_key::CraftAppsReleaseBackoffRedisKey;
 
+use crate::state::craft_apps_release_cache::CraftAppReleases;
 use crate::threads::poll_craft_app_releases_thread::scheduling::Backoff;
 use crate::threads::poll_craft_app_releases_thread::shared_entry;
 use crate::threads::poll_craft_app_releases_thread::shared_entry::{SharedAppEntry, SharedFailure};
@@ -142,14 +142,14 @@ impl SharedStore {
   }
 
   /// Shares a successful fetch, unless a newer one is already shared. Returns whether written.
-  pub async fn write_fetched(&self, app_key: &str, latest_release: Option<&CraftAppRelease>, etag: Option<&str>, fetched_at: DateTime<Utc>) -> anyhow::Result<bool> {
+  pub async fn write_fetched(&self, app_key: &str, releases: &CraftAppReleases, etag: Option<&str>, fetched_at: DateTime<Utc>) -> anyhow::Result<bool> {
     self.guarded_write(GuardedWrite {
       key: CraftAppReleaseRedisKey::new_for_app(app_key).to_string(),
       time_field: shared_entry::FIELD_FETCHED_MS,
       time: fetched_at,
       min_gap: Duration::ZERO,
       required_etag: None,
-      fields: shared_entry::encode_fetch(latest_release, etag, fetched_at, &self.hostname)?,
+      fields: shared_entry::encode_fetch(releases, etag, fetched_at, &self.hostname)?,
     }).await
   }
 
@@ -549,8 +549,8 @@ mod tests {
     assert!(pod_b.claim(&app, t(2)).await.unwrap());
 
     // A newer fetch is never replaced by an older one.
-    assert!(pod_a.write_fetched(&app, None, Some("\"e2\""), t(2)).await.unwrap());
-    assert!(!pod_b.write_fetched(&app, None, Some("\"e1\""), t(1)).await.unwrap());
+    assert!(pod_a.write_fetched(&app, &CraftAppReleases::default(), Some("\"e2\""), t(2)).await.unwrap());
+    assert!(!pod_b.write_fetched(&app, &CraftAppReleases::default(), Some("\"e1\""), t(1)).await.unwrap());
     let fetched = read_app(pod_a.clone(), keys.clone()).await.unwrap().fetched.unwrap();
     assert_eq!((fetched.etag.as_deref(), fetched.fetched_at), (Some("\"e2\""), t(2)));
 
@@ -570,9 +570,9 @@ mod tests {
     // Garbage in an entry is overwritten, not trusted.
     let key = CraftAppReleaseRedisKey::new_for_app(&other).to_string();
     let garbage_key = key.clone();
-    pod_a.run(move |conn| redis::cmd("HSET").arg(&garbage_key).arg("v").arg("1").arg("fetched_ms").arg("soon").arg("release").arg("{").query::<()>(conn)).await.unwrap();
+    pod_a.run(move |conn| redis::cmd("HSET").arg(&garbage_key).arg("v").arg("1").arg("fetched_ms").arg("soon").arg("releases").arg("{").query::<()>(conn)).await.unwrap();
     assert!(pod_a.read(&keys).await.unwrap().0[1].as_ref().unwrap().fetched.is_none());
-    assert!(pod_a.write_fetched(&other, None, None, t(1)).await.unwrap());
+    assert!(pod_a.write_fetched(&other, &CraftAppReleases::default(), None, t(1)).await.unwrap());
     assert!(pod_a.read(&keys).await.unwrap().0[1].as_ref().unwrap().fetched.is_some());
 
     // Entries expire if nobody refreshes them.

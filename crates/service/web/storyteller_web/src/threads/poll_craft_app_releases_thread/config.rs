@@ -16,8 +16,9 @@
 //! Redis, so the whole fleet requests an app from GitHub about once per interval instead of every
 //! pod doing so. That is what makes the 2 minute default safe with a token. Without a token
 //! GitHub allows 60 requests an hour per IP address and also counts `304`s, so the interval stays
-//! at 30 minutes (17 apps: about 34 requests an hour). While Redis is unreachable (or with
-//! coordination off) every pod polls on its own at the same interval.
+//! at 30 minutes (20 apps: about 40 requests an hour; an app whose newest 30 releases are all
+//! betas or nightlies costs a second request for its stable one). While Redis is unreachable (or
+//! with coordination off) every pod polls on its own at the same interval.
 
 use std::time::Duration;
 
@@ -31,7 +32,9 @@ const DEFAULT_MAX_BACKOFF_SECS: u64 = 14_400;
 /// the app's lowercase machine name; it keys `CraftAppsReleaseCache` and the endpoint's
 /// `release_info.apps`, and must match the app id ArtCraft Launcher uses. ArtCraft Launcher is
 /// included (key `artcraft-launcher`, repo `storytold/craft-launcher`) so it can check for its
-/// own updates.
+/// own updates. Community apps the launcher offers (SolidCraft, MailCraft) are listed with their
+/// own repositories, which must be the ones in the launcher's catalog: it ignores an entry whose
+/// repo differs.
 const DEFAULT_APPS: &[(&str, &str, &str)] = &[
   ("photocraft", "PhotoCraft", "storytold/photocraft"),
   ("vectorcraft", "VectorCraft", "storytold/vectorcraft"),
@@ -49,6 +52,9 @@ const DEFAULT_APPS: &[(&str, &str, &str)] = &[
   ("figcraft", "FigCraft", "storytold/figcraft"),
   ("texturecraft", "TextureCraft", "storytold/texturecraft"),
   ("materialcraft", "MaterialCraft", "storytold/materialcraft"),
+  ("anicraft", "AniCraft", "storytold/anicraft"),
+  ("solidcraft", "SolidCraft", "tangency-labs/solidcraft"),
+  ("mailcraft", "MailCraft", "UCSLabs/mailcraft"),
   ("artcraft-launcher", "ArtCraft Launcher", "storytold/craft-launcher"),
 ];
 
@@ -143,9 +149,10 @@ mod tests {
   #[test]
   fn the_default_list_has_the_suite_and_the_launcher() {
     let apps = default_apps();
-    assert_eq!(apps.len(), 17);
+    assert_eq!(apps.len(), 20);
     assert!(apps.iter().any(|(k, n, r)| k == "craft-anything" && n == "Craft Anything" && r == "storytold/craft-anything"));
     assert!(apps.iter().any(|(k, _, r)| k == "artcraft-launcher" && r == "storytold/craft-launcher"));
+    assert!(apps.iter().any(|(k, _, r)| k == "solidcraft" && r == "tangency-labs/solidcraft"));
   }
 
   #[test]

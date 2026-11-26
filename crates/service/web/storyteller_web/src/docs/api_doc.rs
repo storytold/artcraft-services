@@ -1614,6 +1614,7 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     CraftAppsReleaseInfo,
     CraftAppReleaseInfo,
     CraftAppRelease,
+    CraftAppReleaseSummary,
     CraftAppReleaseAsset,
     CraftAppAssetPlatform,
     CraftAppOs,

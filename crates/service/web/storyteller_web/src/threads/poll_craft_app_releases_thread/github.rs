@@ -1,4 +1,10 @@
-//! One request to GitHub for an app's latest release, and reading the answer.
+//! The request to GitHub for an app's releases, and reading the answer.
+//!
+//! One request per app: `GET /repos/{repo}/releases?per_page=30`, the newest releases (GitHub
+//! lists them newest first), sorted into the latest stable release, the newest beta or release
+//! candidate, the newest nightly and the version list. `/releases/latest` never returns a
+//! pre-release, which is why the list is asked instead. Only when the page is full and holds no
+//! stable release (nightlies pushed it off the page) is `/releases/latest` asked as well.
 
 use std::time::Duration;
 
@@ -11,21 +17,38 @@ use artcraft_api_defs::craft_apps::release_info::{
   CraftAppArch, CraftAppAssetPlatform, CraftAppOs, CraftAppPackageType, CraftAppRelease, CraftAppReleaseAsset,
 };
 
+use crate::state::craft_apps_release_cache::CraftAppReleases;
+
 const API_BASE: &str = "https://api.github.com";
+/// Releases asked for in one request. A page of 30 is 2-4 MB from GitHub today (each release
+/// carries its notes and ~50 files); 100 would be up to 10 MB for an app with daily nightlies.
+pub const RELEASES_PER_PAGE: usize = 30;
 const MAX_NOTES_BYTES: usize = 64 * 1024;
 const MAX_ASSETS: usize = 200;
+/// One release (`/releases/latest`).
 const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
+/// A page of releases.
+const MAX_LIST_BODY_BYTES: usize = 32 * 1024 * 1024;
 
-/// What one request produced.
+/// What one fetch produced.
 #[derive(Debug)]
 pub enum FetchOutcome {
-  /// The latest release (`None`: the repository has no published release).
-  Fetched { release: Option<CraftAppRelease>, etag: Option<String> },
+  /// The app's releases (empty: the repository has no published release).
+  Fetched { releases: CraftAppReleases, etag: Option<String> },
   /// `If-None-Match` matched: what we have is current.
   NotModified,
   /// GitHub refused: out of quota until this time, if it said.
   RateLimited { retry_at: Option<DateTime<Utc>> },
   /// Network error, unexpected status or unreadable answer. Nothing is stored.
+  Failed(String),
+}
+
+/// What one request to GitHub produced, before reading the body.
+enum Response {
+  Body { body: Vec<u8>, etag: Option<String> },
+  NotFound,
+  NotModified,
+  RateLimited { retry_at: Option<DateTime<Utc>> },
   Failed(String),
 }
 
@@ -36,19 +59,54 @@ pub fn build_client() -> wreq::Result<wreq::Client> {
       .build()
 }
 
-/// `GET /repos/{repo}/releases/latest`, revalidated with `etag`. `token` is optional: without
-/// one the request is unauthenticated.
-pub async fn fetch_latest_release(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> FetchOutcome {
-  let request = build_request(client, repo, etag, token);
+/// `repo`'s releases: `GET /repos/{repo}/releases?per_page=30`, revalidated with `etag`, plus
+/// `/releases/latest` when [`needs_latest`] says so. `token` is optional: without one the
+/// requests are unauthenticated. All or nothing: if the second request fails, so does the fetch.
+pub async fn fetch_releases(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> FetchOutcome {
+  let (body, etag) = match send(client, &list_url(repo), etag, token, MAX_LIST_BODY_BYTES).await {
+    Response::Body { body, etag } => (body, etag),
+    Response::NotFound => return FetchOutcome::Fetched { releases: CraftAppReleases::default(), etag: None },
+    Response::NotModified => return FetchOutcome::NotModified,
+    Response::RateLimited { retry_at } => return FetchOutcome::RateLimited { retry_at },
+    Response::Failed(why) => return FetchOutcome::Failed(why),
+  };
+  let (mut releases, listed) = match parse_release_list(&body, repo) {
+    Ok(read) => read,
+    Err(why) => return FetchOutcome::Failed(why),
+  };
+  if needs_latest(&releases, listed) {
+    match send(client, &latest_url(repo), None, token, MAX_BODY_BYTES).await {
+      Response::Body { body, .. } => match parse_release(&body, repo) {
+        Ok(release) => releases.latest_release = Some(release).filter(is_stable),
+        Err(why) => return FetchOutcome::Failed(why),
+      },
+      Response::NotFound => {}
+      Response::NotModified => return FetchOutcome::Failed("unexpected 304 for the latest release".into()),
+      Response::RateLimited { retry_at } => return FetchOutcome::RateLimited { retry_at },
+      Response::Failed(why) => return FetchOutcome::Failed(why),
+    }
+  }
+  FetchOutcome::Fetched { releases, etag }
+}
+
+/// Whether the stable release must be asked for on its own: the page was full (`listed` releases
+/// in it) and none of them was a stable release, so the latest one is on a later page.
+pub fn needs_latest(releases: &CraftAppReleases, listed: usize) -> bool {
+  releases.latest_release.is_none() && listed >= RELEASES_PER_PAGE
+}
+
+/// Sends one GET to GitHub and sorts out the answer. A body larger than `max_body` fails.
+async fn send(client: &wreq::Client, url: &str, etag: Option<&str>, token: Option<&str>, max_body: usize) -> Response {
+  let request = build_request(client, url, etag, token);
   let response = match request.send().await {
     Ok(r) => r,
-    Err(err) => return FetchOutcome::Failed(format!("request failed: {err}")),
+    Err(err) => return Response::Failed(format!("request failed: {err}")),
   };
   let status = response.status();
   let header = |name: &str| response.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_string);
   match status {
-    StatusCode::NOT_MODIFIED => FetchOutcome::NotModified,
-    StatusCode::NOT_FOUND => FetchOutcome::Fetched { release: None, etag: None },
+    StatusCode::NOT_MODIFIED => Response::NotModified,
+    StatusCode::NOT_FOUND => Response::NotFound,
     StatusCode::FORBIDDEN | StatusCode::TOO_MANY_REQUESTS => {
       let remaining = header("x-ratelimit-remaining");
       let reset = header("x-ratelimit-reset").and_then(|r| r.parse::<i64>().ok()).and_then(|s| DateTime::from_timestamp(s, 0));
@@ -56,33 +114,36 @@ pub async fn fetch_latest_release(client: &wreq::Client, repo: &str, etag: Optio
           .and_then(|r| r.parse::<i64>().ok())
           .map(|s| Utc::now() + chrono::Duration::seconds(s.clamp(0, 86_400)));
       if status == StatusCode::TOO_MANY_REQUESTS || remaining.as_deref() == Some("0") || retry_after.is_some() {
-        FetchOutcome::RateLimited { retry_at: retry_after.or(reset) }
+        Response::RateLimited { retry_at: retry_after.or(reset) }
       } else {
-        FetchOutcome::Failed(format!("HTTP {status}"))
+        Response::Failed(format!("HTTP {status}"))
       }
     }
     StatusCode::OK => {
       let etag = header(ETAG.as_str());
-      let body = match response.bytes().await {
-        Ok(b) if b.len() <= MAX_BODY_BYTES => b,
-        Ok(b) => return FetchOutcome::Failed(format!("answer too large ({} bytes)", b.len())),
-        Err(err) => return FetchOutcome::Failed(format!("unreadable answer: {err}")),
-      };
-      match parse_release(&body, repo) {
-        Ok(release) => FetchOutcome::Fetched { release: Some(release), etag },
-        Err(err) => FetchOutcome::Failed(err),
+      match response.bytes().await {
+        Ok(b) if b.len() <= max_body => Response::Body { body: b.to_vec(), etag },
+        Ok(b) => Response::Failed(format!("answer too large ({} bytes)", b.len())),
+        Err(err) => Response::Failed(format!("unreadable answer: {err}")),
       }
     }
-    other => FetchOutcome::Failed(format!("HTTP {other}")),
+    other => Response::Failed(format!("HTTP {other}")),
   }
 }
 
-/// The request for `repo`'s latest release. Sends `Authorization: Bearer` only for a non-blank
-/// token (an authenticated `304` doesn't count against the rate limit); never an empty header.
-fn build_request(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> wreq::RequestBuilder {
-  let url = format!("{API_BASE}/repos/{repo}/releases/latest");
+fn list_url(repo: &str) -> String {
+  format!("{API_BASE}/repos/{repo}/releases?per_page={RELEASES_PER_PAGE}")
+}
+
+fn latest_url(repo: &str) -> String {
+  format!("{API_BASE}/repos/{repo}/releases/latest")
+}
+
+/// The request for `url`. Sends `Authorization: Bearer` only for a non-blank token (an
+/// authenticated `304` doesn't count against the rate limit); never an empty header.
+fn build_request(client: &wreq::Client, url: &str, etag: Option<&str>, token: Option<&str>) -> wreq::RequestBuilder {
   let mut request = client
-      .get(&url)
+      .get(url)
       .header(USER_AGENT, "storyteller-web (craft apps release poller)")
       .header(ACCEPT, "application/vnd.github+json")
       .header("X-GitHub-Api-Version", "2022-11-28");
@@ -129,11 +190,52 @@ struct GithubAsset {
   digest: Option<String>,
 }
 
+/// Reads a page of releases (newest first) into the app's releases, and says how many the page
+/// listed. A release that can't be read (a draft, no tag, the wrong shape) is skipped; only an
+/// answer that isn't a list fails.
+pub fn parse_release_list(body: &[u8], repo: &str) -> Result<(CraftAppReleases, usize), String> {
+  let raw: Vec<serde_json::Value> = serde_json::from_slice(body).map_err(|e| format!("unreadable release list: {e}"))?;
+  let listed = raw.len();
+  let mut releases = CraftAppReleases::default();
+  for value in raw.into_iter().take(RELEASES_PER_PAGE) {
+    let Some(release) = serde_json::from_value::<GithubRelease>(value).ok().and_then(|r| read_release(r, repo).ok()) else {
+      continue;
+    };
+    if is_nightly_tag(&release.tag) {
+      releases.latest_nightly.get_or_insert(release);
+      continue;
+    }
+    releases.releases.push((&release).into());
+    let slot = if release.prerelease { &mut releases.latest_prerelease } else { &mut releases.latest_release };
+    slot.get_or_insert(release);
+  }
+  Ok((releases, listed))
+}
+
+/// Whether the tag's pre-release part has a `nightly` identifier, as ArtCraft Launcher reads it
+/// (`v0.50.0-nightly.20261126.166.1`, `v1.0.0-dev.nightly.1`). Not `v1.0.0-nightlyish`, and not
+/// build metadata (`v1.0.0+nightly`).
+pub fn is_nightly_tag(tag: &str) -> bool {
+  let version = tag.strip_prefix(['v', 'V']).unwrap_or(tag);
+  let version = version.split_once('+').map_or(version, |(v, _)| v);
+  version.split_once('-').is_some_and(|(_, pre)| pre.split('.').any(|part| part.eq_ignore_ascii_case("nightly")))
+}
+
+/// A stable release: neither a pre-release nor a nightly.
+fn is_stable(release: &CraftAppRelease) -> bool {
+  !release.prerelease && !is_nightly_tag(&release.tag)
+}
+
 /// Reads a release, keeping only downloads that really belong to `repo`.
 pub fn parse_release(body: &[u8], repo: &str) -> Result<CraftAppRelease, String> {
   let raw: GithubRelease = serde_json::from_slice(body).map_err(|e| format!("unreadable release: {e}"))?;
+  read_release(raw, repo)
+}
+
+/// A release GitHub described, keeping only downloads that really belong to `repo`.
+fn read_release(raw: GithubRelease, repo: &str) -> Result<CraftAppRelease, String> {
   if raw.draft {
-    return Err("the latest release is a draft".into());
+    return Err("the release is a draft".into());
   }
   let tag = raw.tag_name.filter(|t| !t.is_empty() && t.len() <= 64).ok_or("the release has no tag")?;
   let releases_page = format!("https://github.com/{repo}/releases/");
@@ -242,7 +344,7 @@ mod tests {
   #[test]
   fn sends_the_token_as_a_bearer_header() {
     let client = build_client().unwrap();
-    let request = build_request(&client, REPO, Some("\"etag\""), Some("ghp_x")).build().unwrap();
+    let request = build_request(&client, &list_url(REPO), Some("\"etag\""), Some("ghp_x")).build().unwrap();
     assert_eq!(request.headers().get(AUTHORIZATION).unwrap(), "Bearer ghp_x");
     assert_eq!(request.headers().get(IF_NONE_MATCH).unwrap(), "\"etag\"");
   }
@@ -251,10 +353,127 @@ mod tests {
   fn without_a_token_the_request_is_unauthenticated() {
     let client = build_client().unwrap();
     for token in [None, Some(""), Some("  ")] {
-      let request = build_request(&client, REPO, None, token).build().unwrap();
+      let request = build_request(&client, &list_url(REPO), None, token).build().unwrap();
       assert!(request.headers().get(AUTHORIZATION).is_none(), "{:?}", token);
       assert!(request.headers().get(IF_NONE_MATCH).is_none());
-      assert_eq!(request.uri().to_string(), "https://api.github.com/repos/storytold/photocraft/releases/latest");
+    }
+  }
+
+  #[test]
+  fn asks_for_a_page_of_releases_and_the_latest_one_only_as_a_fallback() {
+    assert_eq!(list_url(REPO), "https://api.github.com/repos/storytold/photocraft/releases?per_page=30");
+    assert_eq!(latest_url(REPO), "https://api.github.com/repos/storytold/photocraft/releases/latest");
+  }
+
+  mod release_lists {
+    use super::*;
+
+    #[test]
+    fn sorts_a_page_into_stable_beta_nightly_and_the_version_list() {
+      let page = list(&[
+        entry("v0.6.0-nightly.20261126.2.1", true),
+        entry("v0.6.0-rc.2", true),
+        entry("v0.6.0-nightly.20261125.1.1", true),
+        entry("v0.5.1", false),
+        entry("v0.6.0-rc.1", true),
+        entry("v0.5.0", false),
+      ]);
+      let (releases, listed) = parse_release_list(page.as_bytes(), REPO).unwrap();
+      assert_eq!(listed, 6);
+      assert_eq!(tag(&releases.latest_release), Some("v0.5.1"));
+      assert_eq!(tag(&releases.latest_prerelease), Some("v0.6.0-rc.2"));
+      assert_eq!(tag(&releases.latest_nightly), Some("v0.6.0-nightly.20261126.2.1"));
+      let versions: Vec<&str> = releases.releases.iter().map(|r| r.tag.as_str()).collect();
+      assert_eq!(versions, ["v0.6.0-rc.2", "v0.5.1", "v0.6.0-rc.1", "v0.5.0"], "newest first, no nightlies");
+      assert!(releases.releases[0].prerelease && !releases.releases[1].prerelease);
+      assert_eq!(releases.latest_release.as_ref().unwrap().assets.len(), 1, "the latest ones keep their files");
+    }
+
+    #[test]
+    fn a_nightly_without_the_prerelease_flag_is_still_a_nightly_never_the_stable_release() {
+      let page = list(&[entry("v0.6.0-nightly.20261126.2.1", false), entry("v0.5.0", false)]);
+      let (releases, _) = parse_release_list(page.as_bytes(), REPO).unwrap();
+      assert_eq!(tag(&releases.latest_release), Some("v0.5.0"));
+      assert_eq!(tag(&releases.latest_nightly), Some("v0.6.0-nightly.20261126.2.1"));
+      assert_eq!(releases.releases.len(), 1);
+    }
+
+    #[test]
+    fn drafts_and_unreadable_entries_are_skipped_not_fatal() {
+      let page = format!(
+        "[{}, {}, {}, {}]",
+        r#"{"tag_name":"v0.7.0","draft":true,"prerelease":false}"#,
+        r#"{"tag_name":7}"#,
+        r#""not a release""#,
+        entry("v0.5.0", false),
+      );
+      let (releases, listed) = parse_release_list(page.as_bytes(), REPO).unwrap();
+      assert_eq!(listed, 4);
+      assert_eq!(tag(&releases.latest_release), Some("v0.5.0"));
+      assert_eq!(releases.releases.len(), 1);
+    }
+
+    #[test]
+    fn an_answer_that_is_not_a_list_fails() {
+      assert!(parse_release_list(b"<html>", REPO).is_err());
+      assert!(parse_release_list(entry("v0.5.0", false).as_bytes(), REPO).is_err());
+    }
+
+    #[test]
+    fn an_empty_page_is_a_repo_without_releases() {
+      let (releases, listed) = parse_release_list(b"[]", REPO).unwrap();
+      assert_eq!(listed, 0);
+      assert!(releases.latest_release.is_none() && releases.releases.is_empty());
+      assert!(!needs_latest(&releases, listed));
+    }
+
+    #[test]
+    fn the_latest_release_is_asked_for_only_when_a_full_page_has_no_stable_one() {
+      let nightlies: Vec<String> = (0..RELEASES_PER_PAGE).map(|i| entry(&format!("v0.6.0-nightly.202611{:02}.{i}.1", i % 28 + 1), true)).collect();
+      let (releases, listed) = parse_release_list(list(&nightlies).as_bytes(), REPO).unwrap();
+      assert!(needs_latest(&releases, listed), "the stable release is on a later page");
+
+      let (releases, listed) = parse_release_list(list(&nightlies[..RELEASES_PER_PAGE - 1]).as_bytes(), REPO).unwrap();
+      assert!(!needs_latest(&releases, listed), "a page that isn't full is everything there is");
+
+      let mut with_stable = nightlies.clone();
+      with_stable[RELEASES_PER_PAGE - 1] = entry("v0.5.0", false);
+      let (releases, listed) = parse_release_list(list(&with_stable).as_bytes(), REPO).unwrap();
+      assert!(!needs_latest(&releases, listed));
+    }
+
+    #[test]
+    fn reads_at_most_one_page_however_long_the_answer() {
+      let many: Vec<String> = (0..RELEASES_PER_PAGE + 5).map(|i| entry(&format!("v0.{i}.0"), false)).collect();
+      let (releases, listed) = parse_release_list(list(&many).as_bytes(), REPO).unwrap();
+      assert_eq!(listed, RELEASES_PER_PAGE + 5);
+      assert_eq!(releases.releases.len(), RELEASES_PER_PAGE);
+    }
+
+    fn entry(tag: &str, prerelease: bool) -> String {
+      format!(
+        r#"{{"tag_name":"{tag}","name":"PhotoCraft {tag}","draft":false,"prerelease":{prerelease},
+            "html_url":"https://github.com/storytold/photocraft/releases/tag/{tag}","body":"Notes",
+            "assets":[{{"name":"photocraft-x-windows-x64.msi","size":7,"browser_download_url":"https://github.com/storytold/photocraft/releases/download/{tag}/photocraft-x-windows-x64.msi"}}]}}"#
+      )
+    }
+
+    fn list(entries: &[String]) -> String {
+      format!("[{}]", entries.join(","))
+    }
+
+    fn tag(release: &Option<CraftAppRelease>) -> Option<&str> {
+      release.as_ref().map(|r| r.tag.as_str())
+    }
+  }
+
+  #[test]
+  fn reads_nightly_tags_as_the_launcher_does() {
+    for tag in ["v0.50.0-nightly.20261126.166.1", "v1.0.0-dev.nightly.1", "1.0.0-NIGHTLY.3", "v1.0.0-nightly+build.5"] {
+      assert!(is_nightly_tag(tag), "{tag}");
+    }
+    for tag in ["v0.5.0", "v0.6.0-rc.1", "v1.0.0-nightlyish.1", "v1.0.0+nightly", "nightly", "artcraft-v0.41.1"] {
+      assert!(!is_nightly_tag(tag), "{tag}");
     }
   }
 

@@ -1,5 +1,8 @@
-//! The latest release of one Craft App, shared by every storyteller-web instance so the fleet
-//! polls GitHub once per app instead of once per pod.
+//! The releases of one Craft App (stable, beta, nightly and the recent versions), shared by every
+//! storyteller-web instance so the fleet polls GitHub once per app instead of once per pod.
+//!
+//! `v2`: the hash before it held only the latest release, under `craftApps:releases:app:<key>`.
+//! A new key, so instances of either version never overwrite the other's during a rollout.
 //!
 //! A Redis hash, written by `poll_craft_app_releases_thread` (storyteller-web), which documents
 //! the fields. Expires if nobody refreshes it for a week, which only happens if polling stops.
@@ -15,7 +18,7 @@ const REDIS_KEY_TTL_DURATION: Duration = Duration::milliseconds(1000 * 60 * 60 *
 impl CraftAppReleaseRedisKey {
   /// `app_key` is the app's lowercase machine name (`photocraft`, `artcraft-launcher`).
   pub fn new_for_app(app_key: &str) -> Self {
-    let key = format!("craftApps:releases:app:{}", app_key);
+    let key = format!("craftApps:releases:v2:app:{}", app_key);
     Self(key)
   }
 
@@ -31,7 +34,7 @@ mod tests {
   #[test]
   fn test_new_for_app() {
     let key = CraftAppReleaseRedisKey::new_for_app("photocraft");
-    assert_eq!(key.as_str(), "craftApps:releases:app:photocraft");
+    assert_eq!(key.as_str(), "craftApps:releases:v2:app:photocraft");
   }
 
   #[test]
