@@ -73,7 +73,7 @@ pub async fn fetch_releases(client: &wreq::Client, repo: &str, etag: Option<&str
   let (body, etag) = match send(client, &list_url(repo, 1), etag, token).await {
     Response::Body { body, etag } => (body, etag),
     Response::NotFound => {
-      let history = CraftAppHistory { etag: None, complete: true, releases: Vec::new() };
+      let history = CraftAppHistory { etag: None, complete: true, releases: Vec::new(), fetched_at: Some(Utc::now()) };
       return FetchOutcome::Fetched { releases: CraftAppReleases::default(), history, etag: None };
     }
     Response::NotModified => return FetchOutcome::NotModified,
@@ -104,7 +104,10 @@ pub async fn fetch_releases(client: &wreq::Client, repo: &str, etag: Option<&str
     }
   }
   match settle(all, listed) {
-    Ok((releases, history)) => FetchOutcome::Fetched { releases, history: CraftAppHistory { etag: etag.clone(), ..history }, etag },
+    Ok((releases, history)) => {
+      let history = CraftAppHistory { etag: etag.clone(), fetched_at: Some(Utc::now()), ..history };
+      FetchOutcome::Fetched { releases, history, etag }
+    }
     Err(why) => FetchOutcome::Failed(why),
   }
 }
@@ -128,7 +131,7 @@ pub fn settle(mut all: Vec<CraftAppRelease>, listed: usize) -> Result<(CraftAppR
   if releases.latest_release.is_none() && !complete {
     return Err(format!("no stable release among the newest {} releases", MAX_PAGES * RELEASES_PER_PAGE));
   }
-  Ok((releases, CraftAppHistory { etag: None, complete, releases: all }))
+  Ok((releases, CraftAppHistory { etag: None, complete, releases: all, fetched_at: None }))
 }
 
 /// Sends one GET to GitHub and sorts out the answer. A body larger than a page may be fails.
@@ -157,6 +160,9 @@ async fn send(client: &wreq::Client, url: &str, etag: Option<&str>, token: Optio
     }
     StatusCode::OK => {
       let etag = header(ETAG.as_str());
+      if response.content_length().is_some_and(|announced| announced > MAX_LIST_BODY_BYTES as u64) {
+        return Response::Failed(format!("answer too large ({} bytes announced)", response.content_length().unwrap_or_default()));
+      }
       match response.bytes().await {
         Ok(b) if b.len() <= MAX_LIST_BODY_BYTES => Response::Body { body: b.to_vec(), etag },
         Ok(b) => Response::Failed(format!("answer too large ({} bytes)", b.len())),
@@ -242,7 +248,9 @@ pub fn parse_release_list(body: &[u8], repo: &str) -> Result<(Vec<CraftAppReleas
 }
 
 /// Sorts an app's releases (newest first, as GitHub lists them) into what `release_info` serves:
-/// the first stable release, beta and nightly, and the first [`MAX_VERSION_LIST`] ordinary ones.
+/// the stable release and beta with the highest version (as ArtCraft Launcher ranks them, so a
+/// backport published after a newer release doesn't become the latest), the most recently
+/// published nightly, and the first [`MAX_VERSION_LIST`] ordinary releases.
 pub fn sort_releases(all: &[CraftAppRelease]) -> CraftAppReleases {
   let mut releases = CraftAppReleases::default();
   for release in all {
@@ -254,9 +262,25 @@ pub fn sort_releases(all: &[CraftAppRelease]) -> CraftAppReleases {
       releases.releases.push(release.into());
     }
     let slot = if release.prerelease { &mut releases.latest_prerelease } else { &mut releases.latest_release };
-    slot.get_or_insert_with(|| release.clone());
+    if slot.as_ref().is_none_or(|kept| is_higher(release, kept)) {
+      *slot = Some(release.clone());
+    }
   }
   releases
+}
+
+/// Whether `a`'s version is higher than `b`'s. A tag that isn't a version never outranks one that
+/// is, and between two such tags the one listed first stays.
+fn is_higher(a: &CraftAppRelease, b: &CraftAppRelease) -> bool {
+  match (version_of(&a.tag), version_of(&b.tag)) {
+    (Some(a), Some(b)) => a > b,
+    (Some(_), None) => true,
+    _ => false,
+  }
+}
+
+fn version_of(tag: &str) -> Option<semver::Version> {
+  semver::Version::parse(tag.strip_prefix(['v', 'V']).unwrap_or(tag)).ok()
 }
 
 /// Whether the tag's pre-release part has a `nightly` identifier, as ArtCraft Launcher reads it
@@ -491,6 +515,17 @@ mod tests {
       assert!(settle(all.clone(), listed).is_err());
       let (releases, history) = settle(all, 3).unwrap();
       assert!(releases.latest_release.is_none() && history.complete);
+    }
+
+    /// A backport published after a newer release doesn't replace it as the latest, and the same
+    /// holds for betas; the version list keeps GitHub's order.
+    #[test]
+    fn the_latest_stable_release_and_beta_are_the_highest_versions() {
+      let page = list(&[entry("v0.4.3", false), entry("v0.6.0-rc.1", true), entry("v0.5.0", false), entry("v0.6.0-rc.2", true), entry("latest", false)]);
+      let releases = sort_releases(&parse_release_list(page.as_bytes(), REPO).unwrap().0);
+      assert_eq!(tag(&releases.latest_release), Some("v0.5.0"));
+      assert_eq!(tag(&releases.latest_prerelease), Some("v0.6.0-rc.2"));
+      assert_eq!(releases.releases[0].tag, "v0.4.3");
     }
 
     #[test]

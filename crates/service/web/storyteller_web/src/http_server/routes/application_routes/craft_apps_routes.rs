@@ -28,7 +28,8 @@ where
       // One app's release history (choosing a version, going back, nightlies).
       .service(
         web::resource("/{app_key}/releases")
-          .route(web::get().to(get_craft_app_releases_handler)),
+          .route(web::get().to(get_craft_app_releases_handler))
+          .route(web::head().to(|| HttpResponse::Ok())),
       ),
   )
 }

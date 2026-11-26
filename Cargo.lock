@@ -8687,6 +8687,7 @@ dependencies = [
  "rootly_config",
  "rust-s3",
  "rustls 0.23.36",
+ "semver 1.0.23",
  "serde",
  "serde_derive",
  "serde_json",

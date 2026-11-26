@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn a_history_round_trips_and_garbage_reads_as_absent() {
-      let history = CraftAppHistory { etag: Some("\"e1\"".into()), complete: true, releases: vec![release("v0.5.0", false)] };
+      let history = CraftAppHistory { etag: Some("\"e1\"".into()), complete: true, releases: vec![release("v0.5.0", false)], fetched_at: None };
       let read = decode_history(&encode_history(&history).unwrap()).unwrap();
       assert_eq!((read.etag.as_deref(), read.complete, read.releases.len()), (Some("\"e1\""), true, 1));
       assert!(decode_history("{not json").is_none());

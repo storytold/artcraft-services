@@ -80,7 +80,7 @@ mod tests {
     let unfetched = releases_response("photocraft".into(), &cache.app("photocraft").unwrap());
     assert!(unfetched.app_last_fetched.is_none() && unfetched.releases.is_empty());
 
-    let history = CraftAppHistory { etag: None, complete: false, releases: Vec::new() };
+    let history = CraftAppHistory { etag: None, complete: false, releases: Vec::new(), fetched_at: None };
     cache.store("photocraft", CraftAppReleases::default(), history, None, Utc::now());
     let fetched = releases_response("photocraft".into(), &cache.app("photocraft").unwrap());
     assert!(fetched.app_last_fetched.is_some());
@@ -92,7 +92,7 @@ mod tests {
   fn a_history_behind_its_releases_is_never_called_complete() {
     let cache = CraftAppsReleaseCache::new();
     cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
-    let complete = CraftAppHistory { etag: Some("\"a\"".into()), complete: true, releases: Vec::new() };
+    let complete = CraftAppHistory { etag: Some("\"a\"".into()), complete: true, releases: Vec::new(), fetched_at: None };
     cache.store("photocraft", CraftAppReleases::default(), complete, Some("\"a\"".into()), Utc::now());
     assert!(releases_response("photocraft".into(), &cache.app("photocraft").unwrap()).complete);
     // Another instance fetched newer releases; their history isn't read yet.

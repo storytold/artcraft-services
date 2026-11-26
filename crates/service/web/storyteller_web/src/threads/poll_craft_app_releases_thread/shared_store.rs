@@ -45,9 +45,9 @@ const CONNECTION_TIMEOUT: Duration = Duration::from_secs(3);
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
 /// Longest wait for a whole call, connection included.
 const CALL_TIMEOUT: Duration = Duration::from_secs(10);
-/// How long a claim on an app keeps other instances from requesting it too: longer than one
-/// request can take (10 s to connect, 30 s for the answer), plus a margin.
-pub const CLAIM_WINDOW: Duration = Duration::from_secs(60);
+/// How long a claim on an app keeps other instances from requesting it too: longer than one fetch
+/// can take (up to 10 pages, each at most 10 s to connect and 30 s for the answer), plus a margin.
+pub const CLAIM_WINDOW: Duration = Duration::from_secs(7 * 60);
 /// Without scripts: how many times a guarded write decides again after another instance wrote
 /// between its read and its write, before giving up (as if it lost the race).
 const WATCH_ATTEMPTS: usize = 3;
@@ -178,6 +178,13 @@ impl SharedStore {
     }).await
   }
 
+  /// Extends the shared history's TTL to the entry's.
+  async fn touch_history(&self, app_key: &str) -> anyhow::Result<()> {
+    let key = CraftAppReleaseHistoryRedisKey::new_for_app(app_key).to_string();
+    let ttl_ms = CraftAppReleaseHistoryRedisKey::get_redis_ttl().num_milliseconds();
+    self.run(move |conn| redis::cmd("PEXPIRE").arg(&key).arg(ttl_ms).query::<()>(conn)).await
+  }
+
   /// The shared history of `app_key`, `None` when absent or unreadable.
   pub async fn read_history(&self, app_key: &str) -> anyhow::Result<Option<CraftAppHistory>> {
     let key = CraftAppReleaseHistoryRedisKey::new_for_app(app_key).to_string();
@@ -211,6 +218,8 @@ impl SharedStore {
 
   /// Shares a failed request, unless a newer failure is already shared. Returns whether written.
   pub async fn write_failure(&self, app_key: &str, failure: SharedFailure) -> anyhow::Result<bool> {
+    // Failures keep the entry alive; the history lives as long, so it isn't the one to expire.
+    self.touch_history(app_key).await?;
     self.guarded_write(GuardedWrite {
       key: CraftAppReleaseRedisKey::new_for_app(app_key).to_string(),
       time_field: shared_entry::FIELD_FAILED_MS,
@@ -524,7 +533,8 @@ mod tests {
 
     #[test]
     fn a_claim_waits_for_the_window() {
-      let claim = guarded_write_at(t(1), CLAIM_WINDOW, None);
+      let window = chrono::Duration::from_std(CLAIM_WINDOW).unwrap();
+      let claim = guarded_write_at(t(0) + window, CLAIM_WINDOW, None);
       assert!(!write_wins(&claim, Some(&ms(t(0) + chrono::Duration::seconds(30))), None));
       assert!(write_wins(&claim, Some(&ms(t(0))), None), "exactly one window later");
     }
@@ -601,7 +611,7 @@ mod tests {
     assert!(pod_b.claim(&app, t(2)).await.unwrap());
 
     // A newer fetch is never replaced by an older one.
-    let history = |etag: &str| CraftAppHistory { etag: Some(etag.into()), complete: true, releases: Vec::new() };
+    let history = |etag: &str| CraftAppHistory { etag: Some(etag.into()), complete: true, releases: Vec::new(), fetched_at: None };
     assert!(pod_a.write_fetched(&app, &CraftAppReleases::default(), &history("\"e2\""), Some("\"e2\""), t(2)).await.unwrap());
     assert!(!pod_b.write_fetched(&app, &CraftAppReleases::default(), &history("\"e1\""), Some("\"e1\""), t(1)).await.unwrap());
     assert_eq!(pod_b.read_history(&app).await.unwrap().unwrap().etag.as_deref(), Some("\"e2\""), "the losing write's history isn't shared");
