@@ -58,7 +58,7 @@ pub struct CraftAppReleaseInfo {
   /// `latest_release` says nothing and clients should ask GitHub themselves.
   pub app_last_fetched: Option<DateTime<Utc>>,
 
-  /// The newest beta or release candidate: a pre-release that isn't a nightly. It may be older
+  /// The beta or release candidate with the highest version: a pre-release that isn't a nightly. It may be older
   /// than `latest_release`; clients compare versions. Absent when none is among the recent
   /// releases (see `releases`).
   #[serde(default)]

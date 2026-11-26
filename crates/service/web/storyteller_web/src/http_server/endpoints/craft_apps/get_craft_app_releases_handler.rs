@@ -96,7 +96,7 @@ mod tests {
     cache.store("photocraft", CraftAppReleases::default(), complete, Some("\"a\"".into()), Utc::now());
     assert!(releases_response("photocraft".into(), &cache.app("photocraft").unwrap()).complete);
     // Another instance fetched newer releases; their history isn't read yet.
-    cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"b\"".into()), Utc::now() + chrono::Duration::seconds(5));
+    cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"b\"".into()), Utc::now() + chrono::Duration::seconds(5), None);
     assert!(!releases_response("photocraft".into(), &cache.app("photocraft").unwrap()).complete);
   }
 

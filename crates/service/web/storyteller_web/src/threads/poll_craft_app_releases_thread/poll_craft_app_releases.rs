@@ -312,7 +312,7 @@ fn needs_full_read(app: &crate::state::craft_apps_release_cache::CachedCraftApp,
 /// Takes a shared entry into memory (only what is newer than what this instance has).
 fn merge_shared_entry(cache: &CraftAppsReleaseCache, key: &str, entry: SharedAppEntry) {
   if let Some(fetched) = entry.fetched {
-    cache.merge_fetched(key, fetched.releases, fetched.etag, fetched.fetched_at);
+    cache.merge_fetched(key, fetched.releases, fetched.etag, fetched.fetched_at, fetched.history_at);
   }
   if let Some(failure) = entry.failure {
     cache.merge_failure(key, failure.failed_at, failure.consecutive_failures);
@@ -479,7 +479,7 @@ mod tests {
   fn shared_entries_merge_into_memory() {
     let cache = registered_cache();
     let at = Utc::now();
-    let fields = encode_fetch(&CraftAppReleases::default(), Some("\"e\""), at, "pod").unwrap();
+    let fields = encode_fetch(&CraftAppReleases::default(), Some("\"e\""), at, None, "pod").unwrap();
     let map = fields.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
     merge_shared_entry(&cache, "photocraft", decode_app_entry(&map).unwrap());
     assert_eq!(fetched_at(&cache, "photocraft").map(|t| t.timestamp_millis()), Some(at.timestamp_millis()));
