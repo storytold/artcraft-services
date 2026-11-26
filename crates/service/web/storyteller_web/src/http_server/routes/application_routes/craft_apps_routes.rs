@@ -29,7 +29,7 @@ where
       .service(
         web::resource("/{app_key}/releases")
           .route(web::get().to(get_craft_app_releases_handler))
-          .route(web::head().to(|| HttpResponse::Ok())),
+          .route(web::head().to(get_craft_app_releases_handler)),
       ),
   )
 }

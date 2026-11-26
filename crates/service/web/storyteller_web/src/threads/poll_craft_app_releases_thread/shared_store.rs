@@ -608,7 +608,7 @@ mod tests {
     // Two instances tick together: only one gets to ask GitHub; the claim lapses after the window.
     assert!(pod_a.claim(&app, t(0)).await.unwrap());
     assert!(!pod_b.claim(&app, t(0) + chrono::Duration::seconds(5)).await.unwrap());
-    assert!(pod_b.claim(&app, t(2)).await.unwrap());
+    assert!(pod_b.claim(&app, t(0) + chrono::Duration::from_std(CLAIM_WINDOW).unwrap()).await.unwrap());
 
     // A newer fetch is never replaced by an older one.
     let history = |etag: &str| CraftAppHistory { etag: Some(etag.into()), complete: true, releases: Vec::new(), fetched_at: None };
