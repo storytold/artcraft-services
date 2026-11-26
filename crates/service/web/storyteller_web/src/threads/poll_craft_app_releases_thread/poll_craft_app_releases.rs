@@ -323,9 +323,8 @@ mod tests {
     let latest = photocraft.latest_release.as_ref().unwrap();
     assert!(latest.assets.iter().any(|a| a.platform.is_some() && a.sha256.is_some()));
     assert!(!latest.prerelease);
-    // The stable release may come from a later page than the version list, so only that the
-    // list is filled is checked here; the sorting itself is tested in `github`.
-    assert!(!photocraft.releases.is_empty());
+    // The version list comes from the first page only and may be empty (all nightlies) while
+    // the stable release comes from a later one; its sorting is tested in `github`.
     let response = GetCraftAppsReleaseInfoResponse {
       success: true,
       release_info: info,
