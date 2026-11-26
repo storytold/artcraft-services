@@ -118,7 +118,11 @@ pub fn read_more(listed: usize, page: usize) -> bool {
 /// What the pages read say, newest first, the last of them holding `listed` releases: the
 /// channels and the history (complete when the last page wasn't full). Fails when the history is
 /// incomplete and has no stable release, which is then further back.
-pub fn settle(all: Vec<CraftAppRelease>, listed: usize) -> Result<(CraftAppReleases, CraftAppHistory), String> {
+pub fn settle(mut all: Vec<CraftAppRelease>, listed: usize) -> Result<(CraftAppReleases, CraftAppHistory), String> {
+  // A release published between two page reads moves the last one of a page onto the next: keep
+  // each tag once, where it first appeared.
+  let mut seen = std::collections::HashSet::new();
+  all.retain(|release| seen.insert(release.tag.clone()));
   let complete = listed < RELEASES_PER_PAGE;
   let releases = sort_releases(&all);
   if releases.latest_release.is_none() && !complete {
@@ -487,6 +491,17 @@ mod tests {
       assert!(settle(all.clone(), listed).is_err());
       let (releases, history) = settle(all, 3).unwrap();
       assert!(releases.latest_release.is_none() && history.complete);
+    }
+
+    #[test]
+    fn a_release_seen_on_two_pages_is_kept_once() {
+      let (mut all, _) = parse_release_list(list(&[entry("v0.6.0", false), entry("v0.5.0", false)]).as_bytes(), REPO).unwrap();
+      let (next, listed) = parse_release_list(list(&[entry("v0.5.0", false), entry("v0.4.0", false)]).as_bytes(), REPO).unwrap();
+      all.extend(next);
+      let (releases, history) = settle(all, listed).unwrap();
+      let tags: Vec<&str> = history.releases.iter().map(|r| r.tag.as_str()).collect();
+      assert_eq!(tags, ["v0.6.0", "v0.5.0", "v0.4.0"]);
+      assert_eq!(releases.releases.len(), 3);
     }
 
     #[test]
