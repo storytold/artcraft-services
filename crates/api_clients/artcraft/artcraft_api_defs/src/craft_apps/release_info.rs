@@ -70,9 +70,9 @@ pub struct CraftAppReleaseInfo {
   #[serde(default)]
   pub latest_nightly: Option<CraftAppRelease>,
 
-  /// The recent ordinary releases (stable ones and pre-releases, never nightlies), newest
-  /// first, without notes or files: from the 30 newest releases GitHub lists, so older versions
-  /// are missing.
+  /// The 30 newest ordinary releases (stable ones and pre-releases, never nightlies), newest
+  /// first, without notes or files. The whole history, with files, is
+  /// `GET /v1/craft_apps/{app_key}/releases`.
   #[serde(default)]
   pub releases: Vec<CraftAppReleaseSummary>,
 }

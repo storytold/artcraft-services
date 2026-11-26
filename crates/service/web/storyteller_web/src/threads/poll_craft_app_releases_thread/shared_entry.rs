@@ -18,6 +18,13 @@
 //! | `claimed_ms` | When an instance last started a request for the app (Unix ms), to skip doubles |
 //! | `by`         | Hostname of the instance that wrote last, for debugging                        |
 //!
+//! ## `craftApps:releases:v2:history:<app key>` (string, 7 day TTL, refreshed with the hash)
+//!
+//! The app's whole release history as JSON (`CraftAppHistory`), written right after a fetch wins
+//! the hash above. Its `etag` says which fetch it belongs to: an instance takes it only while the
+//! hash holds the same ETag, and reads it only when its own history is behind, so the every-tick
+//! read of the hashes stays small.
+//!
 //! ## `craftApps:releases:backoff` (hash, 1 day TTL; deleted after a good round)
 //!
 //! | Field      | Meaning                                                         |
@@ -34,7 +41,7 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 
-use crate::state::craft_apps_release_cache::CraftAppReleases;
+use crate::state::craft_apps_release_cache::{CraftAppHistory, CraftAppReleases};
 use crate::threads::poll_craft_app_releases_thread::scheduling::Backoff;
 
 pub const FORMAT_VERSION: &str = "1";
@@ -113,6 +120,16 @@ pub fn encode_failure(failure: SharedFailure, by: &str) -> Vec<(&'static str, St
     (FIELD_FAILURES, failure.consecutive_failures.to_string()),
     (FIELD_BY, by.to_string()),
   ]
+}
+
+/// The JSON shared for an app's history.
+pub fn encode_history(history: &CraftAppHistory) -> Result<String, serde_json::Error> {
+  serde_json::to_string(history)
+}
+
+/// Reads a shared history; `None` when it is unreadable (it is then read again next time).
+pub fn decode_history(json: &str) -> Option<CraftAppHistory> {
+  serde_json::from_str(json).ok()
 }
 
 /// Reads the backoff hash; anything absent or unreadable is no backoff.
@@ -229,6 +246,19 @@ mod tests {
       fields.remove(FIELD_RELEASES);
       fields.insert("release".into(), serde_json::to_string(&releases().latest_release).unwrap());
       assert!(decode_app_entry(&fields).unwrap().fetched.is_none());
+    }
+  }
+
+  mod histories {
+    use super::*;
+
+    #[test]
+    fn a_history_round_trips_and_garbage_reads_as_absent() {
+      let history = CraftAppHistory { etag: Some("\"e1\"".into()), complete: true, releases: vec![release("v0.5.0", false)] };
+      let read = decode_history(&encode_history(&history).unwrap()).unwrap();
+      assert_eq!((read.etag.as_deref(), read.complete, read.releases.len()), (Some("\"e1\""), true, 1));
+      assert!(decode_history("{not json").is_none());
+      assert!(decode_history(r#"{"releases": [{"tag": 1}]}"#).is_none());
     }
   }
 

@@ -1,12 +1,13 @@
-//! The request to GitHub for an app's releases, and reading the answer.
+//! The requests to GitHub for an app's releases, and reading the answers.
 //!
-//! One request per app: `GET /repos/{repo}/releases?per_page=30`, the newest releases (GitHub
-//! lists them newest first), sorted into the latest stable release, the newest beta or release
-//! candidate, the newest nightly and the version list. `/releases/latest` never returns a
-//! pre-release, which is why the list is asked instead. Only when the page is full and holds no
-//! stable release (betas or nightlies pushed it off the page) are the next pages read, for the
-//! stable release alone, up to [`MAX_PAGES`]. Not `/releases/latest` for that: GitHub lets any
-//! release without the pre-release flag be the latest one, a nightly too.
+//! `GET /repos/{repo}/releases?per_page=100`, revalidated with the ETag: one request per app and
+//! interval while nothing changed. When the first page changed (a `200`), the next pages are read
+//! too while each is full, up to [`MAX_PAGES`]: the app's whole release history, which
+//! `GET /v1/craft_apps/{app}/releases` serves (choosing a version, going back to one, nightly
+//! discovery). [`sort_releases`] picks from it the latest stable release, the newest beta or
+//! release candidate, the newest nightly and the recent version list that `release_info` serves.
+//! Not `/releases/latest`: it never returns a pre-release, and GitHub lets a nightly without the
+//! pre-release flag be the latest release.
 
 use std::time::Duration;
 
@@ -19,24 +20,26 @@ use artcraft_api_defs::craft_apps::release_info::{
   CraftAppArch, CraftAppAssetPlatform, CraftAppOs, CraftAppPackageType, CraftAppRelease, CraftAppReleaseAsset,
 };
 
-use crate::state::craft_apps_release_cache::CraftAppReleases;
+use crate::state::craft_apps_release_cache::{CraftAppHistory, CraftAppReleases};
 
 const API_BASE: &str = "https://api.github.com";
-/// Releases asked for in one request. A page of 30 is 2-4 MB from GitHub today (each release
-/// carries its notes and ~50 files); 100 would be up to 10 MB for an app with daily nightlies.
-pub const RELEASES_PER_PAGE: usize = 30;
+/// Releases asked for in one request, GitHub's most. A page is up to 10 MB from GitHub today
+/// (each release carries its notes and ~50 files), for an app with daily nightlies.
+pub const RELEASES_PER_PAGE: usize = 100;
 const MAX_NOTES_BYTES: usize = 64 * 1024;
 const MAX_ASSETS: usize = 200;
-/// The most pages read looking for the stable release, as ArtCraft Launcher reads GitHub's list.
-pub const MAX_PAGES: usize = 5;
+/// The most pages read: the history stops (and is marked incomplete) after this many releases.
+pub const MAX_PAGES: usize = 10;
+/// The most entries in the version list `release_info` serves; the whole history is per app.
+pub const MAX_VERSION_LIST: usize = 30;
 /// A page of releases.
 const MAX_LIST_BODY_BYTES: usize = 32 * 1024 * 1024;
 
 /// What one fetch produced.
 #[derive(Debug)]
 pub enum FetchOutcome {
-  /// The app's releases (empty: the repository has no published release).
-  Fetched { releases: CraftAppReleases, etag: Option<String> },
+  /// The app's releases (empty: the repository has no published release) and its history.
+  Fetched { releases: CraftAppReleases, history: CraftAppHistory, etag: Option<String> },
   /// `If-None-Match` matched: what we have is current.
   NotModified,
   /// GitHub refused: out of quota until this time, if it said.
@@ -61,51 +64,69 @@ pub fn build_client() -> wreq::Result<wreq::Client> {
       .build()
 }
 
-/// `repo`'s releases: `GET /repos/{repo}/releases?per_page=30`, revalidated with `etag`, plus
-/// the next pages while [`needs_next_page`] says so. `token` is optional: without one the
-/// requests are unauthenticated. All or nothing: if a later page fails, so does the fetch, and
-/// so does one that finds no stable release in [`MAX_PAGES`] full pages, rather than storing
-/// "no release" for an app that has one further back.
+/// `repo`'s releases: the first page, revalidated with `etag`, then the next pages while
+/// [`read_more`] says so. `token` is optional: without one the requests are unauthenticated. All
+/// or nothing: if a later page fails, so does the fetch, and [`settle`] fails one that found no
+/// stable release in an incomplete history, rather than storing "no release" for an app that has
+/// one further back.
 pub async fn fetch_releases(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> FetchOutcome {
   let (body, etag) = match send(client, &list_url(repo, 1), etag, token).await {
     Response::Body { body, etag } => (body, etag),
-    Response::NotFound => return FetchOutcome::Fetched { releases: CraftAppReleases::default(), etag: None },
+    Response::NotFound => {
+      let history = CraftAppHistory { etag: None, complete: true, releases: Vec::new() };
+      return FetchOutcome::Fetched { releases: CraftAppReleases::default(), history, etag: None };
+    }
     Response::NotModified => return FetchOutcome::NotModified,
     Response::RateLimited { retry_at } => return FetchOutcome::RateLimited { retry_at },
     Response::Failed(why) => return FetchOutcome::Failed(why),
   };
-  let (mut releases, listed) = match parse_release_list(&body, repo) {
+  let (mut all, mut listed) = match parse_release_list(&body, repo) {
     Ok(read) => read,
     Err(why) => return FetchOutcome::Failed(why),
   };
-  let mut listed = listed;
-  for page in 2..=MAX_PAGES + 1 {
-    if !needs_next_page(&releases, listed) {
-      break;
-    }
-    if page > MAX_PAGES {
-      return FetchOutcome::Failed(format!("no stable release among the newest {} releases", MAX_PAGES * RELEASES_PER_PAGE));
-    }
+  let mut page = 1;
+  while read_more(listed, page) {
+    page += 1;
     let body = match send(client, &list_url(repo, page), None, token).await {
       Response::Body { body, .. } => body,
-      Response::NotFound => break,
+      Response::NotFound => {
+        listed = 0;
+        break;
+      }
       Response::NotModified => return FetchOutcome::Failed("unexpected 304 for a later page".into()),
       Response::RateLimited { retry_at } => return FetchOutcome::RateLimited { retry_at },
       Response::Failed(why) => return FetchOutcome::Failed(why),
     };
     match parse_release_list(&body, repo) {
-      // Only the stable release: the channels and the version list come from the first page.
-      Ok((later, n)) => (releases.latest_release, listed) = (later.latest_release, n),
+      Ok((more, n)) => {
+        all.extend(more);
+        listed = n;
+      }
       Err(why) => return FetchOutcome::Failed(why),
     }
   }
-  FetchOutcome::Fetched { releases, etag }
+  match settle(all, listed) {
+    Ok((releases, history)) => FetchOutcome::Fetched { releases, history: CraftAppHistory { etag: etag.clone(), ..history }, etag },
+    Err(why) => FetchOutcome::Failed(why),
+  }
 }
 
-/// Whether the next page must be read for the stable release: the last page was full (`listed`
-/// releases in it) and none so far was a stable release, so it is further back.
-pub fn needs_next_page(releases: &CraftAppReleases, listed: usize) -> bool {
-  releases.latest_release.is_none() && listed >= RELEASES_PER_PAGE
+/// Whether to read the page after `page`: the last one read held `listed` releases, so a full one
+/// may have more behind it, up to [`MAX_PAGES`].
+pub fn read_more(listed: usize, page: usize) -> bool {
+  listed >= RELEASES_PER_PAGE && page < MAX_PAGES
+}
+
+/// What the pages read say, newest first, the last of them holding `listed` releases: the
+/// channels and the history (complete when the last page wasn't full). Fails when the history is
+/// incomplete and has no stable release, which is then further back.
+pub fn settle(all: Vec<CraftAppRelease>, listed: usize) -> Result<(CraftAppReleases, CraftAppHistory), String> {
+  let complete = listed < RELEASES_PER_PAGE;
+  let releases = sort_releases(&all);
+  if releases.latest_release.is_none() && !complete {
+    return Err(format!("no stable release among the newest {} releases", MAX_PAGES * RELEASES_PER_PAGE));
+  }
+  Ok((releases, CraftAppHistory { etag: None, complete, releases: all }))
 }
 
 /// Sends one GET to GitHub and sorts out the answer. A body larger than a page may be fails.
@@ -204,26 +225,36 @@ struct GithubAsset {
   digest: Option<String>,
 }
 
-/// Reads a page of releases (newest first) into the app's releases, and says how many the page
-/// listed. A release that can't be read (a draft, no tag, the wrong shape) is skipped; only an
-/// answer that isn't a list fails.
-pub fn parse_release_list(body: &[u8], repo: &str) -> Result<(CraftAppReleases, usize), String> {
+/// Reads a page of releases (newest first), and says how many the page listed. A release that
+/// can't be read (a draft, no tag, the wrong shape) is skipped; only an answer that isn't a list
+/// fails.
+pub fn parse_release_list(body: &[u8], repo: &str) -> Result<(Vec<CraftAppRelease>, usize), String> {
   let raw: Vec<serde_json::Value> = serde_json::from_slice(body).map_err(|e| format!("unreadable release list: {e}"))?;
   let listed = raw.len();
+  let releases = raw
+      .into_iter()
+      .take(RELEASES_PER_PAGE)
+      .filter_map(|value| serde_json::from_value::<GithubRelease>(value).ok().and_then(|r| read_release(r, repo).ok()))
+      .collect();
+  Ok((releases, listed))
+}
+
+/// Sorts an app's releases (newest first, as GitHub lists them) into what `release_info` serves:
+/// the first stable release, beta and nightly, and the first [`MAX_VERSION_LIST`] ordinary ones.
+pub fn sort_releases(all: &[CraftAppRelease]) -> CraftAppReleases {
   let mut releases = CraftAppReleases::default();
-  for value in raw.into_iter().take(RELEASES_PER_PAGE) {
-    let Some(release) = serde_json::from_value::<GithubRelease>(value).ok().and_then(|r| read_release(r, repo).ok()) else {
-      continue;
-    };
+  for release in all {
     if is_nightly_tag(&release.tag) {
-      releases.latest_nightly.get_or_insert(release);
+      releases.latest_nightly.get_or_insert_with(|| release.clone());
       continue;
     }
-    releases.releases.push((&release).into());
+    if releases.releases.len() < MAX_VERSION_LIST {
+      releases.releases.push(release.into());
+    }
     let slot = if release.prerelease { &mut releases.latest_prerelease } else { &mut releases.latest_release };
-    slot.get_or_insert(release);
+    slot.get_or_insert_with(|| release.clone());
   }
-  Ok((releases, listed))
+  releases
 }
 
 /// Whether the tag's pre-release part has a `nightly` identifier, as ArtCraft Launcher reads it
@@ -371,8 +402,8 @@ mod tests {
 
   #[test]
   fn asks_for_a_page_of_releases_and_later_pages_by_number() {
-    assert_eq!(list_url(REPO, 1), "https://api.github.com/repos/storytold/photocraft/releases?per_page=30");
-    assert_eq!(list_url(REPO, 2), "https://api.github.com/repos/storytold/photocraft/releases?per_page=30&page=2");
+    assert_eq!(list_url(REPO, 1), "https://api.github.com/repos/storytold/photocraft/releases?per_page=100");
+    assert_eq!(list_url(REPO, 2), "https://api.github.com/repos/storytold/photocraft/releases?per_page=100&page=2");
   }
 
   mod release_lists {
@@ -388,8 +419,10 @@ mod tests {
         entry("v0.6.0-rc.1", true),
         entry("v0.5.0", false),
       ]);
-      let (releases, listed) = parse_release_list(page.as_bytes(), REPO).unwrap();
+      let (all, listed) = parse_release_list(page.as_bytes(), REPO).unwrap();
       assert_eq!(listed, 6);
+      assert_eq!(all.len(), 6, "the history keeps every release, nightlies too");
+      let releases = sort_releases(&all);
       assert_eq!(tag(&releases.latest_release), Some("v0.5.1"));
       assert_eq!(tag(&releases.latest_prerelease), Some("v0.6.0-rc.2"));
       assert_eq!(tag(&releases.latest_nightly), Some("v0.6.0-nightly.20261126.2.1"));
@@ -402,7 +435,7 @@ mod tests {
     #[test]
     fn a_nightly_without_the_prerelease_flag_is_still_a_nightly_never_the_stable_release() {
       let page = list(&[entry("v0.6.0-nightly.20261126.2.1", false), entry("v0.5.0", false)]);
-      let (releases, _) = parse_release_list(page.as_bytes(), REPO).unwrap();
+      let releases = sort_releases(&parse_release_list(page.as_bytes(), REPO).unwrap().0);
       assert_eq!(tag(&releases.latest_release), Some("v0.5.0"));
       assert_eq!(tag(&releases.latest_nightly), Some("v0.6.0-nightly.20261126.2.1"));
       assert_eq!(releases.releases.len(), 1);
@@ -417,10 +450,10 @@ mod tests {
         r#""not a release""#,
         entry("v0.5.0", false),
       );
-      let (releases, listed) = parse_release_list(page.as_bytes(), REPO).unwrap();
-      assert_eq!(listed, 4);
-      assert_eq!(tag(&releases.latest_release), Some("v0.5.0"));
-      assert_eq!(releases.releases.len(), 1);
+      let (all, listed) = parse_release_list(page.as_bytes(), REPO).unwrap();
+      assert_eq!(listed, 4, "a skipped entry still counts toward a full page");
+      assert_eq!(all.len(), 1);
+      assert_eq!(tag(&sort_releases(&all).latest_release), Some("v0.5.0"));
     }
 
     #[test]
@@ -430,44 +463,49 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_page_is_a_repo_without_releases() {
-      let (releases, listed) = parse_release_list(b"[]", REPO).unwrap();
-      assert_eq!(listed, 0);
+    fn an_empty_page_is_a_complete_history_without_releases() {
+      let (all, listed) = parse_release_list(b"[]", REPO).unwrap();
+      assert!(!read_more(listed, 1));
+      let (releases, history) = settle(all, listed).unwrap();
       assert!(releases.latest_release.is_none() && releases.releases.is_empty());
-      assert!(!needs_next_page(&releases, listed));
+      assert!(history.complete && history.releases.is_empty());
     }
 
     #[test]
-    fn the_next_page_is_read_only_when_a_full_page_has_no_stable_release() {
-      let nightlies: Vec<String> = (0..RELEASES_PER_PAGE).map(|i| entry(&format!("v0.6.0-nightly.202611{:02}.{i}.1", i % 28 + 1), true)).collect();
-      let (releases, listed) = parse_release_list(list(&nightlies).as_bytes(), REPO).unwrap();
-      assert!(needs_next_page(&releases, listed), "the stable release is on a later page");
-
-      let (releases, listed) = parse_release_list(list(&nightlies[..RELEASES_PER_PAGE - 1]).as_bytes(), REPO).unwrap();
-      assert!(!needs_next_page(&releases, listed), "a page that isn't full is everything there is");
-
-      let mut with_stable = nightlies.clone();
-      with_stable[RELEASES_PER_PAGE - 1] = entry("v0.5.0", false);
-      let (releases, listed) = parse_release_list(list(&with_stable).as_bytes(), REPO).unwrap();
-      assert!(!needs_next_page(&releases, listed));
+    fn later_pages_are_read_while_each_is_full_up_to_the_cap() {
+      assert!(read_more(RELEASES_PER_PAGE, 1));
+      assert!(!read_more(RELEASES_PER_PAGE - 1, 1), "a page that isn't full is the last one");
+      assert!(read_more(RELEASES_PER_PAGE, MAX_PAGES - 1));
+      assert!(!read_more(RELEASES_PER_PAGE, MAX_PAGES), "the cap");
     }
 
-    /// A nightly without the pre-release flag (which GitHub may call the latest release) doesn't
-    /// stop the search: the stable release behind it is looked for on the next page.
+    /// Nightlies without the pre-release flag (one of which GitHub may call the latest release)
+    /// don't count as stable: with the history cut off and no stable release in it, the fetch
+    /// fails instead of storing "no release"; with the whole history read, there truly is none.
     #[test]
-    fn a_page_of_nightlies_without_the_prerelease_flag_still_asks_for_the_next() {
+    fn no_stable_release_fails_only_when_the_history_is_cut_off() {
       let nightlies: Vec<String> = (0..RELEASES_PER_PAGE).map(|i| entry(&format!("v0.6.0-nightly.202611{:02}.{i}.1", i % 28 + 1), false)).collect();
-      let (releases, listed) = parse_release_list(list(&nightlies).as_bytes(), REPO).unwrap();
-      assert!(releases.latest_release.is_none());
-      assert!(needs_next_page(&releases, listed));
+      let (all, listed) = parse_release_list(list(&nightlies).as_bytes(), REPO).unwrap();
+      assert!(settle(all.clone(), listed).is_err());
+      let (releases, history) = settle(all, 3).unwrap();
+      assert!(releases.latest_release.is_none() && history.complete);
+    }
+
+    #[test]
+    fn the_version_list_is_capped_but_the_history_is_not() {
+      let many: Vec<String> = (0..MAX_VERSION_LIST + 5).map(|i| entry(&format!("v0.{i}.0"), false)).collect();
+      let (all, listed) = parse_release_list(list(&many).as_bytes(), REPO).unwrap();
+      let (releases, history) = settle(all, listed).unwrap();
+      assert_eq!(releases.releases.len(), MAX_VERSION_LIST);
+      assert_eq!(history.releases.len(), MAX_VERSION_LIST + 5);
     }
 
     #[test]
     fn reads_at_most_one_page_however_long_the_answer() {
       let many: Vec<String> = (0..RELEASES_PER_PAGE + 5).map(|i| entry(&format!("v0.{i}.0"), false)).collect();
-      let (releases, listed) = parse_release_list(list(&many).as_bytes(), REPO).unwrap();
+      let (all, listed) = parse_release_list(list(&many).as_bytes(), REPO).unwrap();
       assert_eq!(listed, RELEASES_PER_PAGE + 5);
-      assert_eq!(releases.releases.len(), RELEASES_PER_PAGE);
+      assert_eq!(all.len(), RELEASES_PER_PAGE);
     }
 
     fn entry(tag: &str, prerelease: bool) -> String {

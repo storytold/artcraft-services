@@ -156,11 +156,32 @@ impl Poller {
           }
         }
         self.backoff = backoff;
+        self.sync_histories(&store, &keys).await;
         true
       }
       Err(err) => {
         self.redis_log.failed(&err, Instant::now());
         false
+      }
+    }
+  }
+
+  /// Reads the shared history of every app whose history is behind its releases (another
+  /// instance fetched it). Only those: a history is large, and changes only with a new release.
+  async fn sync_histories(&mut self, store: &SharedStore, keys: &[String]) {
+    for key in keys {
+      if !self.cache.app(key).is_some_and(|app| app.history_is_behind()) {
+        continue;
+      }
+      match store.read_history(key).await {
+        Ok(Some(history)) => {
+          self.cache.merge_history(key, history);
+        }
+        Ok(None) => {}
+        Err(err) => {
+          self.redis_log.failed(&err, Instant::now());
+          return;
+        }
       }
     }
   }
@@ -188,13 +209,13 @@ impl Poller {
       let outcome = github::fetch_releases(&self.client, repo, etag.as_deref(), self.config.github_token.as_deref()).await;
       let now = Utc::now();
       match outcome {
-        FetchOutcome::Fetched { releases, etag } => {
+        FetchOutcome::Fetched { releases, history, etag } => {
           round.fetched += 1;
           if let Some(store) = self.coordinated_store(mode) {
-            let shared = store.write_fetched(key, &releases, etag.as_deref(), now).await;
+            let shared = store.write_fetched(key, &releases, &history, etag.as_deref(), now).await;
             mode = self.after_shared_write(shared, mode);
           }
-          self.cache.store(key, releases, etag, now);
+          self.cache.store(key, releases, history, etag, now);
         }
         FetchOutcome::NotModified => {
           round.unchanged += 1;
@@ -288,9 +309,10 @@ fn merge_shared_entry(cache: &CraftAppsReleaseCache, key: &str, entry: SharedApp
 mod tests {
   use chrono::DateTime;
 
+  use redis_schema::keys::craft_apps::craft_app_release_history_redis_key::CraftAppReleaseHistoryRedisKey;
   use redis_schema::keys::craft_apps::craft_app_release_redis_key::CraftAppReleaseRedisKey;
 
-  use crate::state::craft_apps_release_cache::CraftAppReleases;
+  use crate::state::craft_apps_release_cache::{CraftAppHistory, CraftAppReleases};
   use crate::threads::poll_craft_app_releases_thread::config::default_apps;
   use crate::threads::poll_craft_app_releases_thread::shared_entry::{decode_app_entry, encode_fetch};
   use crate::threads::poll_craft_app_releases_thread::shared_store::build_poller_redis_pool;
@@ -307,22 +329,28 @@ mod tests {
     use artcraft_api_defs::craft_apps::release_info::{CraftAppsImportantNotices, GetCraftAppsReleaseInfoResponse};
     let mut config = config();
     config.github_token = std::env::var("CRAFT_APPS_RELEASE_GITHUB_TOKEN").ok().filter(|t| !t.trim().is_empty());
-    config.apps.retain(|(key, _, _)| key == "photocraft" || key == "artcraft-launcher");
+    // SolidCraft publishes nightlies daily and has more than one page of releases.
+    config.apps.retain(|(key, _, _)| key == "photocraft" || key == "artcraft-launcher" || key == "solidcraft");
     let cache = CraftAppsReleaseCache::new();
     cache.register_apps(&config.apps);
     let mut poller = Poller::new(github::build_client().unwrap(), cache.clone(), config.clone(), None);
     let due: Vec<(String, String)> = config.apps.iter().map(|(k, _, r)| (k.clone(), r.clone())).collect();
     let (round, _) = poller.poll_round(&due, PollMode::Standalone).await;
-    assert_eq!(round.fetched + round.unchanged, 2, "{round:?}");
+    assert_eq!(round.fetched + round.unchanged, 3, "{round:?}");
     // A second round revalidates with ETags.
     let (again, _) = poller.poll_round(&due, PollMode::Standalone).await;
-    assert_eq!(again.fetched + again.unchanged, 2, "{again:?}");
+    assert_eq!(again.fetched + again.unchanged, 3, "{again:?}");
     let info = cache.snapshot();
     assert!(info.last_fetched.is_some());
     let photocraft = &info.apps["photocraft"];
     let latest = photocraft.latest_release.as_ref().unwrap();
     assert!(latest.assets.iter().any(|a| a.platform.is_some() && a.sha256.is_some()));
     assert!(!latest.prerelease);
+    let solidcraft = cache.app("solidcraft").unwrap();
+    assert!(solidcraft.history.complete, "every page was read");
+    assert!(solidcraft.history.releases.len() > github::RELEASES_PER_PAGE, "more than one page");
+    assert!(solidcraft.releases.latest_nightly.is_some());
+    assert!(solidcraft.history.releases.iter().any(|r| r.tag == latest_tag(&solidcraft)), "the history has the stable release");
     // The version list comes from the first page only and may be empty (all nightlies) while
     // the stable release comes from a later one; its sorting is tested in `github`.
     let response = GetCraftAppsReleaseInfoResponse {
@@ -352,7 +380,7 @@ mod tests {
     let pod_a = SharedStore::new(pool.clone(), "pod-a".into());
     let now = Utc::now();
     for (key, _, _) in &config.apps {
-      assert!(pod_a.write_fetched(key, &CraftAppReleases::default(), Some("\"e\""), now).await.unwrap());
+      assert!(pod_a.write_fetched(key, &CraftAppReleases::default(), &history(), Some("\"e\""), now).await.unwrap());
     }
 
     let cache = CraftAppsReleaseCache::new();
@@ -364,9 +392,11 @@ mod tests {
     for (key, _, _) in &config.apps {
       assert_eq!(fetched_at(&cache, key).map(|t| t.timestamp_millis()), Some(now.timestamp_millis()));
       assert_eq!(cache.etag(key).as_deref(), Some("\"e\""));
+      assert_eq!(cache.app(key).unwrap().history.releases.len(), 1, "the history comes along");
     }
 
-    let keys: Vec<String> = config.apps.iter().map(|(k, _, _)| CraftAppReleaseRedisKey::new_for_app(k).to_string()).collect();
+    let mut keys: Vec<String> = config.apps.iter().map(|(k, _, _)| CraftAppReleaseRedisKey::new_for_app(k).to_string()).collect();
+    keys.extend(config.apps.iter().map(|(k, _, _)| CraftAppReleaseHistoryRedisKey::new_for_app(k).to_string()));
     let mut conn = pool.get().unwrap();
     redis::cmd("DEL").arg(&keys).query::<()>(&mut *conn).unwrap();
   }
@@ -385,7 +415,7 @@ mod tests {
     let fetched_by_another_pod = Utc::now();
     let other_pod = SharedStore::new(pool.clone(), "other-pod".into());
     for (key, _, _) in &config.apps {
-      assert!(other_pod.write_fetched(key, &CraftAppReleases::default(), Some("\"e\""), fetched_by_another_pod).await.unwrap());
+      assert!(other_pod.write_fetched(key, &CraftAppReleases::default(), &history(), Some("\"e\""), fetched_by_another_pod).await.unwrap());
     }
 
     let cache = CraftAppsReleaseCache::new();
@@ -442,6 +472,25 @@ mod tests {
     assert_eq!(cache.etag("photocraft").as_deref(), Some("\"e\""));
   }
 
+  fn latest_tag(app: &crate::state::craft_apps_release_cache::CachedCraftApp) -> String {
+    app.releases.latest_release.as_ref().map(|r| r.tag.clone()).unwrap_or_default()
+  }
+
+  /// A history from the fetch with ETag `"e"`, holding one release.
+  fn history() -> CraftAppHistory {
+    let release = artcraft_api_defs::craft_apps::release_info::CraftAppRelease {
+      tag: "v0.5.0".into(),
+      version: "0.5.0".into(),
+      name: "A v0.5.0".into(),
+      published_at: None,
+      html_url: String::new(),
+      prerelease: false,
+      notes_markdown: String::new(),
+      assets: Vec::new(),
+    };
+    CraftAppHistory { etag: Some("\"e\"".into()), complete: true, releases: vec![release] }
+  }
+
   fn config() -> CraftAppsPollConfig {
     CraftAppsPollConfig {
       enabled: true,
@@ -463,7 +512,7 @@ mod tests {
   fn fresh_poller(store: Option<SharedStore>) -> Poller {
     let cache = registered_cache();
     for (key, _, _) in &config().apps {
-      cache.store(key, CraftAppReleases::default(), None, Utc::now());
+      cache.store(key, CraftAppReleases::default(), CraftAppHistory::default(), None, Utc::now());
     }
     Poller::new(github::build_client().unwrap(), cache, config(), store)
   }

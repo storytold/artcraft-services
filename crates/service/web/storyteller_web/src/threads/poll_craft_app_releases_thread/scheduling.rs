@@ -273,6 +273,7 @@ mod tests {
       etag: None,
       last_failed_at: failed,
       consecutive_failures: failures,
+      history: Default::default(),
     }
   }
 

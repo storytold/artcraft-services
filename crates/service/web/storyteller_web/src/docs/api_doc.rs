@@ -163,6 +163,7 @@ use artcraft_api_defs::moderation::top_spenders::list::*;
 use artcraft_api_defs::moderation::user_spend_events::list::*;
 use artcraft_api_defs::folders::subfolder::*;
 use artcraft_api_defs::craft_apps::release_info::*;
+use artcraft_api_defs::craft_apps::releases::*;
 use artcraft_api_defs::tags::add_media_file_tags::*;
 use artcraft_api_defs::tags::bulk_add_tags::*;
 use artcraft_api_defs::tags::bulk_list_media_file_tags::*;
@@ -737,6 +738,7 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
 
     // Craft Apps
     crate::http_server::endpoints::craft_apps::get_craft_apps_release_info_handler::get_craft_apps_release_info_handler,
+    crate::http_server::endpoints::craft_apps::get_craft_app_releases_handler::get_craft_app_releases_handler,
 
     // Tags
     crate::http_server::endpoints::tags::list_tags_handler::list_tags_handler,
@@ -1611,6 +1613,8 @@ use crate::http_server::endpoints::media_files::list::list_batch_generated_redux
     ListTagsQueryParams,
     ListTagsSuccessResponse,
     GetCraftAppsReleaseInfoResponse,
+    GetCraftAppReleasesResponse,
+    GetCraftAppReleasesError,
     CraftAppsReleaseInfo,
     CraftAppReleaseInfo,
     CraftAppRelease,

@@ -1,6 +1,7 @@
 //! The releases of every Craft App, as last fetched from GitHub by
 //! `poll_craft_app_releases_thread` (directly, or from the fleet's shared copy in Redis), served
-//! by `GET /v1/craft_apps/release_info`. The endpoint always answers from this memory, so trouble
+//! by `GET /v1/craft_apps/release_info` and, each app's whole history,
+//! `GET /v1/craft_apps/{app}/releases`. The endpoint always answers from this memory, so trouble
 //! with Redis or GitHub never breaks it.
 //!
 //! ## App keys
@@ -60,6 +61,23 @@ pub struct CachedCraftApp {
   /// How many requests in a row have failed since the last success (when `last_failed_at` is
   /// newer than `app_last_fetched`).
   pub consecutive_failures: u32,
+
+  /// The app's whole release history. Shared, since it can be large and `app` is cloned often.
+  pub history: Arc<CraftAppHistory>,
+}
+
+/// An app's release history: every published release, newest first, nightlies included, drafts
+/// not. Also the JSON the fleet shares in Redis, apart from the rest (`shared_entry`).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CraftAppHistory {
+  /// GitHub's ETag for the first page of the fetch this history came from: it belongs with the
+  /// releases fetched under the same ETag, and is replaced when those are.
+  pub etag: Option<String>,
+
+  /// Whether `releases` is every release GitHub lists (the last page read wasn't full).
+  pub complete: bool,
+
+  pub releases: Vec<CraftAppRelease>,
 }
 
 /// Everything one fetch learns about an app's releases; the endpoint serves each field under the
@@ -102,6 +120,7 @@ impl CraftAppsReleaseCache {
         etag: None,
         last_failed_at: None,
         consecutive_failures: 0,
+        history: Arc::default(),
       });
     }
   }
@@ -114,11 +133,12 @@ impl CraftAppsReleaseCache {
   }
 
   /// Records a complete, successful fetch of the app with app key `key` (`photocraft`): its
-  /// releases (empty if it has none). Ignored for keys that were never registered.
-  pub fn store(&self, key: &str, releases: CraftAppReleases, etag: Option<String>, fetched_at: DateTime<Utc>) {
+  /// releases (empty if it has none) and history. Ignored for keys that were never registered.
+  pub fn store(&self, key: &str, releases: CraftAppReleases, history: CraftAppHistory, etag: Option<String>, fetched_at: DateTime<Utc>) {
     let mut map = self.inner.write().unwrap_or_else(PoisonError::into_inner);
     if let Some(app) = map.get_mut(key) {
       app.releases = releases;
+      app.history = Arc::new(history);
       app.etag = etag;
       app.app_last_fetched = Some(fetched_at);
     }
@@ -153,6 +173,21 @@ impl CraftAppsReleaseCache {
     app.releases = releases;
     app.etag = etag;
     app.app_last_fetched = Some(fetched_at);
+    true
+  }
+
+  /// Takes a history shared elsewhere (another instance, through Redis) for the app with app key
+  /// `key`, when it belongs with the releases this instance has (the same ETag). Returns whether
+  /// it was taken.
+  pub fn merge_history(&self, key: &str, history: CraftAppHistory) -> bool {
+    let mut map = self.inner.write().unwrap_or_else(PoisonError::into_inner);
+    let Some(app) = map.get_mut(key) else {
+      return false;
+    };
+    if history.etag != app.etag || app.history.etag == app.etag {
+      return false;
+    }
+    app.history = Arc::new(history);
     true
   }
 
@@ -203,6 +238,12 @@ impl CraftAppsReleaseCache {
 }
 
 impl CachedCraftApp {
+  /// Whether the history is not the one fetched with the current releases (it came from another
+  /// instance's fetch and is still to be read from Redis).
+  pub fn history_is_behind(&self) -> bool {
+    self.app_last_fetched.is_some() && self.history.etag != self.etag
+  }
+
   /// Whether the last request for this app failed (no success since).
   pub fn is_failing(&self) -> bool {
     match (self.last_failed_at, self.app_last_fetched) {
@@ -244,7 +285,7 @@ mod tests {
       latest_prerelease: Some(beta),
       latest_nightly: Some(release("v0.6.0-nightly.20261126.1.1", true)),
     };
-    cache.store("photocraft", releases, None, Utc::now());
+    cache.store("photocraft", releases, CraftAppHistory::default(), None, Utc::now());
 
     let app = &cache.snapshot().apps["photocraft"];
     assert_eq!(app.latest_release.as_ref().map(|r| r.tag.as_str()), Some("v0.5.0"));
@@ -268,6 +309,21 @@ mod tests {
   }
 
   #[test]
+  fn a_shared_history_is_taken_only_with_the_releases_it_belongs_to() {
+    let cache = CraftAppsReleaseCache::new();
+    cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
+    let at = Utc::now();
+    let history = |etag: &str| CraftAppHistory { etag: Some(etag.into()), complete: true, releases: vec![release("v0.5.0", false)] };
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"b\"".into()), at));
+    assert!(cache.app("photocraft").unwrap().history_is_behind());
+    assert!(!cache.merge_history("photocraft", history("\"a\"")), "from an older fetch");
+    assert!(cache.merge_history("photocraft", history("\"b\"")));
+    assert!(!cache.app("photocraft").unwrap().history_is_behind());
+    assert!(!cache.merge_history("photocraft", history("\"b\"")), "already there");
+    assert_eq!(cache.app("photocraft").unwrap().history.releases.len(), 1);
+  }
+
+  #[test]
   fn last_fetched_is_the_oldest_app_and_absent_until_all_are_fetched() {
     let cache = CraftAppsReleaseCache::new();
     cache.register_apps(&[
@@ -279,7 +335,7 @@ mod tests {
 
     let early = Utc.with_ymd_and_hms(2026, 10, 10, 1, 0, 0).unwrap();
     let late = Utc.with_ymd_and_hms(2026, 10, 10, 2, 0, 0).unwrap();
-    cache.store("photocraft", CraftAppReleases::default(), Some("\"abc\"".into()), late);
+    cache.store("photocraft", CraftAppReleases::default(), CraftAppHistory::default(), Some("\"abc\"".into()), late);
     assert_eq!(cache.snapshot().last_fetched, None, "filmcraft hasn't been fetched yet");
 
     cache.confirm_unchanged("filmcraft", early);
@@ -326,7 +382,7 @@ mod tests {
     assert_eq!(cache.record_failure("photocraft", t(2)), 2);
     assert!(cache.app("photocraft").unwrap().is_failing());
 
-    cache.store("photocraft", CraftAppReleases::default(), None, t(3));
+    cache.store("photocraft", CraftAppReleases::default(), CraftAppHistory::default(), None, t(3));
     assert!(!cache.app("photocraft").unwrap().is_failing());
     assert_eq!(cache.record_failure("photocraft", t(4)), 1, "counting restarts after a success");
 

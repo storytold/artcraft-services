@@ -59,7 +59,7 @@ mod tests {
 
   use artcraft_api_defs::craft_apps::release_info::CraftAppReleaseInfo;
 
-  use crate::state::craft_apps_release_cache::{CraftAppReleases, CraftAppsReleaseCache};
+  use crate::state::craft_apps_release_cache::{CraftAppHistory, CraftAppReleases, CraftAppsReleaseCache};
 
   use super::*;
 
@@ -81,7 +81,7 @@ mod tests {
   fn every_app_keeps_its_original_fields_beside_the_new_ones() {
     let cache = CraftAppsReleaseCache::new();
     cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
-    cache.store("photocraft", CraftAppReleases::default(), None, Utc::now());
+    cache.store("photocraft", CraftAppReleases::default(), CraftAppHistory::default(), None, Utc::now());
     let json = serde_json::to_value(cache.snapshot()).unwrap();
     let app = json["apps"]["photocraft"].as_object().unwrap();
     for field in ["name", "repo", "latest_release", "app_last_fetched", "latest_prerelease", "latest_nightly", "releases"] {
