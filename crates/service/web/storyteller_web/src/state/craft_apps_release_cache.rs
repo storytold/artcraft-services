@@ -99,7 +99,7 @@ pub struct CraftAppHistory {
 /// same name. Also the JSON the fleet shares in Redis (`shared_entry`).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CraftAppReleases {
-  /// The latest stable release (not a pre-release, not a nightly).
+  /// The stable release with the highest version (not a pre-release, not a nightly).
   pub latest_release: Option<CraftAppRelease>,
 
   /// The beta or release candidate with the highest version.

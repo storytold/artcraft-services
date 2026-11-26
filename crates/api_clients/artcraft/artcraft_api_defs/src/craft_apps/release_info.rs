@@ -49,8 +49,9 @@ pub struct CraftAppReleaseInfo {
   /// GitHub repository, `organization/project` (`storytold/photocraft`).
   pub repo: String,
 
-  /// The latest published, non-draft, non-prerelease release (never a nightly, see
-  /// `latest_nightly`). Absent when the repository has no release yet, or when it hasn't been
+  /// The published, non-draft, non-prerelease release with the highest version by semver
+  /// precedence (never a nightly, see `latest_nightly`), so a backport published after a newer
+  /// release isn't it. Absent when the repository has no release yet, or when it hasn't been
   /// fetched yet (see `app_last_fetched`).
   pub latest_release: Option<CraftAppRelease>,
 
