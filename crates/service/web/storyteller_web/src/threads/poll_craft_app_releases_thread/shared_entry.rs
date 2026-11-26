@@ -13,9 +13,11 @@
 //! | `fetched_ms` | When the release was last fetched or confirmed by GitHub (Unix ms)             |
 //! | `etag`       | GitHub's ETag for that answer; empty for none                                  |
 //! | `releases`   | What the fetch found, as JSON (`CraftAppReleases`)                             |
+//! | `history_ms` | When the shared history was last read in full from GitHub (Unix ms); 0 unknown |
 //! | `failed_ms`  | When a request for the app last failed (Unix ms); stale once `fetched_ms` newer |
 //! | `failures`   | Failed requests in a row as of `failed_ms`                                     |
-//! | `claimed_ms` | When an instance last started a request for the app (Unix ms), to skip doubles |
+//! | `claimed_ms` | When an instance last started a request for the app (Unix ms), to skip doubles; |
+//! |              | `0` once a result (fetch, `304` or failure) is shared, so the next can start   |
 //! | `by`         | Hostname of the instance that wrote last, for debugging                        |
 //!
 //! ## `craftApps:releases:v2:history:<app key>` (string, 7 day TTL, refreshed with the hash)
@@ -53,6 +55,7 @@ pub const FIELD_RELEASES: &str = "releases";
 pub const FIELD_FAILED_MS: &str = "failed_ms";
 pub const FIELD_FAILURES: &str = "failures";
 pub const FIELD_CLAIMED_MS: &str = "claimed_ms";
+pub const FIELD_HISTORY_MS: &str = "history_ms";
 pub const FIELD_BY: &str = "by";
 pub const FIELD_UNTIL_MS: &str = "until_ms";
 pub const FIELD_TROUBLE: &str = "trouble";
@@ -70,7 +73,12 @@ pub struct SharedFetch {
   pub releases: CraftAppReleases,
   pub etag: Option<String>,
   pub fetched_at: DateTime<Utc>,
+  /// When the shared history was last read in full; `None` when not known.
+  pub history_at: Option<DateTime<Utc>>,
 }
+
+/// A request's result is shared, so its claim is over: the next request may start at once.
+const RELEASED_CLAIM: (&str, &str) = (FIELD_CLAIMED_MS, "0");
 
 /// The last failed request by some instance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -92,13 +100,15 @@ pub fn decode_app_entry(fields: &HashMap<String, String>) -> Option<SharedAppEnt
   Some(SharedAppEntry { fetched, failure })
 }
 
-/// The fields written for a successful fetch.
-pub fn encode_fetch(releases: &CraftAppReleases, etag: Option<&str>, fetched_at: DateTime<Utc>, by: &str) -> Result<Vec<(&'static str, String)>, serde_json::Error> {
+/// The fields written for a successful fetch, whose history was read in full at `history_at`.
+pub fn encode_fetch(releases: &CraftAppReleases, etag: Option<&str>, fetched_at: DateTime<Utc>, history_at: Option<DateTime<Utc>>, by: &str) -> Result<Vec<(&'static str, String)>, serde_json::Error> {
   Ok(vec![
     (FIELD_VERSION, FORMAT_VERSION.to_string()),
     (FIELD_FETCHED_MS, fetched_at.timestamp_millis().to_string()),
     (FIELD_ETAG, etag.unwrap_or_default().to_string()),
     (FIELD_RELEASES, serde_json::to_string(releases)?),
+    (FIELD_HISTORY_MS, history_at.map(|at| at.timestamp_millis()).unwrap_or(0).to_string()),
+    (RELEASED_CLAIM.0, RELEASED_CLAIM.1.to_string()),
     (FIELD_BY, by.to_string()),
   ])
 }
@@ -108,6 +118,7 @@ pub fn encode_unchanged(fetched_at: DateTime<Utc>, by: &str) -> Vec<(&'static st
   vec![
     (FIELD_VERSION, FORMAT_VERSION.to_string()),
     (FIELD_FETCHED_MS, fetched_at.timestamp_millis().to_string()),
+    (RELEASED_CLAIM.0, RELEASED_CLAIM.1.to_string()),
     (FIELD_BY, by.to_string()),
   ]
 }
@@ -118,6 +129,7 @@ pub fn encode_failure(failure: SharedFailure, by: &str) -> Vec<(&'static str, St
     (FIELD_VERSION, FORMAT_VERSION.to_string()),
     (FIELD_FAILED_MS, failure.failed_at.timestamp_millis().to_string()),
     (FIELD_FAILURES, failure.consecutive_failures.to_string()),
+    (RELEASED_CLAIM.0, RELEASED_CLAIM.1.to_string()),
     (FIELD_BY, by.to_string()),
   ]
 }
@@ -161,6 +173,7 @@ fn decode_fetch(fields: &HashMap<String, String>) -> Option<SharedFetch> {
     releases,
     etag: (!etag.is_empty()).then(|| etag.clone()),
     fetched_at,
+    history_at: time_field(fields, FIELD_HISTORY_MS),
   })
 }
 
@@ -186,17 +199,27 @@ mod tests {
     #[test]
     fn a_fetch_round_trips() {
       let at = time();
-      let fields = to_map(encode_fetch(&releases(), Some("\"e1\""), at, BY).unwrap());
+      let fields = to_map(encode_fetch(&releases(), Some("\"e1\""), at, Some(at), BY).unwrap());
       let entry = decode_app_entry(&fields).unwrap();
       let fetched = entry.fetched.unwrap();
-      assert_eq!((fetched.etag.as_deref(), fetched.fetched_at), (Some("\"e1\""), at));
+      assert_eq!((fetched.etag.as_deref(), fetched.fetched_at, fetched.history_at), (Some("\"e1\""), at, Some(at)));
       assert_eq!(json(&fetched.releases), json(&releases()));
       assert_eq!(entry.failure, None);
     }
 
+    /// The claim only keeps a second instance from asking while the first one is; once its result
+    /// is shared, whatever it was, the next request (when due) needn't wait out the window.
+    #[test]
+    fn every_result_releases_the_claim() {
+      let released = |fields: Vec<(&'static str, String)>| to_map(fields).get(FIELD_CLAIMED_MS).map(String::as_str) == Some("0");
+      assert!(released(encode_fetch(&releases(), Some("\"e1\""), time(), None, BY).unwrap()));
+      assert!(released(encode_unchanged(time(), BY)));
+      assert!(released(encode_failure(SharedFailure { failed_at: time(), consecutive_failures: 1 }, BY)));
+    }
+
     #[test]
     fn a_repo_without_release_or_etag_round_trips() {
-      let fields = to_map(encode_fetch(&CraftAppReleases::default(), None, time(), BY).unwrap());
+      let fields = to_map(encode_fetch(&CraftAppReleases::default(), None, time(), None, BY).unwrap());
       let fetched = decode_app_entry(&fields).unwrap().fetched.unwrap();
       assert!(fetched.releases.latest_release.is_none());
       assert!(fetched.releases.releases.is_empty());
@@ -205,7 +228,7 @@ mod tests {
 
     #[test]
     fn a_304_moves_only_the_time() {
-      let mut fields = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), BY).unwrap());
+      let mut fields = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), None, BY).unwrap());
       let later = time() + chrono::Duration::minutes(2);
       fields.extend(to_map(encode_unchanged(later, BY)));
       let fetched = decode_app_entry(&fields).unwrap().fetched.unwrap();
@@ -215,7 +238,7 @@ mod tests {
 
     #[test]
     fn a_failure_round_trips_alongside_a_fetch() {
-      let mut fields = to_map(encode_fetch(&CraftAppReleases::default(), None, time(), BY).unwrap());
+      let mut fields = to_map(encode_fetch(&CraftAppReleases::default(), None, time(), None, BY).unwrap());
       let failure = SharedFailure { failed_at: time() + chrono::Duration::minutes(1), consecutive_failures: 3 };
       fields.extend(to_map(encode_failure(failure, BY)));
       let entry = decode_app_entry(&fields).unwrap();
@@ -226,7 +249,7 @@ mod tests {
     #[test]
     fn garbage_reads_as_absent() {
       assert!(decode_app_entry(&HashMap::new()).is_none());
-      let good = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), BY).unwrap());
+      let good = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), None, BY).unwrap());
       let with = |field: &str, value: &str| {
         let mut fields = good.clone();
         fields.insert(field.to_string(), value.to_string());
@@ -242,7 +265,7 @@ mod tests {
     #[test]
     fn an_entry_with_only_the_latest_release_is_no_fetch() {
       // What the code before every channel was shared wrote: refetched, not served half-empty.
-      let mut fields = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), BY).unwrap());
+      let mut fields = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), None, BY).unwrap());
       fields.remove(FIELD_RELEASES);
       fields.insert("release".into(), serde_json::to_string(&releases().latest_release).unwrap());
       assert!(decode_app_entry(&fields).unwrap().fetched.is_none());
@@ -254,7 +277,7 @@ mod tests {
 
     #[test]
     fn a_history_round_trips_and_garbage_reads_as_absent() {
-      let history = CraftAppHistory { etag: Some("\"e1\"".into()), complete: true, releases: vec![release("v0.5.0", false)] };
+      let history = CraftAppHistory { etag: Some("\"e1\"".into()), complete: true, releases: vec![release("v0.5.0", false)], fetched_at: None };
       let read = decode_history(&encode_history(&history).unwrap()).unwrap();
       assert_eq!((read.etag.as_deref(), read.complete, read.releases.len()), (Some("\"e1\""), true, 1));
       assert!(decode_history("{not json").is_none());

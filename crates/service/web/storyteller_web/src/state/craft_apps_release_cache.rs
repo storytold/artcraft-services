@@ -69,6 +69,10 @@ pub struct CachedCraftApp {
   /// newer fetch was taken until its history is read from Redis; not the ETag's job, since a fetch
   /// may have none.
   pub history_current: bool,
+
+  /// The fleet's shared history for the current releases isn't in Redis (expired or evicted):
+  /// this instance fetches the app again in full, so the history is written anew.
+  pub history_missing: bool,
 }
 
 /// An app's release history: every published release, newest first, nightlies included, drafts
@@ -83,16 +87,22 @@ pub struct CraftAppHistory {
   pub complete: bool,
 
   pub releases: Vec<CraftAppRelease>,
+
+  /// When the whole list was last read from GitHub (a `200`, not a `304`). A `304` on the first
+  /// page says nothing about edits to older releases, so the list is read in full again after a
+  /// while (`FULL_REFRESH`).
+  #[serde(default)]
+  pub fetched_at: Option<DateTime<Utc>>,
 }
 
 /// Everything one fetch learns about an app's releases; the endpoint serves each field under the
 /// same name. Also the JSON the fleet shares in Redis (`shared_entry`).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CraftAppReleases {
-  /// The latest stable release (not a pre-release, not a nightly).
+  /// The stable release with the highest version (not a pre-release, not a nightly).
   pub latest_release: Option<CraftAppRelease>,
 
-  /// The newest beta or release candidate.
+  /// The beta or release candidate with the highest version.
   #[serde(default)]
   pub latest_prerelease: Option<CraftAppRelease>,
 
@@ -127,6 +137,7 @@ impl CraftAppsReleaseCache {
         consecutive_failures: 0,
         history: Arc::default(),
         history_current: false,
+        history_missing: false,
       });
     }
   }
@@ -146,6 +157,7 @@ impl CraftAppsReleaseCache {
       app.releases = releases;
       app.history = Arc::new(history);
       app.history_current = true;
+      app.history_missing = false;
       app.etag = etag;
       app.app_last_fetched = Some(fetched_at);
     }
@@ -169,7 +181,7 @@ impl CraftAppsReleaseCache {
   /// Takes a fetch made elsewhere (another instance, through Redis) for the app with app key
   /// `key`, if it is newer than what this instance has. Returns whether it was taken. Ignored for
   /// keys that were never registered, so the registered app list stays authoritative.
-  pub fn merge_fetched(&self, key: &str, releases: CraftAppReleases, etag: Option<String>, fetched_at: DateTime<Utc>) -> bool {
+  pub fn merge_fetched(&self, key: &str, releases: CraftAppReleases, etag: Option<String>, fetched_at: DateTime<Utc>, history_at: Option<DateTime<Utc>>) -> bool {
     let mut map = self.inner.write().unwrap_or_else(PoisonError::into_inner);
     let Some(app) = map.get_mut(key) else {
       return false;
@@ -177,10 +189,17 @@ impl CraftAppsReleaseCache {
     if app.app_last_fetched.is_some_and(|mine| mine >= fetched_at) {
       return false;
     }
+    // A `304` elsewhere only moved the time: the history this instance has still belongs. A new or
+    // missing ETag may mean new releases, and a newer full read may have found edits to older ones
+    // (a `304` covers only the first page), so then the history is read from Redis.
+    let read_since = history_at.is_some_and(|shared| app.history.fetched_at.is_none_or(|mine| mine < shared));
+    if etag.is_none() || etag != app.etag || read_since {
+      app.history_current = false;
+      app.history_missing = false;
+    }
     app.releases = releases;
     app.etag = etag;
     app.app_last_fetched = Some(fetched_at);
-    app.history_current = false;
     true
   }
 
@@ -197,7 +216,16 @@ impl CraftAppsReleaseCache {
     }
     app.history = Arc::new(history);
     app.history_current = true;
+    app.history_missing = false;
     true
+  }
+
+  /// Records that the shared history the app with app key `key` needs isn't in Redis.
+  pub fn mark_history_missing(&self, key: &str) {
+    let mut map = self.inner.write().unwrap_or_else(PoisonError::into_inner);
+    if let Some(app) = map.get_mut(key) {
+      app.history_missing = !app.history_current;
+    }
   }
 
   /// Records a failed request for the app with app key `key` (`photocraft`) and returns how many
@@ -322,8 +350,8 @@ mod tests {
     let cache = CraftAppsReleaseCache::new();
     cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
     let at = Utc::now();
-    let history = |etag: &str| CraftAppHistory { etag: Some(etag.into()), complete: true, releases: vec![release("v0.5.0", false)] };
-    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"b\"".into()), at));
+    let history = |etag: &str| CraftAppHistory { etag: Some(etag.into()), complete: true, releases: vec![release("v0.5.0", false)], fetched_at: None };
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"b\"".into()), at, None));
     assert!(cache.app("photocraft").unwrap().history_is_behind());
     assert!(!cache.merge_history("photocraft", history("\"a\"")), "from an older fetch");
     assert!(cache.merge_history("photocraft", history("\"b\"")));
@@ -332,14 +360,46 @@ mod tests {
     assert_eq!(cache.app("photocraft").unwrap().history.releases.len(), 1);
   }
 
+  /// A `304` elsewhere (same ETag, later time) keeps this instance's history; a new ETag doesn't.
+  #[test]
+  fn only_new_releases_send_an_instance_back_for_their_history() {
+    let cache = CraftAppsReleaseCache::new();
+    cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
+    let at = Utc::now();
+    let history = CraftAppHistory { etag: Some("\"a\"".into()), complete: true, releases: Vec::new(), fetched_at: Some(at) };
+    cache.store("photocraft", CraftAppReleases::default(), history, Some("\"a\"".into()), at);
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"a\"".into()), at + chrono::Duration::minutes(2), None));
+    assert!(!cache.app("photocraft").unwrap().history_is_behind(), "same ETag: nothing to read");
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"b\"".into()), at + chrono::Duration::minutes(4), None));
+    assert!(cache.app("photocraft").unwrap().history_is_behind());
+    cache.mark_history_missing("photocraft");
+    assert!(cache.app("photocraft").unwrap().history_missing);
+  }
+
+  /// Another instance's full read (same ETag: page 1 didn't change) may have found edits to older
+  /// releases, so a history read in full after this instance's own is read from Redis too.
+  #[test]
+  fn a_newer_full_read_elsewhere_sends_an_instance_back_for_the_history() {
+    let cache = CraftAppsReleaseCache::new();
+    cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
+    let at = Utc::now();
+    let history = CraftAppHistory { etag: Some("\"a\"".into()), complete: true, releases: Vec::new(), fetched_at: Some(at) };
+    cache.store("photocraft", CraftAppReleases::default(), history, Some("\"a\"".into()), at);
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"a\"".into()), at + chrono::Duration::minutes(2), Some(at)));
+    assert!(!cache.app("photocraft").unwrap().history_is_behind(), "the full read this instance already has");
+    let later = at + chrono::Duration::hours(6);
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"a\"".into()), later, Some(later)));
+    assert!(cache.app("photocraft").unwrap().history_is_behind());
+  }
+
   /// A fetch without an ETag still has its history read from Redis: "none" is not "already here".
   #[test]
   fn a_shared_fetch_without_an_etag_still_takes_its_history() {
     let cache = CraftAppsReleaseCache::new();
     cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
-    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), None, Utc::now()));
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), None, Utc::now(), None));
     assert!(cache.app("photocraft").unwrap().history_is_behind());
-    let history = CraftAppHistory { etag: None, complete: true, releases: vec![release("v0.5.0", false)] };
+    let history = CraftAppHistory { etag: None, complete: true, releases: vec![release("v0.5.0", false)], fetched_at: None };
     assert!(cache.merge_history("photocraft", history));
     assert!(!cache.app("photocraft").unwrap().history_is_behind());
     assert_eq!(cache.app("photocraft").unwrap().history.releases.len(), 1);
@@ -383,10 +443,10 @@ mod tests {
     let early = Utc.with_ymd_and_hms(2026, 10, 10, 1, 0, 0).unwrap();
     let late = Utc.with_ymd_and_hms(2026, 10, 10, 2, 0, 0).unwrap();
 
-    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"new\"".into()), late));
-    assert!(!cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"old\"".into()), early), "older than ours");
-    assert!(!cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"same\"".into()), late), "no newer than ours");
-    assert!(!cache.merge_fetched("unknowncraft", CraftAppReleases::default(), None, late), "not registered");
+    assert!(cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"new\"".into()), late, None));
+    assert!(!cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"old\"".into()), early, None), "older than ours");
+    assert!(!cache.merge_fetched("photocraft", CraftAppReleases::default(), Some("\"same\"".into()), late, None), "no newer than ours");
+    assert!(!cache.merge_fetched("unknowncraft", CraftAppReleases::default(), None, late, None), "not registered");
 
     let snapshot = cache.snapshot();
     assert_eq!(snapshot.apps.len(), 1);

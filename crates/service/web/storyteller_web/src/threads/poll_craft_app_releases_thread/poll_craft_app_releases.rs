@@ -175,9 +175,12 @@ impl Poller {
       }
       match store.read_history(key).await {
         Ok(Some(history)) => {
-          self.cache.merge_history(key, history);
+          if !self.cache.merge_history(key, history) {
+            // Redis holds another fetch's history (its write lost a race, or it is older).
+            self.cache.mark_history_missing(key);
+          }
         }
-        Ok(None) => {}
+        Ok(None) => self.cache.mark_history_missing(key),
         Err(err) => {
           self.redis_log.failed(&err, Instant::now());
           return;
@@ -205,7 +208,10 @@ impl Poller {
       if round.requests() > 0 {
         tokio::time::sleep(BETWEEN_REQUESTS).await;
       }
-      let etag = self.cache.etag(key);
+      // Revalidated with the ETag, unless the list must be read in full: the shared history is
+      // missing, or it hasn't been read whole for `FULL_REFRESH` (a `304` on the first page hides
+      // edits to older releases).
+      let etag = self.cache.app(key).filter(|app| !needs_full_read(app, Utc::now())).and_then(|app| app.etag);
       let outcome = github::fetch_releases(&self.client, repo, etag.as_deref(), self.config.github_token.as_deref()).await;
       let now = Utc::now();
       match outcome {
@@ -295,10 +301,18 @@ impl Poller {
   }
 }
 
+/// How long a history may go without the whole list being read from GitHub.
+const FULL_REFRESH: chrono::Duration = chrono::Duration::hours(6);
+
+/// Whether `app`'s next fetch must read the whole list (no ETag).
+fn needs_full_read(app: &crate::state::craft_apps_release_cache::CachedCraftApp, now: chrono::DateTime<Utc>) -> bool {
+  app.history_missing || app.history.fetched_at.is_none_or(|at| now - at >= FULL_REFRESH)
+}
+
 /// Takes a shared entry into memory (only what is newer than what this instance has).
 fn merge_shared_entry(cache: &CraftAppsReleaseCache, key: &str, entry: SharedAppEntry) {
   if let Some(fetched) = entry.fetched {
-    cache.merge_fetched(key, fetched.releases, fetched.etag, fetched.fetched_at);
+    cache.merge_fetched(key, fetched.releases, fetched.etag, fetched.fetched_at, fetched.history_at);
   }
   if let Some(failure) = entry.failure {
     cache.merge_failure(key, failure.failed_at, failure.consecutive_failures);
@@ -465,7 +479,7 @@ mod tests {
   fn shared_entries_merge_into_memory() {
     let cache = registered_cache();
     let at = Utc::now();
-    let fields = encode_fetch(&CraftAppReleases::default(), Some("\"e\""), at, "pod").unwrap();
+    let fields = encode_fetch(&CraftAppReleases::default(), Some("\"e\""), at, None, "pod").unwrap();
     let map = fields.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
     merge_shared_entry(&cache, "photocraft", decode_app_entry(&map).unwrap());
     assert_eq!(fetched_at(&cache, "photocraft").map(|t| t.timestamp_millis()), Some(at.timestamp_millis()));
@@ -488,7 +502,7 @@ mod tests {
       notes_markdown: String::new(),
       assets: Vec::new(),
     };
-    CraftAppHistory { etag: Some("\"e\"".into()), complete: true, releases: vec![release] }
+    CraftAppHistory { etag: Some("\"e\"".into()), complete: true, releases: vec![release], fetched_at: None }
   }
 
   fn config() -> CraftAppsPollConfig {
