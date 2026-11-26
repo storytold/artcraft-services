@@ -324,14 +324,15 @@ fn read_release(raw: GithubRelease, repo: &str) -> Result<CraftAppRelease, Strin
       })
       .take(MAX_ASSETS)
       .collect();
+  // A pre-release tag (`v0.7.0-rc.1`) is a pre-release even when GitHub's flag wasn't set.
+  let prerelease = raw.prerelease || version_of(&tag).is_some_and(|v| !v.pre.is_empty());
   Ok(CraftAppRelease {
     version: tag.strip_prefix(['v', 'V']).unwrap_or(&tag).to_string(),
     name: raw.name.filter(|n| !n.is_empty()).map(|n| truncate(&n, 200)).unwrap_or_else(|| tag.clone()),
     tag,
     published_at: raw.published_at,
     html_url,
-    // A pre-release tag (`v0.7.0-rc.1`) is a pre-release even when GitHub's flag wasn't set.
-    prerelease: raw.prerelease || version_of(&tag).is_some_and(|v| !v.pre.is_empty()),
+    prerelease,
     notes_markdown: raw.body.map(|b| truncate(&b, MAX_NOTES_BYTES)).unwrap_or_default(),
     assets,
   })
