@@ -4,7 +4,9 @@
 //! lists them newest first), sorted into the latest stable release, the newest beta or release
 //! candidate, the newest nightly and the version list. `/releases/latest` never returns a
 //! pre-release, which is why the list is asked instead. Only when the page is full and holds no
-//! stable release (nightlies pushed it off the page) is `/releases/latest` asked as well.
+//! stable release (betas or nightlies pushed it off the page) are the next pages read, for the
+//! stable release alone, up to [`MAX_PAGES`]. Not `/releases/latest` for that: GitHub lets any
+//! release without the pre-release flag be the latest one, a nightly too.
 
 use std::time::Duration;
 
@@ -25,8 +27,8 @@ const API_BASE: &str = "https://api.github.com";
 pub const RELEASES_PER_PAGE: usize = 30;
 const MAX_NOTES_BYTES: usize = 64 * 1024;
 const MAX_ASSETS: usize = 200;
-/// One release (`/releases/latest`).
-const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
+/// The most pages read looking for the stable release, as ArtCraft Launcher reads GitHub's list.
+pub const MAX_PAGES: usize = 5;
 /// A page of releases.
 const MAX_LIST_BODY_BYTES: usize = 32 * 1024 * 1024;
 
@@ -60,10 +62,12 @@ pub fn build_client() -> wreq::Result<wreq::Client> {
 }
 
 /// `repo`'s releases: `GET /repos/{repo}/releases?per_page=30`, revalidated with `etag`, plus
-/// `/releases/latest` when [`needs_latest`] says so. `token` is optional: without one the
-/// requests are unauthenticated. All or nothing: if the second request fails, so does the fetch.
+/// the next pages while [`needs_next_page`] says so. `token` is optional: without one the
+/// requests are unauthenticated. All or nothing: if a later page fails, so does the fetch, and
+/// so does one that finds no stable release in [`MAX_PAGES`] full pages, rather than storing
+/// "no release" for an app that has one further back.
 pub async fn fetch_releases(client: &wreq::Client, repo: &str, etag: Option<&str>, token: Option<&str>) -> FetchOutcome {
-  let (body, etag) = match send(client, &list_url(repo), etag, token, MAX_LIST_BODY_BYTES).await {
+  let (body, etag) = match send(client, &list_url(repo, 1), etag, token).await {
     Response::Body { body, etag } => (body, etag),
     Response::NotFound => return FetchOutcome::Fetched { releases: CraftAppReleases::default(), etag: None },
     Response::NotModified => return FetchOutcome::NotModified,
@@ -74,29 +78,38 @@ pub async fn fetch_releases(client: &wreq::Client, repo: &str, etag: Option<&str
     Ok(read) => read,
     Err(why) => return FetchOutcome::Failed(why),
   };
-  if needs_latest(&releases, listed) {
-    match send(client, &latest_url(repo), None, token, MAX_BODY_BYTES).await {
-      Response::Body { body, .. } => match parse_release(&body, repo) {
-        Ok(release) => releases.latest_release = Some(release).filter(is_stable),
-        Err(why) => return FetchOutcome::Failed(why),
-      },
-      Response::NotFound => {}
-      Response::NotModified => return FetchOutcome::Failed("unexpected 304 for the latest release".into()),
+  let mut listed = listed;
+  for page in 2..=MAX_PAGES + 1 {
+    if !needs_next_page(&releases, listed) {
+      break;
+    }
+    if page > MAX_PAGES {
+      return FetchOutcome::Failed(format!("no stable release among the newest {} releases", MAX_PAGES * RELEASES_PER_PAGE));
+    }
+    let body = match send(client, &list_url(repo, page), None, token).await {
+      Response::Body { body, .. } => body,
+      Response::NotFound => break,
+      Response::NotModified => return FetchOutcome::Failed("unexpected 304 for a later page".into()),
       Response::RateLimited { retry_at } => return FetchOutcome::RateLimited { retry_at },
       Response::Failed(why) => return FetchOutcome::Failed(why),
+    };
+    match parse_release_list(&body, repo) {
+      // Only the stable release: the channels and the version list come from the first page.
+      Ok((later, n)) => (releases.latest_release, listed) = (later.latest_release, n),
+      Err(why) => return FetchOutcome::Failed(why),
     }
   }
   FetchOutcome::Fetched { releases, etag }
 }
 
-/// Whether the stable release must be asked for on its own: the page was full (`listed` releases
-/// in it) and none of them was a stable release, so the latest one is on a later page.
-pub fn needs_latest(releases: &CraftAppReleases, listed: usize) -> bool {
+/// Whether the next page must be read for the stable release: the last page was full (`listed`
+/// releases in it) and none so far was a stable release, so it is further back.
+pub fn needs_next_page(releases: &CraftAppReleases, listed: usize) -> bool {
   releases.latest_release.is_none() && listed >= RELEASES_PER_PAGE
 }
 
-/// Sends one GET to GitHub and sorts out the answer. A body larger than `max_body` fails.
-async fn send(client: &wreq::Client, url: &str, etag: Option<&str>, token: Option<&str>, max_body: usize) -> Response {
+/// Sends one GET to GitHub and sorts out the answer. A body larger than a page may be fails.
+async fn send(client: &wreq::Client, url: &str, etag: Option<&str>, token: Option<&str>) -> Response {
   let request = build_request(client, url, etag, token);
   let response = match request.send().await {
     Ok(r) => r,
@@ -122,7 +135,7 @@ async fn send(client: &wreq::Client, url: &str, etag: Option<&str>, token: Optio
     StatusCode::OK => {
       let etag = header(ETAG.as_str());
       match response.bytes().await {
-        Ok(b) if b.len() <= max_body => Response::Body { body: b.to_vec(), etag },
+        Ok(b) if b.len() <= MAX_LIST_BODY_BYTES => Response::Body { body: b.to_vec(), etag },
         Ok(b) => Response::Failed(format!("answer too large ({} bytes)", b.len())),
         Err(err) => Response::Failed(format!("unreadable answer: {err}")),
       }
@@ -131,12 +144,13 @@ async fn send(client: &wreq::Client, url: &str, etag: Option<&str>, token: Optio
   }
 }
 
-fn list_url(repo: &str) -> String {
-  format!("{API_BASE}/repos/{repo}/releases?per_page={RELEASES_PER_PAGE}")
-}
-
-fn latest_url(repo: &str) -> String {
-  format!("{API_BASE}/repos/{repo}/releases/latest")
+/// Page `page` (from 1) of `repo`'s releases. The first page's URL is the one its ETag is for.
+fn list_url(repo: &str, page: usize) -> String {
+  if page <= 1 {
+    format!("{API_BASE}/repos/{repo}/releases?per_page={RELEASES_PER_PAGE}")
+  } else {
+    format!("{API_BASE}/repos/{repo}/releases?per_page={RELEASES_PER_PAGE}&page={page}")
+  }
 }
 
 /// The request for `url`. Sends `Authorization: Bearer` only for a non-blank token (an
@@ -221,13 +235,9 @@ pub fn is_nightly_tag(tag: &str) -> bool {
   version.split_once('-').is_some_and(|(_, pre)| pre.split('.').any(|part| part.eq_ignore_ascii_case("nightly")))
 }
 
-/// A stable release: neither a pre-release nor a nightly.
-fn is_stable(release: &CraftAppRelease) -> bool {
-  !release.prerelease && !is_nightly_tag(&release.tag)
-}
-
 /// Reads a release, keeping only downloads that really belong to `repo`.
-pub fn parse_release(body: &[u8], repo: &str) -> Result<CraftAppRelease, String> {
+#[cfg(test)]
+fn parse_release(body: &[u8], repo: &str) -> Result<CraftAppRelease, String> {
   let raw: GithubRelease = serde_json::from_slice(body).map_err(|e| format!("unreadable release: {e}"))?;
   read_release(raw, repo)
 }
@@ -344,7 +354,7 @@ mod tests {
   #[test]
   fn sends_the_token_as_a_bearer_header() {
     let client = build_client().unwrap();
-    let request = build_request(&client, &list_url(REPO), Some("\"etag\""), Some("ghp_x")).build().unwrap();
+    let request = build_request(&client, &list_url(REPO, 1), Some("\"etag\""), Some("ghp_x")).build().unwrap();
     assert_eq!(request.headers().get(AUTHORIZATION).unwrap(), "Bearer ghp_x");
     assert_eq!(request.headers().get(IF_NONE_MATCH).unwrap(), "\"etag\"");
   }
@@ -353,16 +363,16 @@ mod tests {
   fn without_a_token_the_request_is_unauthenticated() {
     let client = build_client().unwrap();
     for token in [None, Some(""), Some("  ")] {
-      let request = build_request(&client, &list_url(REPO), None, token).build().unwrap();
+      let request = build_request(&client, &list_url(REPO, 1), None, token).build().unwrap();
       assert!(request.headers().get(AUTHORIZATION).is_none(), "{:?}", token);
       assert!(request.headers().get(IF_NONE_MATCH).is_none());
     }
   }
 
   #[test]
-  fn asks_for_a_page_of_releases_and_the_latest_one_only_as_a_fallback() {
-    assert_eq!(list_url(REPO), "https://api.github.com/repos/storytold/photocraft/releases?per_page=30");
-    assert_eq!(latest_url(REPO), "https://api.github.com/repos/storytold/photocraft/releases/latest");
+  fn asks_for_a_page_of_releases_and_later_pages_by_number() {
+    assert_eq!(list_url(REPO, 1), "https://api.github.com/repos/storytold/photocraft/releases?per_page=30");
+    assert_eq!(list_url(REPO, 2), "https://api.github.com/repos/storytold/photocraft/releases?per_page=30&page=2");
   }
 
   mod release_lists {
@@ -424,22 +434,32 @@ mod tests {
       let (releases, listed) = parse_release_list(b"[]", REPO).unwrap();
       assert_eq!(listed, 0);
       assert!(releases.latest_release.is_none() && releases.releases.is_empty());
-      assert!(!needs_latest(&releases, listed));
+      assert!(!needs_next_page(&releases, listed));
     }
 
     #[test]
-    fn the_latest_release_is_asked_for_only_when_a_full_page_has_no_stable_one() {
+    fn the_next_page_is_read_only_when_a_full_page_has_no_stable_release() {
       let nightlies: Vec<String> = (0..RELEASES_PER_PAGE).map(|i| entry(&format!("v0.6.0-nightly.202611{:02}.{i}.1", i % 28 + 1), true)).collect();
       let (releases, listed) = parse_release_list(list(&nightlies).as_bytes(), REPO).unwrap();
-      assert!(needs_latest(&releases, listed), "the stable release is on a later page");
+      assert!(needs_next_page(&releases, listed), "the stable release is on a later page");
 
       let (releases, listed) = parse_release_list(list(&nightlies[..RELEASES_PER_PAGE - 1]).as_bytes(), REPO).unwrap();
-      assert!(!needs_latest(&releases, listed), "a page that isn't full is everything there is");
+      assert!(!needs_next_page(&releases, listed), "a page that isn't full is everything there is");
 
       let mut with_stable = nightlies.clone();
       with_stable[RELEASES_PER_PAGE - 1] = entry("v0.5.0", false);
       let (releases, listed) = parse_release_list(list(&with_stable).as_bytes(), REPO).unwrap();
-      assert!(!needs_latest(&releases, listed));
+      assert!(!needs_next_page(&releases, listed));
+    }
+
+    /// A nightly without the pre-release flag (which GitHub may call the latest release) doesn't
+    /// stop the search: the stable release behind it is looked for on the next page.
+    #[test]
+    fn a_page_of_nightlies_without_the_prerelease_flag_still_asks_for_the_next() {
+      let nightlies: Vec<String> = (0..RELEASES_PER_PAGE).map(|i| entry(&format!("v0.6.0-nightly.202611{:02}.{i}.1", i % 28 + 1), false)).collect();
+      let (releases, listed) = parse_release_list(list(&nightlies).as_bytes(), REPO).unwrap();
+      assert!(releases.latest_release.is_none());
+      assert!(needs_next_page(&releases, listed));
     }
 
     #[test]

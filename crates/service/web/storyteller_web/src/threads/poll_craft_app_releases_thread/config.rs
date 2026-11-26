@@ -17,8 +17,9 @@
 //! pod doing so. That is what makes the 2 minute default safe with a token. Without a token
 //! GitHub allows 60 requests an hour per IP address and also counts `304`s, so the interval stays
 //! at 30 minutes (20 apps: about 40 requests an hour; an app whose newest 30 releases are all
-//! betas or nightlies costs a second request for its stable one). While Redis is unreachable (or
-//! with coordination off) every pod polls on its own at the same interval.
+//! betas or nightlies costs up to four more, reading further pages for its stable one). While
+//! Redis is unreachable (or with coordination off) every pod polls on its own at the same
+//! interval.
 
 use std::time::Duration;
 
