@@ -3,6 +3,7 @@ use actix_service::ServiceFactory;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::{web, App, Error, HttpResponse};
 
+use crate::http_server::endpoints::craft_apps::get_craft_app_releases_handler::get_craft_app_releases_handler;
 use crate::http_server::endpoints::craft_apps::get_craft_apps_release_info_handler::get_craft_apps_release_info_handler;
 
 pub fn add_craft_apps_routes<T, B>(app: App<T>) -> App<T>
@@ -23,6 +24,11 @@ where
         web::resource("/release_info")
           .route(web::get().to(get_craft_apps_release_info_handler))
           .route(web::head().to(|| HttpResponse::Ok())),
+      )
+      // One app's release history (choosing a version, going back, nightlies).
+      .service(
+        web::resource("/{app_key}/releases")
+          .route(web::get().to(get_craft_app_releases_handler)),
       ),
   )
 }

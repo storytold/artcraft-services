@@ -57,6 +57,10 @@ mod tests {
 
   use chrono::Utc;
 
+  use artcraft_api_defs::craft_apps::release_info::CraftAppReleaseInfo;
+
+  use crate::state::craft_apps_release_cache::{CraftAppHistory, CraftAppReleases, CraftAppsReleaseCache};
+
   use super::*;
 
   #[test]
@@ -69,5 +73,30 @@ mod tests {
   fn an_answer_with_unfetched_apps_is_never_stored() {
     let release_info = CraftAppsReleaseInfo { apps: BTreeMap::new(), last_fetched: None };
     assert_eq!(cache_control_for(&release_info).to_string(), "no-store");
+  }
+
+  /// Deployed launchers read `latest_release` and `app_last_fetched` per app: the channels and
+  /// the version list are added beside them, never in their place.
+  #[test]
+  fn every_app_keeps_its_original_fields_beside_the_new_ones() {
+    let cache = CraftAppsReleaseCache::new();
+    cache.register_apps(&[("photocraft".into(), "PhotoCraft".into(), "storytold/photocraft".into())]);
+    cache.store("photocraft", CraftAppReleases::default(), CraftAppHistory::default(), None, Utc::now());
+    let json = serde_json::to_value(cache.snapshot()).unwrap();
+    let app = json["apps"]["photocraft"].as_object().unwrap();
+    for field in ["name", "repo", "latest_release", "app_last_fetched", "latest_prerelease", "latest_nightly", "releases"] {
+      assert!(app.contains_key(field), "{}", field);
+    }
+    assert_eq!(app["repo"], "storytold/photocraft");
+    assert!(app["releases"].as_array().unwrap().is_empty());
+    assert!(json["last_fetched"].is_string());
+  }
+
+  /// An answer from before the channels existed still reads, with them empty.
+  #[test]
+  fn an_app_without_the_new_fields_still_reads() {
+    let old = r#"{"name":"PhotoCraft","repo":"storytold/photocraft","latest_release":null,"app_last_fetched":null}"#;
+    let app: CraftAppReleaseInfo = serde_json::from_str(old).unwrap();
+    assert!(app.latest_prerelease.is_none() && app.latest_nightly.is_none() && app.releases.is_empty());
   }
 }

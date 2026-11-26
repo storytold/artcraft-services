@@ -27,10 +27,11 @@ use log::warn;
 use r2d2::{ManageConnection, Pool};
 use redis::{Client, Connection, ConnectionLike, ErrorKind, RedisError, RedisResult, Script, ServerErrorKind, Value};
 
-use artcraft_api_defs::craft_apps::release_info::CraftAppRelease;
+use redis_schema::keys::craft_apps::craft_app_release_history_redis_key::CraftAppReleaseHistoryRedisKey;
 use redis_schema::keys::craft_apps::craft_app_release_redis_key::CraftAppReleaseRedisKey;
 use redis_schema::keys::craft_apps::craft_apps_release_backoff_redis_key::CraftAppsReleaseBackoffRedisKey;
 
+use crate::state::craft_apps_release_cache::{CraftAppHistory, CraftAppReleases};
 use crate::threads::poll_craft_app_releases_thread::scheduling::Backoff;
 use crate::threads::poll_craft_app_releases_thread::shared_entry;
 use crate::threads::poll_craft_app_releases_thread::shared_entry::{SharedAppEntry, SharedFailure};
@@ -71,6 +72,25 @@ return 1
 
 static GUARDED_HSET: LazyLock<Script> = LazyLock::new(|| Script::new(GUARDED_HSET_LUA));
 
+/// [`GUARDED_HSET_LUA`] with a companion: by the same rule and in the same step, also sets the
+/// string `KEYS[2]` to `ARGV[6]` with the same TTL (the hash's fields then start at `ARGV[7]`).
+/// The history of a fetch is written only together with the fetch it belongs to.
+const GUARDED_HSET_WITH_COMPANION_LUA: &str = r#"
+local current = tonumber(redis.call('HGET', KEYS[1], ARGV[1]))
+if current and current + tonumber(ARGV[3]) > tonumber(ARGV[2]) then
+  return 0
+end
+if ARGV[5] ~= '' and redis.call('HGET', KEYS[1], 'etag') ~= ARGV[5] then
+  return 0
+end
+redis.call('HSET', KEYS[1], unpack(ARGV, 7))
+redis.call('PEXPIRE', KEYS[1], ARGV[4])
+redis.call('SET', KEYS[2], ARGV[6], 'PX', ARGV[4])
+return 1
+"#;
+
+static GUARDED_HSET_WITH_COMPANION: LazyLock<Script> = LazyLock::new(|| Script::new(GUARDED_HSET_WITH_COMPANION_LUA));
+
 /// Handle on the shared state. Cheap to clone.
 #[derive(Clone)]
 pub struct SharedStore {
@@ -97,6 +117,8 @@ struct GuardedWrite {
   min_gap: Duration,
   required_etag: Option<String>,
   fields: Vec<(&'static str, String)>,
+  /// A string key set to a value only when, and in the same step as, the hash is written.
+  companion: Option<(String, String)>,
 }
 
 impl SharedStore {
@@ -138,19 +160,29 @@ impl SharedStore {
         (shared_entry::FIELD_CLAIMED_MS, now.timestamp_millis().to_string()),
         (shared_entry::FIELD_BY, self.hostname.clone()),
       ],
+      companion: None,
     }).await
   }
 
-  /// Shares a successful fetch, unless a newer one is already shared. Returns whether written.
-  pub async fn write_fetched(&self, app_key: &str, latest_release: Option<&CraftAppRelease>, etag: Option<&str>, fetched_at: DateTime<Utc>) -> anyhow::Result<bool> {
+  /// Shares a successful fetch and its history, in one step, unless a newer fetch is already
+  /// shared. Returns whether written.
+  pub async fn write_fetched(&self, app_key: &str, releases: &CraftAppReleases, history: &CraftAppHistory, etag: Option<&str>, fetched_at: DateTime<Utc>) -> anyhow::Result<bool> {
     self.guarded_write(GuardedWrite {
       key: CraftAppReleaseRedisKey::new_for_app(app_key).to_string(),
       time_field: shared_entry::FIELD_FETCHED_MS,
       time: fetched_at,
       min_gap: Duration::ZERO,
       required_etag: None,
-      fields: shared_entry::encode_fetch(latest_release, etag, fetched_at, &self.hostname)?,
+      fields: shared_entry::encode_fetch(releases, etag, fetched_at, &self.hostname)?,
+      companion: Some((CraftAppReleaseHistoryRedisKey::new_for_app(app_key).to_string(), shared_entry::encode_history(history)?)),
     }).await
+  }
+
+  /// The shared history of `app_key`, `None` when absent or unreadable.
+  pub async fn read_history(&self, app_key: &str) -> anyhow::Result<Option<CraftAppHistory>> {
+    let key = CraftAppReleaseHistoryRedisKey::new_for_app(app_key).to_string();
+    let value: Option<String> = self.run(move |conn| redis::cmd("GET").arg(&key).query(conn)).await?;
+    Ok(value.as_deref().and_then(shared_entry::decode_history))
   }
 
   /// Shares a `304` for the release with ETag `etag`: moves only the fetch time, and only if
@@ -159,14 +191,22 @@ impl SharedStore {
     if etag.is_empty() {
       return Ok(false);
     }
-    self.guarded_write(GuardedWrite {
+    let written = self.guarded_write(GuardedWrite {
       key: CraftAppReleaseRedisKey::new_for_app(app_key).to_string(),
       time_field: shared_entry::FIELD_FETCHED_MS,
       time: fetched_at,
       min_gap: Duration::ZERO,
       required_etag: Some(etag.to_string()),
       fields: shared_entry::encode_unchanged(fetched_at, &self.hostname),
-    }).await
+      companion: None,
+    }).await?;
+    if written {
+      // The history lives as long as the hash it belongs with.
+      let key = CraftAppReleaseHistoryRedisKey::new_for_app(app_key).to_string();
+      let ttl_ms = CraftAppReleaseHistoryRedisKey::get_redis_ttl().num_milliseconds();
+      self.run(move |conn| redis::cmd("PEXPIRE").arg(&key).arg(ttl_ms).query::<()>(conn)).await?;
+    }
+    Ok(written)
   }
 
   /// Shares a failed request, unless a newer failure is already shared. Returns whether written.
@@ -178,6 +218,7 @@ impl SharedStore {
       min_gap: Duration::ZERO,
       required_etag: None,
       fields: shared_entry::encode_failure(failure, &self.hostname),
+      companion: None,
     }).await
   }
 
@@ -276,13 +317,23 @@ impl ManageConnection for PollerRedisConnections {
 
 /// [`GUARDED_HSET_LUA`] decides and writes on the server, in one step.
 fn guarded_write_with_script(conn: &mut Connection, write: &GuardedWrite, ttl_ms: i64) -> RedisResult<bool> {
-  let mut invocation = GUARDED_HSET.key(&write.key);
+  let mut invocation = match &write.companion {
+    Some((key, _)) => {
+      let mut invocation = GUARDED_HSET_WITH_COMPANION.key(&write.key);
+      invocation.key(key);
+      invocation
+    }
+    None => GUARDED_HSET.key(&write.key),
+  };
   invocation
       .arg(write.time_field)
       .arg(write.time.timestamp_millis())
       .arg(write.min_gap.as_millis() as u64)
       .arg(ttl_ms)
       .arg(write.required_etag.as_deref().unwrap_or_default());
+  if let Some((_, value)) = &write.companion {
+    invocation.arg(value);
+  }
   for (field, value) in &write.fields {
     invocation.arg(*field).arg(value);
   }
@@ -314,11 +365,12 @@ fn guarded_write_with_watch(conn: &mut Connection, write: &GuardedWrite, ttl_ms:
       return Ok(false);
     }
     // `EXEC` ends the watch either way; `None` means another write got in first.
-    let committed: Option<Value> = redis::pipe()
-        .atomic()
-        .hset_multiple(&write.key, &write.fields)
-        .pexpire(&write.key, ttl_ms)
-        .query(conn)?;
+    let mut pipe = redis::pipe();
+    pipe.atomic().hset_multiple(&write.key, &write.fields).pexpire(&write.key, ttl_ms);
+    if let Some((key, value)) = &write.companion {
+      pipe.cmd("SET").arg(key).arg(value).arg("PX").arg(ttl_ms);
+    }
+    let committed: Option<Value> = pipe.query(conn)?;
     if committed.is_some() {
       return Ok(true);
     }
@@ -549,8 +601,10 @@ mod tests {
     assert!(pod_b.claim(&app, t(2)).await.unwrap());
 
     // A newer fetch is never replaced by an older one.
-    assert!(pod_a.write_fetched(&app, None, Some("\"e2\""), t(2)).await.unwrap());
-    assert!(!pod_b.write_fetched(&app, None, Some("\"e1\""), t(1)).await.unwrap());
+    let history = |etag: &str| CraftAppHistory { etag: Some(etag.into()), complete: true, releases: Vec::new() };
+    assert!(pod_a.write_fetched(&app, &CraftAppReleases::default(), &history("\"e2\""), Some("\"e2\""), t(2)).await.unwrap());
+    assert!(!pod_b.write_fetched(&app, &CraftAppReleases::default(), &history("\"e1\""), Some("\"e1\""), t(1)).await.unwrap());
+    assert_eq!(pod_b.read_history(&app).await.unwrap().unwrap().etag.as_deref(), Some("\"e2\""), "the losing write's history isn't shared");
     let fetched = read_app(pod_a.clone(), keys.clone()).await.unwrap().fetched.unwrap();
     assert_eq!((fetched.etag.as_deref(), fetched.fetched_at), (Some("\"e2\""), t(2)));
 
@@ -570,9 +624,9 @@ mod tests {
     // Garbage in an entry is overwritten, not trusted.
     let key = CraftAppReleaseRedisKey::new_for_app(&other).to_string();
     let garbage_key = key.clone();
-    pod_a.run(move |conn| redis::cmd("HSET").arg(&garbage_key).arg("v").arg("1").arg("fetched_ms").arg("soon").arg("release").arg("{").query::<()>(conn)).await.unwrap();
+    pod_a.run(move |conn| redis::cmd("HSET").arg(&garbage_key).arg("v").arg("1").arg("fetched_ms").arg("soon").arg("releases").arg("{").query::<()>(conn)).await.unwrap();
     assert!(pod_a.read(&keys).await.unwrap().0[1].as_ref().unwrap().fetched.is_none());
-    assert!(pod_a.write_fetched(&other, None, None, t(1)).await.unwrap());
+    assert!(pod_a.write_fetched(&other, &CraftAppReleases::default(), &CraftAppHistory::default(), None, t(1)).await.unwrap());
     assert!(pod_a.read(&keys).await.unwrap().0[1].as_ref().unwrap().fetched.is_some());
 
     // Entries expire if nobody refreshes them.
@@ -590,7 +644,8 @@ mod tests {
       assert_eq!(pod_a.read(&keys).await.unwrap().1, Backoff::default());
     }
 
-    let cleanup: Vec<String> = keys.iter().map(|k| CraftAppReleaseRedisKey::new_for_app(k).to_string()).collect();
+    let mut cleanup: Vec<String> = keys.iter().map(|k| CraftAppReleaseRedisKey::new_for_app(k).to_string()).collect();
+    cleanup.extend(keys.iter().map(|k| CraftAppReleaseHistoryRedisKey::new_for_app(k).to_string()));
     pod_a.run(move |conn| redis::cmd("DEL").arg(&cleanup).query::<()>(conn)).await.unwrap();
   }
 
@@ -602,6 +657,7 @@ mod tests {
       min_gap,
       required_etag: required_etag.map(str::to_string),
       fields: Vec::new(),
+      companion: None,
     }
   }
 

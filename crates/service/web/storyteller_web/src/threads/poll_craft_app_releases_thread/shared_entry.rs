@@ -1,18 +1,29 @@
 //! What the fleet shares in Redis about Craft App releases, and how it is encoded. Pure: the
 //! Redis I/O is in `shared_store`.
 //!
-//! ## `craftApps:releases:app:<app key>` (hash, 7 day TTL, refreshed on every write)
+//! ## `craftApps:releases:v2:app:<app key>` (hash, 7 day TTL, refreshed on every write)
+//!
+//! `v2` since the entry holds every channel (`releases`). Instances still running the code that
+//! knew only the latest release keep `craftApps:releases:app:<app key>`, so during a rollout the
+//! two never overwrite each other's entries.
 //!
 //! | Field        | Meaning                                                                        |
 //! |--------------|--------------------------------------------------------------------------------|
 //! | `v`          | Format version, `1`. Entries with another version are ignored (and replaced)   |
 //! | `fetched_ms` | When the release was last fetched or confirmed by GitHub (Unix ms)             |
 //! | `etag`       | GitHub's ETag for that answer; empty for none                                  |
-//! | `release`    | The latest release as JSON (`CraftAppRelease`), `null` if the repo has none    |
+//! | `releases`   | What the fetch found, as JSON (`CraftAppReleases`)                             |
 //! | `failed_ms`  | When a request for the app last failed (Unix ms); stale once `fetched_ms` newer |
 //! | `failures`   | Failed requests in a row as of `failed_ms`                                     |
 //! | `claimed_ms` | When an instance last started a request for the app (Unix ms), to skip doubles |
 //! | `by`         | Hostname of the instance that wrote last, for debugging                        |
+//!
+//! ## `craftApps:releases:v2:history:<app key>` (string, 7 day TTL, refreshed with the hash)
+//!
+//! The app's whole release history as JSON (`CraftAppHistory`), written right after a fetch wins
+//! the hash above. Its `etag` says which fetch it belongs to: an instance takes it only while the
+//! hash holds the same ETag, and reads it only when its own history is behind, so the every-tick
+//! read of the hashes stays small.
 //!
 //! ## `craftApps:releases:backoff` (hash, 1 day TTL; deleted after a good round)
 //!
@@ -30,8 +41,7 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 
-use artcraft_api_defs::craft_apps::release_info::CraftAppRelease;
-
+use crate::state::craft_apps_release_cache::{CraftAppHistory, CraftAppReleases};
 use crate::threads::poll_craft_app_releases_thread::scheduling::Backoff;
 
 pub const FORMAT_VERSION: &str = "1";
@@ -39,7 +49,7 @@ pub const FORMAT_VERSION: &str = "1";
 pub const FIELD_VERSION: &str = "v";
 pub const FIELD_FETCHED_MS: &str = "fetched_ms";
 pub const FIELD_ETAG: &str = "etag";
-pub const FIELD_RELEASE: &str = "release";
+pub const FIELD_RELEASES: &str = "releases";
 pub const FIELD_FAILED_MS: &str = "failed_ms";
 pub const FIELD_FAILURES: &str = "failures";
 pub const FIELD_CLAIMED_MS: &str = "claimed_ms";
@@ -57,7 +67,7 @@ pub struct SharedAppEntry {
 /// A successful fetch (or `304` confirmation) by some instance.
 #[derive(Clone, Debug)]
 pub struct SharedFetch {
-  pub latest_release: Option<CraftAppRelease>,
+  pub releases: CraftAppReleases,
   pub etag: Option<String>,
   pub fetched_at: DateTime<Utc>,
 }
@@ -83,12 +93,12 @@ pub fn decode_app_entry(fields: &HashMap<String, String>) -> Option<SharedAppEnt
 }
 
 /// The fields written for a successful fetch.
-pub fn encode_fetch(latest_release: Option<&CraftAppRelease>, etag: Option<&str>, fetched_at: DateTime<Utc>, by: &str) -> Result<Vec<(&'static str, String)>, serde_json::Error> {
+pub fn encode_fetch(releases: &CraftAppReleases, etag: Option<&str>, fetched_at: DateTime<Utc>, by: &str) -> Result<Vec<(&'static str, String)>, serde_json::Error> {
   Ok(vec![
     (FIELD_VERSION, FORMAT_VERSION.to_string()),
     (FIELD_FETCHED_MS, fetched_at.timestamp_millis().to_string()),
     (FIELD_ETAG, etag.unwrap_or_default().to_string()),
-    (FIELD_RELEASE, serde_json::to_string(&latest_release)?),
+    (FIELD_RELEASES, serde_json::to_string(releases)?),
     (FIELD_BY, by.to_string()),
   ])
 }
@@ -112,6 +122,16 @@ pub fn encode_failure(failure: SharedFailure, by: &str) -> Vec<(&'static str, St
   ]
 }
 
+/// The JSON shared for an app's history.
+pub fn encode_history(history: &CraftAppHistory) -> Result<String, serde_json::Error> {
+  serde_json::to_string(history)
+}
+
+/// Reads a shared history; `None` when it is unreadable (it is then read again next time).
+pub fn decode_history(json: &str) -> Option<CraftAppHistory> {
+  serde_json::from_str(json).ok()
+}
+
 /// Reads the backoff hash; anything absent or unreadable is no backoff.
 pub fn decode_backoff(fields: &HashMap<String, String>) -> Backoff {
   if fields.get(FIELD_VERSION).map(String::as_str) != Some(FORMAT_VERSION) {
@@ -132,13 +152,13 @@ pub fn encode_backoff(backoff: Backoff, by: &str) -> Vec<(&'static str, String)>
   ]
 }
 
-/// The fetch part of an app's hash; `None` unless the time, the ETag and the release all read.
+/// The fetch part of an app's hash; `None` unless the time, the ETag and the releases all read.
 fn decode_fetch(fields: &HashMap<String, String>) -> Option<SharedFetch> {
   let fetched_at = time_field(fields, FIELD_FETCHED_MS)?;
-  let latest_release: Option<CraftAppRelease> = serde_json::from_str(fields.get(FIELD_RELEASE)?).ok()?;
+  let releases: CraftAppReleases = serde_json::from_str(fields.get(FIELD_RELEASES)?).ok()?;
   let etag = fields.get(FIELD_ETAG)?;
   Some(SharedFetch {
-    latest_release,
+    releases,
     etag: (!etag.is_empty()).then(|| etag.clone()),
     fetched_at,
   })
@@ -154,6 +174,8 @@ fn time_field(fields: &HashMap<String, String>, name: &str) -> Option<DateTime<U
 mod tests {
   use chrono::TimeZone;
 
+  use artcraft_api_defs::craft_apps::release_info::CraftAppRelease;
+
   use super::*;
 
   const BY: &str = "storyteller-web-abc";
@@ -163,37 +185,37 @@ mod tests {
 
     #[test]
     fn a_fetch_round_trips() {
-      let release = release();
       let at = time();
-      let fields = to_map(encode_fetch(Some(&release), Some("\"e1\""), at, BY).unwrap());
+      let fields = to_map(encode_fetch(&releases(), Some("\"e1\""), at, BY).unwrap());
       let entry = decode_app_entry(&fields).unwrap();
       let fetched = entry.fetched.unwrap();
       assert_eq!((fetched.etag.as_deref(), fetched.fetched_at), (Some("\"e1\""), at));
-      assert_eq!(json(&fetched.latest_release), json(&Some(release)));
+      assert_eq!(json(&fetched.releases), json(&releases()));
       assert_eq!(entry.failure, None);
     }
 
     #[test]
     fn a_repo_without_release_or_etag_round_trips() {
-      let fields = to_map(encode_fetch(None, None, time(), BY).unwrap());
+      let fields = to_map(encode_fetch(&CraftAppReleases::default(), None, time(), BY).unwrap());
       let fetched = decode_app_entry(&fields).unwrap().fetched.unwrap();
-      assert!(fetched.latest_release.is_none());
+      assert!(fetched.releases.latest_release.is_none());
+      assert!(fetched.releases.releases.is_empty());
       assert_eq!(fetched.etag, None);
     }
 
     #[test]
     fn a_304_moves_only_the_time() {
-      let mut fields = to_map(encode_fetch(Some(&release()), Some("\"e1\""), time(), BY).unwrap());
+      let mut fields = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), BY).unwrap());
       let later = time() + chrono::Duration::minutes(2);
       fields.extend(to_map(encode_unchanged(later, BY)));
       let fetched = decode_app_entry(&fields).unwrap().fetched.unwrap();
       assert_eq!((fetched.fetched_at, fetched.etag.as_deref()), (later, Some("\"e1\"")));
-      assert_eq!(json(&fetched.latest_release), json(&Some(release())));
+      assert_eq!(json(&fetched.releases), json(&releases()));
     }
 
     #[test]
     fn a_failure_round_trips_alongside_a_fetch() {
-      let mut fields = to_map(encode_fetch(None, None, time(), BY).unwrap());
+      let mut fields = to_map(encode_fetch(&CraftAppReleases::default(), None, time(), BY).unwrap());
       let failure = SharedFailure { failed_at: time() + chrono::Duration::minutes(1), consecutive_failures: 3 };
       fields.extend(to_map(encode_failure(failure, BY)));
       let entry = decode_app_entry(&fields).unwrap();
@@ -204,17 +226,39 @@ mod tests {
     #[test]
     fn garbage_reads_as_absent() {
       assert!(decode_app_entry(&HashMap::new()).is_none());
-      let good = to_map(encode_fetch(Some(&release()), Some("\"e1\""), time(), BY).unwrap());
+      let good = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), BY).unwrap());
       let with = |field: &str, value: &str| {
         let mut fields = good.clone();
         fields.insert(field.to_string(), value.to_string());
         fields
       };
       assert!(decode_app_entry(&with(FIELD_VERSION, "2")).is_none(), "unknown version");
-      assert!(decode_app_entry(&with(FIELD_RELEASE, "{not json")).unwrap().fetched.is_none());
-      assert!(decode_app_entry(&with(FIELD_RELEASE, "{\"tag\":1}")).unwrap().fetched.is_none());
+      assert!(decode_app_entry(&with(FIELD_RELEASES, "{not json")).unwrap().fetched.is_none());
+      assert!(decode_app_entry(&with(FIELD_RELEASES, "{\"latest_release\":{\"tag\":1}}")).unwrap().fetched.is_none());
       assert!(decode_app_entry(&with(FIELD_FETCHED_MS, "yesterday")).unwrap().fetched.is_none());
       assert!(decode_app_entry(&with(FIELD_FAILED_MS, "-5")).unwrap().failure.is_none());
+    }
+
+    #[test]
+    fn an_entry_with_only_the_latest_release_is_no_fetch() {
+      // What the code before every channel was shared wrote: refetched, not served half-empty.
+      let mut fields = to_map(encode_fetch(&releases(), Some("\"e1\""), time(), BY).unwrap());
+      fields.remove(FIELD_RELEASES);
+      fields.insert("release".into(), serde_json::to_string(&releases().latest_release).unwrap());
+      assert!(decode_app_entry(&fields).unwrap().fetched.is_none());
+    }
+  }
+
+  mod histories {
+    use super::*;
+
+    #[test]
+    fn a_history_round_trips_and_garbage_reads_as_absent() {
+      let history = CraftAppHistory { etag: Some("\"e1\"".into()), complete: true, releases: vec![release("v0.5.0", false)] };
+      let read = decode_history(&encode_history(&history).unwrap()).unwrap();
+      assert_eq!((read.etag.as_deref(), read.complete, read.releases.len()), (Some("\"e1\""), true, 1));
+      assert!(decode_history("{not json").is_none());
+      assert!(decode_history(r#"{"releases": [{"tag": 1}]}"#).is_none());
     }
   }
 
@@ -244,21 +288,33 @@ mod tests {
     Utc.with_ymd_and_hms(2026, 10, 10, 12, 0, 0).unwrap()
   }
 
-  fn release() -> CraftAppRelease {
+  fn release(tag: &str, prerelease: bool) -> CraftAppRelease {
     CraftAppRelease {
-      tag: "v0.5.0".into(),
-      version: "0.5.0".into(),
-      name: "PhotoCraft v0.5.0".into(),
+      tag: tag.into(),
+      version: tag.trim_start_matches('v').into(),
+      name: format!("PhotoCraft {tag}"),
       published_at: Some(time()),
-      html_url: "https://github.com/storytold/photocraft/releases/tag/v0.5.0".into(),
-      prerelease: false,
+      html_url: format!("https://github.com/storytold/photocraft/releases/tag/{tag}"),
+      prerelease,
       notes_markdown: "Notes".into(),
       assets: Vec::new(),
     }
   }
 
-  fn json(release: &Option<CraftAppRelease>) -> String {
-    serde_json::to_string(release).unwrap()
+  /// Every channel filled.
+  fn releases() -> CraftAppReleases {
+    let stable = release("v0.5.0", false);
+    let beta = release("v0.6.0-rc.1", true);
+    CraftAppReleases {
+      releases: vec![(&beta).into(), (&stable).into()],
+      latest_release: Some(stable),
+      latest_prerelease: Some(beta),
+      latest_nightly: Some(release("v0.6.0-nightly.20261126.1.1", true)),
+    }
+  }
+
+  fn json(releases: &CraftAppReleases) -> String {
+    serde_json::to_string(releases).unwrap()
   }
 
   fn to_map(fields: Vec<(&'static str, String)>) -> HashMap<String, String> {
