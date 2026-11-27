@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hasPortablePayload } from "./select-developer-nightly.mjs";
 
 // Matches craft-launcher's MAX_CATALOG_BYTES (1 MiB) so deployed catalogs never exceed the
 // launcher's verification limit.
@@ -387,9 +388,12 @@ export async function generateLauncherCatalog({
         // Immutable developer releases use the exact GitHub-published sizes and optionally
         // cross-check API digests. Older catalog entries remain discovery hints.
         assets = target.publishedAssets ? matchPublishedAssets(fetched, target.publishedAssets) : fetched;
-        if (target.publishedAssets && !assets.some(asset => asset.name === "NIGHTLY.json")) {
-          assets = [];
-          throw new Error("Developer release has no checksummed NIGHTLY.json");
+        if (target.publishedAssets) {
+          const names = new Set(assets.map(asset => asset.name));
+          if (!names.has("NIGHTLY.json") || !hasPortablePayload(names, target.id, target.version)) {
+            assets = [];
+            throw new Error("Developer release has no checksummed NIGHTLY.json and portable archive pair");
+          }
         }
       } else if (target.required) {
         throw new Error(`SHA256SUMS.txt not found for ${target.repo}@${target.tag}`);

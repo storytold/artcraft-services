@@ -10,6 +10,10 @@ const PAYLOAD_SUFFIXES = [
   "windows-aarch64-nightly.zip",
 ];
 
+export function hasPortablePayload(names, slug, version) {
+  return PAYLOAD_SUFFIXES.some(suffix => names.has(`${slug}-${version}-${suffix}`));
+}
+
 function compare(a, b) {
   for (let i = 1; i <= 6; i += 1) {
     const x = BigInt(a[i]), y = BigInt(b[i]);
@@ -61,6 +65,6 @@ export function selectDeveloperNightly(releases, repo, slug) {
     });
   }
   if (!names.has("NIGHTLY.json") || !names.has("SHA256SUMS.txt") ||
-      !PAYLOAD_SUFFIXES.some(suffix => names.has(`${slug}-${version}-${suffix}`))) return null;
+      !hasPortablePayload(names, slug, version)) return null;
   return { tag, version, publishedAt, assets: assets.sort((a, b) => a.name.localeCompare(b.name)) };
 }

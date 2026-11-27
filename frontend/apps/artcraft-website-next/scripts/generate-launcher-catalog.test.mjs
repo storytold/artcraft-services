@@ -357,3 +357,43 @@ test("matching release metadata rejects absent assets, missing sizes, and incons
     assert.throws(() => matchPublishedAssets([asset], published), /disagrees/);
   }
 });
+
+test("one checksummed portable platform is sufficient, but a descriptor alone is not", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "launcher-nightly-coverage-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const baseCatalogPath = join(dir, "base.toml");
+  const outCatalogPath = join(dir, "launcher-catalog.toml");
+  writeFileSync(baseCatalogPath, '[[apps]]\nid = "cadcraft"\nname = "CADCraft"\nrepo = "storytold/cadcraft"\n');
+  const { release, sums } = developerRelease(CAD_VERSION, ["windows-x86_64-nightly.zip"]);
+  async function generate(checksums) {
+    // Keep the metadata for SHA256SUMS consistent with the manifest actually fetched:
+    // missing package evidence, not a size/digest disagreement, must drive fallback.
+    const actual = {
+      ...release,
+      assets: release.assets.map(asset => asset.name === "SHA256SUMS.txt"
+        ? { ...asset, size: Buffer.byteLength(checksums), digest: `sha256:${createHash("sha256").update(checksums).digest("hex")}` }
+        : asset),
+    };
+    const selected = selectDeveloperNightly([actual], CAD_REPO, "cadcraft");
+    assert.ok(selected, "the published metadata still advertises a portable archive");
+    await generateLauncherCatalog({
+      baseCatalogPath, outCatalogPath,
+      targets: [{
+        id: "cadcraft", repo: CAD_REPO, channel: "nightly", tag: selected.tag, version: selected.version,
+        prerelease: true, required: false, publishedAt: selected.publishedAt, publishedAssets: selected.assets,
+      }],
+      fetchImpl: async () => ({ ok: true, status: 200, arrayBuffer: async () => Buffer.from(checksums) }),
+    });
+    const py = spawnSync("python3", ["-c",
+      'import json, sys, tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb"))["apps"][0]["releases"]["nightly"]))',
+      outCatalogPath], { encoding: "utf8" });
+    assert.equal(py.status, 0, py.stderr);
+    return JSON.parse(py.stdout);
+  }
+  const single = await generate(sums);
+  assert.equal(single.published_at, CAD_PUBLISHED);
+  assert.ok(single.assets.some(asset => asset.name.endsWith("windows-x86_64-nightly.zip")));
+  const descriptorOnly = await generate(`${HASH_A}  NIGHTLY.json\n`);
+  assert.equal(descriptorOnly.published_at, undefined);
+  assert.equal(descriptorOnly.assets, undefined);
+});
