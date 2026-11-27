@@ -25,9 +25,26 @@ Review changes to repositories and signing teams before publishing. The command
 copies icons without modification and leaves older hashed icons available for
 clients still using an earlier catalog.
 
-## Cloudflare build signing
+## Cloudflare build generation and signing
 
-The existing `npm run build:cloudflare` static-export pipeline now signs the final
+The existing `npm run build:cloudflare` static-export pipeline enriches
+`public/launcher-catalog.toml` into `out/launcher-catalog.toml` via
+`scripts/generate-launcher-catalog.mjs` before signing. Similar to the static
+Linux repositories (`scripts/generate-static-repos.mjs`), it reads the latest
+stable, prerelease, and nightly versions from `src/lib/crafting-app-releases.ts`
+(kept fresh hourly by `.github/workflows/update-craft-release-versions.yml`),
+fetches each release's `SHA256SUMS.txt` from GitHub, and writes:
+
+- top-level `generated_at` (RFC 3339 UTC timestamp),
+- top-level `[launcher]` with `[launcher.releases.<channel>]` and
+  `[[launcher.releases.<channel>.assets]]` for `artcraft-launcher`, and
+- per-app `[apps.releases.<channel>]` and `[[apps.releases.<channel>.assets]]`
+  (`stable`, `prerelease`, `nightly`) inside each `[[apps]]` entry.
+
+`public/launcher-catalog.toml` itself stays unchanged so
+`sync-launcher-catalog.py --check` continues to verify the base catalog cleanly.
+
+`scripts/sign-launcher-catalog.mjs` then signs the final
 `out/launcher-catalog.toml` bytes. It writes `out/launcher-catalog.toml.sig` as a
 base64-encoded, 64-byte Ed25519 detached signature followed by a newline. This
 format must be matched by the launcher verifier; it is not a minisign envelope.

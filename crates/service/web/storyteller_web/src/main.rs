@@ -37,7 +37,6 @@ use errors::AnyhowResult;
 use log::{info, warn};
 use server_environment::ServerEnvironment;
 use shared_env_var_config::logging::DEFAULT_RUST_LOG;
-use shared_env_var_config::redis::env_get_redis_0_connection_string_or_default;
 use tokio::runtime::Runtime;
 use user_traits_component::traits::internal_session_cache_purge::InternalSessionCachePurge;
 
@@ -56,9 +55,6 @@ use crate::startup::setup_disabled_endpoints::read_disabled_endpoints;
 use crate::state::server_state::ServerState;
 use crate::threads::db_health_checker_thread::db_health_checker_thread::db_health_checker_thread;
 use crate::threads::expire_login_challenges::expire_login_challenges;
-use crate::threads::poll_craft_app_releases_thread::config::CraftAppsPollConfig;
-use crate::threads::poll_craft_app_releases_thread::poll_craft_app_releases::poll_craft_app_releases;
-use crate::threads::poll_craft_app_releases_thread::shared_store::build_poller_redis_pool;
 use crate::threads::poll_ip_banlist_thread::poll_ip_bans;
 use crate::threads::poll_model_token_info_thread::poll_model_token_info_thread;
 
@@ -152,18 +148,6 @@ async fn main() -> AnyhowResult<()> {
 
   tokio_runtime.spawn(async {
     poll_model_token_info_thread(model_token_info_cache_clone, mysql_pool_clone).await;
-  });
-
-  info!("Spawning craft app release polling thread.");
-
-  let craft_apps_release_cache_clone = server_state.craft_apps_release_cache.clone();
-  let craft_apps_poll_config = CraftAppsPollConfig::from_env();
-  // Its own small pool with I/O timeouts, so a hung Redis can't tie up the handlers' pool.
-  let craft_apps_redis_pool = build_poller_redis_pool(&env_get_redis_0_connection_string_or_default())?;
-  let hostname_clone = server_state.hostname.clone();
-
-  tokio_runtime.spawn(async move {
-    poll_craft_app_releases(craft_apps_release_cache_clone, craft_apps_poll_config, craft_apps_redis_pool, hostname_clone).await;
   });
 
   // ==================== Metrics worker ==================== //

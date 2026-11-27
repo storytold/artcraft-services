@@ -5,7 +5,6 @@ pub mod beta_keys;
 pub mod billing_fakeyou;
 pub mod characters;
 pub mod comments;
-pub mod craft_apps;
 pub mod credits;
 pub mod dev;
 pub mod download_job;
