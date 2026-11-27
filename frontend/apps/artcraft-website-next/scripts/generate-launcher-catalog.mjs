@@ -118,6 +118,7 @@ export async function fetchReleaseAssets(repo, tag, fetchImpl = fetch) {
           name: SHA256SUMS_NAME,
           download_url: `${GITHUB_BASE}/${repo}/releases/download/${tag}/${SHA256SUMS_NAME}`,
           sha256: createHash("sha256").update(bytes).digest("hex"),
+          size_bytes: bytes.length,
         });
         return assets;
       }
@@ -132,6 +133,21 @@ export async function fetchReleaseAssets(repo, tag, fetchImpl = fetch) {
   throw lastError;
 }
 
+/** Match checksums against the selected published release's independent asset metadata. */
+export function matchPublishedAssets(assets, publishedAssets) {
+  const published = new Map(publishedAssets.map(asset => [asset.name, asset]));
+  if (published.size !== publishedAssets.length) throw new Error("Duplicate published assets");
+  return assets.map(asset => {
+    const actual = published.get(asset.name);
+    if (!actual || !Number.isSafeInteger(actual.size) || actual.size <= 0 ||
+        (asset.size_bytes !== undefined && asset.size_bytes !== actual.size) ||
+        (actual.sha256 && actual.sha256 !== asset.sha256)) {
+      throw new Error(`Published asset metadata disagrees with SHA256SUMS: ${asset.name}`);
+    }
+    return { ...asset, size_bytes: actual.size };
+  });
+}
+
 /**
  * Formats a single release channel (`stable`, `prerelease`, or `nightly`) under `tablePrefix`.
  */
@@ -143,10 +159,16 @@ export function formatReleaseSection(tablePrefix, release) {
     `html_url = ${formatTomlString(release.html_url)}`,
     `prerelease = ${release.prerelease ? "true" : "false"}`,
   ];
+  if (release.published_at) {
+    lines.push(`published_at = ${formatTomlString(release.published_at)}`);
+  }
   for (const asset of release.assets ?? []) {
     lines.push(`[[${tablePrefix}.assets]]`);
     lines.push(`name = ${formatTomlString(asset.name)}`);
     lines.push(`download_url = ${formatTomlString(asset.download_url)}`);
+    if (Number.isSafeInteger(asset.size_bytes) && asset.size_bytes > 0) {
+      lines.push(`size_bytes = ${asset.size_bytes}`);
+    }
     if (asset.sha256) {
       lines.push(`sha256 = ${formatTomlString(asset.sha256)}`);
     }
@@ -246,10 +268,26 @@ export async function collectConfiguredReleases() {
     CRAFT_COMMUNITY_RELEASES,
     CRAFT_LAUNCHER_RELEASE,
     CRAFT_NIGHTLY_RELEASES,
+    CRAFT_DEVELOPER_RELEASES,
     CRAFT_PRERELEASE_RELEASES,
   } = await import("../src/lib/crafting-app-releases.ts");
 
   const targets = [];
+  const addNightly = (id, repo) => {
+    const developer = CRAFT_DEVELOPER_RELEASES[id];
+    const nightly = developer ?? CRAFT_NIGHTLY_RELEASES[id];
+    if (!nightly) return;
+    targets.push({
+      id,
+      repo,
+      channel: "nightly",
+      tag: nightly.tag,
+      version: nightly.version,
+      prerelease: true,
+      required: false,
+      ...(developer ? { publishedAt: developer.publishedAt, publishedAssets: developer.assets } : {}),
+    });
+  };
 
   if (CRAFT_LAUNCHER_RELEASE) {
     const tag = CRAFT_LAUNCHER_RELEASE.tag ?? `v${CRAFT_LAUNCHER_RELEASE.version}`;
@@ -275,18 +313,7 @@ export async function collectConfiguredReleases() {
       required: false,
     });
   }
-  if (CRAFT_NIGHTLY_RELEASES["artcraft-launcher"]) {
-    const nightly = CRAFT_NIGHTLY_RELEASES["artcraft-launcher"];
-    targets.push({
-      id: "artcraft-launcher",
-      repo: "storytold/craft-launcher",
-      channel: "nightly",
-      tag: nightly.tag,
-      version: nightly.version,
-      prerelease: true,
-      required: false,
-    });
-  }
+  addNightly("artcraft-launcher", "storytold/craft-launcher");
 
   for (const [slug, release] of Object.entries(CRAFT_APP_RELEASES)) {
     const repo = `storytold/${slug}`;
@@ -314,18 +341,7 @@ export async function collectConfiguredReleases() {
         required: false,
       });
     }
-    const nightly = CRAFT_NIGHTLY_RELEASES[slug];
-    if (nightly) {
-      targets.push({
-        id: slug,
-        repo,
-        channel: "nightly",
-        tag: nightly.tag,
-        version: nightly.version,
-        prerelease: true,
-        required: false,
-      });
-    }
+    addNightly(slug, repo);
   }
 
   for (const [appId, entry] of Object.entries(CRAFT_COMMUNITY_RELEASES)) {
@@ -368,7 +384,13 @@ export async function generateLauncherCatalog({
     try {
       const fetched = await fetchReleaseAssets(target.repo, target.tag, fetchImpl);
       if (fetched) {
-        assets = fetched;
+        // Immutable developer releases use the exact GitHub-published sizes and optionally
+        // cross-check API digests. Older catalog entries remain discovery hints.
+        assets = target.publishedAssets ? matchPublishedAssets(fetched, target.publishedAssets) : fetched;
+        if (target.publishedAssets && !assets.some(asset => asset.name === "NIGHTLY.json")) {
+          assets = [];
+          throw new Error("Developer release has no checksummed NIGHTLY.json");
+        }
       } else if (target.required) {
         throw new Error(`SHA256SUMS.txt not found for ${target.repo}@${target.tag}`);
       }
@@ -386,6 +408,7 @@ export async function generateLauncherCatalog({
       version: target.version,
       html_url: `${GITHUB_BASE}/${target.repo}/releases/tag/${target.tag}`,
       prerelease: target.prerelease,
+      ...(target.publishedAt && assets.length > 0 ? { published_at: target.publishedAt } : {}),
       assets,
     };
 
