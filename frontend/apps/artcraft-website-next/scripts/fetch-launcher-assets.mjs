@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,9 +10,11 @@ const ICON = /^[a-z0-9-]+-([a-f0-9]{64})\.png$/;
 const NOTICE = /^(?:ATTRIBUTION\.md|LICENSE-[A-Za-z0-9-]+\.txt)$/;
 const SCREENSHOT = /^[a-z0-9-]+\/[a-z0-9-]+\.jpg$/;
 const VERSION = /^v[1-9]\d*$/;
+const GIT = ["/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"].find((path) => existsSync(path));
+if (!GIT) throw new Error("git was not found in a fixed directory");
 
 function git(repo, args, maxBuffer = 4 << 20) {
-  return execFileSync("git", ["-C", repo, ...args], { maxBuffer });
+  return execFileSync(GIT, ["-C", repo, ...args], { maxBuffer });
 }
 
 // Read Git blobs, not a working-tree checkout: only ordinary files in the documented
@@ -105,7 +107,7 @@ export function copyLauncherAssets({ repo, outDir, revision = "refs/heads/main" 
 export function fetchLauncherAssets(outDir) {
   const dir = mkdtempSync(join(tmpdir(), "launcher-assets-"));
   try {
-    execFileSync("git", ["clone", "--bare", SOURCE, join(dir, "repo")], { stdio: "inherit" });
+    execFileSync(GIT, ["clone", "--bare", SOURCE, join(dir, "repo")], { stdio: "inherit" });
     return copyLauncherAssets({ repo: join(dir, "repo"), outDir });
   } finally {
     rmSync(dir, { recursive: true, force: true });
