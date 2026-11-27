@@ -523,6 +523,7 @@ jobs:
               { id: "mailcraft", repo: "UCS-Care-Group/mailcraft" },
             ];
             const communityEntries = {};
+            let communityQueryFailed = false;
             for (const community of communityApps) {
               const [cOwner, cRepo] = community.repo.split("/");
               try {
@@ -562,6 +563,7 @@ jobs:
                   communityEntries[community.id] = entry;
                 }
               } catch (err) {
+                communityQueryFailed = true;
                 core.warning(`Could not query community app ${community.repo}: ${err.message}`);
               }
             }
@@ -585,7 +587,12 @@ jobs:
                     return `  ${keyStr}: { ${fields.join(", ")} },`;
                   })
                   .join("\n")}\n}`;
-            content = content.replace(communityBlockPattern, (_, prefix) => `${prefix}${formattedCommunity};`);
+            if (communityQueryFailed) {
+              // A failed query must not erase what an earlier run recorded: keep the declaration as is.
+              core.warning("Keeping the recorded community releases because a query failed.");
+            } else {
+              content = content.replace(communityBlockPattern, (_, prefix) => `${prefix}${formattedCommunity};`);
+            }
             fs.writeFileSync(file, content);
 
             core.info("Release versions updated successfully.");

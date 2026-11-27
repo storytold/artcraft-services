@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,7 @@ import { fileURLToPath } from "node:url";
 export const MAX_CATALOG_BYTES = 1 << 20;
 
 const GITHUB_BASE = "https://github.com";
+const SHA256SUMS_NAME = "SHA256SUMS.txt";
 const MAX_FETCH_ATTEMPTS = 3;
 const FETCH_TIMEOUT_MS = 10_000;
 const FETCH_CONCURRENCY = 6;
@@ -84,14 +86,15 @@ export function formatTomlString(value) {
 }
 
 /**
- * Fetches `SHA256SUMS.txt` for a GitHub release tag with retries.
+ * Fetches `SHA256SUMS.txt` for a GitHub release tag with retries and returns the checksummed
+ * assets it lists plus a record for `SHA256SUMS.txt` itself.
  * Returns null if `SHA256SUMS.txt` is not published (HTTP 404).
  */
 export async function fetchReleaseAssets(repo, tag, fetchImpl = fetch) {
   if (!isValidTag(tag)) {
     throw new Error(`Invalid release tag "${tag}" for ${repo}`);
   }
-  const sumsUrl = `${GITHUB_BASE}/${repo}/releases/download/${encodeURIComponent(tag)}/SHA256SUMS.txt`;
+  const sumsUrl = `${GITHUB_BASE}/${repo}/releases/download/${encodeURIComponent(tag)}/${SHA256SUMS_NAME}`;
   let lastError = new Error(`Unable to fetch ${sumsUrl}`);
 
   for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt += 1) {
@@ -103,13 +106,20 @@ export async function fetchReleaseAssets(repo, tag, fetchImpl = fetch) {
         return null;
       }
       if (res.ok) {
-        const text = await res.text();
-        const entries = parseSha256Sums(text);
-        return entries.map(({ name, sha256 }) => ({
+        const bytes = Buffer.from(await res.arrayBuffer());
+        const entries = parseSha256Sums(bytes.toString("utf8"));
+        const assets = entries.map(({ name, sha256 }) => ({
           name,
           download_url: `${GITHUB_BASE}/${repo}/releases/download/${tag}/${name}`,
           sha256,
         }));
+        // The checksum document is itself a release asset, as in GitHub's own asset list.
+        assets.push({
+          name: SHA256SUMS_NAME,
+          download_url: `${GITHUB_BASE}/${repo}/releases/download/${tag}/${SHA256SUMS_NAME}`,
+          sha256: createHash("sha256").update(bytes).digest("hex"),
+        });
+        return assets;
       }
       lastError = new Error(`HTTP ${res.status} fetching ${sumsUrl}`);
     } catch (error) {

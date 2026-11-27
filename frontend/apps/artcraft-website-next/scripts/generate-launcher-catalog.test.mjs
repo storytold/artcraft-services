@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { generateKeyPairSync, verify } from "node:crypto";
+import { createHash, generateKeyPairSync, verify } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -91,7 +91,7 @@ test("generateLauncherCatalog enriches stable, prerelease, and nightly channels 
     if (body === undefined) {
       return { ok: false, status: 404, text: async () => "" };
     }
-    return { ok: true, status: 200, text: async () => body };
+    return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(body, "utf8") };
   };
 
   const result = await generateLauncherCatalog({
@@ -176,7 +176,7 @@ test("generateLauncherCatalog enriches stable, prerelease, and nightly channels 
   assert.equal(parsed.generated_at, "2026-11-26T21:30:00.000Z");
   assert.equal(parsed.launcher.id, "artcraft-launcher");
   assert.equal(parsed.launcher.releases.stable.tag, "v0.20.3");
-  assert.equal(parsed.launcher.releases.stable.assets.length, 1);
+  assert.equal(parsed.launcher.releases.stable.assets.length, 2);
   assert.equal(parsed.launcher.releases.nightly.tag, "v0.21.0-nightly.20261126.1.1");
   assert.equal(parsed.launcher.releases.nightly.prerelease, true);
 
@@ -184,8 +184,18 @@ test("generateLauncherCatalog enriches stable, prerelease, and nightly channels 
   const photo = parsed.apps[0];
   assert.equal(photo.id, "photocraft");
   assert.equal(photo.releases.stable.tag, "v0.23.1");
-  assert.equal(photo.releases.stable.assets.length, 2);
+  assert.equal(photo.releases.stable.assets.length, 3);
   assert.equal(photo.releases.stable.assets[0].sha256, HASH_A);
+  // The checksum document is listed too, hashed over the exact bytes that were fetched.
+  const sums = photo.releases.stable.assets.find((a) => a.name === "SHA256SUMS.txt");
+  assert.equal(
+    sums.download_url,
+    "https://github.com/storytold/photocraft/releases/download/v0.23.1/SHA256SUMS.txt",
+  );
+  assert.equal(
+    sums.sha256,
+    createHash("sha256").update(`${HASH_A}  photocraft-0.23.1-macos-universal.dmg\n${HASH_B}  photocraft-0.23.1-windows-x64.msi\n`).digest("hex"),
+  );
   assert.equal(photo.releases.prerelease.tag, "v0.24.0-rc.1");
   assert.equal(photo.releases.nightly.tag, "v0.24.0-nightly.20261126.5.1");
 
