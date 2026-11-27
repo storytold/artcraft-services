@@ -17,3 +17,6 @@ test-results/
 /public/launcher-catalog.toml
 /public/launcher-app-icons/
 /public/launcher-screenshots/
+
+# Unsigned catalog copied by fetch-launcher-assets for the generator
+.launcher-asset-cache/

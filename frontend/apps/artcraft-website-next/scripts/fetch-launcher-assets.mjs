@@ -70,20 +70,33 @@ export function copyLauncherAssets({ repo, outDir, revision = "refs/heads/main" 
       references.some((r, i) => !icons.has(r[1]) || ICON.exec(r[1])?.[1] !== digests[i][1])) {
     throw new Error("Catalog icon references do not match the fetched assets");
   }
-  output(outDir, "launcher-catalog.toml", "# Assets revision: " + commit + "\n" + catalog);
+  const catalogText = "# Assets revision: " + commit + "\n" + catalog;
+  output(outDir, "launcher-catalog.toml", catalogText);
+  // Keep the unsigned base outside the exported asset tree so a later generator
+  // run cannot reread and duplicate release tables in out/launcher-catalog.toml.
+  const cacheDir = resolve(outDir, "..", ".launcher-asset-cache");
+  mkdirSync(cacheDir, { recursive: true });
+  writeFileSync(join(cacheDir, "launcher-catalog.base.toml"), catalogText);
 
   // Screenshots have immutable, versioned public URLs. Keep every published version,
   // rather than rewriting v1 from the moving main branch.
   const tags = git(repo, ["tag", "--list", "v*"]).toString().split("\n").filter((tag) => VERSION.test(tag));
   if (!tags.includes("v1")) throw new Error("Published screenshot version v1 is missing");
+  const shots = new Set();
   for (const tag of tags) {
     const taggedCommit = git(repo, ["rev-parse", "--verify", "refs/tags/" + tag + "^{commit}"]).toString().trim();
     const taggedFiles = files(repo, taggedCommit);
     for (const entry of taggedFiles.filter((e) => SCREENSHOT.test(e.path))) {
       output(outDir, "launcher-screenshots/" + tag + "/" + entry.path, readBlob(repo, entry, 2 << 20));
+      shots.add(tag + "/" + entry.path);
     }
     const attribution = taggedFiles.find((e) => e.path === "ATTRIBUTION.md");
     if (attribution) output(outDir, "launcher-screenshots/" + tag + "/ATTRIBUTION.md", readBlob(repo, attribution, 1 << 20));
+  }
+  const shotUrls = [...catalog.matchAll(/^\s*url\s*=\s*"([^"\r\n]+)"\s*$/gm)].map((m) => m[1]);
+  const shotUrl = /^https:\/\/getartcraft\.com\/launcher-screenshots\/(v[1-9]\d*\/[a-z0-9-]+\/[a-z0-9-]+\.jpg)$/;
+  if (shotUrls.some((url) => { const match = shotUrl.exec(url); return !match || !shots.has(match[1]); })) {
+    throw new Error("Catalog screenshot references do not match the fetched assets");
   }
   console.info("Launcher assets:", commit, "(" + icons.size + " icons; screenshot tags " + tags.join(", ") + ")");
   return { commit, icons: icons.size, tags };

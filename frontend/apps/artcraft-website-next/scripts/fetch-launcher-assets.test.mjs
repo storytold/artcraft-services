@@ -28,7 +28,7 @@ function fixture(t) {
   const filename = "photocraft-" + hash + ".png";
   writeFileSync(join(repo, "app-icons", filename), icon);
   writeFileSync(join(repo, "app-icons/ATTRIBUTION.md"), "icon attribution");
-  writeFileSync(join(repo, "catalog.toml"), '[[apps]]\nid = "photocraft"\nicon_url = "https://getartcraft.com/launcher-app-icons/' + filename + '"\nicon_sha256 = "' + hash + '"\n');
+  writeFileSync(join(repo, "catalog.toml"), '[[apps]]\nid = "photocraft"\nicon_url = "https://getartcraft.com/launcher-app-icons/' + filename + '"\nicon_sha256 = "' + hash + '"\n[[apps.details.shots]]\nurl = "https://getartcraft.com/launcher-screenshots/v1/photocraft/demo.jpg"\n');
   writeFileSync(join(repo, "ignored.js"), "not a deployable asset");
   git("add", "."); git("commit", "-m", "Catalog");
   return { repo, outDir, git, filename };
@@ -44,6 +44,10 @@ test("copies one committed catalog revision and retains immutable screenshot ver
   assert.equal(existsSync(join(outDir, "launcher-app-icons", "stale.png")), false);
   assert.equal(result.commit, commit);
   assert.match(readFileSync(join(outDir, "launcher-catalog.toml"), "utf8"), new RegExp(commit));
+  assert.equal(
+    readFileSync(join(outDir, "..", ".launcher-asset-cache", "launcher-catalog.base.toml"), "utf8"),
+    readFileSync(join(outDir, "launcher-catalog.toml"), "utf8"),
+  );
   assert.equal(readFileSync(join(outDir, "launcher-app-icons", filename), "utf8"), "icon bytes");
   assert.equal(readFileSync(join(outDir, "launcher-screenshots/v1/photocraft/demo.jpg"), "utf8"), "original screenshot");
   assert.equal(readFileSync(join(outDir, "launcher-screenshots/v2/photocraft/demo.jpg"), "utf8"), "updated screenshot");
@@ -57,3 +61,14 @@ test("rejects a catalog whose referenced icon no longer matches its digest", (t)
   git("add", "."); git("commit", "-m", "Wrong hash");
   assert.throws(() => copyLauncherAssets({ repo, outDir }), /Icon digest does not match/);
 });
+
+test("rejects a catalog that references a screenshot the published tags do not contain", (t) => {
+  const { repo, outDir, git } = fixture(t);
+  writeFileSync(join(repo, "catalog.toml"), readFileSync(join(repo, "catalog.toml"), "utf8").replace(
+    "v1/photocraft/demo.jpg",
+    "v1/photocraft/missing.jpg",
+  ));
+  git("add", "."); git("commit", "-m", "Missing screenshot");
+  assert.throws(() => copyLauncherAssets({ repo, outDir }), /screenshot references do not match/);
+});
+

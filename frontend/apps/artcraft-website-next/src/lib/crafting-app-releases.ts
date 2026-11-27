@@ -289,13 +289,13 @@ export const CRAFT_PRERELEASE_RELEASES: Partial<
 > = {};
 
 export type CraftCommunityAppReleases = {
-  /** GitHub repository (`owner/repo`), matching `the craft-launcher-assets catalog`. */
+  /** GitHub repository (`owner/repo`), matching the craft-launcher-assets catalog. */
   repo: string;
   stable?: CraftChannelRelease;
   prerelease?: CraftChannelRelease;
   nightly?: CraftChannelRelease;
 };
 
-// Community apps listed in `the craft-launcher-assets catalog`, updated automatically by
+// Community apps listed in the craft-launcher-assets catalog, updated automatically by
 // `.github/workflows/update-craft-release-versions.yml`.
 export const CRAFT_COMMUNITY_RELEASES: Record<string, CraftCommunityAppReleases> = {};

@@ -18,8 +18,10 @@ to populate ignored `public/` asset files; no signing key is needed.
 ## Cloudflare build generation and signing
 
 The existing `npm run build:cloudflare` static-export pipeline enriches
-the fetched base catalog in `out/launcher-catalog.toml` via
-`scripts/generate-launcher-catalog.mjs` before signing. Similar to the static
+the fetched unsigned base catalog from `.launcher-asset-cache/launcher-catalog.base.toml`
+into `out/launcher-catalog.toml` via `scripts/generate-launcher-catalog.mjs` before signing.
+The cache file is not part of the exported site, so running the generator twice
+cannot reread and duplicate release tables. Similar to the static
 Linux repositories (`scripts/generate-static-repos.mjs`), it reads the latest
 stable, prerelease, and nightly versions from `src/lib/crafting-app-releases.ts`
 (kept fresh hourly by `.github/workflows/update-craft-release-versions.yml` and

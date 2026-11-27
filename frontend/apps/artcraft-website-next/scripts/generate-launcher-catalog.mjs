@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -415,7 +415,10 @@ export async function generateLauncherCatalog({
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const ROOT = process.cwd();
   const outCatalogPath = join(ROOT, "out", "launcher-catalog.toml");
-  const baseCatalogPath = outCatalogPath;
+  const baseCatalogPath = join(ROOT, ".launcher-asset-cache", "launcher-catalog.base.toml");
+  if (!existsSync(baseCatalogPath)) {
+    throw new Error("Fetched base catalog is missing; run the asset fetch first.");
+  }
   console.info("Generating static launcher-catalog.toml release metadata...");
   const { bytes, releaseCount } = await generateLauncherCatalog({
     baseCatalogPath,
