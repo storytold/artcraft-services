@@ -77,5 +77,12 @@ execFileSync(process.execPath, ["--no-warnings", jitiBin, join(ROOT, "scripts", 
   env: process.env,
 });
 
+// Enrich out/launcher-catalog.toml with static release metadata (stable, prerelease, nightly)
+// before signing the final exported bytes.
+execFileSync(process.execPath, ["--no-warnings", jitiBin, join(ROOT, "scripts", "generate-launcher-catalog.mjs")], {
+  stdio: "inherit",
+  env: process.env,
+});
+
 // Sign the final exported bytes; missing/invalid secrets fail the deployment build.
 signLauncherCatalog(join(ROOT, "out"));

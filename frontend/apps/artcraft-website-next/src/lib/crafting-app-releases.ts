@@ -274,3 +274,28 @@ export type CraftNightlyRelease = {
 export const CRAFT_NIGHTLY_RELEASES: Partial<
   Record<CraftAppSlug | "artcraft-launcher" | "artcraft", CraftNightlyRelease>
 > = {};
+
+export type CraftChannelRelease = {
+  /** Exact GitHub release tag (e.g. "v0.24.0-rc.1" or "v0.23.1"). */
+  tag: string;
+  /** Version without the leading "v" (e.g. "0.24.0-rc.1" or "0.23.1"). */
+  version: string;
+};
+
+// Highest-version non-nightly beta/RC prerelease per repository, updated automatically by
+// `.github/workflows/update-craft-release-versions.yml`.
+export const CRAFT_PRERELEASE_RELEASES: Partial<
+  Record<CraftAppSlug | "artcraft-launcher", CraftChannelRelease>
+> = {};
+
+export type CraftCommunityAppReleases = {
+  /** GitHub repository (`owner/repo`), matching `public/launcher-catalog.toml`. */
+  repo: string;
+  stable?: CraftChannelRelease;
+  prerelease?: CraftChannelRelease;
+  nightly?: CraftChannelRelease;
+};
+
+// Community apps listed in `public/launcher-catalog.toml`, updated automatically by
+// `.github/workflows/update-craft-release-versions.yml`.
+export const CRAFT_COMMUNITY_RELEASES: Record<string, CraftCommunityAppReleases> = {};
