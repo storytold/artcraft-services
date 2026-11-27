@@ -32,7 +32,9 @@ The existing `npm run build:cloudflare` static-export pipeline enriches
 `scripts/generate-launcher-catalog.mjs` before signing. Similar to the static
 Linux repositories (`scripts/generate-static-repos.mjs`), it reads the latest
 stable, prerelease, and nightly versions from `src/lib/crafting-app-releases.ts`
-(kept fresh hourly by `.github/workflows/update-craft-release-versions.yml`),
+(kept fresh hourly by `.github/workflows/update-craft-release-versions.yml` and
+on release-change dispatch; configure `CLOUDFLARE_DEPLOY_HOOK` to rebuild even
+when the recorded version strings have not changed),
 fetches each release's `SHA256SUMS.txt` from GitHub, and writes:
 
 - top-level `generated_at` (RFC 3339 UTC timestamp),

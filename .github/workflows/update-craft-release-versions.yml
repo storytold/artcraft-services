@@ -653,11 +653,11 @@ jobs:
           echo "Unable to merge pull request $PR_NUMBER after 5 attempts." >&2
           exit 1
 
-      # When triggered by a release state change that did not change version strings
-      # (e.g. edited assets/SHA256SUMS or republished release), still trigger Cloudflare
-      # so the static Linux repos and signed launcher-catalog.toml rebuild immediately.
+      # Release assets may change without a version change, and releases published with
+      # GITHUB_TOKEN may not trigger a release event workflow. Rebuild on dispatch,
+      # manual or scheduled reconciliation even when no version PR was needed.
       - name: Trigger Cloudflare deploy when no version PR was needed
-        if: github.event_name == 'repository_dispatch' && steps.create-pr.outputs.pull-request-number == ''
+        if: steps.create-pr.outputs.pull-request-number == ''
         env:
           DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
         run: |
