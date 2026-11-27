@@ -1,35 +1,27 @@
 # Hosted launcher catalog
 
-`public/launcher-catalog.toml` preserves the PR's `[[apps]]` schema and display
-order. The generated data comes from the launcher's bundled `catalog.toml` after
-launcher PR #1115, or its compiled `catalog.rs`, `details.rs`, and
-`desktop_entry.rs` on older revisions, including aliases, publisher and macOS
-signing metadata, app descriptions, features, screenshots, and desktop integration.
-An absent `mac_team` means the launcher must not install that app on macOS.
-`mac_bundle_name` is the primary macOS `.app` stem, independent of display name.
+The canonical base catalog, content-addressed app icons, licenses, attribution and
+versioned screenshots live in [storytold/craft-launcher-assets](https://github.com/storytold/craft-launcher-assets).
+This repository does not commit duplicate copies. The Cloudflare production build fetches
+one committed main revision, records its SHA in the generated catalog, and copies the
+published screenshot tags into their existing versioned URLs. The build reads Git blobs
+only, not code from the assets repository. A missing or inconsistent asset fails the new
+deployment; the previous successful static deployment remains available.
 
-## Refresh and compare
-
-Requires Python 3.12+ (stdlib only), Git, and rustc. From this app directory:
-
-```sh
-git -C /path/to/craft-launcher fetch origin main
-python3 scripts/sync-launcher-catalog.py /path/to/craft-launcher --revision origin/main
-python3 scripts/sync-launcher-catalog.py /path/to/craft-launcher --revision origin/main --check
-```
-
-The command reads a committed revision, ignoring uncommitted launcher changes.
-The catalog records the full source commit. `--check` compares every exported
-field and the icon bytes, hashes, licenses and attribution without writing files.
-Review changes to repositories and signing teams before publishing. The command
-copies icons without modification and leaves older hashed icons available for
-clients still using an earlier catalog.
+Keep all published hashed icons and screenshot tags immutable. A main push or a new
+screenshot version tag sends a `launcher-assets-changed` dispatch using the assets repo's
+`ARTCRAFT_SERVICES_DISPATCH_TOKEN`. The services release reconciliation workflow handles
+that event through the existing Cloudflare deploy hook. Its hourly reconciliation remains
+a fallback. For local development, run `npm run sync:launcher-assets` from this app directory
+to populate ignored `public/` asset files; no signing key is needed.
 
 ## Cloudflare build generation and signing
 
 The existing `npm run build:cloudflare` static-export pipeline enriches
-`public/launcher-catalog.toml` into `out/launcher-catalog.toml` via
-`scripts/generate-launcher-catalog.mjs` before signing. Similar to the static
+the fetched unsigned base catalog from `.launcher-asset-cache/launcher-catalog.base.toml`
+into `out/launcher-catalog.toml` via `scripts/generate-launcher-catalog.mjs` before signing.
+The cache file is not part of the exported site, so running the generator twice
+cannot reread and duplicate release tables. Similar to the static
 Linux repositories (`scripts/generate-static-repos.mjs`), it reads the latest
 stable, prerelease, and nightly versions from `src/lib/crafting-app-releases.ts`
 (kept fresh hourly by `.github/workflows/update-craft-release-versions.yml` and
@@ -42,9 +34,6 @@ fetches each release's `SHA256SUMS.txt` from GitHub, and writes:
   `[[launcher.releases.<channel>.assets]]` for `artcraft-launcher`, and
 - per-app `[apps.releases.<channel>]` and `[[apps.releases.<channel>.assets]]`
   (`stable`, `prerelease`, `nightly`) inside each `[[apps]]` entry.
-
-`public/launcher-catalog.toml` itself stays unchanged so
-`sync-launcher-catalog.py --check` continues to verify the base catalog cleanly.
 
 `scripts/sign-launcher-catalog.mjs` then signs the final
 `out/launcher-catalog.toml` bytes. It writes `out/launcher-catalog.toml.sig` as a

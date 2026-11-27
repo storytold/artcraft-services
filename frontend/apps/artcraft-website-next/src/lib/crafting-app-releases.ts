@@ -291,14 +291,14 @@ export const CRAFT_PRERELEASE_RELEASES: Partial<
 };
 
 export type CraftCommunityAppReleases = {
-  /** GitHub repository (`owner/repo`), matching `public/launcher-catalog.toml`. */
+  /** GitHub repository (`owner/repo`), matching the craft-launcher-assets catalog. */
   repo: string;
   stable?: CraftChannelRelease;
   prerelease?: CraftChannelRelease;
   nightly?: CraftChannelRelease;
 };
 
-// Community apps listed in `public/launcher-catalog.toml`, updated automatically by
+// Community apps listed in the craft-launcher-assets catalog, updated automatically by
 // `.github/workflows/update-craft-release-versions.yml`.
 export const CRAFT_COMMUNITY_RELEASES: Record<string, CraftCommunityAppReleases> = {
   solidcraft: { repo: "tangency-labs/solidcraft", stable: { tag: "v0.50.0", version: "0.50.0" }, prerelease: { tag: "v0.46.1", version: "0.46.1" }, nightly: { tag: "v0.51.0-nightly.20261127.168.1", version: "0.51.0-nightly.20261127.168.1" } },

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -166,7 +166,7 @@ function formatChannelsBlock(prefix, channels) {
 }
 
 /**
- * Enriches the committed `public/launcher-catalog.toml` text with statically generated
+ * Enriches the fetched base catalog text with statically generated
  * `generated_at`, `[launcher]` release channels, and per-app `[apps.releases.*]` tables.
  * Preserves all existing `[[apps]]` entries and display order.
  */
@@ -348,7 +348,7 @@ export async function collectConfiguredReleases() {
 }
 
 /**
- * Generates the static `out/launcher-catalog.toml` from `public/launcher-catalog.toml`
+ * Generates the static `out/launcher-catalog.toml` from the fetched base catalog
  * and the configured release versions + GitHub `SHA256SUMS.txt` checksums.
  */
 export async function generateLauncherCatalog({
@@ -414,8 +414,11 @@ export async function generateLauncherCatalog({
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const ROOT = process.cwd();
-  const baseCatalogPath = join(ROOT, "public", "launcher-catalog.toml");
   const outCatalogPath = join(ROOT, "out", "launcher-catalog.toml");
+  const baseCatalogPath = join(ROOT, ".launcher-asset-cache", "launcher-catalog.base.toml");
+  if (!existsSync(baseCatalogPath)) {
+    throw new Error("Fetched base catalog is missing; run the asset fetch first.");
+  }
   console.info("Generating static launcher-catalog.toml release metadata...");
   const { bytes, releaseCount } = await generateLauncherCatalog({
     baseCatalogPath,

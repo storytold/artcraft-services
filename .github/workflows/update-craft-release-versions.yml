@@ -6,8 +6,9 @@ on:
     - cron: "0 * * * *"
   repository_dispatch:
     # Triggered immediately when any Craft app or launcher release/prerelease is
-    # published, edited, unpublished, deleted, or changes prerelease state.
-    types: [craft-release-changed]
+    # published, edited, unpublished, deleted, or changes prerelease state,
+    # or the canonical launcher asset repository changes.
+    types: [craft-release-changed, launcher-assets-changed]
   workflow_dispatch:
 
 permissions:
@@ -517,7 +518,7 @@ jobs:
                   .join("\n")}\n}`;
             content = content.replace(prereleaseBlockPattern, (_, prefix) => `${prefix}${formattedPrereleases};`);
 
-            // Track community apps listed in public/launcher-catalog.toml (non-fatal if an external repo fails).
+            // Track community apps listed in the craft-launcher-assets catalog (non-fatal if an external repo fails).
             const communityApps = [
               { id: "solidcraft", repo: "tangency-labs/solidcraft" },
               { id: "mailcraft", repo: "UCS-Care-Group/mailcraft" },

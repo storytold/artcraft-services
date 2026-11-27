@@ -16,7 +16,8 @@
     "test:studio": "playwright test --config playwright.studio.config.ts",
     "test:repos": "playwright test tests/linux-repos.spec.ts tests/flatpak-oci.spec.ts",
     "test:downloads": "playwright test tests/app-downloads.spec.ts tests/linux-downloads.spec.ts tests/linux-repos.spec.ts tests/flatpak-oci.spec.ts",
-    "test:launcher-catalog": "node --test scripts/sign-launcher-catalog.test.mjs scripts/generate-launcher-catalog.test.mjs"
+    "sync:launcher-assets": "node scripts/fetch-launcher-assets.mjs public",
+    "test:launcher-catalog": "node --test scripts/fetch-launcher-assets.test.mjs scripts/sign-launcher-catalog.test.mjs scripts/generate-launcher-catalog.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-navigation-menu": "^1.2.22",

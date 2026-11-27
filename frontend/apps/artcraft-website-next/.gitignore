@@ -12,3 +12,11 @@ test-results/
 # Build-generated detached launcher catalog signature
 /public/launcher-catalog.toml.sig
 /public/launcher-announcements.toml.sig
+
+# Pulled from craft-launcher-assets for local development
+/public/launcher-catalog.toml
+/public/launcher-app-icons/
+/public/launcher-screenshots/
+
+# Unsigned catalog copied by fetch-launcher-assets for the generator
+.launcher-asset-cache/
