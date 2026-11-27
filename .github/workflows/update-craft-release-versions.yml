@@ -521,7 +521,7 @@ jobs:
             // Track community apps listed in the craft-launcher-assets catalog (non-fatal if an external repo fails).
             const communityApps = [
               { id: "solidcraft", repo: "tangency-labs/solidcraft" },
-              { id: "mailcraft", repo: "UCS-Care-Group/mailcraft" },
+              { id: "mailcraft", repo: "UCSLabs/mailcraft" },
             ];
             const communityEntries = {};
             let communityQueryFailed = false;
