@@ -22,3 +22,7 @@
 /launcher-app-icons/*
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=31536000, immutable
+
+/launcher-screenshots/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable

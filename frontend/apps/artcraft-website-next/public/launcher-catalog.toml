@@ -52,19 +52,19 @@ title = "Serious color"
 [[apps.details.shots]]
 caption = "Curves and type layers"
 key = "demo"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/photocraft/demo.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/photocraft/demo.jpg"
 [[apps.details.shots]]
 caption = "Levels with a live histogram"
 key = "adjustments"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/photocraft/adjustments.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/photocraft/adjustments.jpg"
 [[apps.details.shots]]
 caption = "Layer styles on live type"
 key = "layer-styles"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/photocraft/layer-styles.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/photocraft/layer-styles.jpg"
 [[apps.details.shots]]
 caption = "Selections and masked adjustments"
 key = "masks"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/photocraft/masks.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/photocraft/masks.jpg"
 
 [[apps]]
 color = [232, 87, 63]
@@ -117,19 +117,19 @@ title = "Open formats"
 [[apps.details.shots]]
 caption = "The Neon Drive poster"
 key = "neon"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/vectorcraft/neon.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/vectorcraft/neon.jpg"
 [[apps.details.shots]]
 caption = "Live blends"
 key = "ribbons"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/vectorcraft/ribbons.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/vectorcraft/ribbons.jpg"
 [[apps.details.shots]]
 caption = "A feature sheet and the Layers panel"
 key = "sheet"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/vectorcraft/sheet.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/vectorcraft/sheet.jpg"
 [[apps.details.shots]]
 caption = "Pathfinder and exact booleans"
 key = "bezier"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/vectorcraft/bezier.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/vectorcraft/bezier.jpg"
 
 [[apps]]
 color = [139, 92, 246]
@@ -182,15 +182,15 @@ title = "Broadcast-ready audio"
 [[apps.details.shots]]
 caption = "The Color workspace, with scopes"
 key = "color"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/filmcraft/color.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/filmcraft/color.jpg"
 [[apps.details.shots]]
 caption = "The Assembly workspace"
 key = "assembly"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/filmcraft/assembly.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/filmcraft/assembly.jpg"
 [[apps.details.shots]]
 caption = "Keyframes in Effect Controls"
 key = "keyframes"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/filmcraft/keyframes.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/filmcraft/keyframes.jpg"
 
 [[apps]]
 color = [242, 165, 22]
@@ -243,19 +243,19 @@ title = "Instant feedback"
 [[apps.details.shots]]
 caption = "The Edit view"
 key = "hero"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/lightcraft/hero.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/lightcraft/hero.jpg"
 [[apps.details.shots]]
 caption = "The tone curve"
 key = "curve"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/lightcraft/curve.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/lightcraft/curve.jpg"
 [[apps.details.shots]]
 caption = "Color grading wheels"
 key = "grading"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/lightcraft/grading.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/lightcraft/grading.jpg"
 [[apps.details.shots]]
 caption = "A radial mask over a sky mask"
 key = "masking"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/lightcraft/masking.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/lightcraft/masking.jpg"
 
 [[apps]]
 color = [232, 32, 79]
@@ -357,19 +357,19 @@ title = "Export anywhere"
 [[apps.details.shots]]
 caption = "An animated composition"
 key = "hero"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/effectcraft/hero.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/effectcraft/hero.jpg"
 [[apps.details.shots]]
 caption = "The Graph Editor"
 key = "graph"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/effectcraft/graph.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/effectcraft/graph.jpg"
 [[apps.details.shots]]
 caption = "Particles and Effect Controls"
 key = "effects"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/effectcraft/effects.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/effectcraft/effects.jpg"
 [[apps.details.shots]]
 caption = "3D layers with cameras and lights"
 key = "3d"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/effectcraft/3d.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/effectcraft/3d.jpg"
 
 [[apps]]
 color = [218, 198, 4]
@@ -472,7 +472,7 @@ title = "Built for automation"
 [[apps.details.shots]]
 caption = "A magazine spread with a threaded story"
 key = "spread"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/designcraft/spread.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/designcraft/spread.jpg"
 
 [[apps]]
 color = [2, 218, 150]
@@ -574,19 +574,19 @@ title = "Built for agents"
 [[apps.details.shots]]
 caption = "The Home tab and the Navigation pane"
 key = "hero"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/wordcraft/hero.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/wordcraft/hero.jpg"
 [[apps.details.shots]]
 caption = "Track Changes and comments"
 key = "review"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/wordcraft/review.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/wordcraft/review.jpg"
 [[apps.details.shots]]
 caption = "The Design tab"
 key = "design"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/wordcraft/design.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/wordcraft/design.jpg"
 [[apps.details.shots]]
 caption = "The Layout tab"
 key = "layout"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/wordcraft/layout.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/wordcraft/layout.jpg"
 
 [[apps]]
 color = [31, 165, 201]
@@ -633,19 +633,19 @@ title = "Plugins"
 [[apps.details.shots]]
 caption = "The Edit window with a nine-track session"
 key = "edit"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/soundcraft/edit.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/soundcraft/edit.jpg"
 [[apps.details.shots]]
 caption = "The Mix window"
 key = "mix"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/soundcraft/mix.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/soundcraft/mix.jpg"
 [[apps.details.shots]]
 caption = "Automation and memory locations"
 key = "automation"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/soundcraft/automation.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/soundcraft/automation.jpg"
 [[apps.details.shots]]
 caption = "The Score Editor"
 key = "score"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/soundcraft/score.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/soundcraft/score.jpg"
 
 [[apps]]
 color = [240, 122, 30]
@@ -698,19 +698,19 @@ title = "Exchange files"
 [[apps.details.shots]]
 caption = "Editing a slide, with sections and notes"
 key = "editor"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/deckcraft/editor.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/deckcraft/editor.jpg"
 [[apps.details.shots]]
 caption = "The Shape Format tab"
 key = "shape"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/deckcraft/shape.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/deckcraft/shape.jpg"
 [[apps.details.shots]]
 caption = "The slide sorter"
 key = "sorter"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/deckcraft/sorter.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/deckcraft/sorter.jpg"
 [[apps.details.shots]]
 caption = "The Format Shape pane"
 key = "format"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/deckcraft/format.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/deckcraft/format.jpg"
 
 [[apps]]
 color = [62, 166, 232]
@@ -760,15 +760,15 @@ title = "Built for agents"
 [[apps.details.shots]]
 caption = "An apartment floor plan"
 key = "apartment"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/cadcraft/apartment.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/cadcraft/apartment.jpg"
 [[apps.details.shots]]
 caption = "A mechanical bracket drawing"
 key = "bracket"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/cadcraft/bracket.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/cadcraft/bracket.jpg"
 [[apps.details.shots]]
 caption = "A layout sheet"
 key = "layout"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/cadcraft/layout.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/cadcraft/layout.jpg"
 
 [[apps]]
 color = [31, 157, 85]
@@ -821,19 +821,19 @@ title = "Everywhere"
 [[apps.details.shots]]
 caption = "A quarterly sales dashboard"
 key = "hero"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/gridcraft/hero.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/gridcraft/hero.jpg"
 [[apps.details.shots]]
 caption = "A household budget"
 key = "budget"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/gridcraft/budget.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/gridcraft/budget.jpg"
 [[apps.details.shots]]
 caption = "A pivot table"
 key = "pivot"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/gridcraft/pivot.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/gridcraft/pivot.jpg"
 [[apps.details.shots]]
 caption = "Formatting a chart"
 key = "chart"
-url = "https://raw.githubusercontent.com/storytold/craft-launcher-assets/v1/gridcraft/chart.jpg"
+url = "https://getartcraft.com/launcher-screenshots/v1/gridcraft/chart.jpg"
 
 [[apps]]
 color = [194, 103, 43]

@@ -4,6 +4,10 @@ on:
   schedule:
     # Hourly, on the hour
     - cron: "0 * * * *"
+  repository_dispatch:
+    # Triggered immediately when any Craft app or launcher release/prerelease is
+    # published, edited, unpublished, deleted, or changes prerelease state.
+    types: [craft-release-changed]
   workflow_dispatch:
 
 permissions:
@@ -641,3 +645,17 @@ jobs:
 
           echo "Unable to merge pull request $PR_NUMBER after 5 attempts." >&2
           exit 1
+
+      # When triggered by a release state change that did not change version strings
+      # (e.g. edited assets/SHA256SUMS or republished release), still trigger Cloudflare
+      # so the static Linux repos and signed launcher-catalog.toml rebuild immediately.
+      - name: Trigger Cloudflare deploy when no version PR was needed
+        if: github.event_name == 'repository_dispatch' && steps.create-pr.outputs.pull-request-number == ''
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "CLOUDFLARE_DEPLOY_HOOK is not configured; skipping direct deploy."
+            exit 0
+          fi
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --request POST "$DEPLOY_HOOK"
