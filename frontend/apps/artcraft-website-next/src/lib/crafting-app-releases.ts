@@ -286,7 +286,9 @@ export type CraftChannelRelease = {
 // `.github/workflows/update-craft-release-versions.yml`.
 export const CRAFT_PRERELEASE_RELEASES: Partial<
   Record<CraftAppSlug | "artcraft-launcher", CraftChannelRelease>
-> = {};
+> = {
+  photocraft: { tag: "v0.24.0-rc.2", version: "0.24.0-rc.2" },
+};
 
 export type CraftCommunityAppReleases = {
   /** GitHub repository (`owner/repo`), matching the craft-launcher-assets catalog. */
@@ -298,4 +300,7 @@ export type CraftCommunityAppReleases = {
 
 // Community apps listed in the craft-launcher-assets catalog, updated automatically by
 // `.github/workflows/update-craft-release-versions.yml`.
-export const CRAFT_COMMUNITY_RELEASES: Record<string, CraftCommunityAppReleases> = {};
+export const CRAFT_COMMUNITY_RELEASES: Record<string, CraftCommunityAppReleases> = {
+  solidcraft: { repo: "tangency-labs/solidcraft", stable: { tag: "v0.50.0", version: "0.50.0" }, prerelease: { tag: "v0.46.1", version: "0.46.1" }, nightly: { tag: "v0.51.0-nightly.20261127.168.1", version: "0.51.0-nightly.20261127.168.1" } },
+  mailcraft: { repo: "UCS-Care-Group/mailcraft", stable: { tag: "v0.15.0", version: "0.15.0" } },
+};
