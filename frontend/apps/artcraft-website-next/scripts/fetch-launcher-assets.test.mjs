@@ -38,7 +38,10 @@ test("copies one committed catalog revision and retains immutable screenshot ver
   const { repo, outDir, git, filename } = fixture(t);
   const commit = git("rev-parse", "HEAD");
   writeFileSync(join(repo, "catalog.toml"), "uncommitted edit must not be read");
+  mkdirSync(join(outDir, "launcher-app-icons"), { recursive: true });
+  writeFileSync(join(outDir, "launcher-app-icons", "stale.png"), "old generated output");
   const result = copyLauncherAssets({ repo, outDir });
+  assert.equal(existsSync(join(outDir, "launcher-app-icons", "stale.png")), false);
   assert.equal(result.commit, commit);
   assert.match(readFileSync(join(outDir, "launcher-catalog.toml"), "utf8"), new RegExp(commit));
   assert.equal(readFileSync(join(outDir, "launcher-app-icons", filename), "utf8"), "icon bytes");
