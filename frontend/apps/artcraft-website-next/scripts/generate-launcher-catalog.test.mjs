@@ -7,7 +7,6 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   MAX_CATALOG_BYTES,
-  collectConfiguredReleases,
   enrichLauncherCatalog,
   generateLauncherCatalog,
   parseSha256Sums,
@@ -247,10 +246,10 @@ test("enrichLauncherCatalog rejects outputs larger than MAX_CATALOG_BYTES", () =
 
 // The canonical catalog names UCSLabs, so publishing URLs under its former owner
 // leaves the launcher with no usable assets even though the release exists.
-test("MailCraft release targets and updater use its canonical repository", async () => {
-  const targets = (await collectConfiguredReleases()).filter((target) => target.id === "mailcraft");
-  assert.ok(targets.length > 0);
-  for (const target of targets) assert.equal(target.repo, "UCSLabs/mailcraft");
+test("MailCraft release targets and updater use its canonical repository", () => {
+  // Read the generated TypeScript data as text so this test also runs on Node 20.
+  const releases = readFileSync(new URL("../src/lib/crafting-app-releases.ts", import.meta.url), "utf8");
+  assert.match(releases, /mailcraft:\s*\{\s*repo:\s*"UCSLabs\/mailcraft"/);
   const workflow = readFileSync(new URL("../../../../.github/workflows/update-craft-release-versions.yml", import.meta.url), "utf8");
   assert.match(workflow, /id: "mailcraft", repo: "UCSLabs\/mailcraft"/);
 });
