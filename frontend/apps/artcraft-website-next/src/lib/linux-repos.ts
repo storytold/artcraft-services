@@ -1391,7 +1391,10 @@ export function buildTar(
  */
 function pacmanPkgName(app: LinuxRepoApp): string {
   if (app.name === "artcraft") return "ai.artcraft.app";
-  if (app.name === "artcraft-nightly") return "ai.artcraft.app-nightly";
+  if (app.name === "artcraft-nightly") return "ai.artcraft.app.nightly";
+  if (app.name.endsWith("-nightly")) {
+    return `ai.storyteller.${app.name.slice(0, -"-nightly".length)}.nightly`;
+  }
   return `ai.storyteller.${app.name}`;
 }
 
