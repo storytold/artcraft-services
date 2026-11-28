@@ -243,7 +243,7 @@ export const CRAFT_APP_RELEASES: Record<CraftAppSlug, CraftRelease | null> = {
   pdfcraft: craftRelease("0.22.0"),
   effectcraft: craftRelease("0.25.1"),
   // AniCraft publishes no web ZIP build yet.
-  anicraft: craftRelease("0.2.1", CRAFT_RELEASE_ASSETS.filter(
+  anicraft: craftRelease("0.3.0", CRAFT_RELEASE_ASSETS.filter(
     (asset) => !asset.file.startsWith("{slug}-web-"),
   )),
   designcraft: craftRelease("0.21.1"),
@@ -294,7 +294,7 @@ export const CRAFT_DEVELOPER_RELEASES: Partial<
     "tag": "v0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
     "version": "0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
     "publishedAt": "2026-11-27T22:48:29Z",
-    "reconciledAt": "2026-11-28T08:14:51.791Z",
+    "reconciledAt": "2026-11-28T08:57:29.559Z",
     "assets": [
       {
         "name": "cadcraft-0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c-linux-x86_64-nightly.tar.gz",
@@ -332,7 +332,7 @@ export const CRAFT_DEVELOPER_RELEASES: Partial<
     "tag": "v0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
     "version": "0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
     "publishedAt": "2026-11-27T18:58:43Z",
-    "reconciledAt": "2026-11-28T08:14:52.521Z",
+    "reconciledAt": "2026-11-28T08:57:30.205Z",
     "assets": [
       {
         "name": "gridcraft-0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf-linux-x86_64-nightly.tar.gz",
