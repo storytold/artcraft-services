@@ -294,7 +294,7 @@ export const CRAFT_DEVELOPER_RELEASES: Partial<
     "tag": "v0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
     "version": "0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
     "publishedAt": "2026-11-27T22:48:29Z",
-    "reconciledAt": "2026-11-28T02:16:51.352Z",
+    "reconciledAt": "2026-11-28T03:14:21.965Z",
     "assets": [
       {
         "name": "cadcraft-0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c-linux-x86_64-nightly.tar.gz",
@@ -332,7 +332,7 @@ export const CRAFT_DEVELOPER_RELEASES: Partial<
     "tag": "v0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
     "version": "0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
     "publishedAt": "2026-11-27T18:58:43Z",
-    "reconciledAt": "2026-11-28T02:16:51.952Z",
+    "reconciledAt": "2026-11-28T03:14:22.653Z",
     "assets": [
       {
         "name": "gridcraft-0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf-linux-x86_64-nightly.tar.gz",
