@@ -294,7 +294,7 @@ export const CRAFT_DEVELOPER_RELEASES: Partial<
     "tag": "v0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
     "version": "0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c",
     "publishedAt": "2026-11-27T22:48:29Z",
-    "reconciledAt": "2026-11-28T04:14:28.095Z",
+    "reconciledAt": "2026-11-28T05:12:29.819Z",
     "assets": [
       {
         "name": "cadcraft-0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c-linux-x86_64-nightly.tar.gz",
@@ -332,7 +332,7 @@ export const CRAFT_DEVELOPER_RELEASES: Partial<
     "tag": "v0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
     "version": "0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf",
     "publishedAt": "2026-11-27T18:58:43Z",
-    "reconciledAt": "2026-11-28T04:14:28.810Z",
+    "reconciledAt": "2026-11-28T05:12:31.474Z",
     "assets": [
       {
         "name": "gridcraft-0.19.1-nightly.20261127.46047957334.1.g97f2754c1ddf-linux-x86_64-nightly.tar.gz",
@@ -394,6 +394,6 @@ export type CraftCommunityAppReleases = {
 // Community apps listed in the craft-launcher-assets catalog, updated automatically by
 // `.github/workflows/update-craft-release-versions.yml`.
 export const CRAFT_COMMUNITY_RELEASES: Record<string, CraftCommunityAppReleases> = {
-  solidcraft: { repo: "tangency-labs/solidcraft", stable: { tag: "v0.51.1", version: "0.51.1" }, prerelease: { tag: "v0.51.0", version: "0.51.0" }, nightly: { tag: "v0.51.0-nightly.20261127.168.1", version: "0.51.0-nightly.20261127.168.1" } },
+  solidcraft: { repo: "tangency-labs/solidcraft", stable: { tag: "v0.51.2", version: "0.51.2" }, prerelease: { tag: "v0.51.0", version: "0.51.0" }, nightly: { tag: "v0.51.0-nightly.20261127.168.1", version: "0.51.0-nightly.20261127.168.1" } },
   mailcraft: { repo: "UCSLabs/mailcraft", stable: { tag: "v0.15.0", version: "0.15.0" } },
 };
