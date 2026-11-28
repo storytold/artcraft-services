@@ -14,6 +14,16 @@ export function hasPortablePayload(names, slug, version) {
   return PAYLOAD_SUFFIXES.some(suffix => names.has(`${slug}-${version}-${suffix}`));
 }
 
+function validUtcTimestamp(value) {
+  return typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value) && Number.isFinite(Date.parse(value));
+}
+
+export function validReconciliationTime(publishedAt, reconciledAt) {
+  return validUtcTimestamp(publishedAt) && validUtcTimestamp(reconciledAt) &&
+    Date.parse(reconciledAt) >= Date.parse(publishedAt);
+}
+
 function compare(a, b) {
   for (let i = 1; i <= 6; i += 1) {
     const x = BigInt(a[i]), y = BigInt(b[i]);
@@ -22,7 +32,7 @@ function compare(a, b) {
   return a[7] < b[7] ? -1 : a[7] > b[7] ? 1 : 0;
 }
 
-export function selectDeveloperNightly(releases, repo, slug) {
+export function selectDeveloperNightly(releases, repo, slug, reconciledAt) {
   let best = null;
   const seen = new Set();
   for (const release of releases) {
@@ -44,7 +54,7 @@ export function selectDeveloperNightly(releases, repo, slug) {
   const release = best.release;
   const tag = release.tag_name;
   const publishedAt = release.published_at;
-  if (typeof publishedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(publishedAt) || !Number.isFinite(Date.parse(publishedAt))) return null;
+  if (!validReconciliationTime(publishedAt, reconciledAt)) return null;
   const version = tag.replace(/^v/, "");
   const assets = [];
   const names = new Set();
@@ -66,5 +76,5 @@ export function selectDeveloperNightly(releases, repo, slug) {
   }
   if (!names.has("NIGHTLY.json") || !names.has("SHA256SUMS.txt") ||
       !hasPortablePayload(names, slug, version)) return null;
-  return { tag, version, publishedAt, assets: assets.sort((a, b) => a.name.localeCompare(b.name)) };
+  return { tag, version, publishedAt, reconciledAt, assets: assets.sort((a, b) => a.name.localeCompare(b.name)) };
 }

@@ -405,7 +405,8 @@ jobs:
             const developerEntries = {};
             for (const target of nightlyTargets) {
               const releases = await nightlyReleases(target.repo);
-              const developer = selectDeveloperNightly(releases, `${owner}/${target.repo}`, target.fileSlug);
+              // Timestamp the completed enumeration, not the later static site build.
+              const developer = selectDeveloperNightly(releases, `${owner}/${target.repo}`, target.fileSlug, new Date().toISOString());
               if (developer) developerEntries[target.key] = developer;
               const found = latestNightlyRelease(releases, target.fileSlug);
               if (found) {

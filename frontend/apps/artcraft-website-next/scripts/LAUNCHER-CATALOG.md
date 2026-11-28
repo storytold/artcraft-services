@@ -38,8 +38,12 @@ fetches each release's `SHA256SUMS.txt` from GitHub, and writes:
 For canonical Developer Builds, the release reconciliation also records the highest immutable
 published nightly tag with a descriptor and a supported portable archive, independently of
 Linux package-only releases. The catalog matches the exact published asset metadata to
-`SHA256SUMS.txt` and emits `published_at` and `size_bytes`; contradictory or missing evidence
-leaves that optional nightly record unverified so the launcher can fall back to GitHub.
+`SHA256SUMS.txt` and emits `published_at`, `size_bytes`, and `reconciled_at` (the time the updater
+finished enumerating the repository's releases, not the site rebuild time). This timestamp
+is refreshed by successful hourly and release-change reconciliation, even when the nightly tag
+does not change. Unrelated site rebuilds preserve the recorded timestamp. Contradictory or
+missing evidence leaves that optional nightly record unverified so the launcher can fall back
+to GitHub.
 No stable or legacy Linux repository selection is changed.
 
 `scripts/sign-launcher-catalog.mjs` then signs the final

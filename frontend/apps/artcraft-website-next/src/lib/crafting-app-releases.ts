@@ -280,6 +280,8 @@ export type CraftDeveloperRelease = {
   tag: string;
   version: string;
   publishedAt: string;
+  /** When the updater successfully enumerated releases from GitHub. */
+  reconciledAt: string;
   assets: { name: string; size: number; sha256?: string }[];
 };
 

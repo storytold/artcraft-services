@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hasPortablePayload } from "./select-developer-nightly.mjs";
+import { hasPortablePayload, validReconciliationTime } from "./select-developer-nightly.mjs";
 
 // Matches craft-launcher's MAX_CATALOG_BYTES (1 MiB) so deployed catalogs never exceed the
 // launcher's verification limit.
@@ -163,6 +163,9 @@ export function formatReleaseSection(tablePrefix, release) {
   if (release.published_at) {
     lines.push(`published_at = ${formatTomlString(release.published_at)}`);
   }
+  if (release.reconciled_at) {
+    lines.push(`reconciled_at = ${formatTomlString(release.reconciled_at)}`);
+  }
   for (const asset of release.assets ?? []) {
     lines.push(`[[${tablePrefix}.assets]]`);
     lines.push(`name = ${formatTomlString(asset.name)}`);
@@ -286,7 +289,7 @@ export async function collectConfiguredReleases() {
       version: nightly.version,
       prerelease: true,
       required: false,
-      ...(developer ? { publishedAt: developer.publishedAt, publishedAssets: developer.assets } : {}),
+      ...(developer ? { publishedAt: developer.publishedAt, reconciledAt: developer.reconciledAt, publishedAssets: developer.assets } : {}),
     });
   };
 
@@ -413,6 +416,9 @@ export async function generateLauncherCatalog({
       html_url: `${GITHUB_BASE}/${target.repo}/releases/tag/${target.tag}`,
       prerelease: target.prerelease,
       ...(target.publishedAt && assets.length > 0 ? { published_at: target.publishedAt } : {}),
+      ...(target.channel === "nightly" && target.publishedAssets && assets.length > 0 &&
+          validReconciliationTime(target.publishedAt, target.reconciledAt)
+        ? { reconciled_at: target.reconciledAt } : {}),
       assets,
     };
 
