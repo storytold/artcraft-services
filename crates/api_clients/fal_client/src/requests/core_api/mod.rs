@@ -1,3 +1,4 @@
+pub mod fal_queue_urls;
 pub mod fal_request;
 pub mod queue;
 pub mod queue_response;
