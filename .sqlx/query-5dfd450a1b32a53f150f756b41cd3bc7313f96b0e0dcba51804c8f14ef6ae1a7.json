@@ -1,0 +1,25 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT GET_LOCK(?, 0) AS `locked: i64`",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locked: i64",
+        "type_info": {
+          "type": "LongLong",
+          "flags": "BINARY",
+          "char_set": 63,
+          "max_size": 1
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "5dfd450a1b32a53f150f756b41cd3bc7313f96b0e0dcba51804c8f14ef6ae1a7"
+}
