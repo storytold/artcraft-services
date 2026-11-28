@@ -177,7 +177,7 @@ pub async fn list_media_files_by_batch_token_handler(
   let viewer_user_token = match maybe_user_session.as_ref() {
     Some(session) => Some(session.user_token.as_str().to_string()),
     // API-key and MCP clients authenticate by header, not cookie.
-    None => header_viewer_user_token(&http_request, &server_state).await?,
+    None => header_viewer_user_token(&http_request, &server_state, &server_state.mysql_pool).await?,
   };
 
   // NB: Temporary rollout flag for certain file types (BVH, etc).
