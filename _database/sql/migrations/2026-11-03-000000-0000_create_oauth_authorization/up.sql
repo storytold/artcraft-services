@@ -1,0 +1,104 @@
+-- noinspection SqlDialectInspectionForFile
+-- noinspection SqlNoDataSourceInspectionForFile
+-- noinspection SqlResolveForFile
+
+-- Authorization-code clients, consent, one-time codes, and hashed tokens.
+-- Secrets (codes, access tokens, refresh tokens, consent nonces) are stored as SHA-256 hex only.
+
+CREATE TABLE oauth_clients (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  token VARCHAR(64) NOT NULL,
+  client_name VARCHAR(80) NOT NULL,
+  owner_user_token VARCHAR(64) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  maybe_deleted_at TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY (token),
+  KEY index_owner_user_token (owner_user_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE oauth_client_redirects (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  client_token VARCHAR(64) NOT NULL,
+  redirect_uri VARCHAR(2048) NOT NULL,
+  redirect_hash CHAR(64) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY unique_client_redirect (client_token, redirect_hash),
+  KEY index_client_token (client_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE oauth_consents (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_token VARCHAR(64) NOT NULL,
+  client_token VARCHAR(64) NOT NULL,
+  scopes VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  maybe_revoked_at TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY unique_user_client (user_token, client_token),
+  KEY index_client_token (client_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE oauth_authorization_codes (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  code_hash CHAR(64) NOT NULL,
+  client_token VARCHAR(64) NOT NULL,
+  user_token VARCHAR(64) NOT NULL,
+  redirect_uri VARCHAR(2048) NOT NULL,
+  scopes VARCHAR(255) NOT NULL,
+  code_challenge VARCHAR(128) NOT NULL,
+  audience VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  maybe_used_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY (code_hash),
+  KEY index_client_token (client_token),
+  KEY index_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE oauth_consent_nonces (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  nonce_hash CHAR(64) NOT NULL,
+  user_token VARCHAR(64) NOT NULL,
+  client_token VARCHAR(64) NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  maybe_used_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY (nonce_hash),
+  KEY index_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE oauth_tokens (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  access_hash CHAR(64) NOT NULL,
+  refresh_hash CHAR(64) NOT NULL,
+  client_token VARCHAR(64) NOT NULL,
+  user_token VARCHAR(64) NOT NULL,
+  scopes VARCHAR(255) NOT NULL,
+  audience VARCHAR(255) NOT NULL,
+  access_expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  refresh_expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  maybe_revoked_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY (access_hash),
+  UNIQUE KEY (refresh_hash),
+  KEY index_user_client (user_token, client_token),
+  KEY index_refresh_and_access_expiry (refresh_expires_at, access_expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+-- Every refresh token a grant has rotated away from, so presenting any of them revokes the grant.
+CREATE TABLE oauth_spent_refresh_hashes (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  refresh_hash CHAR(64) NOT NULL,
+  oauth_token_id BIGINT(20) UNSIGNED NOT NULL,
+  expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY (refresh_hash),
+  KEY index_oauth_token_id (oauth_token_id),
+  KEY index_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

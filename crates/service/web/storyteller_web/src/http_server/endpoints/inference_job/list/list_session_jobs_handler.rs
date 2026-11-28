@@ -10,6 +10,8 @@ use crate::http_server::endpoints::inference_job::utils::extractors::extract_lip
 use crate::http_server::endpoints::inference_job::utils::extractors::extract_live_portrait_details::extract_live_portrait_details;
 use crate::http_server::endpoints::inference_job::utils::extractors::extract_polymorphic_inference_args::extract_polymorphic_inference_args;
 use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+use crate::http_server::endpoints::oauth::accept::oauth_user_for_scope;
+use crate::http_server::endpoints::oauth::scopes::Scope;
 use crate::http_server::web_utils::filter_model_name::maybe_filter_model_name;
 use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
 use crate::state::server_state::ServerState;
@@ -34,7 +36,8 @@ use utoipa::IntoParams;
 
 /// List job statuses for jobs that are associated with the user's session.
 ///
-/// The user must be logged in. This endpoint will only show the last 36 hours
+/// The user must be logged in. An OAuth access token with `library:read` is accepted in place
+/// of a website session. This endpoint will only show the last 36 hours
 /// of jobs. Any jobs "dismissed" by the user will not be returned.
 ///
 /// This returns jobs of all states: pending, started, attempt_failed,
@@ -60,6 +63,12 @@ pub async fn list_session_jobs_handler(
 
   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
 
+  let oauth_user = oauth_user_for_scope(
+    &http_request,
+    Scope::LibraryRead,
+    &mut *mysql_connection,
+  ).await?;
+
   let maybe_avt_token = server_state.avt_cookie_manager
       .get_avt_token_from_request(&http_request);
 
@@ -69,10 +78,14 @@ pub async fn list_session_jobs_handler(
   //     and DB / cache errors to 500.
   // NB: The plain (non-extended) lookup is Redis-cached with a short TTL, which matters here:
   //     this is the hottest polling endpoint in the app, and it only needs the user token.
-  let maybe_user_session = server_state
-      .session_checker
-      .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
-      .await?;
+  let maybe_user_session = if oauth_user.is_some() {
+    None
+  } else {
+    server_state
+        .session_checker
+        .maybe_get_user_session_from_connection(&http_request, &mut mysql_connection)
+        .await?
+  };
 
   let include_states = query.include_states
       .as_deref()
@@ -86,12 +99,16 @@ pub async fn list_session_jobs_handler(
           .filter_map(|status| JobStatusPlus::from_str(status).ok())
           .collect::<HashSet<_>>());
 
-  let user = match (maybe_user_session.as_ref(), maybe_avt_token.as_ref()) {
-    (Some(session), _) => SessionUser::User(&session.user_token),
-    (None, Some(avt_token)) => SessionUser::Anonymous(avt_token),
-    (None, None) => {
-      // TODO(bt,2025-04-15): We should install an AVT cookie.
-      return Err(CommonWebError::NotAuthorized);
+  let user = if let Some(token) = oauth_user.as_ref() {
+    SessionUser::User(token)
+  } else {
+    match (maybe_user_session.as_ref(), maybe_avt_token.as_ref()) {
+      (Some(session), _) => SessionUser::User(&session.user_token),
+      (None, Some(avt_token)) => SessionUser::Anonymous(avt_token),
+      (None, None) => {
+        // TODO(bt,2025-04-15): We should install an AVT cookie.
+        return Err(CommonWebError::NotAuthorized);
+      }
     }
   };
 
@@ -122,6 +139,7 @@ pub async fn list_session_jobs_handler(
   records_to_response(records, server_state.server_environment, media_domain)
 }
 
+/// Turn job rows into the list response. Audio successes are kept. Other successes are capped at three.
 fn records_to_response(
   records: Vec<GenericInferenceJobStatus>,
   server_environment: ServerEnvironment,
@@ -160,6 +178,7 @@ fn records_to_response(
   }))
 }
 
+/// Map one job row into the list item the client renders.
 fn db_record_to_response_payload(
   record: GenericInferenceJobStatus,
   maybe_extra_status_description: Option<String>,

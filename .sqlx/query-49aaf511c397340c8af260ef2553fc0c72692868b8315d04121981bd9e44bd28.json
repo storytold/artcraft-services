@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE oauth_tokens SET maybe_revoked_at = UTC_TIMESTAMP() WHERE maybe_revoked_at IS NULL AND (access_hash = ? OR refresh_hash = ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "49aaf511c397340c8af260ef2553fc0c72692868b8315d04121981bd9e44bd28"
+}

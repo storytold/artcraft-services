@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "DELETE FROM oauth_consent_nonces WHERE expires_at < TIMESTAMPADD(DAY, -7, UTC_TIMESTAMP()) LIMIT ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "e4ea7e53a74f7426c4d9a35f12de4d7cb35caf38c52868e299d580065a909c63"
+}

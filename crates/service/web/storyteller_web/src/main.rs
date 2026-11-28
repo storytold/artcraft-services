@@ -54,6 +54,7 @@ use crate::startup::build_dependencies::setup_dependencies;
 use crate::startup::setup_disabled_endpoints::read_disabled_endpoints;
 use crate::state::server_state::ServerState;
 use crate::threads::db_health_checker_thread::db_health_checker_thread::db_health_checker_thread;
+use crate::threads::delete_expired_oauth_rows::delete_expired_oauth_rows;
 use crate::threads::expire_login_challenges::expire_login_challenges;
 use crate::threads::poll_ip_banlist_thread::poll_ip_bans;
 use crate::threads::poll_model_token_info_thread::poll_model_token_info_thread;
@@ -72,6 +73,7 @@ pub mod util;
 const LOG_FORMAT: &str =
   "[%{HOSTNAME}e] IP=[%{X-Forwarded-For}i] %{CF-Ray}i %{trace_id}xi \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\" %T";
 
+/// Start the HTTP API, background workers, and the hourly OAuth expiry sweep.
 #[actix_web::main]
 async fn main() -> AnyhowResult<()> {
 
@@ -110,6 +112,7 @@ async fn main() -> AnyhowResult<()> {
 
   let tokio_runtime = Runtime::new()?;
   tokio_runtime.spawn(expire_login_challenges(server_state.mysql_pool.clone()));
+  tokio_runtime.spawn(delete_expired_oauth_rows(server_state.mysql_pool.clone()));
 
   info!("Spawning pager worker thread.");
 
@@ -187,6 +190,7 @@ async fn main() -> AnyhowResult<()> {
   Ok(())
 }
 
+/// Bind the HTTP server and run it until shutdown.
 pub async fn serve(
   server_state: ServerState,
   metrics_collector: metrics::collector::MetricsCollector,

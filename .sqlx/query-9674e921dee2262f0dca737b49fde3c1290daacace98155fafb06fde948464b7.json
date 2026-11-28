@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "DELETE FROM oauth_tokens WHERE refresh_expires_at < UTC_TIMESTAMP() AND access_expires_at < UTC_TIMESTAMP() AND NOT EXISTS (SELECT 1 FROM oauth_spent_refresh_hashes WHERE oauth_spent_refresh_hashes.oauth_token_id = oauth_tokens.id AND oauth_spent_refresh_hashes.expires_at >= UTC_TIMESTAMP()) LIMIT ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "9674e921dee2262f0dca737b49fde3c1290daacace98155fafb06fde948464b7"
+}

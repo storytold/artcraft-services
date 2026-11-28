@@ -1,0 +1,25 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT is_banned FROM users WHERE token = ? LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "is_banned",
+        "type_info": {
+          "type": "Tiny",
+          "flags": "NOT_NULL",
+          "char_set": 63,
+          "max_size": 1
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b0bc49131617c976691aa8dc589598207106694a87459403b9253200610f305d"
+}
