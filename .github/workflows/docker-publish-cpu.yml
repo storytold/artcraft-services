@@ -65,7 +65,7 @@ jobs:
       images: |
         ghcr.io/storytold/artcraft-services
         docker.io/storytold/artcraft-services
-      platforms: '[{"platform":"linux/amd64","runner":"github-ubuntu-64core"}]'
+      platforms: '[{"platform":"linux/amd64","runner":"github-ubuntu-64core"},{"platform":"linux/arm64","runner":"ubuntu-26.04-arm"}]'
       dockerfile: build/service_cpu.Dockerfile
       build-args: GIT_SHA=${{ github.sha }}
       free-disk: true
