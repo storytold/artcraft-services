@@ -36,6 +36,10 @@ jobs:
         with:
           script: |
             const fs = require("fs");
+            const { pathToFileURL } = require("node:url");
+            const { selectDeveloperNightly } = await import(pathToFileURL(
+              require("node:path").resolve("frontend/apps/artcraft-website-next/scripts/select-developer-nightly.mjs")
+            ).href);
 
             const owner = "storytold";
             const file =
@@ -351,12 +355,14 @@ jobs:
 
             // Update nightly releases (newest published prerelease per repo with -nightly Linux packages,
             // regardless of tag format).
-            async function latestNightlyRelease(repo, fileSlug = repo) {
-              const releases = await github.paginate(
+            async function nightlyReleases(repo) {
+              return github.paginate(
                 github.rest.repos.listReleases,
                 { owner, repo, per_page: 30 },
                 response => response.data
               );
+            }
+            function latestNightlyRelease(releases, fileSlug) {
               const nightlyPkgPrefix = `${fileSlug}-nightly-`;
               const escapedNightlyPrefix = nightlyPkgPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
               const escapedSlug = fileSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -396,8 +402,13 @@ jobs:
               ...apps.map(app => ({ key: app, repo: app, fileSlug: app })),
             ];
             const nightlyEntries = {};
+            const developerEntries = {};
             for (const target of nightlyTargets) {
-              const found = await latestNightlyRelease(target.repo, target.fileSlug);
+              const releases = await nightlyReleases(target.repo);
+              // Timestamp the completed enumeration, not the later static site build.
+              const developer = selectDeveloperNightly(releases, `${owner}/${target.repo}`, target.fileSlug, new Date().toISOString());
+              if (developer) developerEntries[target.key] = developer;
+              const found = latestNightlyRelease(releases, target.fileSlug);
               if (found) {
                 nightlyEntries[target.key] = found;
               }
@@ -422,6 +433,14 @@ jobs:
                   })
                   .join("\n")}\n}`;
             content = content.replace(nightlyBlockPattern, (_, prefix) => `${prefix}${formattedNightlies};`);
+
+            const developerBlockPattern =
+              /(export const CRAFT_DEVELOPER_RELEASES:\s*Partial<[\s\S]*?>\s*=\s*)\{[\s\S]*?\};/;
+            if (!developerBlockPattern.test(content)) {
+              throw new Error("Could not find CRAFT_DEVELOPER_RELEASES in crafting-app-releases.ts.");
+            }
+            content = content.replace(developerBlockPattern, (_, prefix) =>
+              `${prefix}${JSON.stringify(developerEntries, null, 2)};`);
 
             // Update non-nightly prereleases (betas / RCs) and community app releases for
             // static `launcher-catalog.toml` generation.

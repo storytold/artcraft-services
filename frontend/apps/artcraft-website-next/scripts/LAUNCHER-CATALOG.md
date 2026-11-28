@@ -35,6 +35,17 @@ fetches each release's `SHA256SUMS.txt` from GitHub, and writes:
 - per-app `[apps.releases.<channel>]` and `[[apps.releases.<channel>.assets]]`
   (`stable`, `prerelease`, `nightly`) inside each `[[apps]]` entry.
 
+For canonical Developer Builds, the release reconciliation also records the highest immutable
+published nightly tag with a descriptor and a supported portable archive, independently of
+Linux package-only releases. The catalog matches the exact published asset metadata to
+`SHA256SUMS.txt` and emits `published_at`, `size_bytes`, and `reconciled_at` (the time the updater
+finished enumerating the repository's releases, not the site rebuild time). This timestamp
+is refreshed by successful hourly and release-change reconciliation, even when the nightly tag
+does not change. Unrelated site rebuilds preserve the recorded timestamp. Contradictory or
+missing evidence leaves that optional nightly record unverified so the launcher can fall back
+to GitHub.
+No stable or legacy Linux repository selection is changed.
+
 `scripts/sign-launcher-catalog.mjs` then signs the final
 `out/launcher-catalog.toml` bytes. It writes `out/launcher-catalog.toml.sig` as a
 base64-encoded, 64-byte Ed25519 detached signature followed by a newline. This

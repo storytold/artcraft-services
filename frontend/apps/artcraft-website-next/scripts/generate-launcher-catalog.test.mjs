@@ -10,9 +10,11 @@ import {
   collectConfiguredReleases,
   enrichLauncherCatalog,
   generateLauncherCatalog,
+  matchPublishedAssets,
   parseSha256Sums,
 } from "./generate-launcher-catalog.mjs";
 import { signLauncherCatalog } from "./sign-launcher-catalog.mjs";
+import { selectDeveloperNightly } from "./select-developer-nightly.mjs";
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
@@ -253,4 +255,166 @@ test("MailCraft release targets and updater use its canonical repository", async
   for (const target of targets) assert.equal(target.repo, "UCSLabs/mailcraft");
   const workflow = readFileSync(new URL("../../../../.github/workflows/update-craft-release-versions.yml", import.meta.url), "utf8");
   assert.match(workflow, /id: "mailcraft", repo: "UCSLabs\/mailcraft"/);
+});
+
+// Model the public portable CADCraft release, including descriptor and checksum-list metadata.
+const CAD_VERSION = "0.20.1-nightly.20261127.46074241695.1.gf7adf3ad561c";
+const CAD_TAG = `v${CAD_VERSION}`;
+const CAD_REPO = "storytold/cadcraft";
+const CAD_PUBLISHED = "2026-11-27T22:48:29Z";
+const CAD_RECONCILED = "2026-11-28T00:30:00Z";
+
+function developerRelease(version, suffixes, published = CAD_PUBLISHED) {
+  const tag = `v${version}`;
+  const names = [...suffixes.map(suffix => `cadcraft-${version}-${suffix}`), "NIGHTLY.json", "SHA256SUMS.txt"];
+  const checksummed = names.filter(name => name !== "SHA256SUMS.txt");
+  const sums = checksummed.map(name => `${HASH_A}  ${name}\n`).join("");
+  return {
+    sums,
+    release: {
+      tag_name: tag, published_at: published, draft: false, prerelease: true,
+      assets: names.map((name, i) => ({
+        name, state: "uploaded",
+        size: name === "SHA256SUMS.txt" ? Buffer.byteLength(sums) : 1000 + i,
+        digest: `sha256:${name === "SHA256SUMS.txt" ? createHash("sha256").update(sums).digest("hex") : HASH_A}`,
+        browser_download_url: `https://github.com/${CAD_REPO}/releases/download/${tag}/${name}`,
+      })),
+    },
+  };
+}
+
+test("canonical developer discovery accepts portable builds independently on every published platform", () => {
+  for (const suffix of ["windows-x86_64-nightly.zip", "macos-aarch64-nightly.zip", "linux-x86_64-nightly.tar.gz"]) {
+    const { release } = developerRelease(CAD_VERSION, [suffix]);
+    const selected = selectDeveloperNightly([release], CAD_REPO, "cadcraft", CAD_RECONCILED);
+    assert.equal(selected.tag, CAD_TAG);
+    assert.equal(selected.publishedAt, CAD_PUBLISHED);
+    assert.equal(selected.reconciledAt, CAD_RECONCILED);
+    assert.equal(selected.assets.find(asset => asset.name.endsWith(suffix)).size, 1000);
+  }
+  const older = developerRelease("0.20.1-nightly.20261127.9.1.gf7adf3ad561c", ["macos-aarch64-nightly.zip"], "2026-11-28T00:00:00Z").release;
+  const current = developerRelease(CAD_VERSION, ["windows-x86_64-nightly.zip"]).release;
+  const draft = developerRelease("0.21.0-nightly.20261127.1.1.gf7adf3ad561c", ["macos-aarch64-nightly.zip"]).release;
+  draft.draft = true;
+  const legacy = developerRelease("0.30.0-nightly.20261127.1.1.gf7adf3ad561c", ["linux-x86_64.AppImage"]).release;
+  // Legacy package-only releases remain handled by the separate distro selector.
+  legacy.tag_name = "nightly-20261127";
+  assert.equal(selectDeveloperNightly([draft, older, current, legacy], CAD_REPO, "cadcraft", CAD_RECONCILED).tag, CAD_TAG);
+  assert.equal(selectDeveloperNightly([legacy], CAD_REPO, "cadcraft", CAD_RECONCILED), null);
+  const incomplete = developerRelease("0.21.0-nightly.20261127.1.1.gf7adf3ad561c", ["macos-aarch64-nightly.zip"]).release;
+  incomplete.assets = incomplete.assets.filter(asset => asset.name !== "NIGHTLY.json");
+  assert.equal(selectDeveloperNightly([current, incomplete], CAD_REPO, "cadcraft", CAD_RECONCILED), null);
+});
+
+test("signed catalog publishes exact release publication time and checksummed portable asset sizes", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "launcher-nightly-gen-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const baseCatalogPath = join(dir, "base.toml");
+  const outCatalogPath = join(dir, "launcher-catalog.toml");
+  writeFileSync(baseCatalogPath, '[[apps]]\nid = "cadcraft"\nname = "CADCraft"\nrepo = "storytold/cadcraft"\n');
+  const { release, sums } = developerRelease(CAD_VERSION, [
+    "linux-x86_64-nightly.tar.gz", "linux-x86_64-nightly.tar.gz.asc",
+    "macos-aarch64-nightly.zip", "windows-x86_64-nightly.zip",
+  ]);
+  const selected = selectDeveloperNightly([release], CAD_REPO, "cadcraft", CAD_RECONCILED);
+  const target = {
+    id: "cadcraft", repo: CAD_REPO, channel: "nightly", tag: selected.tag, version: selected.version,
+    prerelease: true, required: false, publishedAt: selected.publishedAt, reconciledAt: selected.reconciledAt, publishedAssets: selected.assets,
+  };
+  const fetchImpl = async url => {
+    assert.equal(url, `https://github.com/${CAD_REPO}/releases/download/${CAD_TAG}/SHA256SUMS.txt`);
+    return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(sums) };
+  };
+  await generateLauncherCatalog({
+    baseCatalogPath, outCatalogPath, targets: [target], fetchImpl,
+    generatedAt: "2026-11-28T00:35:00Z",
+  });
+  const readNightly = () => {
+    const py = spawnSync("python3", ["-c",
+      'import json, sys, tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb"))["apps"][0]["releases"]["nightly"]))',
+      outCatalogPath], { encoding: "utf8" });
+    assert.equal(py.status, 0, py.stderr);
+    return JSON.parse(py.stdout);
+  };
+  const nightly = readNightly();
+  assert.equal(nightly.tag, CAD_TAG);
+  assert.equal(nightly.published_at, CAD_PUBLISHED);
+  assert.equal(nightly.reconciled_at, CAD_RECONCILED);
+  assert.equal(nightly.assets.length, release.assets.length);
+  for (const actual of release.assets) {
+    const published = nightly.assets.find(asset => asset.name === actual.name);
+    assert.equal(published.download_url, actual.browser_download_url);
+    assert.equal(published.size_bytes, actual.size);
+    assert.equal(published.sha256, actual.digest.slice(7));
+  }
+  // An unrelated web rebuild a day later must not make old release-enumeration data fresh.
+  await generateLauncherCatalog({
+    baseCatalogPath, outCatalogPath, targets: [target], fetchImpl, generatedAt: "2026-11-29T00:35:00Z",
+  });
+  assert.match(readFileSync(outCatalogPath, "utf8"), /generated_at = "2026-11-29T00:35:00Z"/);
+  assert.equal(readNightly().reconciled_at, CAD_RECONCILED);
+  for (const reconciledAt of [undefined, "invalid", "2026-11-27T22:00:00Z"]) {
+    await generateLauncherCatalog({
+      baseCatalogPath, outCatalogPath, targets: [{ ...target, reconciledAt }], fetchImpl,
+    });
+    assert.equal(readNightly().reconciled_at, undefined);
+  }
+  // If the release metadata doesn't agree with the checksum list, don't emit a trusted-looking
+  // nightly entry. The client must fall back to its existing discovery and verification path.
+  const mismatch = target.publishedAssets.map(asset => asset.name === "NIGHTLY.json" ? { ...asset, sha256: HASH_B } : asset);
+  await generateLauncherCatalog({
+    baseCatalogPath, outCatalogPath, targets: [{ ...target, publishedAssets: mismatch }], fetchImpl,
+  });
+  assert.equal(readNightly().published_at, undefined);
+  assert.equal(readNightly().reconciled_at, undefined);
+  assert.equal(readNightly().assets, undefined);
+});
+
+test("matching release metadata rejects absent assets, missing sizes, and inconsistent checksum size", () => {
+  const asset = { name: "SHA256SUMS.txt", sha256: HASH_A, size_bytes: 17 };
+  for (const published of [[], [{ name: asset.name, size: 0 }], [{ name: asset.name, size: 18 }]]) {
+    assert.throws(() => matchPublishedAssets([asset], published), /disagrees/);
+  }
+});
+
+test("one checksummed portable platform is sufficient, but a descriptor alone is not", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "launcher-nightly-coverage-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const baseCatalogPath = join(dir, "base.toml");
+  const outCatalogPath = join(dir, "launcher-catalog.toml");
+  writeFileSync(baseCatalogPath, '[[apps]]\nid = "cadcraft"\nname = "CADCraft"\nrepo = "storytold/cadcraft"\n');
+  const { release, sums } = developerRelease(CAD_VERSION, ["windows-x86_64-nightly.zip"]);
+  async function generate(checksums) {
+    // Keep the metadata for SHA256SUMS consistent with the manifest actually fetched:
+    // missing package evidence, not a size/digest disagreement, must drive fallback.
+    const actual = {
+      ...release,
+      assets: release.assets.map(asset => asset.name === "SHA256SUMS.txt"
+        ? { ...asset, size: Buffer.byteLength(checksums), digest: `sha256:${createHash("sha256").update(checksums).digest("hex")}` }
+        : asset),
+    };
+    const selected = selectDeveloperNightly([actual], CAD_REPO, "cadcraft", CAD_RECONCILED);
+    assert.ok(selected, "the published metadata still advertises a portable archive");
+    await generateLauncherCatalog({
+      baseCatalogPath, outCatalogPath,
+      targets: [{
+        id: "cadcraft", repo: CAD_REPO, channel: "nightly", tag: selected.tag, version: selected.version,
+        prerelease: true, required: false, publishedAt: selected.publishedAt, reconciledAt: selected.reconciledAt, publishedAssets: selected.assets,
+      }],
+      fetchImpl: async () => ({ ok: true, status: 200, arrayBuffer: async () => Buffer.from(checksums) }),
+    });
+    const py = spawnSync("python3", ["-c",
+      'import json, sys, tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb"))["apps"][0]["releases"]["nightly"]))',
+      outCatalogPath], { encoding: "utf8" });
+    assert.equal(py.status, 0, py.stderr);
+    return JSON.parse(py.stdout);
+  }
+  const single = await generate(sums);
+  assert.equal(single.published_at, CAD_PUBLISHED);
+  assert.equal(single.reconciled_at, CAD_RECONCILED);
+  assert.ok(single.assets.some(asset => asset.name.endsWith("windows-x86_64-nightly.zip")));
+  const descriptorOnly = await generate(`${HASH_A}  NIGHTLY.json\n`);
+  assert.equal(descriptorOnly.published_at, undefined);
+  assert.equal(descriptorOnly.reconciled_at, undefined);
+  assert.equal(descriptorOnly.assets, undefined);
 });

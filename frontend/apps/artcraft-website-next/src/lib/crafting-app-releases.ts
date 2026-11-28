@@ -275,6 +275,22 @@ export const CRAFT_NIGHTLY_RELEASES: Partial<
   Record<CraftAppSlug | "artcraft-launcher" | "artcraft", CraftNightlyRelease>
 > = {};
 
+/** Published immutable developer release; asset metadata is captured from the exact GitHub release. */
+export type CraftDeveloperRelease = {
+  tag: string;
+  version: string;
+  publishedAt: string;
+  /** When the updater successfully enumerated releases from GitHub. */
+  reconciledAt: string;
+  assets: { name: string; size: number; sha256?: string }[];
+};
+
+// Unlike CRAFT_NIGHTLY_RELEASES (which tracks distro packages), this also tracks portable
+// Windows, macOS and Linux builds. Updated by the same release reconciliation.
+export const CRAFT_DEVELOPER_RELEASES: Partial<
+  Record<CraftAppSlug | "artcraft-launcher" | "artcraft", CraftDeveloperRelease>
+> = {};
+
 export type CraftChannelRelease = {
   /** Exact GitHub release tag (e.g. "v0.24.0-rc.1" or "v0.23.1"). */
   tag: string;
